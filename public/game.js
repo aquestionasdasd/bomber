@@ -17,6 +17,7 @@ import { createViewmodel } from './viewmodel.js';
 import { createAgentModel } from './agent-model.js';
 import { createCharacterPicker } from './character-preview.js';
 import { createGameAudio } from './audio.js';
+import { createVictoryMusic, bindVictoryMusicSettings } from './victory-music.js';
 import { RangeSession } from './range.js';
 import { RoomClient } from './online.js';
 import { DuelistKit, CHARACTER_DEFS, normalizeCharacter, signatureCooldown, JAPAN_SKILLS, NOBI_SKILLS, CAR_SKILLS, CAT_SKILLS, DUCK_SKILLS, DUELIST, DUELIST_SKILLS, NOPE_SKILLS, MEND_SKILLS, IAGNU_SKILLS, VEIL_SKILLS, EMBER_SKILLS, FROST_SKILLS } from './abilities.js';
@@ -174,6 +175,12 @@ const keyboardProtection=createKeyboardProtection({document,navigator,onStatus:s
   if($('keyboard-protect'))$('keyboard-protect').disabled=state==='enabling';
 }});
 
+let victoryMusicEnabled=settings.victoryMusicEnabled!==false;
+let victoryMusicVolume=Number.isFinite(Number(settings.victoryMusicVolume))?clamp(Number(settings.victoryMusicVolume),0,1):.6;
+let victoryMusicUI;
+const victoryMusic=createVictoryMusic({onChange:()=>victoryMusicUI?.render()});
+function syncVictoryMusic(){victoryMusic.setGate({enabled:victoryMusicEnabled,musicVolume:victoryMusicVolume,soundEnabled,masterVolume:volume,hidden:document.hidden});}
+syncVictoryMusic();
 const gameAudio=createGameAudio();
 const botHearing=createBotHearing();
 function audioInit(){gameAudio.init();}
@@ -639,6 +646,7 @@ function damageEntity(entity,amount,killer,{firearm=false,returned=false}={}){
 }
 function showRoundResult(team,reason,{audible=true}={}){
   const key=`${match?.round}:${team}`;
+  syncVictoryMusic();victoryMusic.result({key,won:team===player.team,audible:audible&&match?.phase==='post'&&!netHostPaused&&mode!=='pause'});
   if(lastRoundAudio!==key){lastRoundAudio=key;if(audible&&match?.phase==='post'&&!match.winner)sound(team===player.team?'round-win':'round-loss');}
   const banner=$('round-banner');if(!banner)return;
   const reasons={elimination:'相手チームを全滅',timeout:'設置前にラウンド時間終了',detonation:'ボンバー起爆',defuse:'ボンバーの電源オフ'},won=team===player.team;
@@ -694,7 +702,7 @@ function clearBots() {
   bots.length=0;
 }
 function spawnRound(reset=false) {
-  lastRoundAudio='';
+  victoryMusic.stop();lastRoundAudio='';
   clearCombatInput();
   resetDetonation();
   resetTakeover();
@@ -755,6 +763,7 @@ function requestLock() {
   try { const p=canvas.requestPointerLock(); if(p?.catch)p.catch(()=>{inputActive=true;showMessage('MOUSE LOOK','マウスを動かすだけで視点を操作できます',3);}); } catch { inputActive=true; }
 }
 function startGame() {
+  victoryMusic.reset();
   player.kit=new DuelistKit({character:selectedCharacter()});netCharacterRequested=false;
   if(onlinePlaying&&mode!=='menu'){leaveOnline();return;}
   if(online&&!onlinePlaying){online.close(true);online=null;}
@@ -797,6 +806,7 @@ function startGame() {
   updateTravelButtons();requestLock();updateHUD();
 }
 function pauseGame(showMap=false) {
+  victoryMusic.stop();
   if(!['play','shop','map','score'].includes(mode)) return;
   pausedFrom='play';mode=showMap?'map':'pause';clearCombatInput();
   if(document.pointerLockElement) document.exitPointerLock();
@@ -809,6 +819,7 @@ function resumeGame() {
   clearCombatInput();mode='play';for(const id of ['pause-menu','map-overlay','shop-overlay','scoreboard'])setVisible(id,false);audioInit();requestLock();
 }
 function backMenu() {
+  victoryMusic.reset();
   if(online){leaveOnline();return;}
   netHostPaused=false;syncSmokes([]);scene.fog.near=145;scene.fog.far=380;scene.fog.color.set('#b7d0dd');
   updateFormatSummary();
@@ -2343,7 +2354,7 @@ function applyNetSnapshot(packet){
   const stopped=fresh||wasAlive&&!self.alive||previousPhase!==match.phase&&['post','match'].includes(match.phase);
   if(stopped||wasPaused!==Boolean(packet.paused))clearCombatInput();
   if(mode==='shop'&&match.phase!=='buy')resumeGame();
-  if(fresh){lastRoundAudio='';Object.assign(dashFeedback,{round:null,state:null,expires:0,charge:null,signatureAt:0});clearBots();clearDrops();resetDetonation();resetTakeover();resetTeamAbilities();netPositionHistory.clear();netPositionAck=0;netPositionCorrectionX=0;netPositionCorrectionZ=0;player.x=self.x;player.z=self.z;player.y=self.y;player.vy=0;player.yaw=self.yaw;player.pitch=0;player.recoil=0;renderedRecoil=0;player.vx=0;player.vz=0;player.dashTimer=0;player.dashVec=null;player.netPredictDashUntil=0;netRound=match.round;setVisible('round-banner',false);for(const [id,endsAt]of retainedFrostStops)stoppedFrostEvents.set(id,endsAt);}
+  if(fresh){victoryMusic.reset();lastRoundAudio='';Object.assign(dashFeedback,{round:null,state:null,expires:0,charge:null,signatureAt:0});clearBots();clearDrops();resetDetonation();resetTakeover();resetTeamAbilities();netPositionHistory.clear();netPositionAck=0;netPositionCorrectionX=0;netPositionCorrectionZ=0;player.x=self.x;player.z=self.z;player.y=self.y;player.vy=0;player.yaw=self.yaw;player.pitch=0;player.recoil=0;renderedRecoil=0;player.vx=0;player.vz=0;player.dashTimer=0;player.dashVec=null;player.netPredictDashUntil=0;netRound=match.round;setVisible('round-banner',false);for(const [id,endsAt]of retainedFrostStops)stoppedFrostEvents.set(id,endsAt);}
   else if(!wasAlive&&self.alive){player.x=self.x;player.y=self.y;player.z=self.z;player.vy=0;player.vx=0;player.vz=0;player.dashTimer=0;netPositionHistory.clear();netPositionAck=packet.positionAcks?.[online.session.memberId]?.seq||0;netPositionCorrectionX=0;netPositionCorrectionZ=0;clearCombatInput();showMessage('総動員','開始地点へ復帰しました',3);}
   else if(!(player.netPredictDashUntil>elapsed)){
     const positionAck=packet.positionAcks?.[online.session.memberId],sent=positionAck&&netPositionHistory.get(positionAck.seq);
@@ -2395,6 +2406,7 @@ function applyNetSnapshot(packet){
     if(match.spike.status==='planted'){sound('plant',{entity:match.spike,localOnly:true});lastSpikeBeep=0;}
     if(match.spike.status==='defused')sound('defuse',{entity:match.spike,localOnly:true});
   }
+  if(fresh||netHostPaused||match.phase!=='post')victoryMusic.stop();
   if(match.phase==='post'&&match.lastRound?.round===match.round)showRoundResult(match.lastRound.team,match.lastRound.reason,{audible:!fresh});
   let predictedKnives=false;
   if(self.kit&&player.kit){
@@ -2676,6 +2688,7 @@ document.addEventListener('keydown',e=>{
 },{capture:true});
 document.addEventListener('keyup',e=>{keys.delete(e.code);if(e.code==='KeyF')interactionHeld=false;if(e.code==='Tab'&&mode==='score')resumeGame();});
 function suspendSession(){
+  victoryMusic.stop();
   keyboardProtection.release();
   clearCombatInput();
   if(['play','map','shop','score'].includes(mode)){setVisible('map-overlay',false);pauseGame();}
@@ -2690,7 +2703,7 @@ $('pause-back-menu')?.addEventListener('click',backMenu);
 $('pause').addEventListener('click',()=>pauseGame());$('map-toggle').addEventListener('click',()=>pauseGame(true));$('close-map').addEventListener('click',resumeGame);
 $('close-shop')?.addEventListener('click',resumeGame);$('start-round')?.addEventListener('click',startRound);$('scoreboard-close')?.addEventListener('click',resumeGame);
 document.querySelectorAll('[data-buy]').forEach(button=>button.addEventListener('click',()=>buy(button.dataset.buy)));
-$('sound').addEventListener('click',()=>{soundEnabled=!soundEnabled;$('sound').textContent=soundEnabled?'SOUND ON':'SOUND OFF';$('sound').setAttribute('aria-pressed',String(soundEnabled));if(soundEnabled){audioInit();sound('scan');}});
+$('sound').addEventListener('click',()=>{soundEnabled=!soundEnabled;$('sound').textContent=soundEnabled?'SOUND ON':'SOUND OFF';$('sound').setAttribute('aria-pressed',String(soundEnabled));syncVictoryMusic();if(soundEnabled){audioInit();sound('scan');}});
 function updateFormatSummary(){
   const format=$('match-format')?.value,objective=['plant','defuse'].includes(format),practice=objective||['explore','range'].includes(format);
   if($('starting-side')){$('starting-side').disabled=objective;if(objective)$('starting-side').value=format==='plant'?'attack':'defend';}
@@ -2706,12 +2719,15 @@ function updateFormatSummary(){
 $('match-format')?.addEventListener('change',updateFormatSummary);updateFormatSummary();
 $('fullscreen').addEventListener('click',async()=>{try{if(document.fullscreenElement){keyboardProtection.release();await document.exitFullscreen();}else{const state=await keyboardProtection.enable();if(state==='unavailable')showMessage('全画面のキー保護を使えません','しゃがみは V 長押しで操作できます',3);}}catch{showMessage('FULLSCREEN','このブラウザでは全画面に切り替えられません',2);}});
 $('keyboard-protect')?.addEventListener('click',()=>keyboardProtection.enable());
-function saveSettings(){try{localStorage.setItem('hashimoto-settings',JSON.stringify({sensitivity,volume,lookVersion:2,character:selectedCharacter()}));}catch{}}
+function saveSettings(){try{localStorage.setItem('hashimoto-settings',JSON.stringify({sensitivity,volume,victoryMusicEnabled,victoryMusicVolume,lookVersion:2,character:selectedCharacter()}));}catch{}}
 for(const id of ['agent-select','online-agent'])if($(id)){$(id).value=normalizeCharacter(settings.character);$(id).addEventListener('change',e=>{const value=normalizeCharacter(e.target.value);for(const other of ['agent-select','online-agent'])if($(other))$(other).value=value;updateCharacterDescription();saveSettings();});}
 updateCharacterDescription();
 function updateSensitivityLabel(){if($('sensitivity-value'))$('sensitivity-value').textContent=sensitivity.toFixed(2);}
 if($('sensitivity')){$('sensitivity').value=sensitivity;$('sensitivity').addEventListener('input',e=>{const value=Number(e.target.value);if(Number.isFinite(value))sensitivity=clamp(value,.05,1.5);updateSensitivityLabel();saveSettings();});updateSensitivityLabel();}
-if($('volume')){$('volume').value=volume;$('volume').addEventListener('input',e=>{volume=Number(e.target.value);saveSettings();});}
+if($('volume')){$('volume').value=volume;$('volume').addEventListener('input',e=>{volume=Number(e.target.value);syncVictoryMusic();saveSettings();});}
+
+victoryMusicUI=bindVictoryMusicSettings({document,music:victoryMusic,preferences:{enabled:victoryMusicEnabled,volume:victoryMusicVolume},onChange:next=>{if(next.enabled!==undefined)victoryMusicEnabled=next.enabled;if(next.volume!==undefined)victoryMusicVolume=next.volume;syncVictoryMusic();saveSettings();}});
+window.addEventListener('pagehide',event=>{if(event.persisted)victoryMusic.stop();else victoryMusic.dispose();});
 
 // Touch controls use separate pointers for movement, aiming, and firing.
 const pad=$('move-pad');

@@ -118,3 +118,6 @@ VALORANTの標準・Swiftplayのスパイク戦を参考にした、非公式の
 `npm run check` でルール・能力・オンライン部屋・ゲーム本体の確認をまとめて実行できます。個別には `node tests-rules.cjs`、`node tests-abilities.cjs`、`node tests-online.cjs`、`node tests.cjs` を使います。
 
 勝敗・延長・経済・スパイク操作・シールド処理、購入スキルと補充、部屋の参加・準備・中継、出現位置・移動経路・衝突、照準・ラウンド進行・リロード・再プレイを確認します。実際の回線をまたぐ接続や体感遅延の確認は別途必要です。
+
+
+ラウンド勝利BGMは Esc →「ラウンド勝利BGMを設定」で変更できます。後から共通音源を追加する開発手順は [VICTORY-MUSIC.md](VICTORY-MUSIC.md)。現在は音源未同梱です。
