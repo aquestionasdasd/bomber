@@ -998,8 +998,9 @@ async function main() {
   assert.equal(run('match.phase'), 'live'); assert.equal(run('match.round'), 1);
   assert.equal(run('match.score.blue+match.score.red'), 0, 'A practice session must not award elimination rounds');
   assert.equal(document.getElementById('timer').textContent, '∞');
-  keyDown('KeyB'); assert.equal(run('inventory.active'), 'phantom', 'B must change rifles during practice');
-  keyUp('KeyB'); keyDown('KeyB'); keyUp('KeyB');
+  keyDown('KeyB'); assert.equal(run('mode'), 'shop', 'B opens the complete free practice arsenal');
+  keyUp('KeyB');run("buy('atlas')");assert.equal(run('inventory.active'),'atlas');assert.equal(run('player.ammo'),5);
+  run("buy('vandal')");keyDown('KeyB');keyUp('KeyB');
   assert.equal(run('inventory.active'), 'vandal'); assert.equal(run('player.ammo'), 25);
   run('player.reserve=0;updatePlay(.05)'); assert.equal(run('player.reserve'), 75, 'Practice must replenish reserve ammunition');
   run('pauseGame(true)');
@@ -1045,8 +1046,8 @@ async function main() {
   assert.equal(run('bots[0].rangeTarget'), true);
   assert.equal(run('inventory.active'), 'vandal');
   assert.ok(document.getElementById('landmark-travel').children.every(button => button.disabled), 'A timed drill must disable practice teleport shortcuts');
-  keyDown('KeyB'); keyUp('KeyB'); assert.equal(run('inventory.active'), 'phantom');
-  keyDown('KeyB'); keyUp('KeyB'); assert.equal(run('inventory.active'), 'vandal');
+  keyDown('KeyB'); keyUp('KeyB');assert.equal(run('mode'),'shop');run("buy('phantom')");assert.equal(run('inventory.active'),'phantom');
+  run("buy('vandal')");keyDown('KeyB'); keyUp('KeyB'); assert.equal(run('inventory.active'), 'vandal');
   const firstRangeTarget = run('bots[0]');
   const aimRangeShot = height => run(`player.yaw=Math.atan2(player.x-bots[0].x,player.z-bots[0].z);player.pitch=Math.atan2(${height}-(1.7-player.crouch*.55+player.y),Math.hypot(bots[0].x-player.x,bots[0].z-player.z));player.recoil=0;renderedRecoil=0;shotSequence=0;elapsed+=.2;Math.random=()=>.5;shoot()`);
   // No manual matrix update: a click immediately after target creation must hit its real position.

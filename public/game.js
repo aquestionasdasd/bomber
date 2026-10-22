@@ -17,6 +17,8 @@ import { createMap, normalizeMapId } from './map.js';
 import {trafficMarker, fitTrafficSnapshot} from './traffic-state.js';
 import { resolveMapCallout, drawMapShapes, getMapCalloutLabels } from './map-callouts.js';
 import { MatchRules, WEAPONS, applyArmorDamage } from './rules.js';
+import { shotPattern, weaponDamage, weaponDescription } from './weapon-ballistics.js';
+import { createArsenalShop } from './weapon-shop.js';
 import { createNavigation } from './navigation.js';
 import { createViewmodel } from './viewmodel.js';
 import { createAgentModel } from './agent-model.js';
@@ -592,13 +594,14 @@ function equip(id,fresh=false){
 }
 function openShop(){
   if(netHostPaused)return;
-  if(exploring){inventory.primary=inventory.primary==='vandal'?'phantom':'vandal';delete ammoStore[inventory.primary];equip(inventory.primary,true);showMessage(weapon().name,'練習中は B でライフル切り替え · 弾薬は自動補充',2);return;}
-  if(!match||match.phase!=='buy'||!player.alive){showMessage('ショップは購入フェーズのみ','装備は生き残れば次のラウンドへ持ち越します',2);return;}
+  if(!match||(!exploring&&match.phase!=='buy')||!player.alive){showMessage('ショップは購入フェーズのみ','装備は生き残れば次のラウンドへ持ち越します',2);return;}
   if(mode==='shop'){resumeGame();return;}
   mode='shop';keys.clear();firing=false;aiming=false;setVisible('shop-overlay',true);if(document.pointerLockElement)document.exitPointerLock();updateShop();
+  if($('shop-status'))$('shop-status').textContent=exploring?'練習中は全武器を無料で選択できます。':'装備を選択してください。';
 }
 function buy(id){
   if(netHostPaused)return false;
+  if(exploring){const spec=WEAPONS[id];if(!spec||spec.slot==='melee')return false;inventory[spec.slot]=id;delete ammoStore[id];equip(id,true);updateShop();updateHUD();return true;}
   if(isGuest()){queueNetAction('buy',{id});return true;}
   if(!match||match.phase!=='buy')return false;
   if(id==='smoke'||id==='updraft'){const ok=player.kit.buy(id,price=>match.purchase(price));if(ok){sound('buy');updateShop();updateHUD();}return ok;}
@@ -616,10 +619,11 @@ function buy(id){
 }
 function updateShop(){
   if(!match)return;
-  setVisible('start-round',!onlinePlaying);
-  if($('shop-credits'))$('shop-credits').textContent=match.credits.toLocaleString();
+  setVisible('start-round',!onlinePlaying&&!exploring);
+  if($('shop-rule-summary'))$('shop-rule-summary').textContent=exploring?'マップ練習 / 全10銃を無料で選択':'購入は購入フェーズ中のみ可能です';
+  if($('shop-credits'))$('shop-credits').textContent=exploring?'練習 / FREE':match.credits.toLocaleString();
   document.querySelectorAll('[data-buy]').forEach(button=>{const id=button.dataset.buy;if(id==='smoke'||id==='updraft'){const max=id==='smoke'?2:1,price=id==='smoke'?200:150;button.disabled=match.phase!=='buy'||player.kit[id]>=max||match.credits<price;button.classList.toggle('owned',player.kit[id]>=max);return;}const armor=id==='light'||id==='heavy';const spec=armor?{price:id==='light'?400:1000,slot:'armor'}:WEAPONS[id];if(!spec)return;const owned=armor?player.armor>=(id==='light'?25:50):inventory[spec.slot]===id;
-    button.disabled=match.phase!=='buy'||(!owned&&match.credits+(roundPurchases[spec.slot]?.price||0)<spec.price);button.classList.toggle('owned',owned);button.classList.toggle('selected',inventory.active===id);
+    button.disabled=exploring?armor:match.phase!=='buy'||(!owned&&match.credits+(roundPurchases[spec.slot]?.price||0)<spec.price);button.classList.toggle('owned',owned);button.classList.toggle('selected',inventory.active===id);
   });
   skillUI.updateShop({kit:player.kit,credits:match.credits,phase:match.phase,alive:player.alive});
 }
@@ -755,7 +759,9 @@ function spawnRound(reset=false) {
 }
 function autoBuyBot(r){
   r.secondary||='classic';
-  if(!r.primary&&r.credits>=3900){r.primary=r.team==='blue'?'phantom':'vandal';r.credits-=2900;}
+  const roleGuns=['vandal','scout','forge','drum','pump','phantom','atlas'],roleGun=roleGuns[(Number(String(r.id).split('-').pop())||0)+(r.team==='red'?2:0)]||'vandal';
+  if(!r.primary&&WEAPONS[roleGun].price+1000<=r.credits){r.primary=roleGun;r.credits-=WEAPONS[roleGun].price;}
+  else if(!r.primary&&r.credits>=3900){r.primary=r.team==='blue'?'phantom':'vandal';r.credits-=2900;}
   else if(!r.primary&&r.credits>=2000){r.primary='spectre';r.credits-=1600;}
   else if(r.secondary==='classic'&&r.credits>=500){r.secondary='ghost';r.credits-=500;}
   if(r.armor<50&&r.credits>=1000){r.armor=50;r.credits-=1000;}
@@ -854,8 +860,8 @@ function startGame() {
     if(objectivePractice)resetObjectivePractice('A');
     else if(rangeSession){
       relocate(map.rangeArea?.spawn||{x:-20.75,z:-25.5,yaw:0});spawnRangeTarget();
-      showMessage('AIM DRILL / 60秒','標的を撃破して次へ · 頭で撃破150点 / 胴で撃破100点 · Bでライフル変更',5);
-    }else showMessage((map.shortName||'HASHIMOTO')+' / マップ練習','時間制限なし · Mでルート確認・地点移動 · Bでライフル変更',5);
+      showMessage('AIM DRILL / 60秒','標的を撃破して次へ · 頭で撃破150点 / 胴で撃破100点 · Bで武器選択',5);
+    }else showMessage((map.shortName||'HASHIMOTO')+' / マップ練習','時間制限なし · Mでルート確認・地点移動 · Bで武器選択',5);
   }
   updateTravelButtons();requestLock();updateHUD();
 }
@@ -1001,7 +1007,7 @@ function updateTravelButtons(){
   if(objectivePractice){for(const siteId of ['A','B']){const button=document.createElement('button');button.type='button';button.textContent=`${siteId}でやり直す`;button.addEventListener('click',()=>{if(resetObjectivePractice(siteId))resumeGame();});container.append(button);}return;}
   for(const landmark of map.landmarks||[]){const button=document.createElement('button');button.type='button';button.textContent=landmark.name;button.disabled=!exploring;button.title=exploring?'この地点から練習':'マップ練習モードで移動できます';
     button.disabled=!exploring||!!rangeSession;
-    button.addEventListener('click',()=>{if(!exploring||rangeSession)return;if(relocate(landmark)){resumeGame();showMessage(landmark.name,'Mでルート確認 · Bでライフル変更',2);}});container.append(button);
+    button.addEventListener('click',()=>{if(!exploring||rangeSession)return;if(relocate(landmark)){resumeGame();showMessage(landmark.name,'Mでルート確認 · Bで武器選択',2);}});container.append(button);
   }
   const demo=document.createElement('button');demo.type='button';demo.textContent='大爆発デモ';demo.disabled=!exploring||!!rangeSession;demo.title='マップ練習で駅全体の起爆演出を試す';
   demo.addEventListener('click',()=>{
@@ -1090,6 +1096,10 @@ function shoot(shotTime=elapsed) {
   if(!ultimate)player.recoil=Math.min(.085,player.recoil+(spec.slot==='primary'?.012:.008));sound('shot');
   camera.position.set(player.x,1.7-player.crouch*.55+player.y,player.z);camera.rotation.set(player.pitch+renderedRecoil,player.yaw,0);
   camera.getWorldDirection(direction);
+  if(spec.arsenal){
+    if(isGuest())queueNetAction('fire',{yaw:player.yaw,pitch:player.pitch+renderedRecoil,ultimate:false,ads:aiming===true});
+    fireArsenal(player,camera.position,direction,spec,aiming,{visualOnly:isGuest()});if(!spec.auto)firing=false;updateHUD();return;
+  }
   const moving=Math.hypot(player.vx,player.vz)>1.2;
   const spread=ultimate?0:spec.spread*(aiming?.65:player.crouch>.5?.8:1)+carMovementSpread({airborne:!actorGrounded(player),moving,gyro:ordinarySkills.carGyro(player.id,elapsed)&&actorGrounded(player)})+Math.min(.04,Math.max(0,shotSequence-3)*.004);
   direction.x+=(Math.random()-.5)*spread;direction.y+=(Math.random()-.5)*spread;direction.normalize();
@@ -1117,6 +1127,46 @@ function shoot(shotTime=elapsed) {
   if(!melee&&!ultimate)urchinTridentShot(player,camera.position,direction,spec);
   if(!spec.auto)firing=false;
   raycaster.far=190;updateHUD();
+}
+// Shared by local host, remote actions and BOTs. Geometry, stock, cadence and
+// damage remain host owned; the network carries only the trigger and aim.
+function fireArsenal(actor,origin,aim,spec,ads=false,{visualOnly=false}={}){
+  const id=actor===player?inventory.active:actor.netWeapon||actor.aiWeapon;
+  const moving=actor===player?Math.hypot(player.vx,player.vz)>1.2:!!actor.moving||!!actor.remoteMoving;
+  const sequence=actor===player?shotSequence:actor.shotSequence||1;
+  const forward=aim.clone().normalize(),right=new THREE.Vector3().crossVectors(forward,new THREE.Vector3(0,1,0)).normalize();
+  const up=new THREE.Vector3().crossVectors(right,forward).normalize(),totals=new Map();
+  botsGroup.updateMatrixWorld(true);
+  const targets=[environment,botsGroup];
+  let anyHit=false,headHit=false,bounced=false;
+  for(const offset of shotPattern(id,{ads,moving,airborne:!actorGrounded(actor),sequence})){
+    const dir=forward.clone().addScaledVector(right,offset.x).addScaledVector(up,offset.y).normalize();
+    const ray=new THREE.Raycaster(origin,dir,0,120);
+    const hit=ray.intersectObjects(targets,true).find(h=>h.object.userData.bot!==actor&&(!h.object.userData.bot||h.object.userData.bot.alive));
+    let target=hit?.object.userData.bot,point=hit?.point,part=hit?.object.userData.head?'head':point&&target&&point.y-(target.y||0)<.7?'leg':'body',nearest=hit?.distance??120;
+    if(actor!==player&&player.alive){
+      const crouch=player.crouch*.55;
+      const head=ray.ray.intersectSphere(new THREE.Sphere(new THREE.Vector3(player.x,1.62+player.y-crouch,player.z),.19),new THREE.Vector3());
+      const body=ray.ray.intersectBox(new THREE.Box3(new THREE.Vector3(player.x-.28,.4+player.y,player.z-.28),new THREE.Vector3(player.x+.28,1.45+player.y-crouch,player.z+.28)),new THREE.Vector3());
+      for(const [p,zone] of [[head,'head'],[body,'body']])if(p&&origin.distanceTo(p)<nearest){target=player;point=p;part=zone==='body'&&p.y-player.y<.7?'leg':zone;nearest=origin.distanceTo(p);}
+    }
+    const fake=raycastNopeDecoy(origin,dir,nearest,actor.team);
+    const shield=ordinarySkills.interceptShield(origin,dir,fake?.distance??nearest,weaponDamage(id,'body',fake?.distance??nearest),elapsed,match.round,{consume:!visualOnly});
+    const end=shield?new THREE.Vector3(shield.point.x,shield.point.y,shield.point.z):fake?.point||point||origin.clone().addScaledVector(dir,90);
+    tracer(origin,end,actor.team==='blue'?'#a5eee0':'#ff7b76',.07);
+    if(shield){burst(end,'#f8dc72',2);continue;}
+    if(fake){if(!visualOnly)hitNopeDecoy(fake.event,actor);continue;}
+    if(target?.alive&&target.team!==actor.team){
+      const damage=nobiBulletDamage(actor,target,weaponDamage(id,part,nearest),weaponDamage(id,'head',nearest),true);
+      totals.set(target,(totals.get(target)||0)+damage);anyHit=true;headHit||=part==='head';
+      burst(end,part==='head'?'#fff3c8':'#ff737e',2);
+    }else if(hit&&!visualOnly&&!bounced){capBounceShot(actor,origin,dir,hit,spec);bounced=true;}
+  }
+  // Apply one damage event per victim per cartridge, so kill awards, reflection
+  // and chain reactions cannot multiply by pellet count.
+  if(!visualOnly)for(const [target,damage] of totals){damageEntity(target,damage,actor,{firearm:true});if(actor===player&&rangeSession&&target.rangeTarget)rangeSession.recordHit({head:headHit,eliminated:!target.alive});}
+  if(actor===player&&anyHit){hits++;hitFlash=.14;sound('hit');}
+  if(!visualOnly)urchinTridentShot(actor,origin,forward,spec);
 }
 function reload(){
   if(ordinarySkills.urchinJammed(player.id,elapsed))return;
@@ -1752,7 +1802,7 @@ function updateHUD(){
   $('zone').textContent=zone?.name||'NORTH PLAZA / 北口広場';
   if(exploring){
     $('timer').textContent='∞';$('round-label').textContent=(map.shortName||'HASHIMOTO')+' / MAP PRACTICE';$('side-label').textContent='マップ練習';
-    $('phase-label').textContent='2 SITES / 3 LANES';$('objective-label').textContent=!rangeSession&&!objectivePractice?'C/Q/E/X 無限 · M：ルート確認・地点移動 · B：ライフル変更':'M：ルート確認・地点移動 · WASD：移動 · B：ライフル変更';
+    $('phase-label').textContent='2 SITES / 3 LANES';$('objective-label').textContent=!rangeSession&&!objectivePractice?'C/Q/E/X 無限 · M：ルート確認・地点移動 · B：武器選択':'M：ルート確認・地点移動 · WASD：移動 · B：武器選択';
     $('spike-state').textContent=map.id==='hirakata'?'南北自由通路 / バス車道に注意 / 接触100ダメージ':'バス通り / 中央連絡路 / ミウィ通り';$('zone').textContent=zone?.name||((map.name||'橋本駅')+'前');
   }
   if($('ally-label'))$('ally-label').textContent=rangeSession?'SCORE':'YOUR TEAM';
@@ -1763,7 +1813,7 @@ function updateHUD(){
     $('timer').textContent=formatTime(Math.ceil(rangeSession.remaining));$('round-label').textContent='60 SECOND AIM DRILL';
     $('phase-label').textContent='SHOOTING RANGE / 射撃訓練';$('side-label').textContent='射撃訓練';
     $('team-score').textContent=result.score;$('enemy-score').textContent=rangeSession.headKills;
-    $('objective-label').textContent='頭で撃破150点 / 胴で撃破100点 · Bでライフル変更';
+    $('objective-label').textContent='頭で撃破150点 / 胴で撃破100点 · Bで武器選択';
     $('spike-state').textContent=`${result.kills}撃破 · 命中 ${result.accuracy}% · ヘッド ${result.headRate}%`;
   }
   if(objectivePractice){
@@ -2129,7 +2179,7 @@ function updateBots(dt){
       if(aligned&&elapsed>=bot.reactionUntil&&elapsed>=(bot.skillThrowUntil||0)&&bot.fire<=0&&!(bot.aiReload>0)){
         if(bot.aiAmmo<=0){if(ordinarySkills.urchinJammed(bot.id,elapsed))bot.fire=.2;else{bot.aiReload=spec.reload||1.7;bot.fire=bot.aiReload;bot.reloadGoal=role?.urgent?null:reloadCover(bot,enemy);}}
         else{
-          if(!ordinarySkills.capMagazine(bot.id,elapsed))bot.aiAmmo--;crownShot(bot);bot.flash=.065;bot.shotSequence=(bot.shotSequence||0)+1;bot.muzzle.visible=true;
+          if(!ordinarySkills.capMagazine(bot.id,elapsed))bot.aiAmmo--;crownShot(bot);bot.flash=.065;if(spec.arsenal&&elapsed-(bot.lastArsenalShot??-10)>.3)bot.shotSequence=0;bot.lastArsenalShot=elapsed;bot.shotSequence=(bot.shotSequence||0)+1;bot.muzzle.visible=true;
           if(spec.auto){bot.burst=(bot.burst||0)+1;bot.fire=bot.burst<3?spec.interval+.035:cfg.interval*.46+Math.random()*.22;if(bot.burst>=3)bot.burst=0;}
           else bot.fire=Math.max(spec.interval,.19+cfg.interval*.25)+Math.random()*.12;
           if(spec.mag>0)bot.fire*=ordinarySkills.nobiInterval?.(bot.id,elapsed)||1;
@@ -2140,6 +2190,8 @@ function updateBots(dt){
           const from=new THREE.Vector3(bot.x,(bot.y||0)+1.2,bot.z);
           const to=new THREE.Vector3(enemy.x,(enemy.y||0)+(head?1.62:1.15),enemy.z);
           if(!hit){to.x+=(Math.random()-.5)*1.8;to.y+=(Math.random()-.5)*.8;}
+          if(spec.arsenal){fireArsenal(bot,from,to.clone().sub(from).normalize(),spec,!bot.moving);sound('enemy',{weapon:weaponId,entity:bot});}
+          else{
           const clearShot=map.collision.rayClear(from.x,from.y,from.z,to.x,to.y,to.z);let bounceSurface=null;
           if(!clearShot){
             direction.subVectors(to,from).normalize();raycaster.set(from,direction);raycaster.far=from.distanceTo(to);
@@ -2156,6 +2208,7 @@ function updateBots(dt){
           urchinTridentShot(bot,from,to.clone().sub(from).normalize(),spec);
           sound('enemy',{weapon:weaponId,entity:bot});
           if(hit&&clearShot&&!fake&&!shield)damageEntity(enemy,nobiBulletDamage(bot,enemy,head?spec.head:spec.body,spec.head,spec.mag>0),bot,{firearm:spec.mag>0});
+          }
         }
       }
     }else if(decoyTarget&&!bot.serviceReload&&elapsed>=(bot.skillThrowUntil||0)){
@@ -2290,7 +2343,9 @@ function updatePlay(dt){
     if(watched){spectatedBot=watched;watched.group.visible=false;camera.position.set(watched.x,1.65+(watched.y||0),watched.z);camera.rotation.set(0,watched.group.rotation.y+Math.PI,0);$('spectator-hint').textContent=`${watched.record.name} を観戦中 · クリックで切り替え`;}
   }
   const withinSmoke=smokes.find(s=>camera.position.distanceToSquared(s.mesh.position)<s.radius*s.radius),withinField=activeOrdinarySmokeFields().find(s=>(camera.position.x-s.x)**2+(camera.position.y-s.y)**2+(camera.position.z-s.z)**2<s.radius*s.radius),obscured=withinSmoke||withinField;scene.fog.near=obscured?.1:145;scene.fog.far=obscured?2.5:380;scene.fog.color.set(withinSmoke?.kind==='veil'?'#77718f':withinField?.type==='veil-dust'?'#8d7659':withinField?.type==='frost-mist'?'#c3bfdb':withinField?.type==='duelist-comet'?'#abcddd':withinField?'#b6bb72':withinSmoke?'#a9c6d2':'#b7d0dd');
-  camera.fov=THREE.MathUtils.lerp(camera.fov,aiming&&controlled?62:76,Math.min(1,dt*12));camera.updateProjectionMatrix();
+  const scoped=!!(aiming&&controlled&&weapon().scope&&!reloading&&!player.serviceReload&&!interactionHeld);
+  setVisible('sniper-scope',scoped);gun.visible=player.alive&&inventory.active!=='spike'&&!scoped;
+  camera.fov=THREE.MathUtils.lerp(camera.fov,scoped?weapon().scope:aiming&&controlled?62:76,Math.min(1,dt*12));camera.updateProjectionMatrix();
   if(firing&&controlled){
     for(let count=0;count<12&&firing&&elapsed-lastShot+1e-8>=nobiShotInterval(weapon(),player);count++){
       const previousShot=lastShot;
@@ -2672,8 +2727,10 @@ function applyRemoteAction(actor,action,actionTime=elapsed){
   const yaw=Number(action.yaw),pitch=Number(action.pitch);if(!Number.isFinite(yaw)||!Number.isFinite(pitch))return;
   const melee=!knives&&actor.netWeapon==='knife';if(knives){if(!actor.kit.consumeKnife())return;}else{if(!melee&&!(actor.netAmmo>0))return;if(!melee&&!ordinarySkills.capMagazine(actor.id,elapsed))actor.netAmmo--;}
   if(!melee&&!knives)crownShot(actor);
+  if(spec.arsenal&&actionTime-(actor.lastNetShot??-10)>.3)actor.shotSequence=0;
   actor.lastNetShot=actionTime;actor.flash=.07;actor.shotSequence=(actor.shotSequence||0)+1;
   const origin=new THREE.Vector3(actor.x,1.7+(actor.y||0)-(actor.crouch||0)*.55,actor.z),aim=new THREE.Vector3(-Math.sin(yaw)*Math.cos(pitch),Math.sin(pitch),-Math.cos(yaw)*Math.cos(pitch));
+  if(spec.arsenal){sound('shot',{weapon:actor.netWeapon,entity:actor});fireArsenal(actor,origin,aim,spec,action.ads===true);return;}
   botsGroup.updateMatrixWorld(true);const ray=new THREE.Raycaster(origin,aim,0,melee?2.2:120);
   const all=ray.intersectObjects([environment,botsGroup],true).filter(h=>h.object.userData.bot!==actor&&(!h.object.userData.bot||h.object.userData.bot.alive));
   const hit=all[0];let target=hit?.object.userData.bot,point=hit?.point,head=!!hit?.object.userData.head,nearest=hit?.distance??120;
@@ -2829,6 +2886,7 @@ $('restart').addEventListener('click',startGame);$('play-again').addEventListene
 $('pause-back-menu')?.addEventListener('click',backMenu);
 $('pause').addEventListener('click',()=>pauseGame());$('map-toggle').addEventListener('click',()=>pauseGame(true));$('close-map').addEventListener('click',resumeGame);
 $('close-shop')?.addEventListener('click',resumeGame);$('start-round')?.addEventListener('click',startRound);$('scoreboard-close')?.addEventListener('click',resumeGame);
+createArsenalShop(document);
 document.querySelectorAll('[data-buy]').forEach(button=>button.addEventListener('click',()=>buy(button.dataset.buy)));
 $('sound').addEventListener('click',()=>{soundEnabled=!soundEnabled;$('sound').textContent=soundEnabled?'SOUND ON':'SOUND OFF';$('sound').setAttribute('aria-pressed',String(soundEnabled));syncVictoryMusic();if(soundEnabled){audioInit();sound('scan');}});
 function updateFormatSummary(){
