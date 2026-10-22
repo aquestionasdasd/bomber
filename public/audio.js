@@ -231,6 +231,14 @@ export function createGameAudio(){
     }else if(type==='frost-unravel'){
       if(!sample('cloth',{gain:.2,rate:1.4,length:.22}))hiss(.19,2500,.035,true);
       if(!sample('pluck',{delay:.035,gain:.25,rate:1.25,length:.15}))tone(740,1110,.13,.020,'sine',.035);
+    }else if(type==='duck-seal'){
+      if(!sample('pluck',{gain:.5,rate:.75,length:.16}))tone(880,440,.16,.04,'triangle');
+    }else if(type==='duck-shield'){
+      if(!sample('shimmer',{gain:.45,rate:.85,length:.3}))tone(330,990,.25,.04,'sine');
+    }else if(type==='duck-hush'){
+      if(!sample('cloth',{gain:.2,rate:.7,length:.2}))hiss(.18,1500,.025,true);
+    }else if(type==='duck-egg'){
+      if(!sample('shimmer',{gain:.6,rate:.65,length:.45}))tone(220,880,.4,.04,'sine');
     }else if(type==='duelist-comet'){
       if(!sample('field',{gain:.55,rate:1.5,length:.28}))hiss(.25,3100,.055,true);
       if(!sample('pluck',{delay:.025,gain:.27,rate:1.5,length:.12}))tone(1046,1568,.11,.021,'sine',.025);
