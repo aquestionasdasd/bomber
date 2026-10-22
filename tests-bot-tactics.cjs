@@ -87,8 +87,8 @@ async function main(){
   const serviceSource=source.slice(source.indexOf('function actorWeaponId('),source.indexOf('function ordinaryActorView('));
   const verticalSource=source.slice(source.indexOf('function updateActorVertical('),source.indexOf('function updatePlay('));
   assert.ok(updateSource.length>5000);
-  function integration({map=makeMap(),player=actor('player','blue',0,0),bots=[],match=new MatchRules(),random=.99,ordinarySkills={blindUntil:()=>0,events:()=>[],markers:()=>[]}}={}){
-    match.startLive();let bulletHits=0,shots=0;const casts=[],traces=[];ordinarySkills={cancelService(){},speedScale:()=>1,...ordinarySkills};
+  function integration({map=makeMap(),player=actor('player','blue',0,0),bots=[],match=new MatchRules(),random=.99,ordinarySkills={interceptShield:()=>null,quiet:()=>false,sealUntil:()=>0,blindUntil:()=>0,events:()=>[],markers:()=>[]}}={}){
+    match.startLive();let bulletHits=0,shots=0;const casts=[],traces=[];ordinarySkills={interceptShield:()=>null,quiet:()=>false,sealUntil:()=>0,cancelService(){},speedScale:()=>1,...ordinarySkills};
     const math=Object.create(Math);math.random=typeof random==='function'?random:()=>random;
     const sandbox={THREE,WEAPONS,NOPE_SKILLS,IAGNU_SKILLS,VEIL_SKILLS,EMBER_SKILLS,...areas,createBotTactics,inVisionCone,createBotHearing,map,navigation:createNavigation(map),player,bots,match,elapsed:0,inventory:{active:'classic'},reloading:0,
       levels:{normal:{interval:1.25,aim:.68,speed:2.1}},difficulty:'normal',Math:math,clamp:(v,a,b)=>Math.max(a,Math.min(b,v)),
@@ -133,7 +133,7 @@ async function main(){
 
   const distracted=actor('red-decoy','red',0,0),hiddenPlayer={...actor('player','blue',0,30),alive:false};
   const decoys=[{id:'skill-nope-decoy-1',type:'nope-decoy',team:'blue',x:5,y:0,z:0},{id:'skill-nope-decoy-2',type:'nope-decoy',team:'blue',x:-5,y:0,z:0}];
-  const decoyGame=integration({player:hiddenPlayer,bots:[distracted],ordinarySkills:{blindUntil:()=>0,events:now=>now<6?decoys:[],markers:()=>[]}});
+  const decoyGame=integration({player:hiddenPlayer,bots:[distracted],ordinarySkills:{interceptShield:()=>null,quiet:()=>false,sealUntil:()=>0,blindUntil:()=>0,events:now=>now<6?decoys:[],markers:()=>[]}});
   decoyGame.step();const firstDeadline=distracted.decoySeen.get(decoys[0].id);
   assert.equal(firstDeadline,1.55);assert.equal(distracted.goal.x,5,'The first visible enemy face may draw an investigation');
   decoyGame.sandbox.elapsed=firstDeadline+.001;decoyGame.step();const secondDeadline=distracted.decoySeen.get(decoys[1].id);
@@ -197,14 +197,14 @@ async function main(){
   assert.equal(buyContext.frostBuyer.kit.smoke,2);assert.equal(buyContext.frostBuyer.kit.updraft,1);assert.equal(buyContext.frostBuyer.credits,700,'Two100-credit rings and one100-credit mist must be bought from real finite credits');assert.equal(buyContext.frostBuyer.primary,'vandal');assert.equal(buyContext.frostBuyer.armor,50);
   for(const [key,type]of [['c','frost-stitch'],['q','frost-mist'],['e','frost-unravel']]){
     const doll=actor(`red-doll-${key}`,'red',0,0),visible=key==='e'?noEnemy:actor('player','blue',0,10);doll.kit=new DuelistKit({character:'frost'});doll.kit.smoke=key==='c'?2:0;doll.kit.updraft=key==='q'?1:0;doll.kit.dash=key==='e'?1:0;doll.hp=key==='q'?50:100;
-    const game=integration({player:visible,bots:[doll],ordinarySkills:{blindUntil:()=>0,events:()=>[],markers:()=>[],speedScale:()=>key==='e'?.55:1}});game.step();
+    const game=integration({player:visible,bots:[doll],ordinarySkills:{interceptShield:()=>null,quiet:()=>false,sealUntil:()=>0,blindUntil:()=>0,events:()=>[],markers:()=>[],speedScale:()=>key==='e'?.55:1}});game.step();
     assert.equal(game.casts[0]?.effect.type,type,`Actual FROST BOT policy must select its distinct${key.toUpperCase()} skill`);assert.equal(doll.dashTimer||0,0);
     if(key==='c')assert.equal(Math.hypot(game.casts[0].options.zonePoint.x-visible.x,game.casts[0].options.zonePoint.z-visible.z),2,'A ring must offset its safe centre from the known target rather than place that enemy inside the hole');
     if(key==='e')assert.equal(doll.kit.nextSignatureAt,FROST_SKILLS.signatureCooldown+.05);
     const before=game.casts.length;game.step(10);assert.equal(game.casts.length,before,'Stock/cooldown must prevent casting every think tick');
   }
   const safeDoll=actor('red-doll-safe','red',0,0);safeDoll.kit=new DuelistKit({character:'frost'});const unSlowed=integration({player:noEnemy,bots:[safeDoll]});unSlowed.step();assert.equal(unSlowed.casts.some(cast=>cast.key==='e'),false,'A normal-speed BOT must preserve mitigation instead of treating E as a travel boost');
-  const airDoll=actor('red-doll-air','red',0,0);airDoll.kit=new DuelistKit({character:'frost'});airDoll.y=1;const airDollGame=integration({player:actor('player','blue',0,10),bots:[airDoll],ordinarySkills:{blindUntil:()=>0,events:()=>[],markers:()=>[],speedScale:()=>.55}});airDollGame.step();assert.equal(airDollGame.casts.length,0,'An airborne BOT may not spend a ground-only mitigation or plan a ground ring');
+  const airDoll=actor('red-doll-air','red',0,0);airDoll.kit=new DuelistKit({character:'frost'});airDoll.y=1;const airDollGame=integration({player:actor('player','blue',0,10),bots:[airDoll],ordinarySkills:{interceptShield:()=>null,quiet:()=>false,sealUntil:()=>0,blindUntil:()=>0,events:()=>[],markers:()=>[],speedScale:()=>.55}});airDollGame.step();assert.equal(airDollGame.casts.length,0,'An airborne BOT may not spend a ground-only mitigation or plan a ground ring');
   console.log('PASS: real FROST economy buys2rings/1mist for300, BOT offset-ring/wounded-mist/actually-slowed ribbon choices, cooldown and normal/air rejection');
 
   vm.runInContext(`var mascotBuyer={kit:new DuelistKit({character:'duelist'}),primary:'vandal',secondary:'ghost',armor:50,credits:1000,team:'red'};autoBuyBot(mascotBuyer)`,buyContext);

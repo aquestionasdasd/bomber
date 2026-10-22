@@ -280,7 +280,7 @@ async function main() {
       // store with all grass/EMBER/FROST events, MEND fields and target-bearing heals.
       // Roots use two bounded endpoints, never an unbounded terrain-point array.
       for (let i = 0; i < 20; i++) {
-        const type = ['mend-seeds','mend-pollen','veil-dust','veil-roots','veil-turf','ember-solder','ember-shade','ember-service','frost-stitch','frost-mist','frost-unravel','duelist-comet','duelist-lift'][i] || 'mend-heal';
+        const type = ['mend-seeds','mend-pollen','veil-dust','veil-roots','veil-turf','ember-solder','ember-shade','ember-service','frost-stitch','frost-mist','frost-unravel','duelist-comet','duelist-lift','duck-seal','duck-shield','duck-hush','duck-egg'][i] || 'mend-heal';
         const target = { x: .123456789012345, y: type === 'mend-pollen' ? 1.7 : type === 'mend-seeds' ? .12 : 0, z: -5.23456789012345 };
         if(type==='veil-dust'||type==='veil-turf')Object.assign(target,{x:player.x,y:type==='veil-dust'?player.y+1.25:player.y,z:player.z});
         if(type==='ember-shade'||type==='ember-service')Object.assign(target,{x:player.x,y:player.y,z:player.z});
@@ -290,6 +290,9 @@ async function main() {
         if(type==='frost-mist')target.y=1.4;
         if(type==='frost-unravel')Object.assign(target,{x:player.x,y:player.y,z:player.z});
         if(type==='duelist-comet')Object.assign(target,{x:player.x,y:player.y+4.7,z:player.z-10});
+        if(type==='duck-seal')target.targetId='s'.repeat(64);
+        if(type==='duck-shield')target.yaw=1.2345678901234567;
+        if(type==='duck-hush'||type==='duck-egg')Object.assign(target,{x:player.x,y:player.y,z:player.z});
         if(type==='duelist-lift')Object.assign(target,{x:player.x,y:player.y,z:player.z});
         if (type === 'mend-heal') target.targetId = `heal-${String(i).padStart(2, '0')}-${'t'.repeat(56)}`;
         assert.ok(ordinarySkills.cast(type, player, target, now, 1));
@@ -326,7 +329,7 @@ async function main() {
       const ordinaryReplica = createCharacterSkills();
       assert.equal(ordinaryReplica.restore(snapshot.ordinarySkills, now, 1), true);
       assert.deepEqual(ordinaryReplica.snapshot(), snapshot.ordinarySkills, 'Every airborne mascot comet/lift, FROST ring/mist/ribbon, grass endpoint, EMBER weapon/resisted blind and MEND heal target must survive strict JSON restore');
-      assert.deepEqual([...new Set(snapshot.ordinarySkills.events.map(event => event.type))].sort(), ['duelist-comet','duelist-lift','ember-service','ember-shade','ember-solder','frost-mist','frost-stitch','frost-unravel','mend-heal','mend-pollen','mend-seeds','veil-dust','veil-roots','veil-turf']);
+      assert.deepEqual([...new Set(snapshot.ordinarySkills.events.map(event => event.type))].sort(), ['duck-egg','duck-hush','duck-seal','duck-shield','duelist-comet','duelist-lift','ember-service','ember-shade','ember-solder','frost-mist','frost-stitch','frost-unravel','mend-heal','mend-pollen','mend-seeds','veil-dust','veil-roots','veil-turf']);
       assert.ok(snapshot.ordinarySkills.events.filter(event=>event.type.startsWith('duelist-')).every(event=>Object.keys(event).length===16),'Comet/lift must keep their bounded canonical shape without transmitting impulse or a client-controlled smoke size');
       assert.ok(snapshot.ordinarySkills.events.filter(event=>event.type.startsWith('frost-')).every(event=>Object.keys(event).length===16),'FROST must retain the bounded canonical shape without client-controlled mitigation/ring fields');
       assert.equal(snapshot.ordinarySkills.events.find(event=>event.type==='ember-service').weaponId,'phantom');assert.ok(snapshot.ordinarySkills.blinds.every(blind=>blind.resisted===true),'The bounded budget must carry all twenty explicit resisted flags');
@@ -342,6 +345,14 @@ async function main() {
       assert.equal((await send(host, 'team:red', 'game', snapshot)).status, 201);
       const delivered = (await getMessages(guest)).value.messages;
       assert.equal(delivered.length, 1); assert.deepEqual(delivered[0].data, snapshot, 'HTTP fallback must preserve every state/effect/cue/marker/drop without truncation');
+      for(const type of ['duck-seal','duck-shield']){
+        const worst=JSON.parse(JSON.stringify(snapshot)),pool=createCharacterSkills();
+        for(let i=0;i<20;i++)assert.ok(pool.cast(type,player,{x:player.x,y:0,z:player.z-3,targetId:'s'.repeat(64),yaw:1.2345678901234567},now,1));
+        worst.ordinarySkills.events=pool.snapshot().events.map((e,i)=>({...e,id:`skill-${type}-${999999999999980+i}`}));
+        assert.ok(createCharacterSkills().restore(worst.ordinarySkills,now,1));
+        const size=Buffer.byteLength(JSON.stringify(worst),'utf8');assert.ok(size<=65536,`${type} full snapshot ${size}B`);
+        assert.equal((await send(host,'team:red','game',worst)).status,201);console.log(`DUCK SNAPSHOT CAPACITY: ${type} ${size}B / 65536B`);
+      }
       console.log(`SNAPSHOT CAPACITY: ${bytes}B / 65536B;20 team events,50 private pings,20 zones,20 ordinary events,20 blinds,20 private tags,20 smoke,32 gear,64 cues,10 actors`);
     });
 

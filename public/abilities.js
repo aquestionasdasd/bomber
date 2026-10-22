@@ -14,6 +14,8 @@ export const CHARACTER_DEFS = Object.freeze({
     description: 'C：小さく弾けるはんだ玉 / Q：新しい閃光を軽減する遮光眼鏡 / E：予備弾で素早く整備。X：半径6m・30ダメージ×3回の爆撃（7pt）。', color: '#eaa36f', ultIcon: 'M18 2v5m0 16v5M2 15h5m22 0h5M8 5l4 4m12 12 4 4M28 5l-4 4M12 21l-4 4M18 8l3 5 5 2-5 2-3 5-3-5-5-2 5-2Z' }),
   frost: Object.freeze({ id: 'frost', label: '尾野', role: '守備', ultName: 'クライオフィールド', ultShortName: '足止め', ultimatePoints: 7,
     description: 'C：円環の霜のステッチ / Q：遠くのドールミスト / E：接地中の減速を軽減。X：最大20m先に半径7mの減速場を10秒展開（7pt）。', color: '#96dce5', ultIcon: 'M18 2v26M6 8l24 14M6 22 30 8M14 5l4 4 4-4M14 25l4-4 4 4M6 13l6-1-1-6M30 17l-6 1 1 6M6 17l6 1-1 6M30 13l-6-1 1-6' }),
+  duck: Object.freeze({ id:'duck', label:'🦆', role:'防護・封印', ultName:'不屈の卵', ultShortName:'卵', ultimatePoints:7,
+    description:'C：狙った敵の新しいスキルを封印 / Q：弾だけを止める羽盾 / E：足音と着地音を消す。X：8秒、致死攻撃を2回までHP1で耐える（7pt）。', color:'#77b34c', ultIcon:'M18 2C9 2 5 16 5 21a13 9 0 0 0 26 0C31 16 27 2 18 2Zm-2 10 5 5-5 4 4 5' }),
 });
 export const normalizeCharacter = value => typeof value === 'string' && Object.hasOwn(CHARACTER_DEFS, value) ? value : 'duelist';
 export const DUELIST = Object.freeze({ smokeMax: 2, smokePrice: 100, smokeDuration: 5,
@@ -38,6 +40,12 @@ export const FROST_SKILLS = Object.freeze({ stitchRange: 16, stitchFlight: .55, 
   stitchRadius: 3.8, stitchInnerRadius: .9, stitchSpeedScale: .45, stitchGroundOffset: .12, stitchHeightTolerance: .45,
   mistRange: 18, mistFlight: .5, mistDuration: 9, mistRadius: 3.5, mistCenterOffset: 1.4,
   unravelDuration: 5, unravelSlowFraction: .15, signatureCooldown: 18 });
+export const DUCK_SKILLS = Object.freeze({ sealRange:40, sealDuration:4, shieldRange:28, shieldDuration:6, shieldHP:180, shieldWidth:3, shieldHeight:2.4, hushDuration:5, signatureCooldown:20, eggDuration:8, eggLives:2 });
+const duckSkills = {
+ c:{name:'羽根の封印',shortName:'封印',description:'Cで構え、40m以内の照準の敵へ左クリック確定・右クリック取消。4秒、新規スキル発動だけを封じる。壁と煙越しは不可。',max:2,price:100,type:'duck-seal',icon:'M8 25 28 5M12 9l8 8M9 13l7 7M17 6l8 8M5 27l4-1'},
+ q:{name:'浮き羽の盾',shortName:'羽盾',description:'Qで構え、28m以内の床へ左クリック設置・右クリック取消。6秒・180耐久の羽盾。両軍の弾を止め、視線・歩行・近接は通す。',max:1,price:100,type:'duck-shield',icon:'M18 3 5 8v9c0 8 13 12 13 12s13-4 13-12V8ZM18 8v16M10 12l8 4 8-4'},
+ e:{name:'忍びガモ',shortName:'消音',description:'5秒、足音と着地音を消す。BOTの聴覚も対象。銃声・移動速度・視認性は変わらない。20秒で再使用。',max:1,price:0,type:'duck-hush',icon:'M5 12h6l7-7v20l-7-7H5ZM24 9l8 12m0-12-8 12'},
+};
 const baseSkills = {
   c: { name: '流れ星の幕', shortName: '星幕', description: `視線方向の空中${DUELIST_SKILLS.cometRange}m以内へ直線で投げ、到達から${DUELIST_SKILLS.cometDuration}秒、半径${DUELIST_SKILLS.cometRadius}mの星幕で敵味方双方の視界を遮る。`, max: DUELIST.smokeMax, price: DUELIST.smokePrice, type: 'duelist-comet', icon: 'm20 3 3 8 9 1-7 6 2 9-8-5-8 5 2-9-7-6 9-1ZM3 25l7-5M2 19l6-3m-2-6 4-1' },
   q: { name: 'アンテナリフト', shortName: '上昇', description: `上向き速度${DUELIST.updraftVelocity}で跳び上がる。${DUELIST.updraftMax}回まで所持でき、空中でも使用可能。横方向の加速や滑空は付かない。`, max: DUELIST.updraftMax, price: DUELIST.updraftPrice, type: 'duelist-lift', icon: 'm10 14 8-9 8 9M18 6v17M7 21l11 6 11-6M5 26l13 3 13-3M9 3 7 0m20 3 2-3' },
@@ -73,10 +81,10 @@ const frostSkills = {
   q: { name: 'ドールミスト', shortName: '人形の霧', description: `最大${FROST_SKILLS.mistRange}mへ投げ、着地から${FROST_SKILLS.mistDuration}秒、半径${FROST_SKILLS.mistRadius}mの淡い霧で敵味方双方の視界を遮る。`, max: 1, price: DUELIST.updraftPrice, type: 'frost-mist', icon: 'M7 24a7 7 0 0 1 1-14 10 10 0 0 1 18 1 7 7 0 0 1 1 14H7M9 28h18M13 14l5 5 5-5m-5-5v14' },
   e: { name: 'ほどけるリボン', shortName: '減速軽減', description: `接地中に使用。${FROST_SKILLS.unravelDuration}秒間、地表の減速分を${FROST_SKILLS.unravelSlowFraction*100}%にする。通常速度は上がらず、離地・死亡で終了。${FROST_SKILLS.signatureCooldown}秒で再使用。`, max: 1, price: 0, type: 'frost-unravel', icon: 'M18 15C9 1 1 7 7 15c4 4 8 2 11 0Zm0 0C27 1 35 7 29 15c-4 4-8 2-11 0Zm-2 2-5 11 7-3m2-8 5 11 3-6M5 22l-3 5m29-5 3 5' },
 };
-const skillsFor = character => character === 'nope' ? nopeSkills : character === 'mend' ? mendSkills : character === 'echo' ? iagnuSkills : character === 'veil' ? veilSkills : character === 'ember' ? emberSkills : character === 'frost' ? frostSkills : baseSkills;
-export const signatureCooldown = character => character === 'nope' ? NOPE_SKILLS.signatureCooldown : character === 'mend' ? MEND_SKILLS.signatureCooldown : character === 'echo' ? IAGNU_SKILLS.signatureCooldown : character === 'veil' ? VEIL_SKILLS.signatureCooldown : character === 'ember' ? EMBER_SKILLS.signatureCooldown : character === 'frost' ? FROST_SKILLS.signatureCooldown : 0;
+const skillsFor = character => character === 'duck' ? duckSkills : character === 'nope' ? nopeSkills : character === 'mend' ? mendSkills : character === 'echo' ? iagnuSkills : character === 'veil' ? veilSkills : character === 'ember' ? emberSkills : character === 'frost' ? frostSkills : baseSkills;
+export const signatureCooldown = character => character === 'duck' ? DUCK_SKILLS.signatureCooldown : character === 'nope' ? NOPE_SKILLS.signatureCooldown : character === 'mend' ? MEND_SKILLS.signatureCooldown : character === 'echo' ? IAGNU_SKILLS.signatureCooldown : character === 'veil' ? VEIL_SKILLS.signatureCooldown : character === 'ember' ? EMBER_SKILLS.signatureCooldown : character === 'frost' ? FROST_SKILLS.signatureCooldown : 0;
 const characterSkills = Object.freeze(Object.fromEntries(Object.keys(CHARACTER_DEFS).map(character => [character,
-  Object.freeze(Object.fromEntries(['c', 'q', 'e'].map(key => [key, Object.freeze({ id: `${character}-${skillsFor(character)[key].type.replace(/^(duelist|nope|mend|echo|veil|ember|frost)-/, '')}`, key, ...skillsFor(character)[key], ...(character === 'duelist' && key === 'e' ? { description: `${baseSkills.e.description} ${DUELIST.signatureKills}撃破で再使用。` } : {}) })]))),
+  Object.freeze(Object.fromEntries(['c', 'q', 'e'].map(key => [key, Object.freeze({ id: `${character}-${skillsFor(character)[key].type.replace(/^(duelist|nope|mend|echo|veil|ember|frost|duck)-/, '')}`, key, ...skillsFor(character)[key], ...(character === 'duelist' && key === 'e' ? { description: `${baseSkills.e.description} ${DUELIST.signatureKills}撃破で再使用。` } : {}) })]))),
 ])));
 const skillKey = value => typeof value === 'string' ? value.toLowerCase().replace(/^key/, '') : '';
 export function getCharacterSkill(character, key) { const skills = characterSkills[normalizeCharacter(character)], normalized = skillKey(key); return Object.hasOwn(skills, normalized) ? skills[normalized] : null; }
@@ -122,6 +130,7 @@ export class DuelistKit {
       case 'c':
         if (this.smoke <= 0) return null;
         this.smoke--;
+        if (this.character === 'duck') return {type:'duck-seal'};
         if (this.character === 'mend') return { type: 'mend-seeds', flight: MEND_SKILLS.seedsFlight, duration: MEND_SKILLS.seedsDuration, radius: MEND_SKILLS.seedsRadius, speedScale: MEND_SKILLS.seedsSpeedScale };
         if (this.character === 'echo') return { type: 'echo-tag', flight: IAGNU_SKILLS.tagFlight, armDelay: IAGNU_SKILLS.tagArmDelay, duration: IAGNU_SKILLS.tagDuration, radius: IAGNU_SKILLS.tagRadius, range: IAGNU_SKILLS.tagRange, revealDuration: IAGNU_SKILLS.tagRevealDuration };
         if (this.character === 'veil') return { type: 'veil-dust', armDelay: VEIL_SKILLS.dustArmDelay, duration: VEIL_SKILLS.dustDuration, radius: VEIL_SKILLS.dustRadius };
@@ -131,6 +140,7 @@ export class DuelistKit {
       case 'q':
         if (this.updraft <= 0) return null;
         this.updraft--;
+        if (this.character === 'duck') return {type:'duck-shield'};
         if (this.character === 'mend') return { type: 'mend-pollen', flight: MEND_SKILLS.pollenFlight, duration: MEND_SKILLS.pollenDuration, radius: MEND_SKILLS.pollenRadius };
         if (this.character === 'echo') return { type: 'echo-glint', flight: IAGNU_SKILLS.glintFlight, radius: IAGNU_SKILLS.glintRadius, duration: IAGNU_SKILLS.glintDuration };
         if (this.character === 'veil') return { type: 'veil-roots', armDelay: VEIL_SKILLS.rootsArmDelay, duration: VEIL_SKILLS.rootsDuration, range: VEIL_SKILLS.rootsRange, width: VEIL_SKILLS.rootsWidth, speedScale: VEIL_SKILLS.rootsSpeedScale };
@@ -141,6 +151,7 @@ export class DuelistKit {
         if (signatureCooldown(this.character)) {
           if (this.dash <= 0) return null;
           this.dash = 0; this.dashKills = 0; this.nextSignatureAt = now + signatureCooldown(this.character);
+          if (this.character === 'duck') return {type:'duck-hush'};
           if (this.character === 'echo') return { type: 'echo-kerning', duration: IAGNU_SKILLS.kerningDuration, speedScale: IAGNU_SKILLS.kerningSpeedScale, cooldown: IAGNU_SKILLS.signatureCooldown };
           if (this.character === 'veil') return { type: 'veil-turf', duration: VEIL_SKILLS.turfDuration, speedScale: VEIL_SKILLS.turfSpeedScale, cooldown: VEIL_SKILLS.signatureCooldown };
           if (this.character === 'ember') return { type: 'ember-service', duration: EMBER_SKILLS.serviceDuration, cooldown: EMBER_SKILLS.signatureCooldown };
@@ -158,6 +169,7 @@ export class DuelistKit {
         return { type: 'dash-armed', readyAt: this.armReadyAt, expiresAt: this.armExpiresAt };
       case 'x':
         if (this.knivesActive || this.ultPoints < DUELIST.ultimatePoints) return null;
+        if (this.character === 'duck') { this.ultPoints -= DUELIST.ultimatePoints; return {type:'duck-egg'}; }
         if (this.character === 'nope') { this.ultPoints -= DUELIST.ultimatePoints; return { type: 'nope', duration: 12 }; }
         if (this.character === 'mend') { this.ultPoints -= DUELIST.ultimatePoints; return { type: 'mend', radius: 18, healing: 75 }; }
         if (this.character === 'echo') { this.ultPoints -= DUELIST.ultimatePoints; return { type: 'recon', radius: 30, duration: 6, pulses: 3, interval: 2, revealDuration: 1.25 }; }

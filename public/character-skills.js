@@ -1,10 +1,14 @@
-import { DUELIST_SKILLS, NOPE_SKILLS, MEND_SKILLS, IAGNU_SKILLS, VEIL_SKILLS, EMBER_SKILLS, FROST_SKILLS } from './abilities.js';
+import { DUCK_SKILLS, DUELIST_SKILLS, NOPE_SKILLS, MEND_SKILLS, IAGNU_SKILLS, VEIL_SKILLS, EMBER_SKILLS, FROST_SKILLS } from './abilities.js';
 
 // Ordinary skills are separate from ultimates. A restored event owns visuals,
 // never hit sampling; only a successful local cast may produce gameplay effects.
 export const CHARACTER_SKILLS = Object.freeze({ maxEvents: 20, maxBlinds: 20, maxMarkers: 20, castDistance: 20, decoyDistance: 6,
   heightTolerance: 2.5, flashFacingDot: .2 });
 const specs = Object.freeze({
+  'duck-seal':Object.freeze({flight:0,delay:0,tail:DUCK_SKILLS.sealDuration,radius:0}),
+  'duck-shield':Object.freeze({flight:0,delay:0,tail:DUCK_SKILLS.shieldDuration,radius:0}),
+  'duck-hush':Object.freeze({flight:0,delay:0,tail:DUCK_SKILLS.hushDuration,radius:0}),
+  'duck-egg':Object.freeze({flight:0,delay:0,tail:DUCK_SKILLS.eggDuration,radius:0}),
   'duelist-comet': Object.freeze({ flight: DUELIST_SKILLS.cometFlight, delay: DUELIST_SKILLS.cometFlight, tail: DUELIST_SKILLS.cometDuration, radius: DUELIST_SKILLS.cometRadius }),
   'duelist-lift': Object.freeze({ flight: 0, delay: 0, tail: DUELIST_SKILLS.liftVisualDuration, radius: 0 }),
   'nope-bottle': Object.freeze({ flight: NOPE_SKILLS.bottleFlight, delay: NOPE_SKILLS.bottleFuse, tail: .6, radius: NOPE_SKILLS.bottleRadius }),
@@ -44,11 +48,11 @@ const idSequence = (id, type) => {
 const eyeY = actor => (actor.y || 0) + 1.7 - Math.max(0, Math.min(1, Number.isFinite(actor.crouch) ? actor.crouch : 0)) * .55;
 const feetDistance = (a, b) => Math.hypot(a.x - b.x, (a.y || 0) - (b.y || 0), a.z - b.z);
 const serviceWeapon = value => ['classic', 'ghost', 'spectre', 'vandal', 'phantom'].includes(value);
-const personal = type => ['echo-kerning', 'veil-turf', 'ember-shade', 'ember-service', 'frost-unravel'].includes(type);
+const personal = type => ['duck-hush', 'duck-egg', 'echo-kerning', 'veil-turf', 'ember-shade', 'ember-service', 'frost-unravel'].includes(type);
 const groundedPersonal = type => type === 'veil-turf' || type === 'frost-unravel';
 const feetSource = type => type === 'mend-heal' || type === 'duelist-lift' || personal(type) || type.startsWith('veil-');
 const eventFields = ['id', 'type', 'team', 'sourceId', 'round', 'fromX', 'fromY', 'fromZ', 'x', 'y', 'z', 'startedAt', 'flight', 'triggerAt', 'endsAt', 'radius'];
-const withinCastRange = (type, actor, target, sourceEyeY = eyeY(actor)) => type === 'duelist-comet' ? Math.hypot(target.x - actor.x, target.y - sourceEyeY, target.z - actor.z) <= DUELIST_SKILLS.cometRange + 1e-8
+const withinCastRange = (type, actor, target, sourceEyeY = eyeY(actor)) => type === 'duck-seal' || type === 'duck-shield' ? Math.hypot(target.x-actor.x,target.y-sourceEyeY,target.z-actor.z) <= (type === 'duck-seal' ? DUCK_SKILLS.sealRange : DUCK_SKILLS.shieldRange)+1e-8 : type === 'duelist-comet' ? Math.hypot(target.x - actor.x, target.y - sourceEyeY, target.z - actor.z) <= DUELIST_SKILLS.cometRange + 1e-8
   : type === 'mend-heal' ? feetDistance(actor, target) <= MEND_SKILLS.healRange + 1e-8
   : personal(type) || type === 'duelist-lift' ? feetDistance(actor, target) <= 1e-8
   : type === 'veil-dust' ? Math.hypot(target.x - actor.x, target.z - actor.z) <= 1e-8 && close(target.y, (actor.y || 0) + VEIL_SKILLS.dustCenterOffset)
@@ -107,6 +111,8 @@ export function createCharacterSkills() {
     const type = typeof effect === 'string' ? effect : effect?.type;
     if (!isType(type) || !living(actor) || !point(target) || !withinCastRange(type, actor, target) || !coordinate(eyeY(actor)) || !clock(now) || !roundNumber(round)) return null;
     if ((type.startsWith('veil-') || type === 'frost-unravel') && actor.grounded !== true) return null;
+    if (type === 'duck-seal' && (!identifier(target.targetId) || target.targetId===actor.id)) return null;
+    if (type === 'duck-shield' && (!Number.isFinite(target.yaw) || Math.abs(target.yaw)>Math.PI)) return null;
     if (type === 'mend-heal' && !identifier(target.targetId)) return null;
     if (type === 'ember-service' && (!serviceWeapon(target.weaponId) || actor.weaponId !== target.weaponId)) return null;
     const spec = specs[type], endsAt = now + spec.delay + spec.tail;
@@ -115,8 +121,12 @@ export function createCharacterSkills() {
     const event = { id: `skill-${type}-${++sequence}`, type, team: actor.team, sourceId: actor.id, round,
       fromX: actor.x, fromY: feetSource(type) ? actor.y || 0 : eyeY(actor), fromZ: actor.z, x: target.x, y: target.y, z: target.z,
       startedAt: now, flight: spec.flight, triggerAt: now + spec.delay, endsAt, radius: spec.radius };
+    if (type === 'duck-seal') event.targetId=target.targetId;
+    if (type === 'duck-shield') {event.yaw=target.yaw;event.power=DUCK_SKILLS.shieldHP;}
+    if (type === 'duck-egg') event.power=DUCK_SKILLS.eggLives;
     if (type === 'mend-heal') event.targetId = target.targetId;
     if (type === 'ember-service') event.weaponId = target.weaponId;
+    if(type.startsWith('duck-'))owned.add(event.id);
     active.set(event.id, event); if (type === 'nope-decoy') decoyOwners.add(event.id);
     if (['nope-bottle', 'nope-flash', 'mend-heal', 'echo-tag', 'echo-glint', 'ember-solder'].includes(type)) owned.add(event.id); return copy(event);
   }
@@ -176,9 +186,11 @@ export function createCharacterSkills() {
     for (const [id, event] of active) if (personal(event.type)
       && !list.some(actor => living(actor) && actor.id === event.sourceId && actor.team === event.team
         && (!groundedPersonal(event.type) || actor.grounded === true)
-        && (event.type !== 'ember-service' || actor.weaponId === event.weaponId))) active.delete(id);
+        && (event.type !== 'ember-service' || actor.weaponId === event.weaponId))) {active.delete(id);owned.delete(id);}
+    for(const[id,event]of active)if(event.type.startsWith('duck-')&&(!list.some(actor=>living(actor)&&actor.id===event.sourceId&&actor.team===event.team)||event.type==='duck-seal'&&!list.some(actor=>living(actor)&&actor.id===event.targetId&&actor.team!==event.team))){active.delete(id);owned.delete(id);}
     for (const id of owned) {
       const event = active.get(id); if (!event || now + 1e-8 < event.triggerAt) continue;
+      if (event.type.startsWith('duck-')) continue;
       if (event.type === 'echo-tag') {
         const seen = new Set(), candidates = [];
         for (const actor of list) {
@@ -299,9 +311,12 @@ export function createCharacterSkills() {
     if (!value || typeof value !== 'object' || Array.isArray(value) || !isType(value.type) || !team(value.team) || !identifier(value.sourceId) || !point(value)
       || ![value.fromX, value.fromY, value.fromZ].every(coordinate) || value.round !== round || !clock(value.startedAt) || value.startedAt > now || !clock(value.triggerAt) || !clock(value.endsAt) || !idSequence(value.id, value.type)) return false;
     const spec = specs[value.type];
-    if ((value.type.startsWith('duelist-') || value.type.startsWith('veil-') || value.type.startsWith('ember-') || value.type.startsWith('frost-')) && !Object.keys(value).every(key => eventFields.includes(key) || value.type === 'ember-service' && key === 'weaponId')) return false;
-    if (value.type === 'mend-heal' ? !identifier(value.targetId) : value.targetId !== undefined) return false;
+    if ((value.type.startsWith('duck-') || value.type.startsWith('duelist-') || value.type.startsWith('veil-') || value.type.startsWith('ember-') || value.type.startsWith('frost-')) && !Object.keys(value).every(key => eventFields.includes(key) || value.type === 'duck-seal' && key === 'targetId' || value.type === 'duck-shield' && ['yaw','power'].includes(key) || value.type === 'duck-egg' && key === 'power' || value.type === 'ember-service' && key === 'weaponId')) return false;
+    if (['mend-heal','duck-seal'].includes(value.type) ? !identifier(value.targetId) : value.targetId !== undefined) return false;
     if (value.type === 'ember-service' ? !serviceWeapon(value.weaponId) : value.weaponId !== undefined) return false;
+    if(value.type==='duck-seal'&&value.targetId===value.sourceId)return false;
+    if(value.type==='duck-shield'&&(!Number.isFinite(value.yaw)||Math.abs(value.yaw)>Math.PI||!Number.isFinite(value.power)||value.power<=0||value.power>DUCK_SKILLS.shieldHP))return false;
+    if(value.type==='duck-egg'&&(!Number.isInteger(value.power)||value.power<1||value.power>DUCK_SKILLS.eggLives))return false;
     return value.flight === spec.flight && value.radius === spec.radius && withinCastRange(value.type, { x: value.fromX, y: value.fromY, z: value.fromZ }, value, value.fromY)
       && close(value.triggerAt, value.startedAt + spec.delay) && close(value.endsAt, value.triggerAt + spec.tail);
   }
@@ -328,6 +343,9 @@ export function createCharacterSkills() {
       if ((groundedPersonal(event.type) || event.type.startsWith('ember-') && personal(event.type)) && [...nextEvents.values()].some(other => other.type === event.type && other.sourceId === event.sourceId)) return false;
       const clean = { id: event.id, type: event.type, team: event.team, sourceId: event.sourceId, round, fromX: event.fromX, fromY: event.fromY, fromZ: event.fromZ,
         x: event.x, y: event.y, z: event.z, startedAt: event.startedAt, flight: event.flight, triggerAt: event.triggerAt, endsAt: event.endsAt, radius: event.radius };
+      if(event.type==='duck-seal')clean.targetId=event.targetId;
+      if(event.type==='duck-shield'){clean.yaw=event.yaw;clean.power=event.power;}
+      if(event.type==='duck-egg')clean.power=event.power;
       if (event.type === 'mend-heal') clean.targetId = event.targetId;
       if (event.type === 'ember-service') clean.weaponId = event.weaponId;
       nextEvents.set(clean.id, clean); nextSequence = Math.max(nextSequence, idSequence(clean.id, clean.type));
@@ -354,6 +372,27 @@ export function createCharacterSkills() {
     for (const [id, marker] of nextMarkers) if (marker.endsAt > currentTime) detections.set(id, marker);
     return true;
   }
+  function sealUntil(actorId,now){if(!identifier(actorId)||!viewTime(now))return 0;let until=0;for(const e of active.values())if(e.type==='duck-seal'&&e.targetId===actorId)until=Math.max(until,e.endsAt);return until;}
+  function quiet(actorId,now){return identifier(actorId)&&viewTime(now)&&[...active.values()].some(e=>e.type==='duck-hush'&&e.sourceId===actorId);}
+  function guardLethal(actorId,now,round){
+    if(!identifier(actorId)||!advance(now,round))return false;
+    for(const[id,e]of active)if(e.type==='duck-egg'&&e.sourceId===actorId&&owned.has(id)&&e.power>0){if(--e.power===0){active.delete(id);owned.delete(id);}return true;}return false;
+  }
+  // Analytic thin plane; never a solid collider or visual occluder. Guests query
+  // but cannot consume HP on restored events. Nearest shield always wins.
+  function interceptShield(origin,aim,maxDistance,damage,now,round,{consume=true}={}){
+    if(!point(origin)||!point(aim)||!Number.isFinite(maxDistance)||maxDistance<=0||!Number.isFinite(damage)||damage<=0||!advance(now,round))return null;
+    const length=Math.hypot(aim.x,aim.y,aim.z);if(Math.abs(length-1)>1e-6)return null;let best=null;
+    for(const e of active.values())if(e.type==='duck-shield'&&e.power>0){
+      const nx=Math.sin(e.yaw),nz=Math.cos(e.yaw),denom=aim.x*nx+aim.z*nz;if(Math.abs(denom)<1e-8)continue;
+      const distance=((e.x-origin.x)*nx+(e.z-origin.z)*nz)/denom;if(distance<.025||distance>maxDistance)continue;
+      const p={x:origin.x+aim.x*distance,y:origin.y+aim.y*distance,z:origin.z+aim.z*distance};
+      if(Math.abs((p.x-e.x)*nz-(p.z-e.z)*nx)>DUCK_SKILLS.shieldWidth/2||p.y<e.y||p.y>e.y+DUCK_SKILLS.shieldHeight)continue;
+      if(!best||distance<best.distance)best={event:e,distance,point:p};
+    }
+    if(best&&consume&&owned.has(best.event.id)){best.event.power=Math.max(0,best.event.power-damage);if(!best.event.power){active.delete(best.event.id);owned.delete(best.event.id);}}
+    return best?{id:best.event.id,distance:best.distance,point:best.point,power:best.event.power}:null;
+  }
   function reset() { clear(); currentRound = null; currentTime = -Infinity; lastRestoreTime = -Infinity; }
-  return { cast, update, events, snapshot, restore, reset, blindUntil, speedScale, markers, movementScale, mitigateSlow, cancelService, consumeDecoy, flashDecoy };
+  return { sealUntil,quiet,guardLethal,interceptShield,cast, update, events, snapshot, restore, reset, blindUntil, speedScale, markers, movementScale, mitigateSlow, cancelService, consumeDecoy, flashDecoy };
 }
