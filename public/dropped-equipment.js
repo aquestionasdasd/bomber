@@ -1,6 +1,6 @@
 import { createWeaponModel } from './agent-model.js';
 
-const WEAPONS = new Set(['classic', 'ghost', 'spectre', 'vandal', 'phantom']);
+const WEAPONS = new Set(['pump', 'drum', 'scout', 'atlas', 'forge', 'classic', 'ghost', 'spectre', 'vandal', 'phantom']);
 const pools = new WeakMap();
 const CLEARANCE = .018;
 

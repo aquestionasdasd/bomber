@@ -72,3 +72,8 @@ C/Q/E/Xの全4技について、既存全員との比較表を先に作り、効
 - [x] 4台の高速バス、100入力ダメージと吹き飛ばし、BOT待避/視線、host権威/ACK/低FPS/重複/清掃/容量の専用検証。
 - [x] 実地形40経路・4階段・4seedBOT、独立JSON VM、所有非表示無音UIの接触を確認。公開とGitHubの確定状態はworkspace cycle58-release.jsonへ記録。
 - [ ] 測量実寸/全店舗広告の一致、実スマホ/別家庭回線/10実端末は未確認。旧backlogの未完了項目を保持。
+
+## 第59巡：武器の拡充（公開検証中）
+- [x] PUMP/DRUM散弾、SCOUT/ATLASスナイパー、FORGE大容量マシンガン。役割/価格/欠点はWEAPON-DESIGN.mdに記録。
+- [x] hover/focus/touch性能説明、全10銃の無料練習選択、host共通ballisticsとBOTの購入候補。
+- [ ] 公開/最終検証/GitHubの確定根拠はworkspace cycle59-release.jsonへ記録。人間同士の武器別勝率調整は今後の観察対象。

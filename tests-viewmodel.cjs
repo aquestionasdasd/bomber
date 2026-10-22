@@ -21,7 +21,7 @@ async function main() {
     }
   });
   const firearmFinishes = [...materials].filter(material => material.name.startsWith('First-person metal / '));
-  assert.equal(firearmFinishes.length, 15, 'Five firearms must each retain separate receiver, edge and exposed steel finishes');
+  assert.equal(firearmFinishes.length, 29, 'Ten firearms retain independent visible metal finishes (pump uses two)');
   const machinedSurfaces = new Set();
   for (const material of firearmFinishes) {
     assert.equal(material.map, material.roughnessMap); assert.equal(material.bumpMap, material.roughnessMap, 'Near-view grain must reuse the existing owned metal texture');
@@ -30,7 +30,7 @@ async function main() {
     assert.equal(material.depthTest, true); assert.equal(material.depthWrite, true); assert.equal(material.transparent, true);
     machinedSurfaces.add(material.map);
   }
-  assert.equal(machinedSurfaces.size, 5, 'The cached firearms must not acquire extra texture objects');
+  assert.equal(machinedSurfaces.size, 10, 'The cached firearms must not acquire extra texture objects');
   assert.equal(new Set([...machinedSurfaces].map(texture => texture.image.data)).size, 1, 'All five existing metal textures share one16KiB CPU image');
   const metalPixels = [...machinedSurfaces][0].image.data;
   assert.equal(metalPixels.byteLength, 16384);
@@ -171,7 +171,7 @@ async function main() {
   const knifeGlove = knifeHand.children.find(object => object.isMesh && object.material.color?.getHexString() === '8a806c');
   assert.equal(createHash('sha256').update(Buffer.from(knifeGlove.geometry.attributes.position.array.buffer)).digest('hex'),
     'b1d9de643856c2f91caf49fe578787b9a0d82abb290b7fc943ee4f01ec21f9c3', 'The knife grip must remain unchanged');
-  assert.deepEqual([geometries.size, materials.size, textures.size], [92, 50, 11], 'The complete cached equipment keeps its original GPU resource budget');
+  assert.deepEqual([geometries.size, materials.size, textures.size], [146, 79, 16], 'Ten firearms plus knife use a bounded expanded cache; repeat switching must not grow resources');
   const currentResources = new Set();
   view.group.traverse(object => {
     if (!object.isMesh) return;

@@ -122,6 +122,7 @@
     <div class="minimap-wrap"><div class="minimap-label"><span class="signal-dot"></span> FIELD RADAR<span>N ↑</span></div><canvas id="minimap" width="240" height="240" aria-label="ミニマップ"></canvas><div class="minimap-footer"><span id="radar-map-copy">HASHIMOTO / 2 SITES</span><span>01</span></div></div>
     <div id="killfeed" class="killfeed" aria-live="polite"></div>
 
+    <div id="sniper-scope" hidden aria-hidden="true"><i></i></div>
     <div id="crosshair" class="crosshair" aria-hidden="true"><span></span><span></span><span></span><span></span><i></i></div>
     <div id="hitmarker" class="hitmarker" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
     <div id="damage" class="damage-overlay" aria-hidden="true"></div>
@@ -218,7 +219,7 @@
   <section id="shop-overlay" class="overlay-screen shop-screen" hidden aria-label="武器購入">
     <div class="shop-panel">
       <header class="shop-header"><div><div class="dialog-eyebrow"><span class="signal-dot"></span> PREPARE FOR THE NEXT ROUND</div><h2>ARSENAL<span>装備購入</span></h2></div><div class="shop-wallet"><span>しばくでコイン</span><strong>SC <span id="shop-credits">800</span></strong></div><button id="close-shop" class="close-button" type="button" aria-label="購入画面を閉じる">× <kbd>B</kbd></button></header>
-      <div class="shop-rule"><span class="signal-dot"></span> 購入は購入フェーズ中のみ可能です<span>武器は死亡すると失い、生存時は次のラウンドへ持ち越します。</span></div>
+      <div class="shop-rule"><span class="signal-dot"></span><span id="shop-rule-summary">購入は購入フェーズ中のみ可能です</span><span>武器は死亡すると失い、生存時は次のラウンドへ持ち越します。</span></div>
       <div class="shop-columns">
         <section class="shop-category"><h3><span>01</span> SIDEARMS<small>サイドアーム</small></h3>
           <button class="buy-card" data-buy="classic" type="button"><span class="buy-name">CLASSIC<small>クラシック / サイドアーム</small></span><svg viewBox="0 0 180 70" aria-hidden="true"><path d="M20 19h117l6 7h13v13h-46l-6 22H77l-5-25H20zM34 13h89v7H34z"/></svg><span class="buy-price"><span>STANDARD ISSUE</span><strong>SC 0</strong></span></button>

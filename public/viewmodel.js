@@ -144,7 +144,7 @@ export function createViewmodel(THREE, camera) {
       mat.map = surface; mat.bumpMap = surface; mat.bumpScale = .00016; mat.needsUpdate = true;
     }
   }
-  for (const id of ['vandal', 'phantom', 'spectre', 'classic', 'ghost', 'knife']) {
+  for (const id of ['pump', 'drum', 'scout', 'atlas', 'forge', 'vandal', 'phantom', 'spectre', 'classic', 'ghost', 'knife']) {
     const parent = new THREE.Group(); parent.name = `Viewmodel / ${id}`; parent.visible = false; group.add(parent);
     const weapon = createWeaponModel(THREE, { id, firstPerson: true, team: 'blue', detailed: true });
     if (!weapon.knife) finishFirearm(weapon);

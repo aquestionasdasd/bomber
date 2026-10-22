@@ -1,6 +1,11 @@
 // Match state is independent from rendering, input, and bot difficulty.
 export const RULES = Object.freeze({ round:100, plant:4, spike:45, defuse:7, checkpoint:3.5, maxCredits:9000 });
 export const WEAPONS = Object.freeze({
+  pump:{name:'PUMP',category:'ショットガン',price:950,slot:'primary',mag:5,reserve:20,interval:.95,reload:3.1,body:18,head:27,leg:15,spread:.10,auto:false,pellets:12,falloff:[8,18,.5,.22],arsenal:true},
+  drum:{name:'DRUM',category:'オートショットガン',price:1850,slot:'primary',mag:7,reserve:28,interval:.32,reload:3.4,body:15,head:22,leg:12,spread:.105,auto:true,pellets:10,falloff:[8,18,.5,.22],arsenal:true},
+  scout:{name:'SCOUT',category:'軽量スナイパー',price:1500,slot:'primary',mag:5,reserve:15,interval:1.1,reload:2.6,body:90,head:180,leg:75,spread:.035,adsSpread:.0008,scope:34,auto:false,arsenal:true},
+  atlas:{name:'ATLAS',category:'ヘヴィースナイパー',price:4700,slot:'primary',mag:5,reserve:10,interval:1.6,reload:3.6,body:150,head:255,leg:120,spread:.09,adsSpread:.0006,scope:28,auto:false,arsenal:true},
+  forge:{name:'FORGE',category:'マシンガン',price:3200,slot:'primary',mag:60,reserve:120,interval:.09,reload:4.6,body:35,head:105,leg:29,spread:.007,adsSpread:.004,auto:true,arsenal:true},
   classic:{name:'CLASSIC',price:0,slot:'secondary',mag:12,reserve:36,interval:.22,reload:1.75,body:26,head:78,leg:22,spread:.005,auto:false},
   ghost:{name:'GHOST',price:500,slot:'secondary',mag:15,reserve:45,interval:.148,reload:1.5,body:30,head:105,leg:25,spread:.003,auto:false},
   spectre:{name:'SPECTRE',price:1600,slot:'primary',mag:30,reserve:90,interval:.075,reload:2.25,body:26,head:78,leg:22,spread:.004,auto:true},

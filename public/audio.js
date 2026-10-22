@@ -136,7 +136,7 @@ export function createGameAudio(){
       sources.push({source,end:delay+duration});nodes.push(source,filter,amp);return true;
     }
     if(type==='shot'||type==='enemy'){
-      const spec=profiles[weapon]||profiles.classic;
+      const spec=profiles[({pump:'vandal',drum:'vandal',scout:'vandal',atlas:'vandal',forge:'phantom'})[weapon]||weapon]||profiles.classic;
       hiss(spec.length,spec.frequency,spec.gain,weapon==='knife');
       if(spec.body)tone(spec.body,spec.body*.34,.12,spec.gain*.48,'triangle');
       if(weapon==='vandal'||weapon==='classic')hiss(.055,4300,.10,true);

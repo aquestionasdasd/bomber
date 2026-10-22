@@ -302,6 +302,35 @@ function buildWeapon(kit, id, parent, detailed = true) {
     rearGrip = [0, -.12, .112]; frontGrip = [-.036, -.125, .07];
     magazineGrip = [-.032, -.171, .122];
     muzzle = [0, .002, ghost ? -.428 : -.26];
+  } else if (['pump','drum','scout','atlas','forge'].includes(id)) {
+    const sniper=id==='scout'||id==='atlas', heavy=id==='atlas', lmg=id==='forge';
+    profile(group,[[.15,.04],[-.32,.04],[-.35,-.04],[.10,-.065]],.09,M.gun);
+    softBox(group,[0,-.10,.10],[.07,.16,.08],M.rubber,.008);
+    softBox(group,[0,-.015,.25],[.075,.12,.25],M.gun,.009);
+    softBox(group,[0,-.017,.37],[.09,.17,.035],M.rubber,.006);
+    const barrel=sniper?(heavy?-.92:-.80):lmg?-.72:-.66;
+    tube(group,[0,.005,(barrel-.30)/2],heavy?.026:.019,Math.abs(barrel+.30),M.steel,'z');
+    tube(group,[0,.005,barrel],.033,.045,M.dark,'z');
+    tube(group,[0,.005,barrel-.025],.016,.004,M.rubber,'z');
+    if(sniper){
+      softBox(group,[0,.095,-.05],[.04,.10,.16],M.dark,.004);
+      tube(group,[0,.16,-.06],heavy?.053:.044,.29,M.gun,'z');
+      for(const z of[-.207,.09])tube(group,[0,.16,z],heavy?.045:.036,.008,M.signal,'z');
+      softBox(magazine,[0,-.105,-.045],[.06,.11,.11],M.dark,.006);sightY=.16;
+      if(heavy)for(const x of[-.05,.05])softBox(group,[x,-.08,-.40],[.012,.13,.025],M.edge,.003);
+    } else {
+      sights(.10,-.45,.085);
+      if(lmg||id==='drum'){
+        softBox(magazine,[0,-.15,-.04],[lmg?.19:.13,.20,.18],M.gun,.012);
+        for(let i=0;i<5;i++)softBox(group,[.066,-.035-i*.016,-.03],[.045,.009,.025],M.signal,.002);
+      } else {
+        tube(group,[0,-.05,-.43],.035,.23,M.rubber,'z');
+        tube(group,[0,-.035,-.27],.019,.60,M.steel,'z');
+        for(let i=0;i<6;i++)tube(group,[0,-.05,-.33-i*.034],.037,.007,M.edge,'z');
+        softBox(magazine,[0,-.07,.00],[.04,.035,.09],M.dark,.003);
+      }
+    }
+    muzzle=[0,.005,barrel-.03];frontGrip=[-.014,-.058,-.28];
   } else {
     const phantom = id === 'phantom', compact = id === 'spectre';
     const stretch = compact ? .80 : 1;
@@ -572,7 +601,7 @@ export function createAgentModel(THREE, { bot = null, team = 'red', variant = 0,
   const weapons = new Map([[defaultWeapon, weapon]]), ownedMaterials = [...kit.materials];
   let knifeFan = null, ultimate = false, throwClock = 0;
   function selectWeapon(id = defaultWeapon) {
-    if (!['classic', 'ghost', 'spectre', 'vandal', 'phantom', 'knife', 'spike'].includes(id)) id = defaultWeapon;
+    if (!['pump', 'drum', 'scout', 'atlas', 'forge', 'classic', 'ghost', 'spectre', 'vandal', 'phantom', 'knife', 'spike'].includes(id)) id = defaultWeapon;
     if (id === 'spike') id = 'knife';
     if (!weapons.has(id)) {
       const next = buildWeapon(kit, id, weaponPivot, false); next.group.rotation.y = Math.PI;

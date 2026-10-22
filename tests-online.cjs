@@ -387,6 +387,13 @@ async function main() {
         worst.ordinarySkills.events=pool.snapshot().events.map((e,i)=>({...e,id:`skill-${type}-${999999999999980+i}`}));
         assert.ok(createCharacterSkills().restore(worst.ordinarySkills,now,1));const bytes=Buffer.byteLength(JSON.stringify(worst),'utf8');assert.ok(bytes<=65536,`${type} full snapshot ${bytes}B`);assert.equal((await send(host,'team:red','game',worst)).status,201);console.log(`ONNARA SNAPSHOT CAPACITY: ${type} ${bytes}B /65536B`);
       }
+      clock+=200;
+      const arsenalPacket=JSON.parse(JSON.stringify(snapshot));
+      for(const actor of arsenalPacket.actors)Object.assign(actor,{weapon:'forge',primary:'forge',ammo:60,reserve:120});
+      for(const record of arsenalPacket.roster)record.primary='forge';
+      const arsenalBytes=Buffer.byteLength(JSON.stringify(arsenalPacket));assert.ok(arsenalBytes<=65536);
+      assert.equal((await send(host,'team:red','game',arsenalPacket)).status,201);
+      console.log(`ARSENAL 10 machine guns with full reserve ${arsenalBytes}B /65536B`);
       clock+=200;const mixedPacket=JSON.parse(JSON.stringify(snapshot)),mixedPool=createCharacterSkills();
       for(let i=0;i<10;i++){const source={...actors[i],x:-81.123456+i*.01,y:10.987654,z:-81.123456+i*.01},target={x:source.x+1,y:source.y,z:source.z,targetId:actors[(i+5)%10].id};assert.ok(mixedPool.cast('onnara-tax',source,target,now,1));assert.ok(mixedPool.cast('onnara-orb',source,{...source,yaw:1.2345678901234567},now,1));}
       mixedPacket.ordinarySkills.events=mixedPool.snapshot().events;assert.ok(createCharacterSkills().restore(mixedPacket.ordinarySkills,now,1));const mixedBytes=Buffer.byteLength(JSON.stringify(mixedPacket),'utf8');assert.ok(mixedBytes<=65536);assert.equal((await send(host,'team:red','game',mixedPacket)).status,201);console.log(`ONNARA LIVE-MAP MIX:20 effects/10 actual roster IDs/negative boundary coordinates ${mixedBytes}B /65536B`);
