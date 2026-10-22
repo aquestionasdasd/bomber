@@ -235,7 +235,7 @@ async function main(){
 
   // Read real map geometry and ensure tactical plant goals remain physically reachable.
   global.document={createElement:()=>({width:0,height:0,getContext:()=>new Proxy({measureText:t=>({width:String(t).length*8}),createLinearGradient:()=>({addColorStop(){}}),createRadialGradient:()=>({addColorStop(){}})},{get:(target,key)=>target[key]||(()=>{})})})};
-  const {createMap}=await load('map.js'),arena=createMap(THREE,new THREE.Group(),process.argv.includes('--hirakata')?'hirakata':'hashimoto'),nav=createNavigation(arena);
+  const {createMap}=await load('map.js'),arena=createMap(THREE,new THREE.Group(),process.argv.includes('--hirakata')?'hirakata':'hashimoto'),nav=createNavigation({...arena,bounds:arena.combatBounds||arena.bounds});
   const real=createBotTactics({sites:arena.sites,navigation:nav,collision:arena.collision,lanes:arena.lanes});
   for(const side of ['attack','defend'])for(const spawn of arena.teamSpawns[side])for(const site of arena.sites){
     const point=real.plantPosition(site,spawn,0);assert.ok(point,`${side} spawn must have a reachable planting candidate at ${site.id}`);
