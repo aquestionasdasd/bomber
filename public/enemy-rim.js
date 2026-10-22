@@ -2,7 +2,7 @@
 // pass. Only highlighted users borrow a clone; original shared finishes remain
 // completely untouched for allies, previews, weapons and other owners.
 const highlightedMaterials=new WeakMap();
-const PROGRAM_KEY='enemy-rim-v1';
+const PROGRAM_KEY='enemy-rim-v2';
 
 function acquireMaterial(source){
   if(!source?.isMeshStandardMaterial)return null;
@@ -23,8 +23,8 @@ function acquireMaterial(source){
         .replace('#include <common>','#include <common>\nuniform float enemyRimStrength;\nvarying vec3 vEnemyRimNormal;\nvarying vec3 vEnemyRimViewPosition;')
         .replace('#include <opaque_fragment>',`
 float enemyRimFacing = clamp(abs(dot(normalize(vEnemyRimNormal), normalize(vEnemyRimViewPosition))), 0.0, 1.0);
-float enemyRimEdge = smoothstep(0.35, 0.92, 1.0 - enemyRimFacing) * enemyRimStrength;
-outgoingLight = mix(outgoingLight, vec3(1.05, 0.012, 0.006), enemyRimEdge * 0.85);
+float enemyRimEdge = smoothstep(0.18, 0.72, 1.0 - enemyRimFacing) * enemyRimStrength;
+outgoingLight = mix(outgoingLight, vec3(1.6, 0.003, 0.002), enemyRimEdge * 0.98);
 #include <opaque_fragment>`);
     };
     material.customProgramCacheKey=function(){return `${previousKey.call(source)}|${PROGRAM_KEY}`;};
