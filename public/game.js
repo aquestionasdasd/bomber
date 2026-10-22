@@ -1,3 +1,5 @@
+import { URCHIN_SKILLS } from './abilities.js';
+import { createUrchinSkillFX } from './urchin-skill-fx.js';
 import { CAP_SKILLS } from './abilities.js';
 import { createCapSkillFX } from './cap-skill-fx.js';
 import { createJapanSkillFX } from './japan-skill-fx.js';
@@ -103,6 +105,7 @@ const mendSkillFX=createMendSkillFX(THREE,camera);scene.add(mendSkillFX.group);
 const iagnuSkillFX=createIagnuSkillFX(THREE,camera);scene.add(iagnuSkillFX.group);
 const grassSkillFX=createGrassSkillFX(THREE,camera);scene.add(grassSkillFX.group);
 const emberSkillFX=createEmberSkillFX(THREE,camera);scene.add(emberSkillFX.group);
+const urchinSkillFX=createUrchinSkillFX(THREE);scene.add(urchinSkillFX.group);
 const capSkillFX=createCapSkillFX(THREE);scene.add(capSkillFX.group);
 const japanSkillFX=createJapanSkillFX(THREE);scene.add(japanSkillFX.group);
 const nobiSkillFX=createNobiSkillFX(THREE);scene.add(nobiSkillFX.group);
@@ -194,7 +197,7 @@ function resetTakeover(){takeoverState=null;takeoverClock=0;stationTakeover.rese
 function resetZoneAbilities(){zoneAbilities.reset();zoneFX.reset();zonePulseAudio.clear();zoneTargetPreview=null;zoneTargetPreviewAt=-Infinity;zoneTargetCharacter=null;if($('status-effects')){$('status-effects').hidden=true;$('status-effects').textContent='';}}
 const stoppedTurfEvents=new Map();
 const stoppedFrostEvents=new Map();
-function resetOrdinarySkills(){capSkillFX.reset();japanSkillFX.reset();nobiSkillFX.reset();carImpulseSeen.clear();carSkillFX.reset();catReturnSeen.clear();catSkillFX.reset();duckAim=null;duckSkillFX.reset();botHearing.reset();ordinarySkills.reset();ordinaryFX.reset();nopeDecoys.reset();nopeDecoyFX.reset();nopePops.length=0;nopeSeenPopSequence=0;mendSkillFX.reset();iagnuSkillFX.reset();grassSkillFX.reset();emberSkillFX.reset();frostSkillFX.reset();duelistSkillFX.reset();for(const actor of [player,...bots]){cancelServiceReload(actor);actor.lastHeard=null;actor.netStepClock=0;}stoppedServiceEvents.clear();stoppedTurfEvents.clear();stoppedFrostEvents.clear();ordinaryAudio.clear();ordinaryMarkerAudio.clear();const overlay=$('skill-blind-overlay');if(overlay){overlay.hidden=true;overlay.style.opacity='0';}}
+function resetOrdinarySkills(){urchinSkillFX.reset();capSkillFX.reset();japanSkillFX.reset();nobiSkillFX.reset();carImpulseSeen.clear();carSkillFX.reset();catReturnSeen.clear();catSkillFX.reset();duckAim=null;duckSkillFX.reset();botHearing.reset();ordinarySkills.reset();ordinaryFX.reset();nopeDecoys.reset();nopeDecoyFX.reset();nopePops.length=0;nopeSeenPopSequence=0;mendSkillFX.reset();iagnuSkillFX.reset();grassSkillFX.reset();emberSkillFX.reset();frostSkillFX.reset();duelistSkillFX.reset();for(const actor of [player,...bots]){cancelServiceReload(actor);actor.lastHeard=null;actor.netStepClock=0;}stoppedServiceEvents.clear();stoppedTurfEvents.clear();stoppedFrostEvents.clear();ordinaryAudio.clear();ordinaryMarkerAudio.clear();const overlay=$('skill-blind-overlay');if(overlay){overlay.hidden=true;overlay.style.opacity='0';}}
 function resetTeamAbilities(){teamAbilities.reset();characterFX.reset();resetZoneAbilities();resetOrdinarySkills();}
 function actorGrounded(actor){
   if(!actor?.alive||!Number.isFinite(actor.y)||Number.isFinite(actor.vy)&&Math.abs(actor.vy)>1e-5)return false;
@@ -213,7 +216,7 @@ function canServiceReload(actor){
   const id=actorWeaponId(actor),spec=WEAPONS[id],local=actor===player,remote=!!actor.remoteId;
   const ammo=local?player.ammo:remote?actor.netAmmo:actor.aiAmmo,reserve=local?player.reserve:remote?actor.netReserve:actor.aiReserve;
   const pending=local?reloading:remote?actor.netReload:actor.aiReload;
-  return actor.alive&&match?.phase==='live'&&!actor.planting&&!actor.defusing&&!(local&&interactionHeld)&&!pending&&!actor.serviceReload
+  return !ordinarySkills.urchinJammed(actor.id,elapsed)&&actor.alive&&match?.phase==='live'&&!actor.planting&&!actor.defusing&&!(local&&interactionHeld)&&!pending&&!actor.serviceReload
     &&spec&&['primary','secondary'].includes(spec.slot)&&Number.isInteger(ammo)&&ammo>=0&&ammo<spec.mag&&Number.isInteger(reserve)&&reserve>0;
 }
 function serviceFromSnapshot(value,state,now){
@@ -372,7 +375,7 @@ function updateOrdinarySkills(){
       ordinaryAudio.set(event.id,beat);
     }else{
       const trigger=ordinaryAudioTime(event),triggered=elapsed>=trigger;
-      if(triggered&&previous!==true&&elapsed-trigger<.18)sound({'nope-bottle':'bottle-pop','nope-flash':'flash','mend-seeds':'seed-bloom','mend-pollen':'pollen','mend-heal':'flower-heal','echo-tag':'echo-tag-set','echo-glint':'echo-glint','echo-kerning':'echo-kerning','veil-dust':'grass-dust','veil-roots':'grass-roots','veil-turf':'grass-turf','ember-solder':'solder-pop','ember-shade':'shade-check','ember-service':'quick-solder','frost-stitch':'frost-stitch','frost-mist':'frost-mist','frost-unravel':'frost-unravel','duelist-comet':'duelist-comet','duelist-lift':'duelist-lift','duck-seal':'duck-seal','duck-shield':'duck-shield','duck-hush':'duck-hush','duck-egg':'duck-egg','cat-bookmark':'cat-bookmark','cat-return':'cat-return','cat-pluck':'cat-pluck','cat-fetch':'cat-fetch','cat-clock':'cat-clock','cap-lock':'cap-lock','cap-clean':'cap-clean','cap-bank':'cap-bank','cap-magazine':'cap-magazine','japan-border':'japan-border','japan-levy':'japan-levy','japan-return':'japan-return','japan-muster':'japan-muster','nobi-tag':'nobi-tag','nobi-brake':'nobi-brake','nobi-tool':'nobi-tool','nobi-legend':'nobi-legend','car-bumper':'car-bumper','car-wash':'car-wash','car-gyro':'car-gyro','car-pit':'car-pit'}[event.type]||'smoke',{entity:event,localOnly:true});
+      if(triggered&&previous!==true&&elapsed-trigger<.18)sound({'nope-bottle':'bottle-pop','nope-flash':'flash','mend-seeds':'seed-bloom','mend-pollen':'pollen','mend-heal':'flower-heal','echo-tag':'echo-tag-set','echo-glint':'echo-glint','echo-kerning':'echo-kerning','veil-dust':'grass-dust','veil-roots':'grass-roots','veil-turf':'grass-turf','ember-solder':'solder-pop','ember-shade':'shade-check','ember-service':'quick-solder','frost-stitch':'frost-stitch','frost-mist':'frost-mist','frost-unravel':'frost-unravel','duelist-comet':'duelist-comet','duelist-lift':'duelist-lift','duck-seal':'duck-seal','duck-shield':'duck-shield','duck-hush':'duck-hush','duck-egg':'duck-egg','cat-bookmark':'cat-bookmark','cat-return':'cat-return','cat-pluck':'cat-pluck','cat-fetch':'cat-fetch','cat-clock':'cat-clock','urchin-jam':'urchin-jam','urchin-disarm':'urchin-disarm','urchin-pearl':'urchin-pearl','urchin-trident':'urchin-trident','cap-lock':'cap-lock','cap-clean':'cap-clean','cap-bank':'cap-bank','cap-magazine':'cap-magazine','japan-border':'japan-border','japan-levy':'japan-levy','japan-return':'japan-return','japan-muster':'japan-muster','nobi-tag':'nobi-tag','nobi-brake':'nobi-brake','nobi-tool':'nobi-tool','nobi-legend':'nobi-legend','car-bumper':'car-bumper','car-wash':'car-wash','car-gyro':'car-gyro','car-pit':'car-pit'}[event.type]||'smoke',{entity:event,localOnly:true});
       ordinaryAudio.set(event.id,triggered);
     }
   }
@@ -391,6 +394,7 @@ function renderOrdinarySkills(){
   iagnuSkillFX.update(live?ordinarySkills.events(elapsed):[],elapsed,{viewer:viewer||player,actors:[player,...bots],showHand:live&&mode==='play'&&player.alive,reducedMotion:reducedMotion.matches});
   grassSkillFX.update(live?ordinarySkills.events(elapsed):[],elapsed,{viewer:viewer||player,actors:[player,...bots].map(ordinaryActorView),groundHeight:ordinaryGroundHeight,showHand:live&&mode==='play'&&player.alive,reducedMotion:reducedMotion.matches});
   emberSkillFX.update(live?ordinarySkills.events(elapsed):[],elapsed,{viewer:viewer||player,actors:[player,...bots].map(ordinaryActorView),showHand:live&&mode==='play'&&player.alive,reducedMotion:reducedMotion.matches});
+  urchinSkillFX.update(live?ordinarySkills.events(elapsed):[],elapsed,{actors:[player,...bots].filter(a=>a.team===player.team||ordinarySkills.blindUntil(player.id,elapsed)<=elapsed&&visibleBetween(player,a))});
   capSkillFX.update(live?ordinarySkills.events(elapsed):[],elapsed,{actors:[player,...bots].filter(a=>a.team===player.team||ordinarySkills.blindUntil(player.id,elapsed)<=elapsed&&visibleBetween(player,a))});
   japanSkillFX.update(live?ordinarySkills.events(elapsed):[],elapsed,{actors:[player,...bots].filter(a=>a.team===player.team||ordinarySkills.blindUntil(player.id,elapsed)<=elapsed&&visibleBetween(player,a))});
   nobiSkillFX.update(live?ordinarySkills.events(elapsed):[],elapsed,{actors:[player,...bots].filter(a=>a.team===player.team||ordinarySkills.blindUntil(player.id,elapsed)<=elapsed&&visibleBetween(player,a))});
@@ -735,7 +739,7 @@ function autoBuyBot(r){
   else if(r.secondary==='classic'&&r.credits>=500){r.secondary='ghost';r.credits-=500;}
   if(r.armor<50&&r.credits>=1000){r.armor=50;r.credits-=1000;}
   else if(r.armor<25&&r.credits>=400){r.armor=25;r.credits-=400;}
-  if(['duelist','nope','mend','echo','veil','ember','frost','duck','cat','car','nobi','japan'].includes(r.kit?.character))for(const key of ['c','q'])while(r.kit.buy(key,price=>{if(r.credits<price)return false;r.credits-=price;return true;})){}
+  if(['duelist','nope','mend','echo','veil','ember','frost','duck','cat','car','nobi','japan','cap','urchin'].includes(r.kit?.character))for(const key of ['c','q'])while(r.kit.buy(key,price=>{if(r.credits<price)return false;r.credits-=price;return true;})){}
 }
 function setVisible(id,visible) { if($(id))$(id).hidden=!visible; if(visible&&(id==='menu'||id==='result'))keyboardProtection.release(); if(id==='menu'||id==='online-overlay'||id==='online-lobby')characterPicker.sync(); }
 function clearCombatInput(){duckAim=null;
@@ -917,9 +921,10 @@ function startCharacterTrial(){
     const team=support?player.team:(player.team==='blue'?'red':'blue'),character=characterIds[(characterIds.indexOf(player.kit.character)+index)%characterIds.length];
     const record={id:`trial-${index}`,team,name:`${CHARACTER_DEFS[character].label} / 練習`,k:0,d:0,a:0,credits:0,secondary:'classic',kit:new DuelistKit({character})};
     makeBot(points[index],index,team,record);const target=bots.at(-1);target.rangeTarget=true;target.hp=support?35+index*25:100;target.group.rotation.y=0;
-    if(['cat','car','nobi','japan'].includes(player.kit.character)){target.aiWeapon='classic';target.aiAmmo=WEAPONS.classic.mag;target.aiReserve=WEAPONS.classic.reserve;target.aiReload=0;}
+    if(['cat','car','nobi','japan','urchin'].includes(player.kit.character)){target.aiWeapon='classic';target.aiAmmo=WEAPONS.classic.mag;target.aiReserve=WEAPONS.classic.reserve;target.aiReload=0;}
     if(player.kit.character==='japan')target.armor=50;
   }
+  if(player.kit.character==='urchin'){match.credits=800;for(const b of bots){b.record.primary='spectre';b.aiWeapon='spectre';b.aiAmmo=18;b.aiReserve=40;}}
   if(player.kit.character==='cap'&&bots[0])ordinarySkills.cast('cap-lock',ordinaryActorView(bots[0]),{...ordinaryActorView(player),targetId:player.id},elapsed,match.round);
   if(player.kit.character==='cat')addDrop({id:++dropSequence,weapon:'ghost',x:player.x,z:player.z-6,yaw:0,ammo:9,reserve:12});
   resumeGame();updateHUD();
@@ -1044,10 +1049,12 @@ function shoot(shotTime=elapsed) {
       if(rangeSession&&bot.rangeTarget)rangeSession.recordHit({head,eliminated:!bot.alive});
     }else{burst(hit.point,'#f9ce9a',4);if(!melee&&!ultimate)capBounceShot(player,camera.position,direction,hit,spec);}
   }
+  if(!melee&&!ultimate)urchinTridentShot(player,camera.position,direction,spec);
   if(!spec.auto)firing=false;
   raycaster.far=190;updateHUD();
 }
 function reload(){
+  if(ordinarySkills.urchinJammed(player.id,elapsed))return;
   const spec=weapon();if(netHostPaused||mode!=='play'||!player.alive||interactionHeld||inventory.active==='spike'||!spec.mag||reloading||player.ammo===spec.mag||player.reserve<=0||player.serviceReload)return;
   if(isGuest())queueNetAction('reload');
   reloading=spec.reload;firing=false;sound('reload');
@@ -1211,6 +1218,52 @@ function japanLevyTarget(actor,aim=null){
   if(!best||along<best.distance)best={x:enemy.x,y:enemy.y||0,z:enemy.z,targetId:enemy.id,enemy,distance:along};
  }return best;
 }
+
+function urchinWeapon(actor){return actor===player?inventory.active:actor.remoteId?actor.netWeapon:actor.aiWeapon;}
+function urchinCancelReload(actor){cancelServiceReload(actor);if(actor===player)reloading=0;else if(actor.remoteId)actor.netReload=0;else actor.aiReload=0;}
+function urchinTarget(actor,key,aim=null){
+ if(ordinarySkills.blindUntil(actor.id,elapsed)>elapsed)return null;
+ const d=carAim(actor,aim);if(!d)return null;const range=key==='c'?URCHIN_SKILLS.jamRange:URCHIN_SKILLS.disarmRange,origin={x:actor.x,y:(actor.y||0)+1.7-(actor.crouch||0)*.55,z:actor.z};let best=null;
+ for(const target of[player,...bots]){if(!target.alive||target===actor||target.team===actor.team||!visibleBetween(actor,target))continue;const v={x:target.x-origin.x,y:(target.y||0)+1.3-(target.crouch||0)*.55-origin.y,z:target.z-origin.z},along=v.x*d.x+v.y*d.y+v.z*d.z;if(along<0||Math.hypot(v.x,v.y,v.z)>range||Math.hypot(v.x-d.x*along,v.y-d.y*along,v.z-d.z*along)>.55)continue;if(!best||along<best.distance)best={x:target.x,y:target.y||0,z:target.z,targetId:target.id,actor:target,distance:along};}
+ if(best&&key==='q'){const id=urchinWeapon(best.actor),r=best.actor===player?inventory:best.actor.record;if(WEAPONS[id]?.slot!=='primary'||!r||r[WEAPONS[id].slot]!==id||droppedWeapons.length>=32)return null;}
+ return best;
+}
+function urchinDisarm(target){
+ const id=urchinWeapon(target),slot=WEAPONS[id].slot,local=target===player,r=local?inventory:target.record;
+ dropItem(id,target);urchinCancelReload(target);r[slot]=null;
+ if(local){delete ammoStore[id];delete roundPurchases[slot];const next=inventory.secondary||inventory.primary||'knife';equip(next,true);}
+ else{delete r.netPurchases?.[slot];if(target.netStores)delete target.netStores[id];const next=r.secondary||r.primary||'knife',spec=WEAPONS[next]||WEAPONS.knife,saved=target.netStores?.[next];target.netWeapon=target.aiWeapon=next;target.netAmmo=target.aiAmmo=saved?.ammo??spec.mag;target.netReserve=target.aiReserve=saved?.reserve??spec.reserve;target.netReload=target.aiReload=0;target.fire=.25;}
+}
+function activateUrchinAbility(actor,key,{predict=false,aim=null}={}){
+ key=String(key).toLowerCase();if(netHostPaused||!actor?.alive||match?.phase!=='live'||actor.planting||actor.defusing||actor.serviceReload||!['c','q','e','x'].includes(key))return;
+ const type={c:'urchin-jam',q:'urchin-disarm',e:'urchin-pearl',x:'urchin-trident'}[key];if(key==='x'&&ordinarySkills.urchinTrident(actor.id,elapsed))return;
+ const target=['c','q'].includes(key)?urchinTarget(actor,key,aim):{x:actor.x,y:actor.y||0,z:actor.z};if(!target)return;
+ const local=actor===player,remote=!!actor.remoteId,id=urchinWeapon(actor),ammo=local?player.ammo:remote?actor.netAmmo:actor.aiAmmo,r=local?null:actor.record,credits=local?match.credits:r?.credits;
+ const count=key==='e'?Math.min(URCHIN_SKILLS.pearlBullets,Math.floor(ammo||0),Math.floor((9000-credits)/URCHIN_SKILLS.pearlValue)):0;
+ if(key==='e'&&(!WEAPONS[id]?.mag||!(count>0)||!Number.isFinite(credits)||(local?reloading:remote?actor.netReload:actor.aiReload)>0))return;
+ const before=actor.kit.snapshot(),effect=actor.kit.activate(key,elapsed);if(!effect)return;
+ if(!predict){const event=ordinarySkills.cast(effect,ordinaryActorView(actor),target,elapsed,match.round);if(!event){actor.kit.restore(before);return;}
+  if(key==='c')urchinCancelReload(target.actor);
+  if(key==='q')urchinDisarm(target.actor);
+  if(key==='e'){if(local){player.ammo-=count;match.credits+=count*URCHIN_SKILLS.pearlValue;}else{if(remote)actor.netAmmo-=count;else actor.aiAmmo-=count;r.credits+=count*URCHIN_SKILLS.pearlValue;}}
+ }
+ if(local)showMessage(key==='x'?'三叉潮':getCharacterSkill('urchin',key).name,key==='x'?'9秒、通常の射撃へ左右の副弾を追加。壁・盾・囮で止まります。':getCharacterSkill('urchin',key).description,3);return effect;
+}
+function confirmUrchinSkill(key){if(netHostPaused||mode!=='play'||!player.alive||interactionHeld||objectivePractice)return;refillMapPracticeSkills();const aim={yaw:player.yaw,pitch:player.pitch},effect=activateAbility(player,key,{predict:isGuest(),aim});if(effect&&isGuest())queueNetAction('ability',{key,...aim});if(!effect)showMessage('対象を確認','視線・距離・敵の購入銃・残弾や所持コインを確認 · 消費していません',2);refillMapPracticeSkills();updateHUD();}
+function urchinTridentShot(actor,origin,incoming,spec){
+ if(!ordinarySkills.urchinTrident?.(actor.id,elapsed)||!spec.mag)return [];
+ botsGroup.updateMatrixWorld(true);const results=[];
+ for(const side of[-1,1]){const aim=incoming.clone().normalize().applyAxisAngle(new THREE.Vector3(0,1,0),side*URCHIN_SKILLS.tridentAngle),from=origin.clone(),ray=new THREE.Raycaster(from,aim,0,URCHIN_SKILLS.tridentRange),all=ray.intersectObjects([environment,botsGroup],true).filter(h=>h.object.userData.bot!==actor&&(!h.object.userData.bot||h.object.userData.bot.alive));
+  const hit=all[0];let target=hit?.object.userData.bot,point=hit?.point,head=!!hit?.object.userData.head,nearest=hit?.distance??URCHIN_SKILLS.tridentRange;
+  if(player!==actor&&player.alive&&player.team!==actor.team){const c=(player.crouch||0)*.55;for(const[p,h]of[[ray.ray.intersectSphere(new THREE.Sphere(new THREE.Vector3(player.x,player.y+1.62-c,player.z),.19),new THREE.Vector3()),true],[ray.ray.intersectBox(new THREE.Box3(new THREE.Vector3(player.x-.28,player.y+.4,player.z-.28),new THREE.Vector3(player.x+.28,player.y+1.45-c,player.z+.28)),new THREE.Vector3()),false]])if(p&&from.distanceTo(p)<nearest){target=player;point=p;head=h;nearest=from.distanceTo(p);}}
+  const fake=raycastNopeDecoy(from,aim,nearest,actor.team),shield=ordinarySkills.interceptShield(from,aim,fake?.distance??nearest,spec.body*URCHIN_SKILLS.tridentScale,elapsed,match.round,{consume:!isGuest()});
+  if(shield){target=null;point=new THREE.Vector3(shield.point.x,shield.point.y,shield.point.z);}else if(fake){target=null;point=fake.point;if(!isGuest())hitNopeDecoy(fake.event,actor);}
+  const end=point||from.clone().addScaledVector(aim,URCHIN_SKILLS.tridentRange);tracer(from,end,'#a9f1e4',.1);
+  if(target?.alive&&target.team!==actor.team&&!isGuest()){let damage=nobiBulletDamage(actor,target,head?spec.head:point.y-(target.y||0)<.7?spec.leg:spec.body,spec.head,true)*URCHIN_SKILLS.tridentScale;const id=urchinWeapon(actor);if(['phantom','spectre','ghost','classic'].includes(id)&&nearest>15)damage*=nearest>30?.8:.9;damageEntity(target,damage,actor,{firearm:true});burst(point,'#a9f1e4',3);}
+  results.push({targetId:target?.id||null,x:end.x,y:end.y,z:end.z});
+ }return results;
+}
+
 function capTarget(actor,key,aim=null){
  if(ordinarySkills.blindUntil(actor.id,elapsed)>elapsed&&key==='c')return null;
  const d=carAim(actor,aim);if(!d)return null;const range=key==='c'?CAP_SKILLS.lockRange:CAP_SKILLS.cleanRange,origin={x:actor.x,y:(actor.y||0)+1.7-(actor.crouch||0)*.55,z:actor.z};let best=null;
@@ -1431,6 +1484,7 @@ function getSkillTarget(actor,type,point=null,aim=null){
 }
 function activateAbility(actor,key,{predict=false,zonePoint=null,aim=null}={}){
   if(ordinarySkills.sealUntil(actor?.id,elapsed)>elapsed){if(actor===player)showMessage('羽根の封印', '新しいスキルは使えません · 銃と移動は使えます',1);return;}
+  if(actor?.kit?.character==='urchin')return activateUrchinAbility(actor,key,{predict,aim});
   if(actor?.kit?.character==='cap')return activateCapAbility(actor,key,{predict,aim});
  if(actor?.kit?.character==='japan')return activateJapanAbility(actor,key,{predict,aim});
   if(actor?.kit?.character==='nobi')return activateNobiAbility(actor,key,{predict,aim});
@@ -1496,6 +1550,7 @@ function refillMapPracticeSkills(){
   kit.ultPoints=DUELIST.ultimatePoints;if(kit.knivesActive)kit.knives=DUELIST.knives;
 }
 function confirmDuckSkill(key){
+ if(player.kit?.character==='urchin')return confirmUrchinSkill(key);
  if(player.kit?.character==='cap')return confirmCapSkill(key);
  if(player.kit?.character==='japan')return confirmJapanSkill(key);
  if(player.kit?.character==='nobi')return confirmNobiSkill(key);
@@ -1508,6 +1563,7 @@ function confirmDuckSkill(key){
  refillMapPracticeSkills();updateHUD();
 }
 function useAbility(key){
+ if(player.kit?.character==='urchin'&&['c','q'].includes(key)&&mode==='play'&&player.alive&&match?.phase==='live'&&!netHostPaused&&!interactionHeld&&!objectivePractice){duckAim=duckAim===key?null:key;firing=false;aiming=false;if(duckAim)showMessage(getCharacterSkill('urchin',key).name,'照準で狙う → 左クリックで確定 / 右クリックで取消',30);return;}
  if(player.kit?.character==='cap'&&['c','q'].includes(key)&&mode==='play'&&player.alive&&match?.phase==='live'&&!netHostPaused&&!interactionHeld&&!objectivePractice){duckAim=duckAim===key?null:key;firing=false;aiming=false;if(duckAim)showMessage(getCharacterSkill('cap',key).name,'照準で狙う → 左クリックで確定 / 右クリックで取消',30);return;}
  if(player.kit?.character==='japan'&&['c','q'].includes(key)&&mode==='play'&&player.alive&&match?.phase==='live'&&!netHostPaused&&!interactionHeld&&!objectivePractice){duckAim=duckAim===key?null:key;firing=false;aiming=false;if(duckAim)showMessage(getCharacterSkill('japan',key).name,'照準で狙う → 左クリックで確定 / 右クリックで取消',30);return;}
  if(player.kit?.character==='nobi'&&['c','q'].includes(key)&&mode==='play'&&player.alive&&match?.phase==='live'&&!netHostPaused&&!interactionHeld&&!objectivePractice){duckAim=duckAim===key?null:key;firing=false;aiming=false;if(duckAim)showMessage(getCharacterSkill('nobi',key).name,'照準で狙う → 左クリックで確定 / 右クリックで取消',30);return;}
@@ -1558,6 +1614,8 @@ function updateHUD(){
     const scale=player.alive?actorSpeedScale(player):1,boosted=player.alive&&actorMovementScale(player)>1,slowed=scale<1,blind=player.alive&&ordinarySkills.blindUntil(player.id,elapsed)>elapsed;
     const statuses=[];
     const carGyro=ordinarySkills.carGyro(player.id,elapsed);
+    if(ordinarySkills.urchinJammed(player.id,elapsed))statuses.push('棘錠 · 装填不可');
+    if(ordinarySkills.urchinTrident(player.id,elapsed))statuses.push('三叉潮 · 三方向射撃');
     if(ordinarySkills.capLocked(player.id,elapsed))statuses.push('スコープロック · ADS不可');
     if(ordinarySkills.capBank(player.id,elapsed))statuses.push('バンクレンズ · 1回跳弾');
     if(ordinarySkills.capMagazine(player.id,elapsed))statuses.push('エンドレスマガジン · 銃弾消費なし');
@@ -1746,6 +1804,7 @@ function updateBots(dt){
     const weaponId=bot.record?.primary||bot.record?.secondary||'classic';
     const spec=WEAPONS[weaponId]||WEAPONS.classic;
     if(bot.aiWeapon!==weaponId){cancelServiceReload(bot);bot.aiWeapon=weaponId;bot.aiAmmo=spec.mag;bot.aiReserve=spec.reserve;bot.aiReload=0;bot.burst=0;}
+    if(ordinarySkills.urchinJammed(bot.id,elapsed))urchinCancelReload(bot);
     if(!tickServiceReload(bot,dt)&&bot.aiReload>0){bot.aiReload-=dt;if(bot.aiReload<=0)bot.aiAmmo=spec.mag;}
     let enemy=bot.target;
     let enemyDistance=enemy?distance(bot,enemy):Infinity;
@@ -1857,6 +1916,11 @@ function updateBots(dt){
       }
       bot.nextSkillAt=elapsed+(cast?2:.4);
     }
+    if(bot.kit?.character==='urchin'&&!interactPlant&&!interactDefuse&&elapsed>=(bot.nextSkillAt||0)){
+      if(enemy&&visibleBetween(bot,enemy)){const aim={yaw:Math.atan2(bot.x-enemy.x,bot.z-enemy.z),pitch:Math.atan2((enemy.y||0)+1.3-((bot.y||0)+1.7),Math.max(.001,enemyDistance))};if(enemyDistance<URCHIN_SKILLS.jamRange&&!ordinarySkills.urchinJammed(enemy.id,elapsed))activateAbility(bot,'c',{aim});if(enemyDistance<URCHIN_SKILLS.disarmRange)activateAbility(bot,'q',{aim});if(bot.aiAmmo>0&&enemyDistance<30&&bot.kit.ultPoints>=7)activateAbility(bot,'x');}
+      else if(bot.aiAmmo>=8&&bot.aiReserve>=10&&(bot.record?.credits||0)<8500)activateAbility(bot,'e');
+      bot.nextSkillAt=elapsed+.7;
+    }
     if(bot.kit?.character==='cap'&&!interactPlant&&!interactDefuse&&elapsed>=(bot.nextSkillAt||0)){
       const friend=[bot,...bots.filter(b=>b.team===bot.team),...(player.team===bot.team?[player]:[])].find(a=>a.alive&&ordinarySkills.hasImpairment(a.id,a.team,elapsed)&&distance(bot,a)<=CAP_SKILLS.cleanRange&&(a===bot||visibleBetween(bot,a)));
       if(friend)activateAbility(bot,'q',{aim:{yaw:Math.atan2(bot.x-friend.x,bot.z-friend.z),pitch:Math.atan2((friend.y||0)+1.3-((bot.y||0)+1.7),Math.max(.001,distance(bot,friend)))}});
@@ -1938,7 +2002,7 @@ function updateBots(dt){
       else if(goal&&enemyDistance>25&&distance(bot,goal)>5)bot.moving=advance(bot,goal,'advance-contact');
       const aligned=face(bot,enemy,8);bot.pathTime=Math.min(bot.pathTime||0,.15);
       if(aligned&&elapsed>=bot.reactionUntil&&elapsed>=(bot.skillThrowUntil||0)&&bot.fire<=0&&!(bot.aiReload>0)){
-        if(bot.aiAmmo<=0){bot.aiReload=spec.reload||1.7;bot.fire=bot.aiReload;bot.reloadGoal=role?.urgent?null:reloadCover(bot,enemy);}
+        if(bot.aiAmmo<=0){if(ordinarySkills.urchinJammed(bot.id,elapsed))bot.fire=.2;else{bot.aiReload=spec.reload||1.7;bot.fire=bot.aiReload;bot.reloadGoal=role?.urgent?null:reloadCover(bot,enemy);}}
         else{
           if(!ordinarySkills.capMagazine(bot.id,elapsed))bot.aiAmmo--;bot.flash=.065;bot.shotSequence=(bot.shotSequence||0)+1;bot.muzzle.visible=true;
           if(spec.auto){bot.burst=(bot.burst||0)+1;bot.fire=bot.burst<3?spec.interval+.035:cfg.interval*.46+Math.random()*.22;if(bot.burst>=3)bot.burst=0;}
@@ -1964,6 +2028,7 @@ function updateBots(dt){
           else if(fake){to.copy(fake.point);hitNopeDecoy(fake.event,bot);}
           else if(bounceSurface)capBounceShot(bot,from,direction,bounceSurface,spec);
           tracer(from,to,bot.team==='blue'?'#a5eee0':'#ff7b76',.09);
+          urchinTridentShot(bot,from,to.clone().sub(from).normalize(),spec);
           sound('enemy',{weapon:weaponId,entity:bot});
           if(hit&&clearShot&&!fake&&!shield)damageEntity(enemy,nobiBulletDamage(bot,enemy,head?spec.head:spec.body,spec.head,spec.mag>0),bot,{firearm:spec.mag>0});
         }
@@ -1972,7 +2037,7 @@ function updateBots(dt){
       bot.goal={x:decoyTarget.x,z:decoyTarget.z};bot.pathTime=0;
       const aligned=face(bot,decoyTarget,8);
       if(aligned&&elapsed>=bot.decoySeen.get(decoyTarget.id)-1.05&&bot.fire<=0&&!(bot.aiReload>0)){
-        if(bot.aiAmmo<=0){bot.aiReload=spec.reload||1.7;bot.fire=bot.aiReload;}
+        if(bot.aiAmmo<=0){if(ordinarySkills.urchinJammed(bot.id,elapsed))bot.fire=.2;else{bot.aiReload=spec.reload||1.7;bot.fire=bot.aiReload;}}
         else{
           const from=new THREE.Vector3(bot.x,(bot.y||0)+1.7,bot.z),to=new THREE.Vector3(decoyTarget.x,decoyTarget.y+1.55,decoyTarget.z),aim=to.clone().sub(from).normalize();
           botsGroup.updateMatrixWorld(true);const ray=new THREE.Raycaster(from,aim,0,from.distanceTo(to)+1);
@@ -1980,6 +2045,7 @@ function updateBots(dt){
           const fake=raycastNopeDecoy(from,aim,blocking?.distance??from.distanceTo(to)+1,bot.team);
           if(!ordinarySkills.capMagazine(bot.id,elapsed))bot.aiAmmo--;bot.fire=Math.max(spec.interval,.4)*(spec.mag>0?(ordinarySkills.nobiInterval?.(bot.id,elapsed)||1):1);bot.flash=.065;bot.shotSequence=(bot.shotSequence||0)+1;bot.muzzle.visible=true;
           const shield=ordinarySkills.interceptShield(from,aim,fake?.distance??blocking?.distance??from.distanceTo(to)+1,spec.body||1,elapsed,match.round);
+          urchinTridentShot(bot,from,aim,spec);
           tracer(from,shield?new THREE.Vector3(shield.point.x,shield.point.y,shield.point.z):fake?.point||blocking?.point||to,bot.team==='blue'?'#a5eee0':'#ff7b76',.09);sound('enemy',{weapon:weaponId,entity:bot});
           if(fake&&!shield)hitNopeDecoy(fake.event,bot);
         }
@@ -2089,6 +2155,7 @@ function updatePlay(dt){
   if(elapsed-lastShot>.3)shotSequence=0;
   if(!exploring||objectivePractice&&!objectivePractice.completed)updateInteraction(dt,controlled&&Math.hypot(player.x-previousX,player.z-previousZ)<dt*.25&&player.vy===0);
   if(objectivePractice)updateObjectivePractice(dt);
+  if(ordinarySkills.urchinJammed(player.id,elapsed))urchinCancelReload(player);
   if(!tickServiceReload(player,dt)&&reloading>0){reloading-=dt;if(reloading<=0){const n=Math.min(weapon().mag-player.ammo,player.reserve);player.ammo+=n;player.reserve-=n;reloading=0;sound('reload');}}
   if(exploring&&player.reserve<weapon().mag)player.reserve=weapon().reserve;
   if(player.alive){camera.position.set(player.x,1.7-player.crouch*.55+player.y,player.z);camera.rotation.set(player.pitch+renderedRecoil,player.yaw,0);}
@@ -2402,6 +2469,7 @@ function updateRemoteActor(actor,dt){
   actor.planting=!!(held&&stationary&&site&&match.spike.carrier===actor.id);
   actor.defusing=!!(held&&stationary&&actor.team===match.defenderTeam&&match.spike.status==='planted'&&Math.hypot(actor.x-match.spike.x,actor.z-match.spike.z)<2.3);
   if(actor.planting||actor.defusing){cancelServiceReload(actor);actor.netReload=0;}
+  if(ordinarySkills.urchinJammed(actor.id,elapsed))urchinCancelReload(actor);
   if(!tickServiceReload(actor,dt)&&actor.netReload>0){actor.netReload=Math.max(0,actor.netReload-dt);if(!actor.netReload){const spec=WEAPONS[actor.netWeapon]||WEAPONS.classic,n=Math.min(spec.mag-actor.netAmmo,actor.netReserve);actor.netAmmo+=n;actor.netReserve-=n;}}
   const actions=data.actions.slice().sort((a,b)=>a.seq-b.seq);let ack=netApplied.get(actor.remoteId)||0;
   for(const action of actions){
@@ -2454,7 +2522,7 @@ function applyRemoteAction(actor,action,actionTime=elapsed){
     const saved=actor.netStores[action.weapon];actor.netAmmo=saved?.ammo??spec.mag;actor.netReserve=saved?.reserve??spec.reserve;actor.netReload=0;return;
   }
   const knives=actor.kit?.knivesActive===true&&actor.netWeapon==='knife',spec=knives?BLADE:WEAPONS[actor.netWeapon]||WEAPONS.classic;
-  if(action.type==='reload'&&actor.netAmmo<spec.mag&&actor.netReserve>0&&!actor.netReload&&!actor.serviceReload){actor.netReload=spec.reload;return;}
+  if(action.type==='reload'&&!ordinarySkills.urchinJammed(actor.id,elapsed)&&actor.netAmmo<spec.mag&&actor.netReserve>0&&!actor.netReload&&!actor.serviceReload){actor.netReload=spec.reload;return;}
   if(action.type==='pickup'){if(match.phase==='live')pickupDroppedWeapon(actor,action.dropId);return;}
   if(action.type==='drop'){
     cancelServiceReload(actor);
@@ -2482,6 +2550,7 @@ function applyRemoteAction(actor,action,actionTime=elapsed){
   if(fake&&!shield){target=null;point=fake.point;nearest=fake.distance;hitNopeDecoy(fake.event,actor);}
   if(melee&&nearest>2.2)target=null;const end=point||origin.clone().addScaledVector(aim,90);if(!melee)tracer(origin,end);sound('shot',{weapon:actor.netWeapon,entity:actor});
   if(!target&&!fake&&!shield&&!melee&&!knives&&hit)capBounceShot(actor,origin,aim,hit,spec);
+  if(!melee&&!knives)urchinTridentShot(actor,origin,aim,spec);
   if(target&&target.team!==actor.team){let damage=nobiBulletDamage(actor,target,head?spec.head:point.y-(target.y||0)<.7?spec.leg:spec.body,spec.head,!melee&&!knives);if(!knives&&['phantom','spectre','ghost','classic'].includes(actor.netWeapon)&&nearest>15)damage*=nearest>30?.8:.9;damageEntity(target,damage,actor,{firearm:!melee&&!knives});burst(point,head?'#fff3c8':'#ff737e',5);}
 }
 function tickOnline(dt){

@@ -1,3 +1,4 @@
+export const URCHIN_SKILLS=Object.freeze({jamRange:40,jamDuration:8,disarmRange:32,pearlBullets:5,pearlValue:20,tridentDuration:9,tridentAngle:Math.PI/45,tridentScale:.65,tridentRange:90,signatureCooldown:18});
 export const CAP_SKILLS=Object.freeze({lockRange:40,lockDuration:8,cleanRange:24,bounceDuration:6,bounceScale:.75,bounceRange:90,magazineDuration:9,signatureCooldown:22});
 // Original fan-made tuning inspired by the duelist role; not an exact live-game ruleset.
 export const CHARACTER_DEFS = Object.freeze({
@@ -22,6 +23,7 @@ export const CHARACTER_DEFS = Object.freeze({
   nobi:Object.freeze({id:'nobi',label:'のび',role:'弱点・工作',ultName:'逆転えり',ultShortName:'逆転',ultimatePoints:7,description:'C：敵を銃に弱くする鈴 / Q：敵の連射を遅らせるひげ / E：設置と電源オフを加速。X：8秒、胴・脚への銃撃も頭相当の威力（7pt）。',color:'#f3cb48',ultIcon:'M18 3 3 13l15 15 15-15ZM10 13l8 8 8-8M18 3v11'}),
   japan:Object.freeze({id:'japan',label:'しばくでジャパン',role:'国境・総動員',ultName:'総動員',ultShortName:'総動員',ultimatePoints:7,description:'C：越えた敵へ国境線 / Q：敵の装甲を接収 / E：被銃撃を撃ち手へ返送。X：倒れた味方全員を開始地点へ100HPで呼び戻す（7pt）。',color:'#e8ca91',ultIcon:'M3 15h30M18 2v26M7 4l22 22M29 4 7 26M4 23h28'}),
   cap:Object.freeze({id:'cap',label:'キャップは？',role:'光学・解除',ultName:'エンドレスマガジン',ultShortName:'無消費',ultimatePoints:7,description:'C：敵のADSを封じる / Q：現在の妨害を解除 / E：壁で弾を一度反射。X：9秒、装填済みの銃弾を消費せず発射（7pt）。',color:'#e36336',ultIcon:'M5 7h26v16H5ZM12 11c-8 0-8 8 0 8s4-8 12-8 8 8 0 8-4-8-12-8'}),
+  urchin:Object.freeze({id:'urchin',label:'青ウニ',role:'棘・弾道',ultName:'三叉潮',ultShortName:'三叉',ultimatePoints:7,description:'C：敵の装填を止める / Q：敵の購入主武器を床へ落とす / E：自分の装填弾をコインへ交換。X：9秒、銃弾が三方向へ分かれる（7pt）。',color:'#a9f1e4',ultIcon:'M18 28V4M18 20 5 7M18 20 31 7M2 11 5 7 9 8M27 8 31 7 34 11M14 8 18 4 22 8'}),
 });
 export const normalizeCharacter = value => typeof value === 'string' && Object.hasOwn(CHARACTER_DEFS, value) ? value : 'duelist';
 export const DUELIST = Object.freeze({ smokeMax: 2, smokePrice: 100, smokeDuration: 5,
@@ -101,6 +103,11 @@ const carSkills={
  q:{name:'ショールームクリア',shortName:'煙の除去',description:'Qで構え、40m以内の照準に重なる煙へ左確定・右取消。敵味方どちらの煙も一つだけ除去。壁越しや閃光中は使えない。',max:1,price:100,type:'car-wash',icon:'M5 21a7 7 0 0 1 3-13 9 9 0 0 1 17 2 6 6 0 0 1 3 11M7 28 28 5M5 28h24'},
  e:{name:'タイヤジャイロ',shortName:'移動射撃',description:'4秒、接地中だけ銃の移動による精度低下をなくす。反動・連射拡散・空中精度・速度は通常通り。18秒で再使用。',max:1,price:0,type:'car-gyro',icon:'M18 3a12 12 0 1 0 0 24 12 12 0 0 0 0-24ZM18 8v14M11 15h14M7 25l-3 4m25-4 3 4'}
 };
+const urchinSkills={
+ c:{name:'棘錠',shortName:'装填封鎖',description:'Cで構え40mの見える敵へ左確定・右取消。8秒、通常/整備装填を中止し新しい装填も封じる。装填済み弾の射撃や持替は可能。',max:2,price:100,type:'urchin-jam',icon:'M6 9h24v18H6ZM11 9V5h14v4M18 13v10'},
+ q:{name:'棘抜き',shortName:'銃を落とす',description:'Qで構え32mの見える敵へ左確定・右取消。構え中の購入主武器を弾数ごと床へ落とす。無料CLASSIC・ナイフ・ボンバー・ULTは対象外。銃は拾い直せる。',max:1,price:100,type:'urchin-disarm',icon:'M4 6h28v8H4ZM14 14v8h8v-8M18 23v7m-5-4 5 4 5-4'},
+ e:{name:'真珠勘定',shortName:'弾→コイン',description:'自分の装填弾を最大5発消費、1発20しばくでコインへ交換。所持9000まで。空弾倉・装填中は使えない。18秒で再使用。',max:1,price:0,type:'urchin-pearl',icon:'M7 5h7v17H7ZM11 26h17M24 6a8 8 0 1 0 0 16 8 8 0 0 0 0-16Z'}
+};
 const capSkills={
  c:{name:'スコープロック',shortName:'ADS封鎖',description:'Cで構え40mの見える敵へ左確定・右取消。8秒、ライフルのADSを封じる。腰撃ち・連射・弾数・スキルは通常通り。',max:2,price:100,type:'cap-lock',icon:'M5 10h26v13H5ZM11 16h5m6 0h4M4 28 32 3'},
  q:{name:'クリアテイク',shortName:'妨害解除',description:'Qで構え24mの見える味方へ左確定・右取消。味方を狙わなければ自身。現在の閃光・対象指定の妨害を解除。回復や将来の耐性はなく、対象なしでは消費しない。',max:1,price:100,type:'cap-clean',icon:'M7 6h22v20H7ZM11 16l5 5 10-12'},
@@ -116,10 +123,10 @@ const nobiSkills={
  q:{name:'ひげブレーキ',shortName:'連射抑制',description:'Qで構え40mの見える敵へ左確定・右取消。5秒、その敵の銃の最小射撃間隔を1.6倍。弾・移動・ナイフ・スキルは奪わない。',max:1,price:100,type:'nobi-brake',icon:'M3 8l12 4M3 16h12M3 24l12-4M33 8l-12 4M33 16H21M33 24l-12-4'},
  e:{name:'ポケット工具',shortName:'工作加速',description:'6秒、自身の設置と電源オフの進みが1.5倍。Fを押す前に発動。場所・静止・作業者の条件は通常通り。18秒で再使用。',max:1,price:0,type:'nobi-tool',icon:'M8 3v12l5 5v9h10v-9l5-5V3l-6 7h-8ZM12 25h12'}
 };
-const skillsFor = character => character==='cap'?capSkills : character==='japan'?japanSkills : character==='nobi'?nobiSkills : character==='car'?carSkills : character === 'cat' ? catSkills : character === 'duck' ? duckSkills : character === 'nope' ? nopeSkills : character === 'mend' ? mendSkills : character === 'echo' ? iagnuSkills : character === 'veil' ? veilSkills : character === 'ember' ? emberSkills : character === 'frost' ? frostSkills : baseSkills;
-export const signatureCooldown = character => character==='cap'?CAP_SKILLS.signatureCooldown : character==='japan'?JAPAN_SKILLS.signatureCooldown : character==='nobi'?NOBI_SKILLS.signatureCooldown : character==='car'?CAR_SKILLS.signatureCooldown : character === 'cat' ? CAT_SKILLS.signatureCooldown : character === 'duck' ? DUCK_SKILLS.signatureCooldown : character === 'nope' ? NOPE_SKILLS.signatureCooldown : character === 'mend' ? MEND_SKILLS.signatureCooldown : character === 'echo' ? IAGNU_SKILLS.signatureCooldown : character === 'veil' ? VEIL_SKILLS.signatureCooldown : character === 'ember' ? EMBER_SKILLS.signatureCooldown : character === 'frost' ? FROST_SKILLS.signatureCooldown : 0;
+const skillsFor = character => character==='urchin'?urchinSkills : character==='cap'?capSkills : character==='japan'?japanSkills : character==='nobi'?nobiSkills : character==='car'?carSkills : character === 'cat' ? catSkills : character === 'duck' ? duckSkills : character === 'nope' ? nopeSkills : character === 'mend' ? mendSkills : character === 'echo' ? iagnuSkills : character === 'veil' ? veilSkills : character === 'ember' ? emberSkills : character === 'frost' ? frostSkills : baseSkills;
+export const signatureCooldown = character => character==='urchin'?URCHIN_SKILLS.signatureCooldown : character==='cap'?CAP_SKILLS.signatureCooldown : character==='japan'?JAPAN_SKILLS.signatureCooldown : character==='nobi'?NOBI_SKILLS.signatureCooldown : character==='car'?CAR_SKILLS.signatureCooldown : character === 'cat' ? CAT_SKILLS.signatureCooldown : character === 'duck' ? DUCK_SKILLS.signatureCooldown : character === 'nope' ? NOPE_SKILLS.signatureCooldown : character === 'mend' ? MEND_SKILLS.signatureCooldown : character === 'echo' ? IAGNU_SKILLS.signatureCooldown : character === 'veil' ? VEIL_SKILLS.signatureCooldown : character === 'ember' ? EMBER_SKILLS.signatureCooldown : character === 'frost' ? FROST_SKILLS.signatureCooldown : 0;
 const characterSkills = Object.freeze(Object.fromEntries(Object.keys(CHARACTER_DEFS).map(character => [character,
-  Object.freeze(Object.fromEntries(['c', 'q', 'e'].map(key => [key, Object.freeze({ id: `${character}-${skillsFor(character)[key].type.replace(/^(duelist|nope|mend|echo|veil|ember|frost|duck|cat|car|nobi|japan|cap)-/, '')}`, key, ...skillsFor(character)[key], ...(character === 'duelist' && key === 'e' ? { description: `${baseSkills.e.description} ${DUELIST.signatureKills}撃破で再使用。` } : {}) })]))),
+  Object.freeze(Object.fromEntries(['c', 'q', 'e'].map(key => [key, Object.freeze({ id: `${character}-${skillsFor(character)[key].type.replace(/^(duelist|nope|mend|echo|veil|ember|frost|duck|cat|car|nobi|japan|cap|urchin)-/, '')}`, key, ...skillsFor(character)[key], ...(character === 'duelist' && key === 'e' ? { description: `${baseSkills.e.description} ${DUELIST.signatureKills}撃破で再使用。` } : {}) })]))),
 ])));
 const skillKey = value => typeof value === 'string' ? value.toLowerCase().replace(/^key/, '') : '';
 export function getCharacterSkill(character, key) { const skills = characterSkills[normalizeCharacter(character)], normalized = skillKey(key); return Object.hasOwn(skills, normalized) ? skills[normalized] : null; }
@@ -165,6 +172,7 @@ export class DuelistKit {
       case 'c':
         if (this.smoke <= 0) return null;
         this.smoke--;
+        if(this.character==='urchin')return {type:'urchin-jam'};
         if(this.character==='cap')return {type:'cap-lock'};
         if(this.character==='japan')return {type:'japan-border'};
         if(this.character==='nobi')return {type:'nobi-tag'};
@@ -180,6 +188,7 @@ export class DuelistKit {
       case 'q':
         if (this.updraft <= 0) return null;
         this.updraft--;
+        if(this.character==='urchin')return {type:'urchin-disarm'};
         if(this.character==='cap')return {type:'cap-clean'};
         if(this.character==='japan')return {type:'japan-levy'};
         if(this.character==='nobi')return {type:'nobi-brake'};
@@ -196,7 +205,8 @@ export class DuelistKit {
         if (signatureCooldown(this.character)) {
           if (this.dash <= 0) return null;
           this.dash = 0; this.dashKills = 0; this.nextSignatureAt = now + signatureCooldown(this.character);
-          if(this.character==='cap')return {type:'cap-bank'};
+          if(this.character==='urchin')return {type:'urchin-pearl'};
+        if(this.character==='cap')return {type:'cap-bank'};
         if(this.character==='japan')return {type:'japan-return'};
         if(this.character==='nobi')return {type:'nobi-tool'};
         if (this.character === 'car') return {type:'car-gyro'};
@@ -219,6 +229,7 @@ export class DuelistKit {
         return { type: 'dash-armed', readyAt: this.armReadyAt, expiresAt: this.armExpiresAt };
       case 'x':
         if (this.knivesActive || this.ultPoints < DUELIST.ultimatePoints) return null;
+        if(this.character==='urchin'){this.ultPoints-=DUELIST.ultimatePoints;return {type:'urchin-trident'};}
         if(this.character==='cap'){this.ultPoints-=DUELIST.ultimatePoints;return {type:'cap-magazine'};}
         if(this.character==='japan'){this.ultPoints-=DUELIST.ultimatePoints;return {type:'japan-muster'};}
         if(this.character==='nobi'){this.ultPoints-=DUELIST.ultimatePoints;return {type:'nobi-legend'};}

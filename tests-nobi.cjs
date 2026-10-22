@@ -6,7 +6,7 @@ async function main(){
  const a={id:'nobi',team:'blue',x:0,y:0,z:0,hp:100,alive:true},b={...a,id:'enemy',team:'red',z:-10},copy=x=>JSON.parse(JSON.stringify(x));let groups=0;
  const test=(name,fn)=>{fn();groups++;console.log('PASS: '+name);};
  test('eleventh stable identity, finite purchase,18s E and7pt independent X',()=>{
-  assert.equal(Object.keys(CHARACTER_DEFS).length,13);assert.equal(CHARACTER_DEFS.nobi.label,'のび');const k=new DuelistKit({character:'nobi'});let cost=0;
+  assert.equal(Object.keys(CHARACTER_DEFS).length,14);assert.equal(CHARACTER_DEFS.nobi.label,'のび');const k=new DuelistKit({character:'nobi'});let cost=0;
   for(const key of['c','c','q'])assert.ok(k.buy(key,n=>(cost+=n,true)));assert.equal(cost,300);assert.equal(k.buy('q',()=>true),false);
   for(const key of['c','q','e'])assert.equal(k.activate(key,1).type,getCharacterSkill('nobi',key).type);assert.equal(k.activate('e',18.99),null);assert.ok(k.activate('e',19));assert.equal(k.activate('x',20),null);k.ultPoints=7;assert.equal(k.activate('x',20).type,'nobi-legend');assert.equal(k.ultPoints,0);assert.equal(k.knivesActive,false);const restored=new DuelistKit();assert.ok(restored.restore(copy(k.snapshot())));assert.deepEqual(restored.snapshot(),k.snapshot());
  });
