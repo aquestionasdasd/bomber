@@ -473,7 +473,7 @@ function startDetonation(data,{audible=true}={}){
 function applyNetDetonation(packet){
   if(packet.rules?.spike?.status!=='detonated'){if(detonationState)resetDetonation();return;}
   const d=packet.detonation;
-  if(!d||typeof d.id!=='string'||!d.id.length||d.id.length>96||d.round!==match.round||![d.startedAt,d.x,d.z].every(Number.isFinite)||!Number.isSafeInteger(d.seed)||d.seed<0||d.seed>4294967295||d.startedAt<0||d.startedAt>elapsed+.05||Math.abs(d.x)>90||Math.abs(d.z)>90)return;
+  if(!d||typeof d.id!=='string'||!d.id.length||d.id.length>96||d.round!==match.round||![d.startedAt,d.x,d.z].every(Number.isFinite)||!Number.isSafeInteger(d.seed)||d.seed<0||d.seed>4294967295||d.startedAt<0||d.startedAt>elapsed+.05||d.x<activeArenaBounds().minX||d.x>activeArenaBounds().maxX||d.z<activeArenaBounds().minZ||d.z>activeArenaBounds().maxZ)return;
   startDetonation(d);
 }
 function renderWithDetonation(dt=0){
@@ -555,7 +555,7 @@ function serializeDrops(){return droppedWeapons.map(({id,weapon,x,z,yaw,ammo,res
 function syncDrops(values){
   const valid=new Map();
   for(const value of Array.isArray(values)?values.slice(0,32):[]){
-    const spec=WEAPONS[value?.weapon];if(!spec||value.weapon==='classic'||!['primary','secondary'].includes(spec.slot)||!Number.isSafeInteger(value.id)||value.id<1||![value.x,value.z,value.yaw,value.ammo,value.reserve].every(Number.isFinite)||Math.abs(value.x)>90||Math.abs(value.z)>90)continue;
+    const spec=WEAPONS[value?.weapon];if(!spec||value.weapon==='classic'||!['primary','secondary'].includes(spec.slot)||!Number.isSafeInteger(value.id)||value.id<1||![value.x,value.z,value.yaw,value.ammo,value.reserve].every(Number.isFinite)||value.x<activeArenaBounds().minX||value.x>activeArenaBounds().maxX||value.z<activeArenaBounds().minZ||value.z>activeArenaBounds().maxZ)continue;
     valid.set(value.id,{id:value.id,weapon:value.weapon,x:value.x,z:value.z,yaw:value.yaw,ammo:clamp(Math.floor(value.ammo),0,spec.mag),reserve:clamp(Math.floor(value.reserve),0,spec.reserve)});
   }
   for(const drop of [...droppedWeapons])if(!valid.has(drop.id)||valid.get(drop.id).weapon!==drop.weapon)removeDrop(drop);
@@ -785,15 +785,16 @@ function selectArena(id){
   id=normalizeMapId(id);if((map.id||'hashimoto')===id){updateMapLabels();return;}
   map.traffic?.reset();map.world?.removeFromParent();
   if(!arenaCache.has(id))arenaCache.set(id,createMap(THREE,environment,id));
-  map=arenaCache.get(id);environment.add(map.world);navigation=createNavigation(map);updateBots.tactics=null;nopeDecoyTownCandidates=null;
+  map=arenaCache.get(id);environment.add(map.world);navigation=createNavigation({...map,bounds:map.combatBounds||map.bounds});updateBots.tactics=null;nopeDecoyTownCandidates=null;
   environment.traverse(object=>{for(const material of Array.isArray(object.material)?object.material:[object.material])if(material?.map)material.map.anisotropy=textureFiltering;});
   map.world.updateMatrixWorld(true);updateMapLabels();
 }
+function activeArenaBounds(){return exploring&&!onlinePlaying?map.bounds:map.combatBounds||map.bounds;}
 function updateMapLabels(){
-  const name=map.name||'橋本駅',short=map.shortName||'HASHIMOTO';
-  const copies={'mission-map':name+' 爆破・電源オフ作戦','menu-map-name':name+'前','character-preview-map':name+'前','hud-map-name':short+' STATION','map-title':name+' / 戦術マップ','map-area-name':name+' · 164m × 164m','map-route-copy':map.id==='hirakata'?'南北自由通路 / 東側高架下 / 百貨店西連絡路':'バス通り / 中央連絡路 / ミウィ通り'};
-  copies['map-site-a-name']=map.sites[0].name;copies['map-site-b-name']=map.sites[1].name;copies['map-detail']=map.id==='hirakata'?'公式図面と写真を参照して再構成。車道を走る京阪バスに注意。':'橋本駅前の景観をもとに構成したオリジナルマップです。';
-  copies['map-coordinate-copy']=copies['menu-coordinate-copy']=map.id==='hirakata'?'34.815°N / 135.649°E':'35°35′42″N / 139°20′42″E';copies['menu-map-note']=map.id==='hirakata'?'枚方市駅 / 南北広場・屋内自由通路':'非公式ファンメイド / 橋本駅前をモチーフにしたオリジナルマップ';copies['radar-map-copy']=short+' / 2 SITES';
+  const name=map.name||'橋本駅',short=map.shortName||'HASHIMOTO',viewBounds=activeArenaBounds();
+  const copies={'mission-map':name+' 爆破・電源オフ作戦','menu-map-name':name+'前','character-preview-map':name+'前','hud-map-name':short+' STATION','map-title':name+' / 戦術マップ','map-area-name':name+' · '+(viewBounds.maxX-viewBounds.minX)+'m × '+(viewBounds.maxZ-viewBounds.minZ)+'m','map-route-copy':map.id==='hirakata'?'南北自由通路 / 東側高架下 / 百貨店西連絡路':'バス通り / 中央連絡路 / ミウィ通り'};
+  copies['map-site-a-name']=map.sites[0].name;copies['map-site-b-name']=map.sites[1].name;copies['map-detail']=map.id==='hirakata'?'対戦は従来の164m四方。マップ練習では周辺224m四方も探索できます。車道の京阪バスに注意。':'橋本駅前の景観をもとに構成したオリジナルマップです。';
+  copies['map-coordinate-copy']=copies['menu-coordinate-copy']=map.id==='hirakata'?'34.815°N / 135.649°E':'35°35′42″N / 139°20′42″E';copies['menu-map-note']=map.id==='hirakata'?'枚方市駅 / 南北広場・自由通路・駅周辺街区':'非公式ファンメイド / 橋本駅前をモチーフにしたオリジナルマップ';copies['radar-map-copy']=short+' / 2 SITES';
   canvas.setAttribute('aria-label',name+'の3D競技マップ');$('large-minimap')?.setAttribute('aria-label',name+'の戦術マップ');
   for(const[id,text]of Object.entries(copies))if($(id))$(id).textContent=text;
   for(const id of ['map-select','online-map'])if($(id)&&(!onlinePlaying||id==='map-select'))$(id).value=map.id||'hashimoto';
@@ -836,6 +837,7 @@ function startGame() {
   rangeSession=selectedFormat==='range'?new RangeSession():null;rangeRespawn=0;
   objectivePractice=['plant','defuse'].includes(selectedFormat)?{kind:selectedFormat,site:'A',completed:false,elapsed:0,duration:0}:null;
   exploring=selectedFormat==='explore'||!!rangeSession||!!objectivePractice;
+  navigation=createNavigation({...map,bounds:activeArenaBounds()});updateBots.tactics=null;nopeDecoyTownCandidates=null;updateMapLabels();
   match=new MatchRules({format:exploring?'standard':selectedFormat,startingSide:objectivePractice?(selectedFormat==='plant'?'attack':'defend'):$('starting-side')?.value||'attack'});
   if($('economy-note'))$('economy-note').textContent=match.format==='swift'?'SWIFT · ROUND GRANTS SC 2,400 / 4,250  +  ELIMINATION SC 200':'WIN SC 3,000  +  ELIMINATION SC 200';
   inventory={primary:null,secondary:'classic',active:'classic'};player.armor=0;player.alive=true;
@@ -884,7 +886,8 @@ function backMenu() {
   netHostPaused=false;syncSmokes([]);scene.fog.near=145;scene.fog.far=380;scene.fog.color.set('#b7d0dd');
   updateFormatSummary();
   mode='menu';clearCombatInput();gun.visible=false;spikeModel.visible=false;setVisible('loading',false);clearDrops();resetDetonation();resetTakeover();resetTeamAbilities();
-  rangeSession=null;rangeRespawn=0;objectivePractice=null;
+  rangeSession=null;rangeRespawn=0;objectivePractice=null;exploring=false;
+  navigation=createNavigation({...map,bounds:activeArenaBounds()});updateBots.tactics=null;updateMapLabels();
   clearBots();for(const id of ['hud','result','pause-menu','shop-overlay','scoreboard','map-overlay'])setVisible(id,false);setVisible('menu',true);buyBarrier.visible=false;
   if(document.pointerLockElement)document.exitPointerLock();
 }
@@ -1020,7 +1023,7 @@ function updateTravelButtons(){
   trial.addEventListener('click',startCharacterTrial);container.append(trial);
 }
 function canStand(x,z,r=.34,feet=player.y) {
-  const b=map.bounds;
+  const b=activeArenaBounds();
   if(x<b.minX+r||x>b.maxX-r||z<b.minZ+r||z>b.maxZ-r)return false;
   // Ground details under 2 cm are harmless; raised solids require feet above their real top.
   return !map.collision.blocked(x,z,r,feet);
@@ -1829,7 +1832,7 @@ function updateHUD(){
 }
 function drawMinimap(target,large=false){
   if(!target)return;const ctx=target.getContext('2d'),w=target.width,h=target.height,pad=large?40:14;
-  const bounds=map.bounds;
+  const bounds=activeArenaBounds();
   const scale=Math.min((w-pad*2)/(bounds.maxX-bounds.minX),(h-pad*2)/(bounds.maxZ-bounds.minZ));
   const ox=(w-(bounds.maxX-bounds.minX)*scale)/2,oz=(h-(bounds.maxZ-bounds.minZ)*scale)/2;
   const px=x=>ox+(x-bounds.minX)*scale,pz=z=>oz+(z-bounds.minZ)*scale;
@@ -1839,6 +1842,7 @@ function drawMinimap(target,large=false){
   for(let x=Math.ceil(bounds.minX/grid)*grid;x<bounds.maxX;x+=grid){ctx.beginPath();ctx.moveTo(px(x),0);ctx.lineTo(px(x),h);ctx.stroke();}
   for(let z=Math.ceil(bounds.minZ/grid)*grid;z<bounds.maxZ;z+=grid){ctx.beginPath();ctx.moveTo(0,pz(z));ctx.lineTo(w,pz(z));ctx.stroke();}
   drawMapShapes(ctx,map.mapShapes,{bounds,px,pz,scale,large});
+  if(large&&exploring&&map.combatBounds&&map.combatBounds!==map.bounds){const b=map.combatBounds;ctx.save();ctx.strokeStyle='#e68172';ctx.lineWidth=2;ctx.setLineDash([6,5]);ctx.strokeRect(px(b.minX),pz(b.minZ),(b.maxX-b.minX)*scale,(b.maxZ-b.minZ)*scale);ctx.setLineDash([]);ctx.fillStyle='#efb4a8';ctx.font='12px sans-serif';ctx.textAlign='left';ctx.fillText('対戦エリア / 164m',px(b.minX)+5,pz(b.minZ)+15);ctx.restore();}
   if(map.traffic)for(const bus of map.traffic.poses(elapsed)){ctx.save();ctx.translate(px(bus.x),pz(bus.z));ctx.rotate(-bus.yaw);ctx.fillStyle='#ee6675';ctx.fillRect(-1.25*scale,-5.3*scale,2.5*scale,10.6*scale);ctx.restore();}
   ctx.textAlign='center';ctx.textBaseline='middle';
   for(const pos of map.sites){

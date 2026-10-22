@@ -77,3 +77,6 @@ C/Q/E/Xの全4技について、既存全員との比較表を先に作り、効
 - [x] PUMP/DRUM散弾、SCOUT/ATLASスナイパー、FORGE大容量マシンガン。役割/価格/欠点はWEAPON-DESIGN.mdに記録。
 - [x] hover/focus/touch性能説明、全10銃の無料練習選択、host共通ballisticsとBOTの購入候補。
 - [ ] 公開/最終検証/GitHubの確定根拠はworkspace cycle59-release.jsonへ記録。人間同士の武器別勝率調整は今後の観察対象。
+
+## 第60巡（最新人間指定）
+- [x] 枚方市駅の周辺景観/練習を224m四方に拡張し、対戦164mを保持。周辺20棟/4街路/分岐/4練習地点を追加。橋本164mは維持。現物の細部/寸法完全一致ではなく一次資料を参照した再構成。最終公開/検証はworkspace cycle60-release.json。
