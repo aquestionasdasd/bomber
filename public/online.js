@@ -108,7 +108,7 @@ export class RoomClient {
     try{await Promise.all(batch.map(async message=>{try{await this.api('/messages',{...message,kind:'game'});}catch(error){if(!this.closed)this.onError(error.message);}}));}finally{this.relayBusy=false;}
   }
   async ready(ready,team){this.room=await this.api('/ready',{ready,...(team?{team}:{})});this.onRoom(this.room);}
-  async start(format){this.room=await this.api('/start',{format});this.onRoom(this.room);}
+  async start(format,mapId='hashimoto'){this.room=await this.api('/start',{format,mapId});this.onRoom(this.room);}
   close(notify=true){
     if(notify||this.room.status==='closed')RoomClient.clearSession(this.session.memberId);
     if(this.closed)return;this.closed=true;clearTimeout(this.pollTimer);this.pendingState=null;this.pendingTeamStates.clear();for(const peer of this.peers.values())peer.pc.close();this.peers.clear();
