@@ -1,3 +1,5 @@
+import { carAimVector, carSmokeIntersection, carMovementSpread } from './car-targeting.js';
+import { createCarSkillFX } from './car-skill-fx.js';
 import { createCatSkillFX } from './cat-skill-fx.js';
 import { createDuckSkillFX } from './duck-skill-fx.js';
 import * as THREE from './vendor/three.module.js';
@@ -11,7 +13,7 @@ import { createCharacterPicker } from './character-preview.js';
 import { createGameAudio } from './audio.js';
 import { RangeSession } from './range.js';
 import { RoomClient } from './online.js';
-import { DuelistKit, CHARACTER_DEFS, normalizeCharacter, signatureCooldown, CAT_SKILLS, DUCK_SKILLS, DUELIST, DUELIST_SKILLS, NOPE_SKILLS, MEND_SKILLS, IAGNU_SKILLS, VEIL_SKILLS, EMBER_SKILLS, FROST_SKILLS } from './abilities.js';
+import { DuelistKit, CHARACTER_DEFS, normalizeCharacter, signatureCooldown, CAR_SKILLS, CAT_SKILLS, DUCK_SKILLS, DUELIST, DUELIST_SKILLS, NOPE_SKILLS, MEND_SKILLS, IAGNU_SKILLS, VEIL_SKILLS, EMBER_SKILLS, FROST_SKILLS } from './abilities.js';
 import { createTeamAbilities } from './team-abilities.js';
 import { createCharacterFX } from './character-fx.js';
 import { createZoneAbilities } from './zone-abilities.js';
@@ -97,6 +99,7 @@ const mendSkillFX=createMendSkillFX(THREE,camera);scene.add(mendSkillFX.group);
 const iagnuSkillFX=createIagnuSkillFX(THREE,camera);scene.add(iagnuSkillFX.group);
 const grassSkillFX=createGrassSkillFX(THREE,camera);scene.add(grassSkillFX.group);
 const emberSkillFX=createEmberSkillFX(THREE,camera);scene.add(emberSkillFX.group);
+const carSkillFX=createCarSkillFX(THREE);scene.add(carSkillFX.group);const carImpulseSeen=new Set();
 const catSkillFX=createCatSkillFX(THREE);scene.add(catSkillFX.group);const catReturnSeen=new Set();
 const duckSkillFX=createDuckSkillFX(THREE);scene.add(duckSkillFX.group);
 const frostSkillFX=createFrostSkillFX(THREE,camera);scene.add(frostSkillFX.group);
@@ -184,7 +187,7 @@ function resetTakeover(){takeoverState=null;takeoverClock=0;stationTakeover.rese
 function resetZoneAbilities(){zoneAbilities.reset();zoneFX.reset();zonePulseAudio.clear();zoneTargetPreview=null;zoneTargetPreviewAt=-Infinity;zoneTargetCharacter=null;if($('status-effects')){$('status-effects').hidden=true;$('status-effects').textContent='';}}
 const stoppedTurfEvents=new Map();
 const stoppedFrostEvents=new Map();
-function resetOrdinarySkills(){catReturnSeen.clear();catSkillFX.reset();duckAim=null;duckSkillFX.reset();botHearing.reset();ordinarySkills.reset();ordinaryFX.reset();nopeDecoys.reset();nopeDecoyFX.reset();nopePops.length=0;nopeSeenPopSequence=0;mendSkillFX.reset();iagnuSkillFX.reset();grassSkillFX.reset();emberSkillFX.reset();frostSkillFX.reset();duelistSkillFX.reset();for(const actor of [player,...bots]){cancelServiceReload(actor);actor.lastHeard=null;actor.netStepClock=0;}stoppedServiceEvents.clear();stoppedTurfEvents.clear();stoppedFrostEvents.clear();ordinaryAudio.clear();ordinaryMarkerAudio.clear();const overlay=$('skill-blind-overlay');if(overlay){overlay.hidden=true;overlay.style.opacity='0';}}
+function resetOrdinarySkills(){carImpulseSeen.clear();carSkillFX.reset();catReturnSeen.clear();catSkillFX.reset();duckAim=null;duckSkillFX.reset();botHearing.reset();ordinarySkills.reset();ordinaryFX.reset();nopeDecoys.reset();nopeDecoyFX.reset();nopePops.length=0;nopeSeenPopSequence=0;mendSkillFX.reset();iagnuSkillFX.reset();grassSkillFX.reset();emberSkillFX.reset();frostSkillFX.reset();duelistSkillFX.reset();for(const actor of [player,...bots]){cancelServiceReload(actor);actor.lastHeard=null;actor.netStepClock=0;}stoppedServiceEvents.clear();stoppedTurfEvents.clear();stoppedFrostEvents.clear();ordinaryAudio.clear();ordinaryMarkerAudio.clear();const overlay=$('skill-blind-overlay');if(overlay){overlay.hidden=true;overlay.style.opacity='0';}}
 function resetTeamAbilities(){teamAbilities.reset();characterFX.reset();resetZoneAbilities();resetOrdinarySkills();}
 function actorGrounded(actor){
   if(!actor?.alive||!Number.isFinite(actor.y)||Number.isFinite(actor.vy)&&Math.abs(actor.vy)>1e-5)return false;
@@ -361,7 +364,7 @@ function updateOrdinarySkills(){
       ordinaryAudio.set(event.id,beat);
     }else{
       const trigger=ordinaryAudioTime(event),triggered=elapsed>=trigger;
-      if(triggered&&previous!==true&&elapsed-trigger<.18)sound({'nope-bottle':'bottle-pop','nope-flash':'flash','mend-seeds':'seed-bloom','mend-pollen':'pollen','mend-heal':'flower-heal','echo-tag':'echo-tag-set','echo-glint':'echo-glint','echo-kerning':'echo-kerning','veil-dust':'grass-dust','veil-roots':'grass-roots','veil-turf':'grass-turf','ember-solder':'solder-pop','ember-shade':'shade-check','ember-service':'quick-solder','frost-stitch':'frost-stitch','frost-mist':'frost-mist','frost-unravel':'frost-unravel','duelist-comet':'duelist-comet','duelist-lift':'duelist-lift','duck-seal':'duck-seal','duck-shield':'duck-shield','duck-hush':'duck-hush','duck-egg':'duck-egg','cat-bookmark':'cat-bookmark','cat-return':'cat-return','cat-pluck':'cat-pluck','cat-fetch':'cat-fetch','cat-clock':'cat-clock'}[event.type]||'smoke',{entity:event,localOnly:true});
+      if(triggered&&previous!==true&&elapsed-trigger<.18)sound({'nope-bottle':'bottle-pop','nope-flash':'flash','mend-seeds':'seed-bloom','mend-pollen':'pollen','mend-heal':'flower-heal','echo-tag':'echo-tag-set','echo-glint':'echo-glint','echo-kerning':'echo-kerning','veil-dust':'grass-dust','veil-roots':'grass-roots','veil-turf':'grass-turf','ember-solder':'solder-pop','ember-shade':'shade-check','ember-service':'quick-solder','frost-stitch':'frost-stitch','frost-mist':'frost-mist','frost-unravel':'frost-unravel','duelist-comet':'duelist-comet','duelist-lift':'duelist-lift','duck-seal':'duck-seal','duck-shield':'duck-shield','duck-hush':'duck-hush','duck-egg':'duck-egg','cat-bookmark':'cat-bookmark','cat-return':'cat-return','cat-pluck':'cat-pluck','cat-fetch':'cat-fetch','cat-clock':'cat-clock','car-bumper':'car-bumper','car-wash':'car-wash','car-gyro':'car-gyro','car-pit':'car-pit'}[event.type]||'smoke',{entity:event,localOnly:true});
       ordinaryAudio.set(event.id,triggered);
     }
   }
@@ -380,6 +383,7 @@ function renderOrdinarySkills(){
   iagnuSkillFX.update(live?ordinarySkills.events(elapsed):[],elapsed,{viewer:viewer||player,actors:[player,...bots],showHand:live&&mode==='play'&&player.alive,reducedMotion:reducedMotion.matches});
   grassSkillFX.update(live?ordinarySkills.events(elapsed):[],elapsed,{viewer:viewer||player,actors:[player,...bots].map(ordinaryActorView),groundHeight:ordinaryGroundHeight,showHand:live&&mode==='play'&&player.alive,reducedMotion:reducedMotion.matches});
   emberSkillFX.update(live?ordinarySkills.events(elapsed):[],elapsed,{viewer:viewer||player,actors:[player,...bots].map(ordinaryActorView),showHand:live&&mode==='play'&&player.alive,reducedMotion:reducedMotion.matches});
+  carSkillFX.update(live?ordinarySkills.events(elapsed):[],elapsed,{actors:[player,...bots],preview:live&&mode==='play'&&player.alive&&player.kit.character==='car'&&duckAim?carSkillTarget(player,duckAim):null});
   catSkillFX.update(live?ordinarySkills.events(elapsed):[],elapsed,{actors:[player,...bots],preview:live&&mode==='play'&&player.alive&&player.kit.character==='cat'&&duckAim?{...(duckAim==='q'?catEnemyTarget(player):catDropTarget(player)),type:duckAim}:null});
   duckSkillFX.update(live?ordinarySkills.events(elapsed):[],elapsed,{actors:[player,...bots],preview:live&&mode==='play'&&player.alive&&player.kit.character==='duck'&&duckAim?{...getDuckTarget(player,duckAim==='c'?'duck-seal':'duck-shield'),type:duckAim}:null});
   frostSkillFX.update(live?ordinarySkills.events(elapsed):[],elapsed,{viewer:viewer||player,actors:[player,...bots].map(ordinaryActorView),groundHeight:ordinaryGroundHeight,reachable:ordinaryReachable,showHand:live&&mode==='play'&&player.alive,reducedMotion:reducedMotion.matches});
@@ -718,7 +722,7 @@ function autoBuyBot(r){
   else if(r.secondary==='classic'&&r.credits>=500){r.secondary='ghost';r.credits-=500;}
   if(r.armor<50&&r.credits>=1000){r.armor=50;r.credits-=1000;}
   else if(r.armor<25&&r.credits>=400){r.armor=25;r.credits-=400;}
-  if(['duelist','nope','mend','echo','veil','ember','frost','duck','cat'].includes(r.kit?.character))for(const key of ['c','q'])while(r.kit.buy(key,price=>{if(r.credits<price)return false;r.credits-=price;return true;})){}
+  if(['duelist','nope','mend','echo','veil','ember','frost','duck','cat','car'].includes(r.kit?.character))for(const key of ['c','q'])while(r.kit.buy(key,price=>{if(r.credits<price)return false;r.credits-=price;return true;})){}
 }
 function setVisible(id,visible) { if($(id))$(id).hidden=!visible; if(visible&&(id==='menu'||id==='result'))keyboardProtection.release(); if(id==='menu'||id==='online-overlay'||id==='online-lobby')characterPicker.sync(); }
 function clearCombatInput(){duckAim=null;
@@ -900,7 +904,7 @@ function startCharacterTrial(){
     const team=support?player.team:(player.team==='blue'?'red':'blue'),character=characterIds[(characterIds.indexOf(player.kit.character)+index)%characterIds.length];
     const record={id:`trial-${index}`,team,name:`${CHARACTER_DEFS[character].label} / 練習`,k:0,d:0,a:0,credits:0,secondary:'classic',kit:new DuelistKit({character})};
     makeBot(points[index],index,team,record);const target=bots.at(-1);target.rangeTarget=true;target.hp=support?35+index*25:100;target.group.rotation.y=0;
-    if(player.kit.character==='cat'){target.aiWeapon='classic';target.aiAmmo=WEAPONS.classic.mag;target.aiReserve=WEAPONS.classic.reserve;target.aiReload=0;}
+    if(player.kit.character==='cat'||player.kit.character==='car'){target.aiWeapon='classic';target.aiAmmo=WEAPONS.classic.mag;target.aiReserve=WEAPONS.classic.reserve;target.aiReload=0;}
   }
   if(player.kit.character==='cat')addDrop({id:++dropSequence,weapon:'ghost',x:player.x,z:player.z-6,yaw:0,ammo:9,reserve:12});
   resumeGame();updateHUD();
@@ -1002,7 +1006,7 @@ function shoot(shotTime=elapsed) {
   camera.position.set(player.x,1.7-player.crouch*.55+player.y,player.z);camera.rotation.set(player.pitch+renderedRecoil,player.yaw,0);
   camera.getWorldDirection(direction);
   const moving=Math.hypot(player.vx,player.vz)>1.2;
-  const spread=ultimate?0:spec.spread*(aiming?.65:player.crouch>.5?.8:1)+(player.vy!==0?.15:moving?.09:0)+Math.min(.04,Math.max(0,shotSequence-3)*.004);
+  const spread=ultimate?0:spec.spread*(aiming?.65:player.crouch>.5?.8:1)+carMovementSpread({airborne:player.vy!==0,moving,gyro:ordinarySkills.carGyro(player.id,elapsed)&&actorGrounded(player)})+Math.min(.04,Math.max(0,shotSequence-3)*.004);
   direction.x+=(Math.random()-.5)*spread;direction.y+=(Math.random()-.5)*spread;direction.normalize();
   if(!ultimate&&shotSequence>3)direction.x+=Math.sin(shotSequence*1.8)*.008;
   direction.normalize();raycaster.set(camera.position,direction);raycaster.far=melee?2.2:120;
@@ -1174,6 +1178,63 @@ function catDropTarget(actor,aim=null){
  const origin=new THREE.Vector3(actor.x,(actor.y||0)+1.7-(actor.crouch||0)*.55,actor.z),direction=new THREE.Vector3(-Math.sin(yaw)*Math.cos(pitch),Math.sin(pitch),-Math.cos(yaw)*Math.cos(pitch));
  let best=null;for(const drop of droppedWeapons){const target=new THREE.Vector3(drop.x,.2,drop.z),offset=target.clone().sub(origin),along=offset.dot(direction);if(along<0||Math.hypot(drop.x-actor.x,actor.y||0,drop.z-actor.z)>CAT_SKILLS.fetchRange||offset.addScaledVector(direction,-along).length()>.8||!catDropVisible(actor,drop))continue;if(!best||along<best.distance)best={drop,distance:along,x:drop.x,y:0,z:drop.z};}return best;
 }
+function carAim(actor,aim=null){const input=netInputs.get(actor.remoteId)?.input;return carAimVector(aim?.yaw??(actor===player?player.yaw:input?.yaw??actor.yaw??0),aim?.pitch??(actor===player?player.pitch:input?.pitch??0));}
+function carSkillTarget(actor,key,aim=null){
+ if(ordinarySkills.blindUntil(actor.id,elapsed)>elapsed)return null;
+ const d=carAim(actor,aim);if(!d)return null;
+ const origin={x:actor.x,y:(actor.y||0)+1.7-(actor.crouch||0)*.55,z:actor.z};
+ if(key==='q'){
+  let best=null;for(const field of [...smokes,...activeOrdinarySmokeFields()]){
+   const centerDistance=Math.hypot(field.x-actor.x,field.y-origin.y,field.z-actor.z),along=carSmokeIntersection(origin,d,field);
+   if(along===null||centerDistance>CAR_SKILLS.washRange||!map.collision.rayClear(origin.x,origin.y,origin.z,field.x,field.y,field.z))continue;
+   if(!best||along<best.distance)best={x:field.x,y:field.y,z:field.z,field,distance:along};
+  }return best;
+ }
+ let best=null;for(const enemy of [player,...bots]){
+  if(!enemy.alive||enemy.team===actor.team||!actorGrounded(enemy)||!visibleBetween(actor,enemy))continue;
+  const center={x:enemy.x,y:(enemy.y||0)+1.3-(enemy.crouch||0)*.55,z:enemy.z},vx=center.x-origin.x,vy=center.y-origin.y,vz=center.z-origin.z,along=vx*d.x+vy*d.y+vz*d.z;
+  if(along<0||Math.hypot(vx,vy,vz)>CAR_SKILLS.bumperRange||Math.hypot(vx-d.x*along,vy-d.y*along,vz-d.z*along)>.55)continue;
+  const distance=Math.hypot(enemy.x-actor.x,enemy.z-actor.z);if(distance<.1)continue;
+  const dx=(enemy.x-actor.x)/distance,dz=(enemy.z-actor.z)/distance;let x=enemy.x,y=enemy.y||0,z=enemy.z;
+  for(let i=1;i<=30;i++){
+   const nx=enemy.x+dx*CAR_SKILLS.bumperDistance*i/30,nz=enemy.z+dz*CAR_SKILLS.bumperDistance*i/30,ny=ordinaryGroundHeight(nx,nz,y);
+   if(ny===null||Math.abs(ny-y)>.22||!canStand(nx,nz,.34,ny)||!map.collision.rayClear(x,y+.5,z,nx,ny+.5,nz)||[player,...bots].some(a=>a.alive&&a!==enemy&&Math.hypot(a.x-nx,a.z-nz)<.65&&Math.abs((a.y||0)-ny)<1.8))break;
+   x=nx;y=ny;z=nz;
+  }
+  if(Math.hypot(x-enemy.x,z-enemy.z)<.2)continue;
+  if(!best||along<best.distance)best={x,y,z,targetId:enemy.id,enemy,distance:along};
+ }return best;
+}
+function carPitTargets(actor){return[player,...bots].filter(a=>a.alive&&a.team===actor.team&&a.kit&&Math.hypot(a.x-actor.x,(a.y||0)-(actor.y||0),a.z-actor.z)<=CAR_SKILLS.pitRange&&(a===actor||ordinarySkills.blindUntil(actor.id,elapsed)<=elapsed&&visibleBetween(actor,a))&&(a.kit.smoke<getCharacterSkill(a.kit.character,'c').max||a.kit.updraft<getCharacterSkill(a.kit.character,'q').max||a.kit.dash<1||a.kit.armExpiresAt!==null));}
+function activateCarAbility(actor,key,{predict=false,aim=null}={}){
+ key=String(key).toLowerCase();if(!['c','q','e','x'].includes(key)||netHostPaused||!actor?.alive||match?.phase!=='live'||actor.planting||actor.defusing||actor.serviceReload)return;
+ const targets=key==='x'?carPitTargets(actor):null;
+ if(key==='x'&&!targets.length)return;
+ if(key==='e'&&ordinarySkills.carGyro(actor.id,elapsed))return;
+ const target=['c','q'].includes(key)?carSkillTarget(actor,key,aim):{x:actor.x,y:actor.y||0,z:actor.z};if(!target)return;
+ const before=actor.kit.snapshot(),effect=actor.kit.activate(key,elapsed);if(!effect)return;
+ const event=predict?null:ordinarySkills.cast(effect,ordinaryActorView(actor),target,elapsed,match.round);if(!predict&&!event){actor.kit.restore(before);return;}
+ if(!predict&&key==='c'){
+  const victim=target.enemy;Object.assign(victim,{x:target.x,y:target.y,z:target.z,vy:0,vx:0,vz:0,dashTimer:0,carImpulseUntil:elapsed+.25});cancelServiceReload(victim);victim.path=[];victim.pathIndex=0;victim.planAt=0;
+  victim.planting=false;victim.defusing=false;match.cancelPlant(victim.id);match.cancelDefuse(victim.id);
+  if(victim===player){clearCombatInput();interactionHeld=false;}
+  if(victim.remoteId){const data=netInputs.get(victim.remoteId);if(data){Object.assign(data.input,{x:victim.x,y:victim.y,z:victim.z});victim.netPositionAck={seq:data.seq,connection:data.connection,round:data.round,x:victim.x,z:victim.z};}}
+ }
+ if(!predict&&key==='q'){
+  const field=target.field,removed=typeof field.id==='string'?ordinarySkills.disperseSmoke(event.id,field.id,elapsed,match.round):smokes.some(s=>s.id===field.id);
+  if(!removed){ordinarySkills.cancelCarEvent(event.id);actor.kit.restore(before);return;}
+  if(typeof field.id!=='string')syncSmokes(serializeSmokes().filter(s=>s.id!==field.id));
+ }
+ if(!predict&&key==='x')for(const ally of targets){ally.kit.smoke=getCharacterSkill(ally.kit.character,'c').max;ally.kit.updraft=getCharacterSkill(ally.kit.character,'q').max;ally.kit.dash=1;ally.kit.nextSignatureAt=0;ally.kit.dashKills=0;ally.kit.armReadyAt=null;ally.kit.armExpiresAt=null;}
+ if(actor===player)showMessage(key==='x'?'ピットクルー':getCharacterSkill('car',key).name,key==='x'?'視線内24mの味方と自身のC/Q/Eを補給 · HP・弾・ULTは変わりません':getCharacterSkill('car',key).description,2.5);
+ return effect;
+}
+function confirmCarSkill(key){
+ if(netHostPaused||mode!=='play'||!player.alive||interactionHeld||objectivePractice)return;
+ refillMapPracticeSkills();const aim={yaw:player.yaw,pitch:player.pitch},effect=activateAbility(player,key,{predict:isGuest(),aim});if(effect&&isGuest())queueNetAction('ability',{key,...aim});
+ if(!effect)showMessage('発動できません',key==='c'?'接地した敵と押し出せる床を確認 · 回数は消費しません':'照準に重なる煙と壁を確認 · 回数は消費しません',2);
+ refillMapPracticeSkills();updateHUD();
+}
 function activateCatAbility(actor,key,{predict=false,aim=null}={}){
  key=String(key).toLowerCase();if(!['c','q','e','x'].includes(key)||netHostPaused||!actor?.alive||match?.phase!=='live'||actor.planting||actor.defusing||actor.serviceReload)return;
  const view=ordinaryActorView(actor),before=actor.kit.snapshot();let target=null;
@@ -1256,6 +1317,7 @@ function getSkillTarget(actor,type,point=null,aim=null){
 }
 function activateAbility(actor,key,{predict=false,zonePoint=null,aim=null}={}){
   if(ordinarySkills.sealUntil(actor?.id,elapsed)>elapsed){if(actor===player)showMessage('羽根の封印', '新しいスキルは使えません · 銃と移動は使えます',1);return;}
+  if(actor?.kit?.character==='car')return activateCarAbility(actor,key,{predict,aim});
   if(actor?.kit?.character==='cat')return activateCatAbility(actor,key,{predict,aim});
   if(actor?.kit?.character==='duck'&&String(key).toLowerCase()==='x')return activateDuckEgg(actor,{predict});
   if(netHostPaused||!actor?.alive||match?.phase!=='live'||actor.planting||actor.defusing)return;
@@ -1317,6 +1379,7 @@ function refillMapPracticeSkills(){
   kit.ultPoints=DUELIST.ultimatePoints;if(kit.knivesActive)kit.knives=DUELIST.knives;
 }
 function confirmDuckSkill(key){
+ if(player.kit?.character==='car')return confirmCarSkill(key);
  if(player.kit?.character==='cat')return confirmCatSkill(key);
  if(netHostPaused||mode!=='play'||!player.alive||interactionHeld||objectivePractice)return;
  refillMapPracticeSkills();const aim={yaw:player.yaw,pitch:player.pitch},effect=activateAbility(player,key,{predict:isGuest(),aim});
@@ -1325,6 +1388,7 @@ function confirmDuckSkill(key){
  refillMapPracticeSkills();updateHUD();
 }
 function useAbility(key){
+ if(player.kit?.character==='car'&&['c','q'].includes(key)&&mode==='play'&&player.alive&&match?.phase==='live'&&!netHostPaused&&!interactionHeld&&!objectivePractice){duckAim=duckAim===key?null:key;firing=false;aiming=false;if(duckAim)showMessage(getCharacterSkill('car',key).name,'照準で狙う → 左クリックで確定 / 右クリックで取消',30);return;}
  if(player.kit?.character==='cat'&&['q','e'].includes(key)&&mode==='play'&&player.alive&&match?.phase==='live'&&!netHostPaused&&!interactionHeld&&!objectivePractice){duckAim=duckAim===key?null:key;firing=false;aiming=false;if(duckAim)showMessage(getCharacterSkill('cat',key).name,'狙って左クリックで確定 / 右クリックで取消',30);return;}
  const catReturning=player.kit?.character==='cat'&&key==='c'&&!!ordinarySkills.catBookmark(player.id,elapsed);
  if(player.kit?.character==='duck'&&['c','q'].includes(key)&&mode==='play'&&player.alive&&match?.phase==='live'&&!netHostPaused&&!interactionHeld){
@@ -1369,11 +1433,12 @@ function updateHUD(){
   if($('ability-x-glyph'))$('ability-x-glyph').setAttribute('d',character.ultIcon);
   if($('status-effects')){
     const scale=player.alive?actorSpeedScale(player):1,boosted=player.alive&&actorMovementScale(player)>1,slowed=scale<1,blind=player.alive&&ordinarySkills.blindUntil(player.id,elapsed)>elapsed;
+    const carGyro=ordinarySkills.carGyro(player.id,elapsed);
     const catBook=ordinarySkills.catBookmark(player.id,elapsed),catClock=ordinarySkills.clockFrozen(elapsed);
     const duckSeal=ordinarySkills.sealUntil(player.id,elapsed)>elapsed,duckQuiet=ordinarySkills.quiet(player.id,elapsed),duckEgg=ordinarySkills.events(elapsed).find(e=>e.type==='duck-egg'&&e.sourceId===player.id);
     const personal=player.alive?ordinarySkills.events(elapsed).filter(event=>event.sourceId===player.id):[],shade=personal.some(event=>event.type==='ember-shade'),unravel=personal.some(event=>event.type==='frost-unravel')&&actorGrounded(player);
-    $('status-effects').hidden=!catBook&&!catClock&&!duckAim&&!duckSeal&&!duckQuiet&&!duckEgg&&!slowed&&!boosted&&!blind&&!shade&&!unravel;
-    $('status-effects').textContent=[catBook?`白いしおり · Cで帰還 ${Math.max(0,Math.ceil(catBook.endsAt-elapsed))}秒`:'',catClock?'白紙の8秒 · 試合時計停止 / 行動は継続':'',duckAim?'狙って左クリックで確定 / 右クリックで取消':'',duckSeal?'羽根の封印 · 新規スキル使用不可':'',duckQuiet?'忍びガモ · 足音・着地音なし':'',duckEgg?`不屈の卵 · 残り${duckEgg.power}回`:'',slowed?`足止め中 · 移動速度 ${Math.round(scale*100)}%`:'',boosted?`${CHARACTER_DEFS[player.kit.character].label} / ${getCharacterSkill(player.kit.character,'e').name} · ${Math.round(scale*100)}%`:'',blind?'FLASH · 視界回復中':'',shade?`遮光チェック · 新しい閃光の時間${Math.round(EMBER_SKILLS.shadeFlashScale*100)}%`:'',unravel?`ほどけるリボン · 減速分を${Math.round((1-FROST_SKILLS.unravelSlowFraction)*100)}%軽減`:''].filter(Boolean).join(' / ');
+    $('status-effects').hidden=!carGyro&&!catBook&&!catClock&&!duckAim&&!duckSeal&&!duckQuiet&&!duckEgg&&!slowed&&!boosted&&!blind&&!shade&&!unravel;
+    $('status-effects').textContent=[carGyro?'タイヤジャイロ · 接地中の移動射撃安定':'',catBook?`白いしおり · Cで帰還 ${Math.max(0,Math.ceil(catBook.endsAt-elapsed))}秒`:'',catClock?'白紙の8秒 · 試合時計停止 / 行動は継続':'',duckAim?'狙って左クリックで確定 / 右クリックで取消':'',duckSeal?'羽根の封印 · 新規スキル使用不可':'',duckQuiet?'忍びガモ · 足音・着地音なし':'',duckEgg?`不屈の卵 · 残り${duckEgg.power}回`:'',slowed?`足止め中 · 移動速度 ${Math.round(scale*100)}%`:'',boosted?`${CHARACTER_DEFS[player.kit.character].label} / ${getCharacterSkill(player.kit.character,'e').name} · ${Math.round(scale*100)}%`:'',blind?'FLASH · 視界回復中':'',shade?`遮光チェック · 新しい閃光の時間${Math.round(EMBER_SKILLS.shadeFlashScale*100)}%`:'',unravel?`ほどけるリボン · 減速分を${Math.round((1-FROST_SKILLS.unravelSlowFraction)*100)}%軽減`:''].filter(Boolean).join(' / ');
   }
   if($('ability-x-name'))$('ability-x-name').textContent=character.ultShortName;
   if($('mobile-ult-name'))$('mobile-ult-name').textContent=character.ultShortName;
@@ -1660,6 +1725,13 @@ function updateBots(dt){
       }
       bot.nextSkillAt=elapsed+(cast?2:.4);
     }
+    if(bot.kit?.character==='car'&&!interactPlant&&!interactDefuse&&elapsed>=(bot.nextSkillAt||0)){
+      let cast=null;
+      if(bot.kit.ultPoints>=7&&carPitTargets(bot).length>=2)cast=activateAbility(bot,'x');
+      if(!cast&&enemy&&visibleBetween(bot,enemy)){const aim={yaw:Math.atan2(bot.x-enemy.x,bot.z-enemy.z),pitch:Math.atan2((enemy.y||0)+1.3-((bot.y||0)+1.7),Math.hypot(enemy.x-bot.x,enemy.z-bot.z))};cast=activateAbility(bot,'c',{aim});if(!cast&&bot.moving)cast=activateAbility(bot,'e');}
+      if(!cast){const goal=bot.lastSeen||bot.goal;if(goal){const aim={yaw:Math.atan2(bot.x-goal.x,bot.z-goal.z),pitch:0};cast=activateAbility(bot,'q',{aim});}}
+      bot.nextSkillAt=elapsed+(cast?1.2:.5);
+    }
     if(bot.kit?.character==='cat'&&!interactPlant&&!interactDefuse&&elapsed>=(bot.nextSkillAt||0)){
       let cast=null;const bookmark=ordinarySkills.catBookmark(bot.id,elapsed);
       if(bot.kit.ultPoints>=7&&(match.spike.status==='planted'||match.roundTime<20)&&!ordinarySkills.clockFrozen(elapsed))cast=activateAbility(bot,'x');
@@ -1728,7 +1800,7 @@ function updateBots(dt){
           else bot.fire=Math.max(spec.interval,.19+cfg.interval*.25)+Math.random()*.12;
           let chance=cfg.aim*(enemy===player?.54:.66)*Math.max(.48,1-enemyDistance/65);
           if(enemy===player&&Math.hypot(player.vx||0,player.vz||0)>2.5)chance*=.76;
-          if(bot.moving)chance*=.72;
+          if(bot.moving&&!(ordinarySkills.carGyro(bot.id,elapsed)&&actorGrounded(bot)))chance*=.72;
           const hit=Math.random()<chance,head=hit&&Math.random()<.065+cfg.aim*.07;
           const from=new THREE.Vector3(bot.x,(bot.y||0)+1.2,bot.z);
           const to=new THREE.Vector3(enemy.x,(enemy.y||0)+(head?1.62:1.15),enemy.z);
@@ -2095,6 +2167,8 @@ function applyNetSnapshot(packet){
     ordinarySkills.restore((stoppedTurfEvents.size||stoppedServiceEvents.size||stoppedFrostEvents.size)&&Array.isArray(state.events)?{...state,events:state.events.filter(event=>!stoppedTurfEvents.has(event.id)&&!stoppedServiceEvents.has(event.id)&&!stoppedFrostEvents.has(event.id))}:state,elapsed,match.round);
   }
   else resetOrdinarySkills();
+  for(const event of ordinarySkills.events(elapsed))if(event.type==='car-bumper'&&event.targetId===ownId&&!carImpulseSeen.has(event.id)){carImpulseSeen.add(event.id);if(!fresh){player.x=self.x;player.y=self.y;player.z=self.z;player.vy=0;player.vx=0;player.vz=0;player.dashTimer=0;netPositionHistory.clear();netPositionAck=Math.max(netPositionAck,packet.positionAcks?.[online.session.memberId]?.seq||0);netPositionCorrectionX=0;netPositionCorrectionZ=0;}}
+  while(carImpulseSeen.size>32)carImpulseSeen.delete(carImpulseSeen.values().next().value);
   for(const event of ordinarySkills.events(elapsed))if(event.type==='cat-return'&&event.sourceId===ownId&&!catReturnSeen.has(event.id)){catReturnSeen.add(event.id);if(!fresh){player.x=self.x;player.y=self.y;player.z=self.z;player.vy=0;player.vx=0;player.vz=0;player.dashTimer=0;netPositionHistory.clear();netPositionAck=Math.max(netPositionAck,packet.positionAcks?.[online.session.memberId]?.seq||0);netPositionCorrectionX=0;netPositionCorrectionZ=0;clearCombatInput();}}
   while(catReturnSeen.size>32)catReturnSeen.delete(catReturnSeen.values().next().value);
   if(fresh)for(const event of ordinarySkills.events(elapsed))ordinaryAudio.set(event.id,event.type==='nope-decoy'?Math.floor((elapsed-event.startedAt)/.65):elapsed>=ordinaryAudioTime(event));
@@ -2151,14 +2225,14 @@ function updateRemoteActor(actor,dt){
     const inputGrounded=actorGrounded({...actor,x:input.x,z:input.z,y:inputFeet,vy:0});
     let dx=input.x-actor.x,dz=input.z-actor.z;
     if(actor.dashTimer>0&&actor.dashVec){const step=Math.min(dt,actor.dashTimer)*12/.18;dx=actor.dashVec.x*step;dz=actor.dashVec.z*step;}
-    else if(actor.netDashInputSequence===data.seq){dx=0;dz=0;}
+    else if(actor.netDashInputSequence===data.seq||elapsed<(actor.carImpulseUntil||0)){dx=0;dz=0;}
     const distance=Math.hypot(dx,dz),limit=(actor.dashTimer>0?12/.18:(input.quiet===true?2.8:7)*1.15*actorSpeedScale(actor,inputGrounded))*dt;
     if(distance>limit){dx*=limit/distance;dz*=limit/distance;}
     if(match.phase==='buy'){const area=map.buyAreas[actor.team===match.attackerTeam?'attack':'defend'];if(Math.hypot(actor.x+dx-area.x,actor.z+dz-area.z)>area.radius-.4){dx=0;dz=0;}}
     moveEntity(actor,dx,dz);
     const blocked=Math.hypot(actor.x-previousX-dx,actor.z-previousZ-dz)>1e-5;
     if(!wasDashing&&actor.netDashInputSequence!==data.seq&&(Math.hypot(input.x-actor.x,input.z-actor.z)<1e-5||blocked||distance>2))actor.netPositionAck={seq:data.seq,connection:data.connection,round:data.round,x:actor.x,z:actor.z};
-    if(Number.isFinite(input.y)){
+    if(Number.isFinite(input.y)&&elapsed>=(actor.carImpulseUntil||0)){
       const floor=inputGrounded?getZoneFloor(actor.x,actor.z,Math.max(actor.y,inputFeet)+.22):null;
       // A capped stair input follows support at the accepted XZ, not the feet
       // height of a point the host has not reached yet.

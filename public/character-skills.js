@@ -1,10 +1,14 @@
-import { CAT_SKILLS, DUCK_SKILLS, DUELIST_SKILLS, NOPE_SKILLS, MEND_SKILLS, IAGNU_SKILLS, VEIL_SKILLS, EMBER_SKILLS, FROST_SKILLS } from './abilities.js';
+import { CAR_SKILLS, CAT_SKILLS, DUCK_SKILLS, DUELIST_SKILLS, NOPE_SKILLS, MEND_SKILLS, IAGNU_SKILLS, VEIL_SKILLS, EMBER_SKILLS, FROST_SKILLS } from './abilities.js';
 
 // Ordinary skills are separate from ultimates. A restored event owns visuals,
 // never hit sampling; only a successful local cast may produce gameplay effects.
 export const CHARACTER_SKILLS = Object.freeze({ maxEvents: 20, maxBlinds: 20, maxMarkers: 20, castDistance: 20, decoyDistance: 6,
   heightTolerance: 2.5, flashFacingDot: .2 });
 const specs = Object.freeze({
+ 'car-bumper':Object.freeze({flight:0,delay:0,tail:.8,radius:0}),
+ 'car-wash':Object.freeze({flight:0,delay:0,tail:.8,radius:0}),
+ 'car-gyro':Object.freeze({flight:0,delay:0,tail:CAR_SKILLS.gyroDuration,radius:0}),
+ 'car-pit':Object.freeze({flight:0,delay:0,tail:1,radius:0}),
  'cat-bookmark':Object.freeze({flight:0,delay:0,tail:CAT_SKILLS.bookmarkDuration,radius:0}),
  'cat-return':Object.freeze({flight:0,delay:0,tail:.6,radius:0}),
  'cat-pluck':Object.freeze({flight:0,delay:0,tail:.6,radius:0}),
@@ -53,11 +57,11 @@ const idSequence = (id, type) => {
 const eyeY = actor => (actor.y || 0) + 1.7 - Math.max(0, Math.min(1, Number.isFinite(actor.crouch) ? actor.crouch : 0)) * .55;
 const feetDistance = (a, b) => Math.hypot(a.x - b.x, (a.y || 0) - (b.y || 0), a.z - b.z);
 const serviceWeapon = value => ['classic', 'ghost', 'spectre', 'vandal', 'phantom'].includes(value);
-const personal = type => ['cat-bookmark','cat-clock','duck-hush', 'duck-egg', 'echo-kerning', 'veil-turf', 'ember-shade', 'ember-service', 'frost-unravel'].includes(type);
+const personal = type => ['car-gyro','cat-bookmark','cat-clock','duck-hush', 'duck-egg', 'echo-kerning', 'veil-turf', 'ember-shade', 'ember-service', 'frost-unravel'].includes(type);
 const groundedPersonal = type => type === 'veil-turf' || type === 'frost-unravel';
-const feetSource = type => type.startsWith('cat-') || type === 'mend-heal' || type === 'duelist-lift' || personal(type) || type.startsWith('veil-');
+const feetSource = type => type.startsWith('car-') || type.startsWith('cat-') || type === 'mend-heal' || type === 'duelist-lift' || personal(type) || type.startsWith('veil-');
 const eventFields = ['id', 'type', 'team', 'sourceId', 'round', 'fromX', 'fromY', 'fromZ', 'x', 'y', 'z', 'startedAt', 'flight', 'triggerAt', 'endsAt', 'radius'];
-const withinCastRange = (type, actor, target, sourceEyeY = eyeY(actor)) => type.startsWith('cat-') ? feetDistance(actor,target) <= (type==='cat-return'?CAT_SKILLS.returnRange:type==='cat-pluck'?CAT_SKILLS.pluckRange:type==='cat-fetch'?CAT_SKILLS.fetchRange:1e-8)+1e-8 : type === 'duck-seal' || type === 'duck-shield' ? Math.hypot(target.x-actor.x,target.y-sourceEyeY,target.z-actor.z) <= (type === 'duck-seal' ? DUCK_SKILLS.sealRange : DUCK_SKILLS.shieldRange)+1e-8 : type === 'duelist-comet' ? Math.hypot(target.x - actor.x, target.y - sourceEyeY, target.z - actor.z) <= DUELIST_SKILLS.cometRange + 1e-8
+const withinCastRange = (type, actor, target, sourceEyeY = eyeY(actor)) => type.startsWith('car-') ? feetDistance(actor,target)<=(type==='car-bumper'?CAR_SKILLS.bumperRange+CAR_SKILLS.bumperDistance:type==='car-wash'?CAR_SKILLS.washRange:1e-8)+1e-8 : type.startsWith('cat-') ? feetDistance(actor,target) <= (type==='cat-return'?CAT_SKILLS.returnRange:type==='cat-pluck'?CAT_SKILLS.pluckRange:type==='cat-fetch'?CAT_SKILLS.fetchRange:1e-8)+1e-8 : type === 'duck-seal' || type === 'duck-shield' ? Math.hypot(target.x-actor.x,target.y-sourceEyeY,target.z-actor.z) <= (type === 'duck-seal' ? DUCK_SKILLS.sealRange : DUCK_SKILLS.shieldRange)+1e-8 : type === 'duelist-comet' ? Math.hypot(target.x - actor.x, target.y - sourceEyeY, target.z - actor.z) <= DUELIST_SKILLS.cometRange + 1e-8
   : type === 'mend-heal' ? feetDistance(actor, target) <= MEND_SKILLS.healRange + 1e-8
   : personal(type) || type === 'duelist-lift' ? feetDistance(actor, target) <= 1e-8
   : type === 'veil-dust' ? Math.hypot(target.x - actor.x, target.z - actor.z) <= 1e-8 && close(target.y, (actor.y || 0) + VEIL_SKILLS.dustCenterOffset)
@@ -116,6 +120,7 @@ export function createCharacterSkills() {
     const type = typeof effect === 'string' ? effect : effect?.type;
     if (!isType(type) || !living(actor) || !point(target) || !withinCastRange(type, actor, target) || !coordinate(eyeY(actor)) || !clock(now) || !roundNumber(round)) return null;
     if ((type.startsWith('veil-') || type === 'frost-unravel') && actor.grounded !== true) return null;
+    if(type==='car-bumper'&&(!identifier(target.targetId)||target.targetId===actor.id))return null;
     if(type==='cat-pluck'&&(!identifier(target.targetId)||target.targetId===actor.id))return null;
     if (type === 'duck-seal' && (!identifier(target.targetId) || target.targetId===actor.id)) return null;
     if (type === 'duck-shield' && (!Number.isFinite(target.yaw) || Math.abs(target.yaw)>Math.PI)) return null;
@@ -127,13 +132,14 @@ export function createCharacterSkills() {
     const event = { id: `skill-${type}-${++sequence}`, type, team: actor.team, sourceId: actor.id, round,
       fromX: actor.x, fromY: feetSource(type) ? actor.y || 0 : eyeY(actor), fromZ: actor.z, x: target.x, y: target.y, z: target.z,
       startedAt: now, flight: spec.flight, triggerAt: now + spec.delay, endsAt, radius: spec.radius };
+    if(type==='car-bumper')event.targetId=target.targetId;
     if(type==='cat-pluck')event.targetId=target.targetId;
     if (type === 'duck-seal') event.targetId=target.targetId;
     if (type === 'duck-shield') {event.yaw=target.yaw;event.power=DUCK_SKILLS.shieldHP;}
     if (type === 'duck-egg') event.power=DUCK_SKILLS.eggLives;
     if (type === 'mend-heal') event.targetId = target.targetId;
     if (type === 'ember-service') event.weaponId = target.weaponId;
-    if(type.startsWith('duck-')||type.startsWith('cat-'))owned.add(event.id);
+    if(type.startsWith('car-')||type.startsWith('duck-')||type.startsWith('cat-'))owned.add(event.id);
     active.set(event.id, event); if (type === 'nope-decoy') decoyOwners.add(event.id);
     if (['nope-bottle', 'nope-flash', 'mend-heal', 'echo-tag', 'echo-glint', 'ember-solder'].includes(type)) owned.add(event.id); return copy(event);
   }
@@ -194,10 +200,10 @@ export function createCharacterSkills() {
       && !list.some(actor => living(actor) && actor.id === event.sourceId && actor.team === event.team
         && (!groundedPersonal(event.type) || actor.grounded === true)
         && (event.type !== 'ember-service' || actor.weaponId === event.weaponId))) {active.delete(id);owned.delete(id);}
-    for(const[id,event]of active)if((event.type.startsWith('duck-')||event.type.startsWith('cat-'))&&(!list.some(actor=>living(actor)&&actor.id===event.sourceId&&actor.team===event.team)||event.type==='duck-seal'&&!list.some(actor=>living(actor)&&actor.id===event.targetId&&actor.team!==event.team))){active.delete(id);owned.delete(id);}
+    for(const[id,event]of active)if((event.type.startsWith('car-')||event.type.startsWith('duck-')||event.type.startsWith('cat-'))&&(!list.some(actor=>living(actor)&&actor.id===event.sourceId&&actor.team===event.team)||event.type==='duck-seal'&&!list.some(actor=>living(actor)&&actor.id===event.targetId&&actor.team!==event.team))){active.delete(id);owned.delete(id);}
     for (const id of owned) {
       const event = active.get(id); if (!event || now + 1e-8 < event.triggerAt) continue;
-      if (event.type.startsWith('duck-')||event.type.startsWith('cat-')) continue;
+      if (event.type.startsWith('car-')||event.type.startsWith('duck-')||event.type.startsWith('cat-')) continue;
       if (event.type === 'echo-tag') {
         const seen = new Set(), candidates = [];
         for (const actor of list) {
@@ -318,10 +324,10 @@ export function createCharacterSkills() {
     if (!value || typeof value !== 'object' || Array.isArray(value) || !isType(value.type) || !team(value.team) || !identifier(value.sourceId) || !point(value)
       || ![value.fromX, value.fromY, value.fromZ].every(coordinate) || value.round !== round || !clock(value.startedAt) || value.startedAt > now || !clock(value.triggerAt) || !clock(value.endsAt) || !idSequence(value.id, value.type)) return false;
     const spec = specs[value.type];
-    if ((value.type.startsWith('cat-') || value.type.startsWith('duck-') || value.type.startsWith('duelist-') || value.type.startsWith('veil-') || value.type.startsWith('ember-') || value.type.startsWith('frost-')) && !Object.keys(value).every(key => eventFields.includes(key) || value.type==='cat-pluck'&&key==='targetId' || value.type === 'duck-seal' && key === 'targetId' || value.type === 'duck-shield' && ['yaw','power'].includes(key) || value.type === 'duck-egg' && key === 'power' || value.type === 'ember-service' && key === 'weaponId')) return false;
-    if (['mend-heal','duck-seal','cat-pluck'].includes(value.type) ? !identifier(value.targetId) : value.targetId !== undefined) return false;
+    if ((value.type.startsWith('car-') || value.type.startsWith('cat-') || value.type.startsWith('duck-') || value.type.startsWith('duelist-') || value.type.startsWith('veil-') || value.type.startsWith('ember-') || value.type.startsWith('frost-')) && !Object.keys(value).every(key => eventFields.includes(key) || value.type==='car-bumper'&&key==='targetId' || value.type==='cat-pluck'&&key==='targetId' || value.type === 'duck-seal' && key === 'targetId' || value.type === 'duck-shield' && ['yaw','power'].includes(key) || value.type === 'duck-egg' && key === 'power' || value.type === 'ember-service' && key === 'weaponId')) return false;
+    if (['mend-heal','duck-seal','cat-pluck','car-bumper'].includes(value.type) ? !identifier(value.targetId) : value.targetId !== undefined) return false;
     if (value.type === 'ember-service' ? !serviceWeapon(value.weaponId) : value.weaponId !== undefined) return false;
-    if(['duck-seal','cat-pluck'].includes(value.type)&&value.targetId===value.sourceId)return false;
+    if(['duck-seal','cat-pluck','car-bumper'].includes(value.type)&&value.targetId===value.sourceId)return false;
     if(value.type==='duck-shield'&&(!Number.isFinite(value.yaw)||Math.abs(value.yaw)>Math.PI||!Number.isFinite(value.power)||value.power<=0||value.power>DUCK_SKILLS.shieldHP))return false;
     if(value.type==='duck-egg'&&(!Number.isInteger(value.power)||value.power<1||value.power>DUCK_SKILLS.eggLives))return false;
     return value.flight === spec.flight && value.radius === spec.radius && withinCastRange(value.type, { x: value.fromX, y: value.fromY, z: value.fromZ }, value, value.fromY)
@@ -347,9 +353,10 @@ export function createCharacterSkills() {
     const nextEvents = new Map(), nextBlinds = new Map(), nextMarkers = new Map(); let nextSequence = sequence;
     for (const event of value.events) {
       if (!validEvent(event, now, round) || nextEvents.has(event.id)) return false;
-      if ((groundedPersonal(event.type) || (event.type.startsWith('ember-') || event.type.startsWith('cat-')) && personal(event.type)) && [...nextEvents.values()].some(other => other.type === event.type && other.sourceId === event.sourceId)) return false;
+      if ((groundedPersonal(event.type) || (event.type.startsWith('car-') || event.type.startsWith('ember-') || event.type.startsWith('cat-')) && personal(event.type)) && [...nextEvents.values()].some(other => other.type === event.type && other.sourceId === event.sourceId)) return false;
       const clean = { id: event.id, type: event.type, team: event.team, sourceId: event.sourceId, round, fromX: event.fromX, fromY: event.fromY, fromZ: event.fromZ,
         x: event.x, y: event.y, z: event.z, startedAt: event.startedAt, flight: event.flight, triggerAt: event.triggerAt, endsAt: event.endsAt, radius: event.radius };
+      if(event.type==='car-bumper')clean.targetId=event.targetId;
       if(event.type==='cat-pluck')clean.targetId=event.targetId;
       if(event.type==='duck-seal')clean.targetId=event.targetId;
       if(event.type==='duck-shield'){clean.yaw=event.yaw;clean.power=event.power;}
@@ -380,6 +387,9 @@ export function createCharacterSkills() {
     for (const [id, marker] of nextMarkers) if (marker.endsAt > currentTime) detections.set(id, marker);
     return true;
   }
+  function carGyro(actorId,now){return identifier(actorId)&&viewTime(now)&&[...active.values()].some(e=>e.type==='car-gyro'&&e.sourceId===actorId);}
+  function disperseSmoke(castId,fieldId,now,round){if(!advance(now,round)||!owned.has(castId)||active.get(castId)?.type!=='car-wash')return false;const e=active.get(fieldId);if(!e||!['duelist-comet','mend-pollen','veil-dust','frost-mist'].includes(e.type))return false;active.delete(fieldId);owned.delete(fieldId);owned.delete(castId);return true;}
+  function cancelCarEvent(id){if(!owned.has(id)||!active.get(id)?.type.startsWith('car-'))return false;active.delete(id);owned.delete(id);return true;}
   function catBookmark(actorId,now){if(!identifier(actorId)||!viewTime(now))return null;const e=[...active.values()].find(e=>e.type==='cat-bookmark'&&e.sourceId===actorId);return e?copy(e):null;}
   function returnToCatBookmark(id,actor,now,round){
     if(!advance(now,round)||!owned.has(id))return null;
@@ -412,5 +422,5 @@ export function createCharacterSkills() {
     return best?{id:best.event.id,distance:best.distance,point:best.point,power:best.event.power}:null;
   }
   function reset() { clear(); currentRound = null; currentTime = -Infinity; lastRestoreTime = -Infinity; }
-  return {catBookmark,returnToCatBookmark,cancelCatEvent,clockFrozen, sealUntil,quiet,guardLethal,interceptShield,cast, update, events, snapshot, restore, reset, blindUntil, speedScale, markers, movementScale, mitigateSlow, cancelService, consumeDecoy, flashDecoy };
+  return {carGyro,disperseSmoke,cancelCarEvent,catBookmark,returnToCatBookmark,cancelCatEvent,clockFrozen, sealUntil,quiet,guardLethal,interceptShield,cast, update, events, snapshot, restore, reset, blindUntil, speedScale, markers, movementScale, mitigateSlow, cancelService, consumeDecoy, flashDecoy };
 }

@@ -231,6 +231,14 @@ export function createGameAudio(){
     }else if(type==='frost-unravel'){
       if(!sample('cloth',{gain:.2,rate:1.4,length:.22}))hiss(.19,2500,.035,true);
       if(!sample('pluck',{delay:.035,gain:.25,rate:1.25,length:.15}))tone(740,1110,.13,.020,'sine',.035);
+    }else if(type==='car-bumper'){
+      if(!sample('door',{gain:.28,rate:.65,length:.22}))tone(160,90,.2,.035,'triangle');
+    }else if(type==='car-wash'){
+      if(!sample('shimmer',{gain:.3,rate:1.4,length:.3}))tone(800,200,.25,.025,'sine');
+    }else if(type==='car-gyro'){
+      if(!sample('pluck',{gain:.3,rate:.85,length:.2}))tone(240,480,.2,.03,'sine');
+    }else if(type==='car-pit'){
+      if(!sample('heal',{gain:.4,rate:1.15,length:.4}))tone(400,950,.3,.035,'triangle');
     }else if(type==='cat-bookmark'||type==='cat-return'){
         if(!sample('pluck',{gain:.4,rate:type==='cat-return'?.7:1.4,length:.2}))tone(660,330,.2,.035,'sine');
       }else if(type==='cat-pluck'){

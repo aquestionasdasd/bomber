@@ -345,7 +345,7 @@ async function main() {
       assert.equal((await send(host, 'team:red', 'game', snapshot)).status, 201);
       const delivered = (await getMessages(guest)).value.messages;
       assert.equal(delivered.length, 1); assert.deepEqual(delivered[0].data, snapshot, 'HTTP fallback must preserve every state/effect/cue/marker/drop without truncation');
-      for(const type of ['duck-seal','duck-shield','cat-pluck']){
+      for(const type of ['duck-seal','duck-shield','cat-pluck','car-bumper']){
         const worst=JSON.parse(JSON.stringify(snapshot)),pool=createCharacterSkills();
         for(let i=0;i<20;i++)assert.ok(pool.cast(type,player,{x:player.x,y:0,z:player.z-3,targetId:'s'.repeat(64),yaw:1.2345678901234567},now,1));
         worst.ordinarySkills.events=pool.snapshot().events.map((e,i)=>({...e,id:`skill-${type}-${999999999999980+i}`}));
@@ -356,6 +356,9 @@ async function main() {
       const catPacket=JSON.parse(JSON.stringify(snapshot)),catPool=createCharacterSkills();
       for(const type of ['cat-bookmark','cat-return','cat-pluck','cat-fetch','cat-clock']){const target={x:player.x,y:player.y,z:player.z,...(type==='cat-pluck'?{targetId:'s'.repeat(64)}:{})};assert.ok(catPool.cast(type,player,target,now,1));}
       catPacket.ordinarySkills.events=catPool.snapshot().events;assert.ok(createCharacterSkills().restore(catPacket.ordinarySkills,now,1));assert.equal((await send(host,'team:red','game',catPacket)).status,201);
+      const carPacket=JSON.parse(JSON.stringify(snapshot)),carPool=createCharacterSkills();
+      for(const type of ['car-bumper','car-wash','car-gyro','car-pit'])assert.ok(carPool.cast(type,player,{...player,...(type==='car-bumper'?{targetId:'s'.repeat(64)}:{})},now,1));
+      carPacket.ordinarySkills.events=carPool.snapshot().events;assert.ok(createCharacterSkills().restore(carPacket.ordinarySkills,now,1));assert.equal((await send(host,'team:red','game',carPacket)).status,201);
       console.log(`SNAPSHOT CAPACITY: ${bytes}B / 65536B;20 team events,50 private pings,20 zones,20 ordinary events,20 blinds,20 private tags,20 smoke,32 gear,64 cues,10 actors`);
     });
 
