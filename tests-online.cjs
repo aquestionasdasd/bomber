@@ -345,7 +345,8 @@ async function main() {
       assert.equal((await send(host, 'team:red', 'game', snapshot)).status, 201);
       const delivered = (await getMessages(guest)).value.messages;
       assert.equal(delivered.length, 1); assert.deepEqual(delivered[0].data, snapshot, 'HTTP fallback must preserve every state/effect/cue/marker/drop without truncation');
-      for(const type of ['duck-seal','duck-shield','cat-pluck','car-bumper','nobi-tag','nobi-brake']){
+      for(const type of ['duck-seal','duck-shield','cat-pluck','car-bumper','nobi-tag','nobi-brake','japan-levy','japan-border']){
+        clock+=200; // Model the existing relay cadence while testing more roster payloads.
         const worst=JSON.parse(JSON.stringify(snapshot)),pool=createCharacterSkills();
         for(let i=0;i<20;i++)assert.ok(pool.cast(type,player,{x:player.x,y:0,z:player.z-3,targetId:'s'.repeat(64),yaw:1.2345678901234567},now,1));
         worst.ordinarySkills.events=pool.snapshot().events.map((e,i)=>({...e,id:`skill-${type}-${999999999999980+i}`}));
@@ -362,6 +363,9 @@ async function main() {
       const nobiPacket=JSON.parse(JSON.stringify(snapshot)),nobiPool=createCharacterSkills();
       for(const type of ['nobi-tag','nobi-brake','nobi-tool','nobi-legend'])assert.ok(nobiPool.cast(type,player,{...player,...(['nobi-tag','nobi-brake'].includes(type)?{targetId:'s'.repeat(64)}:{})},now,1));
       nobiPacket.ordinarySkills.events=nobiPool.snapshot().events;assert.ok(createCharacterSkills().restore(nobiPacket.ordinarySkills,now,1));assert.equal((await send(host,'team:red','game',nobiPacket)).status,201);
+      const japanPacket=JSON.parse(JSON.stringify(snapshot)),japanPool=createCharacterSkills();
+      for(const type of ['japan-border','japan-levy','japan-return','japan-muster'])assert.ok(japanPool.cast(type,player,{...player,...(type==='japan-levy'?{targetId:'s'.repeat(64)}:{}),...(type==='japan-border'?{yaw:1}: {})},now,1));
+      japanPacket.ordinarySkills.events=japanPool.snapshot().events;assert.ok(createCharacterSkills().restore(japanPacket.ordinarySkills,now,1));assert.equal((await send(host,'team:red','game',japanPacket)).status,201);
       console.log(`SNAPSHOT CAPACITY: ${bytes}B / 65536B;20 team events,50 private pings,20 zones,20 ordinary events,20 blinds,20 private tags,20 smoke,32 gear,64 cues,10 actors`);
     });
 

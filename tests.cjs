@@ -3044,7 +3044,7 @@ async function main() {
   // independent host/guest JSON state, rather than sharing actors or effects.
   {
     const characterHTML = fs.readFileSync(path.join(__dirname, 'public/play.html'), 'utf8');
-    const characterIds = ['duelist', 'nope', 'mend', 'echo', 'veil', 'ember', 'frost', 'duck', 'cat', 'car', 'nobi'];
+    const characterIds = ['duelist', 'nope', 'mend', 'echo', 'veil', 'ember', 'frost', 'duck', 'cat', 'car', 'nobi', 'japan'];
     for (const id of ['agent-select', 'online-agent']) {
       const options = characterHTML.match(new RegExp(`<select[^>]*id="${id}"[^>]*>([\\s\\S]*?)</select>`))?.[1];
       assert.ok(options, `${id} must remain present`);

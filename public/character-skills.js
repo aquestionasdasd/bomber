@@ -1,10 +1,14 @@
-import { NOBI_SKILLS, CAR_SKILLS, CAT_SKILLS, DUCK_SKILLS, DUELIST_SKILLS, NOPE_SKILLS, MEND_SKILLS, IAGNU_SKILLS, VEIL_SKILLS, EMBER_SKILLS, FROST_SKILLS } from './abilities.js';
+import { JAPAN_SKILLS, NOBI_SKILLS, CAR_SKILLS, CAT_SKILLS, DUCK_SKILLS, DUELIST_SKILLS, NOPE_SKILLS, MEND_SKILLS, IAGNU_SKILLS, VEIL_SKILLS, EMBER_SKILLS, FROST_SKILLS } from './abilities.js';
 
 // Ordinary skills are separate from ultimates. A restored event owns visuals,
 // never hit sampling; only a successful local cast may produce gameplay effects.
 export const CHARACTER_SKILLS = Object.freeze({ maxEvents: 20, maxBlinds: 20, maxMarkers: 20, castDistance: 20, decoyDistance: 6,
   heightTolerance: 2.5, flashFacingDot: .2 });
 const specs = Object.freeze({
+ 'japan-border':Object.freeze({flight:0,delay:JAPAN_SKILLS.borderArm,tail:JAPAN_SKILLS.borderDuration,radius:JAPAN_SKILLS.borderWidth/2}),
+ 'japan-levy':Object.freeze({flight:0,delay:0,tail:.8,radius:0}),
+ 'japan-return':Object.freeze({flight:0,delay:0,tail:JAPAN_SKILLS.returnDuration,radius:0}),
+ 'japan-muster':Object.freeze({flight:0,delay:0,tail:JAPAN_SKILLS.musterDuration,radius:0}),
  'nobi-tag':Object.freeze({flight:0,delay:0,tail:NOBI_SKILLS.tagDuration,radius:0}),
  'nobi-brake':Object.freeze({flight:0,delay:0,tail:NOBI_SKILLS.brakeDuration,radius:0}),
  'nobi-tool':Object.freeze({flight:0,delay:0,tail:NOBI_SKILLS.toolDuration,radius:0}),
@@ -61,11 +65,11 @@ const idSequence = (id, type) => {
 const eyeY = actor => (actor.y || 0) + 1.7 - Math.max(0, Math.min(1, Number.isFinite(actor.crouch) ? actor.crouch : 0)) * .55;
 const feetDistance = (a, b) => Math.hypot(a.x - b.x, (a.y || 0) - (b.y || 0), a.z - b.z);
 const serviceWeapon = value => ['classic', 'ghost', 'spectre', 'vandal', 'phantom'].includes(value);
-const personal = type => ['nobi-tool','nobi-legend','car-gyro','cat-bookmark','cat-clock','duck-hush', 'duck-egg', 'echo-kerning', 'veil-turf', 'ember-shade', 'ember-service', 'frost-unravel'].includes(type);
+const personal = type => ['japan-return','nobi-tool','nobi-legend','car-gyro','cat-bookmark','cat-clock','duck-hush', 'duck-egg', 'echo-kerning', 'veil-turf', 'ember-shade', 'ember-service', 'frost-unravel'].includes(type);
 const groundedPersonal = type => type === 'veil-turf' || type === 'frost-unravel';
-const feetSource = type => type.startsWith('nobi-') || type.startsWith('car-') || type.startsWith('cat-') || type === 'mend-heal' || type === 'duelist-lift' || personal(type) || type.startsWith('veil-');
+const feetSource = type => type.startsWith('japan-') || type.startsWith('nobi-') || type.startsWith('car-') || type.startsWith('cat-') || type === 'mend-heal' || type === 'duelist-lift' || personal(type) || type.startsWith('veil-');
 const eventFields = ['id', 'type', 'team', 'sourceId', 'round', 'fromX', 'fromY', 'fromZ', 'x', 'y', 'z', 'startedAt', 'flight', 'triggerAt', 'endsAt', 'radius'];
-const withinCastRange = (type, actor, target, sourceEyeY = eyeY(actor)) => type.startsWith('nobi-') ? feetDistance(actor,target)<=(type==='nobi-tag'?NOBI_SKILLS.tagRange:type==='nobi-brake'?NOBI_SKILLS.brakeRange:1e-8)+1e-8 : type.startsWith('car-') ? feetDistance(actor,target)<=(type==='car-bumper'?CAR_SKILLS.bumperRange+CAR_SKILLS.bumperDistance:type==='car-wash'?CAR_SKILLS.washRange:1e-8)+1e-8 : type.startsWith('cat-') ? feetDistance(actor,target) <= (type==='cat-return'?CAT_SKILLS.returnRange:type==='cat-pluck'?CAT_SKILLS.pluckRange:type==='cat-fetch'?CAT_SKILLS.fetchRange:1e-8)+1e-8 : type === 'duck-seal' || type === 'duck-shield' ? Math.hypot(target.x-actor.x,target.y-sourceEyeY,target.z-actor.z) <= (type === 'duck-seal' ? DUCK_SKILLS.sealRange : DUCK_SKILLS.shieldRange)+1e-8 : type === 'duelist-comet' ? Math.hypot(target.x - actor.x, target.y - sourceEyeY, target.z - actor.z) <= DUELIST_SKILLS.cometRange + 1e-8
+const withinCastRange = (type, actor, target, sourceEyeY = eyeY(actor)) => type.startsWith('japan-') ? feetDistance(actor,target)<=(type==='japan-border'?JAPAN_SKILLS.borderRange:type==='japan-levy'?JAPAN_SKILLS.levyRange:1e-8)+1e-8 : type.startsWith('nobi-') ? feetDistance(actor,target)<=(type==='nobi-tag'?NOBI_SKILLS.tagRange:type==='nobi-brake'?NOBI_SKILLS.brakeRange:1e-8)+1e-8 : type.startsWith('car-') ? feetDistance(actor,target)<=(type==='car-bumper'?CAR_SKILLS.bumperRange+CAR_SKILLS.bumperDistance:type==='car-wash'?CAR_SKILLS.washRange:1e-8)+1e-8 : type.startsWith('cat-') ? feetDistance(actor,target) <= (type==='cat-return'?CAT_SKILLS.returnRange:type==='cat-pluck'?CAT_SKILLS.pluckRange:type==='cat-fetch'?CAT_SKILLS.fetchRange:1e-8)+1e-8 : type === 'duck-seal' || type === 'duck-shield' ? Math.hypot(target.x-actor.x,target.y-sourceEyeY,target.z-actor.z) <= (type === 'duck-seal' ? DUCK_SKILLS.sealRange : DUCK_SKILLS.shieldRange)+1e-8 : type === 'duelist-comet' ? Math.hypot(target.x - actor.x, target.y - sourceEyeY, target.z - actor.z) <= DUELIST_SKILLS.cometRange + 1e-8
   : type === 'mend-heal' ? feetDistance(actor, target) <= MEND_SKILLS.healRange + 1e-8
   : personal(type) || type === 'duelist-lift' ? feetDistance(actor, target) <= 1e-8
   : type === 'veil-dust' ? Math.hypot(target.x - actor.x, target.z - actor.z) <= 1e-8 && close(target.y, (actor.y || 0) + VEIL_SKILLS.dustCenterOffset)
@@ -107,10 +111,10 @@ export function skillProjectilePosition(event, now) {
 
 export function createCharacterSkills() {
   let currentRound = null, currentTime = -Infinity, lastRestoreTime = -Infinity, sequence = 0;
-  const active = new Map(), owned = new Set(), blinds = new Map(), detections = new Map(), decoyOwners = new Set(), decoyReactions = new Map();
-  function clear() { active.clear(); owned.clear(); blinds.clear(); detections.clear(); decoyOwners.clear(); decoyReactions.clear(); }
+  const active = new Map(), owned = new Set(), blinds = new Map(), detections = new Map(), decoyOwners = new Set(), decoyReactions = new Map(), borderHistory=new Map();
+  function clear() { borderHistory.clear(); active.clear(); owned.clear(); blinds.clear(); detections.clear(); decoyOwners.clear(); decoyReactions.clear(); }
   function prune(now) {
-    for (const [id, event] of active) if (event.endsAt <= now) { active.delete(id); owned.delete(id); decoyOwners.delete(id); }
+    for (const [id, event] of active) if (event.endsAt <= now) { active.delete(id); owned.delete(id); decoyOwners.delete(id); borderHistory.delete(id); }
     for (const [id, endsAt] of decoyReactions) if (endsAt <= now) decoyReactions.delete(id);
     for (const [id, blind] of blinds) if (blind.endsAt <= now) blinds.delete(id);
     for (const [id, marker] of detections) if (marker.endsAt <= now) detections.delete(id);
@@ -124,6 +128,8 @@ export function createCharacterSkills() {
     const type = typeof effect === 'string' ? effect : effect?.type;
     if (!isType(type) || !living(actor) || !point(target) || !withinCastRange(type, actor, target) || !coordinate(eyeY(actor)) || !clock(now) || !roundNumber(round)) return null;
     if ((type.startsWith('veil-') || type === 'frost-unravel') && actor.grounded !== true) return null;
+    if(type==='japan-levy'&&(!identifier(target.targetId)||target.targetId===actor.id))return null;
+    if(type==='japan-border'&&(!Number.isFinite(target.yaw)||Math.abs(target.yaw)>Math.PI))return null;
     if(['nobi-tag','nobi-brake'].includes(type)&&(!identifier(target.targetId)||target.targetId===actor.id))return null;
     if(type==='car-bumper'&&(!identifier(target.targetId)||target.targetId===actor.id))return null;
     if(type==='cat-pluck'&&(!identifier(target.targetId)||target.targetId===actor.id))return null;
@@ -137,6 +143,8 @@ export function createCharacterSkills() {
     const event = { id: `skill-${type}-${++sequence}`, type, team: actor.team, sourceId: actor.id, round,
       fromX: actor.x, fromY: feetSource(type) ? actor.y || 0 : eyeY(actor), fromZ: actor.z, x: target.x, y: target.y, z: target.z,
       startedAt: now, flight: spec.flight, triggerAt: now + spec.delay, endsAt, radius: spec.radius };
+    if(type==='japan-border')event.yaw=target.yaw;
+    if(type==='japan-levy')event.targetId=target.targetId;
     if(['nobi-tag','nobi-brake'].includes(type))event.targetId=target.targetId;
     if(type==='car-bumper')event.targetId=target.targetId;
     if(type==='cat-pluck')event.targetId=target.targetId;
@@ -145,7 +153,7 @@ export function createCharacterSkills() {
     if (type === 'duck-egg') event.power=DUCK_SKILLS.eggLives;
     if (type === 'mend-heal') event.targetId = target.targetId;
     if (type === 'ember-service') event.weaponId = target.weaponId;
-    if(type.startsWith('nobi-')||type.startsWith('car-')||type.startsWith('duck-')||type.startsWith('cat-'))owned.add(event.id);
+    if(type.startsWith('japan-')||type.startsWith('nobi-')||type.startsWith('car-')||type.startsWith('duck-')||type.startsWith('cat-'))owned.add(event.id);
     active.set(event.id, event); if (type === 'nope-decoy') decoyOwners.add(event.id);
     if (['nope-bottle', 'nope-flash', 'mend-heal', 'echo-tag', 'echo-glint', 'ember-solder'].includes(type)) owned.add(event.id); return copy(event);
   }
@@ -206,10 +214,23 @@ export function createCharacterSkills() {
       && !list.some(actor => living(actor) && actor.id === event.sourceId && actor.team === event.team
         && (!groundedPersonal(event.type) || actor.grounded === true)
         && (event.type !== 'ember-service' || actor.weaponId === event.weaponId))) {active.delete(id);owned.delete(id);}
-    for(const[id,event]of active)if((event.type.startsWith('nobi-')||event.type.startsWith('car-')||event.type.startsWith('duck-')||event.type.startsWith('cat-'))&&(!list.some(actor=>living(actor)&&actor.id===event.sourceId&&actor.team===event.team)||['duck-seal','nobi-tag','nobi-brake'].includes(event.type)&&!list.some(actor=>living(actor)&&actor.id===event.targetId&&actor.team!==event.team))){active.delete(id);owned.delete(id);}
+    for(const[id,event]of active)if((event.type.startsWith('japan-')||event.type.startsWith('nobi-')||event.type.startsWith('car-')||event.type.startsWith('duck-')||event.type.startsWith('cat-'))&&(!list.some(actor=>living(actor)&&actor.id===event.sourceId&&actor.team===event.team)||['japan-levy','duck-seal','nobi-tag','nobi-brake'].includes(event.type)&&!list.some(actor=>living(actor)&&actor.id===event.targetId&&actor.team!==event.team))){active.delete(id);owned.delete(id);borderHistory.delete(id);}
+    for(const e of active.values())if(e.type==='japan-border'&&owned.has(e.id)&&now>=e.triggerAt){
+      let history=borderHistory.get(e.id);if(!history){history=new Map();borderHistory.set(e.id,history);}
+      const nx=Math.sin(e.yaw),nz=Math.cos(e.yaw);
+      for(const actor of list){if(!living(actor)||actor.team===e.team)continue;
+        const dx=actor.x-e.x,dz=actor.z-e.z,side=dx*nx+dz*nz,along=dx*nz-dz*nx;
+        const previous=history.get(actor.id);if(Math.abs(side)<1e-6&&previous)continue;history.set(actor.id,{side,x:actor.x,y:actor.y||0,z:actor.z,hit:previous?.hit===true});
+        if(!previous||previous.hit||side*previous.side>=0||Math.abs(side-previous.side)<1e-8)continue;
+        const t=previous.side/(previous.side-side),x=previous.x+(actor.x-previous.x)*t,z=previous.z+(actor.z-previous.z)*t,y=previous.y+((actor.y||0)-previous.y)*t;
+        if(Math.abs((x-e.x)*nz-(z-e.z)*nx)>e.radius||y<e.y-.45||y>e.y+JAPAN_SKILLS.borderHeight||Math.hypot(actor.x-previous.x,actor.z-previous.z)>15)continue;
+        if(!canReach(reachable,{...e,x,y:Math.max(e.y,y),z},actor))continue;
+        history.get(actor.id).hit=true;effects.push({type:'damage',targetId:actor.id,sourceId:e.sourceId,amount:JAPAN_SKILLS.borderDamage});
+      }
+    }
     for (const id of owned) {
       const event = active.get(id); if (!event || now + 1e-8 < event.triggerAt) continue;
-      if (event.type.startsWith('nobi-')||event.type.startsWith('car-')||event.type.startsWith('duck-')||event.type.startsWith('cat-')) continue;
+      if (event.type.startsWith('japan-')||event.type.startsWith('nobi-')||event.type.startsWith('car-')||event.type.startsWith('duck-')||event.type.startsWith('cat-')) continue;
       if (event.type === 'echo-tag') {
         const seen = new Set(), candidates = [];
         for (const actor of list) {
@@ -335,10 +356,11 @@ export function createCharacterSkills() {
     if (!value || typeof value !== 'object' || Array.isArray(value) || !isType(value.type) || !team(value.team) || !identifier(value.sourceId) || !point(value)
       || ![value.fromX, value.fromY, value.fromZ].every(coordinate) || value.round !== round || !clock(value.startedAt) || value.startedAt > now || !clock(value.triggerAt) || !clock(value.endsAt) || !idSequence(value.id, value.type)) return false;
     const spec = specs[value.type];
-    if ((value.type.startsWith('nobi-') || value.type.startsWith('car-') || value.type.startsWith('cat-') || value.type.startsWith('duck-') || value.type.startsWith('duelist-') || value.type.startsWith('veil-') || value.type.startsWith('ember-') || value.type.startsWith('frost-')) && !Object.keys(value).every(key => eventFields.includes(key) || ['nobi-tag','nobi-brake'].includes(value.type)&&key==='targetId' || value.type==='car-bumper'&&key==='targetId' || value.type==='cat-pluck'&&key==='targetId' || value.type === 'duck-seal' && key === 'targetId' || value.type === 'duck-shield' && ['yaw','power'].includes(key) || value.type === 'duck-egg' && key === 'power' || value.type === 'ember-service' && key === 'weaponId')) return false;
-    if (['nobi-tag','nobi-brake','mend-heal','duck-seal','cat-pluck','car-bumper'].includes(value.type) ? !identifier(value.targetId) : value.targetId !== undefined) return false;
+    if ((value.type.startsWith('japan-') || value.type.startsWith('nobi-') || value.type.startsWith('car-') || value.type.startsWith('cat-') || value.type.startsWith('duck-') || value.type.startsWith('duelist-') || value.type.startsWith('veil-') || value.type.startsWith('ember-') || value.type.startsWith('frost-')) && !Object.keys(value).every(key => eventFields.includes(key) || value.type==='japan-border'&&key==='yaw' || value.type==='japan-levy'&&key==='targetId' || ['nobi-tag','nobi-brake'].includes(value.type)&&key==='targetId' || value.type==='car-bumper'&&key==='targetId' || value.type==='cat-pluck'&&key==='targetId' || value.type === 'duck-seal' && key === 'targetId' || value.type === 'duck-shield' && ['yaw','power'].includes(key) || value.type === 'duck-egg' && key === 'power' || value.type === 'ember-service' && key === 'weaponId')) return false;
+    if (['japan-levy','nobi-tag','nobi-brake','mend-heal','duck-seal','cat-pluck','car-bumper'].includes(value.type) ? !identifier(value.targetId) : value.targetId !== undefined) return false;
     if (value.type === 'ember-service' ? !serviceWeapon(value.weaponId) : value.weaponId !== undefined) return false;
-    if(['nobi-tag','nobi-brake','duck-seal','cat-pluck','car-bumper'].includes(value.type)&&value.targetId===value.sourceId)return false;
+    if(['japan-levy','nobi-tag','nobi-brake','duck-seal','cat-pluck','car-bumper'].includes(value.type)&&value.targetId===value.sourceId)return false;
+    if(value.type==='japan-border'&&(!Number.isFinite(value.yaw)||Math.abs(value.yaw)>Math.PI))return false;
     if(value.type==='duck-shield'&&(!Number.isFinite(value.yaw)||Math.abs(value.yaw)>Math.PI||!Number.isFinite(value.power)||value.power<=0||value.power>DUCK_SKILLS.shieldHP))return false;
     if(value.type==='duck-egg'&&(!Number.isInteger(value.power)||value.power<1||value.power>DUCK_SKILLS.eggLives))return false;
     return value.flight === spec.flight && value.radius === spec.radius && withinCastRange(value.type, { x: value.fromX, y: value.fromY, z: value.fromZ }, value, value.fromY)
@@ -364,10 +386,11 @@ export function createCharacterSkills() {
     const nextEvents = new Map(), nextBlinds = new Map(), nextMarkers = new Map(); let nextSequence = sequence;
     for (const event of value.events) {
       if (!validEvent(event, now, round) || nextEvents.has(event.id)) return false;
-      if ((groundedPersonal(event.type) || (event.type.startsWith('nobi-') || event.type.startsWith('car-') || event.type.startsWith('ember-') || event.type.startsWith('cat-')) && personal(event.type)) && [...nextEvents.values()].some(other => other.type === event.type && other.sourceId === event.sourceId)) return false;
+      if ((groundedPersonal(event.type) || (event.type.startsWith('japan-') || event.type.startsWith('nobi-') || event.type.startsWith('car-') || event.type.startsWith('ember-') || event.type.startsWith('cat-')) && personal(event.type)) && [...nextEvents.values()].some(other => other.type === event.type && other.sourceId === event.sourceId)) return false;
       const clean = { id: event.id, type: event.type, team: event.team, sourceId: event.sourceId, round, fromX: event.fromX, fromY: event.fromY, fromZ: event.fromZ,
         x: event.x, y: event.y, z: event.z, startedAt: event.startedAt, flight: event.flight, triggerAt: event.triggerAt, endsAt: event.endsAt, radius: event.radius };
-      if(['nobi-tag','nobi-brake','car-bumper'].includes(event.type))clean.targetId=event.targetId;
+      if(event.type==='japan-border')clean.yaw=event.yaw;
+      if(['japan-levy','nobi-tag','nobi-brake','car-bumper'].includes(event.type))clean.targetId=event.targetId;
       if(event.type==='cat-pluck')clean.targetId=event.targetId;
       if(event.type==='duck-seal')clean.targetId=event.targetId;
       if(event.type==='duck-shield'){clean.yaw=event.yaw;clean.power=event.power;}
@@ -432,6 +455,10 @@ export function createCharacterSkills() {
     if(best&&consume&&owned.has(best.event.id)){best.event.power=Math.max(0,best.event.power-damage);if(!best.event.power){active.delete(best.event.id);owned.delete(best.event.id);}}
     return best?{id:best.event.id,distance:best.distance,point:best.point,power:best.event.power}:null;
   }
+  function resetActor(id){
+    for(const[key,e]of active)if(e.sourceId===id&&(personal(e.type)||/^(japan|nobi|car|cat|duck)-/.test(e.type))||e.targetId===id&&/^(japan|nobi|duck)-/.test(e.type)){active.delete(key);owned.delete(key);borderHistory.delete(key);}
+    blinds.delete(id);
+  }
   function reset() { clear(); currentRound = null; currentTime = -Infinity; lastRestoreTime = -Infinity; }
-  return {nobiVulnerability,nobiInterval,nobiWork,nobiLegend,carGyro,disperseSmoke,cancelCarEvent,catBookmark,returnToCatBookmark,cancelCatEvent,clockFrozen, sealUntil,quiet,guardLethal,interceptShield,cast, update, events, snapshot, restore, reset, blindUntil, speedScale, markers, movementScale, mitigateSlow, cancelService, consumeDecoy, flashDecoy };
+  return {resetActor,japanReturn:(id,now)=>events(now).some(e=>e.type==='japan-return'&&e.sourceId===id)?JAPAN_SKILLS.returnScale:0,nobiVulnerability,nobiInterval,nobiWork,nobiLegend,carGyro,disperseSmoke,cancelCarEvent,catBookmark,returnToCatBookmark,cancelCatEvent,clockFrozen, sealUntil,quiet,guardLethal,interceptShield,cast, update, events, snapshot, restore, reset, blindUntil, speedScale, markers, movementScale, mitigateSlow, cancelService, consumeDecoy, flashDecoy };
 }
