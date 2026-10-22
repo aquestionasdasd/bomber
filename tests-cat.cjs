@@ -10,7 +10,7 @@ async function main(){
  const clone=x=>JSON.parse(JSON.stringify(x));let groups=0;
  const test=(label,fn)=>{fn();groups++;console.log('PASS: '+label);};
  test('ninth identity has four distinct contracts and finite costs/CD, preserves JSON and old eight identities',()=>{
-  assert.equal(CHARACTER_DEFS.cat.label,'猫の画像');assert.equal(Object.keys(CHARACTER_DEFS).length,10);
+  assert.equal(CHARACTER_DEFS.cat.label,'猫の画像');assert.equal(Object.keys(CHARACTER_DEFS).length,11);
   const kit=new DuelistKit({character:'cat'});let spent=0;for(const key of ['c','c','q'])assert.equal(kit.buy(key,n=>(spent+=n,true)),true);assert.equal(spent,300);assert.equal(kit.buy('q',()=>true),false);
   for(const key of ['c','q','e'])assert.equal(kit.activate(key,1).type,getCharacterSkill('cat',key).type);
   assert.equal(kit.activate('e',18.99),null);assert.equal(kit.activate('e',19).type,'cat-fetch');kit.ultPoints=7;assert.equal(kit.activate('x',19).type,'cat-clock');assert.equal(kit.knivesActive,false);assert.equal(kit.ultPoints,0);

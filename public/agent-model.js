@@ -1,3 +1,4 @@
+import { createNobiAvatar } from './nobi-avatar.js';
 import { createCarAvatar } from './car-avatar.js';
 import { createCatAvatar } from './cat-avatar.js';
 import { createDuckAvatar } from './duck-avatar.js';
@@ -602,7 +603,7 @@ export function createAgentModel(THREE, { bot = null, team = 'red', variant = 0,
   const rememberBody=object=>{if(object===weaponPivot)return;if(object.isMesh)bodyDrawables.push(object);for(const child of object.children)rememberBody(child);};
   rememberBody(rig);
   const enemyRim=createEnemyRim();enemyRim.register(bodyDrawables);
-  let sunflowerAvatar=null,starMascotAvatar=null,solderAvatar=null,iagnuAvatar=null,onoAvatar=null,grassBlockAvatar=null,nopeAvatar=null,duckAvatar=null,catAvatar=null,carAvatar=null;
+  let sunflowerAvatar=null,starMascotAvatar=null,solderAvatar=null,iagnuAvatar=null,onoAvatar=null,grassBlockAvatar=null,nopeAvatar=null,duckAvatar=null,catAvatar=null,carAvatar=null,nobiAvatar=null;
   const characterGear = new Map();
   let activeCharacter = 'duelist', gearMaterial = null;
   function equipment(parent, id, label, build) {
@@ -655,9 +656,9 @@ export function createAgentModel(THREE, { bot = null, team = 'red', variant = 0,
     return object;
   }
   function selectCharacter(id) {
-    if(id!=='duelist'&&id!=='nope'&&id!=='mend'&&id!=='echo'&&id!=='veil'&&id!=='ember'&&id!=='frost'&&id!=='duck'&&id!=='cat'&&id!=='car')id='duelist';
+    if(id!=='duelist'&&id!=='nope'&&id!=='mend'&&id!=='echo'&&id!=='veil'&&id!=='ember'&&id!=='frost'&&id!=='duck'&&id!=='cat'&&id!=='car'&&id!=='nobi')id='duelist';
     if(id===activeCharacter&&group.userData.character===id)return;
-    if(id!=='duelist'&&id!=='nope'&&id!=='mend'&&id!=='ember'&&id!=='echo'&&id!=='frost'&&id!=='veil'&&id!=='duck'&&id!=='cat'&&id!=='car'&&!characterGear.has(id)){
+    if(id!=='duelist'&&id!=='nope'&&id!=='mend'&&id!=='ember'&&id!=='echo'&&id!=='frost'&&id!=='veil'&&id!=='duck'&&id!=='cat'&&id!=='car'&&id!=='nobi'&&!characterGear.has(id)){
       const pieces=[];
       if(id==='nope')pieces.push(equipment(upper,id,'chest badge',({block})=>{
         block([-.085,1.257,.197],[.067,.058,.012],'#293842',.006);
@@ -828,17 +829,18 @@ export function createAgentModel(THREE, { bot = null, team = 'red', variant = 0,
     if(id==='frost'&&!onoAvatar){onoAvatar=createOnoAvatar(THREE,{rig,upper,head,rightArm,leftArm,leftLeg,rightLeg,team});enemyRim.register(onoAvatar.group);}
     if(id==='veil'&&!grassBlockAvatar){grassBlockAvatar=createGrassBlockAvatar(THREE,{rig,upper,head,rightArm,leftArm,leftLeg,rightLeg,team});enemyRim.register(grassBlockAvatar.group);}
     if(id==='nope'&&!nopeAvatar){nopeAvatar=createNopeAvatar(THREE,{rig,upper,head,rightArm,leftArm,leftLeg,rightLeg,team});enemyRim.register(nopeAvatar.group);}
+    if(id==='nobi'&&!nobiAvatar){nobiAvatar=createNobiAvatar(THREE,{rig,upper,head,rightArm,leftArm,leftLeg,rightLeg,team});enemyRim.register(nobiAvatar.group);}
     if(id==='car'&&!carAvatar){carAvatar=createCarAvatar(THREE,{rig,upper,head,rightArm,leftArm,leftLeg,rightLeg,team});enemyRim.register(carAvatar.group);}
     if(id==='cat'&&!catAvatar){catAvatar=createCatAvatar(THREE,{rig,upper,head,rightArm,leftArm,leftLeg,rightLeg,team});enemyRim.register(catAvatar.group);}
     if(id==='duck'&&!duckAvatar){duckAvatar=createDuckAvatar(THREE,{rig,upper,head,rightArm,leftArm,leftLeg,rightLeg,team});enemyRim.register(duckAvatar.group);}
-    for(const object of bodyDrawables)object.visible=id!=='nope'&&id!=='mend'&&id!=='duelist'&&id!=='ember'&&id!=='echo'&&id!=='frost'&&id!=='veil'&&id!=='duck'&&id!=='cat'&&id!=='car';
+    for(const object of bodyDrawables)object.visible=id!=='nope'&&id!=='mend'&&id!=='duelist'&&id!=='ember'&&id!=='echo'&&id!=='frost'&&id!=='veil'&&id!=='duck'&&id!=='cat'&&id!=='car'&&id!=='nobi';
     sunflowerAvatar?.setVisible(id==='mend');
     starMascotAvatar?.setVisible(id==='duelist');
     solderAvatar?.setVisible(id==='ember');
     iagnuAvatar?.setVisible(id==='echo');
     onoAvatar?.setVisible(id==='frost');
     grassBlockAvatar?.setVisible(id==='veil');
-    carAvatar?.setVisible(id==='car');
+    nobiAvatar?.setVisible(id==='nobi');carAvatar?.setVisible(id==='car');
     catAvatar?.setVisible(id==='cat');
     duckAvatar?.setVisible(id==='duck');
     nopeAvatar?.setVisible(id==='nope');
@@ -951,13 +953,14 @@ export function createAgentModel(THREE, { bot = null, team = 'red', variant = 0,
     if(activeCharacter==='echo')iagnuAvatar.update();
     if(activeCharacter==='frost')onoAvatar.update(interactBlend);
     if(activeCharacter==='veil')grassBlockAvatar.update();
+    if(activeCharacter==='nobi')nobiAvatar.update();
     if(activeCharacter==='car')carAvatar.update(dt,state);
     if(activeCharacter==='cat')catAvatar.update();
     if(activeCharacter==='duck')duckAvatar.update();
     if(activeCharacter==='nope')nopeAvatar.update();
   }
   update(0, { alive: true, character });
-  function dispose() { if (disposed) return; disposed = true; group.removeFromParent(); enemyRim.dispose(); sunflowerAvatar?.dispose(); starMascotAvatar?.dispose(); solderAvatar?.dispose(); iagnuAvatar?.dispose(); onoAvatar?.dispose(); grassBlockAvatar?.dispose(); nopeAvatar?.dispose(); duckAvatar?.dispose(); catAvatar?.dispose();carAvatar?.dispose(); knifeFan?.dispose(); kit.dispose(); finishes.release(); }
+  function dispose() { if (disposed) return; disposed = true; group.removeFromParent(); enemyRim.dispose(); sunflowerAvatar?.dispose(); starMascotAvatar?.dispose(); solderAvatar?.dispose(); iagnuAvatar?.dispose(); onoAvatar?.dispose(); grassBlockAvatar?.dispose(); nopeAvatar?.dispose(); duckAvatar?.dispose(); catAvatar?.dispose();carAvatar?.dispose();nobiAvatar?.dispose(); knifeFan?.dispose(); kit.dispose(); finishes.release(); }
   return { group, head, meshes: kit.meshes, muzzle, armL: leftArm.root, armR: rightArm.root,
     legL: leftLeg.root, legR: rightLeg.root, ownedMaterials, update, dispose };
 }
