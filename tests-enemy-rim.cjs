@@ -107,7 +107,8 @@ async function main(){
     }
     throw Error(`Unclosed function ${name}`);
   }
-  const context=vm.createContext({THREE,DuelistKit,createAgentModel,characterIds:roles,player:{alive:true,team:'blue'},spectatedBot:null,mode:'play',elapsed:0,match:{attackerTeam:'blue'},map:{spawnYaw:{attack:0,defend:1.93878}},bots:[],botsGroup:new THREE.Group()});
+  const {roundDanceState}=await load('victory-dance.js');
+  const context=vm.createContext({roundDanceState,reducedMotion:{matches:false},THREE,DuelistKit,createAgentModel,characterIds:roles,player:{alive:true,team:'blue'},spectatedBot:null,mode:'play',elapsed:0,match:{attackerTeam:'blue'},map:{spawnYaw:{attack:0,defend:1.93878}},bots:[],botsGroup:new THREE.Group()});
   vm.runInContext([extract('enemyRimFor'),extract('agentEquipment'),extract('makeBot')].join('\n'),context);
   const equipment=(team,extra={})=>{context.testBot={team,...extra};return vm.runInContext('agentEquipment(testBot)',context);};
   assert.equal(equipment('red').enemyRim,true);assert.equal(equipment('blue').enemyRim,false);

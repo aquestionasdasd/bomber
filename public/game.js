@@ -16,6 +16,7 @@ import { createNavigation } from './navigation.js';
 import { createViewmodel } from './viewmodel.js';
 import { createAgentModel } from './agent-model.js';
 import { createCharacterPicker } from './character-preview.js';
+import { roundDanceState, createVictoryDance } from './victory-dance.js';
 import { createGameAudio } from './audio.js';
 import { createVictoryMusic, bindVictoryMusicSettings } from './victory-music.js';
 import { RangeSession } from './range.js';
@@ -168,6 +169,7 @@ const savedSensitivity=Number(settings.sensitivity);
 if(Number.isFinite(savedSensitivity)&&savedSensitivity>0)sensitivity=clamp(savedSensitivity*(settings.lookVersion===2?1:.35),.05,1.5);
 if (settings.volume !== undefined) volume = clamp(Number(settings.volume), 0, 1);
 const characterPicker=createCharacterPicker(THREE,{document});
+const victoryDance=createVictoryDance(THREE,{document});
 const skillUI=createCharacterSkillUI({document});
 const keyboardProtection=createKeyboardProtection({document,navigator,onStatus:state=>{
   const messages={idle:'しゃがみは V 長押し。Ctrl＋Wなどはブラウザーによって停止できません。',enabling:'全画面とキー保護を準備しています…',protected:'ゲームキー保護中。Escで一時停止。全画面が戻らない場合はEscを長押し。',fullscreen:'全画面モード。キー保護の対応はブラウザー次第です。しゃがみは V を使えます。',unavailable:'この環境では全画面のキー保護を使えません。しゃがみは V を使ってください。'};
@@ -1719,7 +1721,7 @@ function drawMinimap(target,large=false){
 }
 
 function enemyRimFor(bot){const viewerTeam=!player.alive&&spectatedBot?spectatedBot.team:player.team;return mode!=='menu'&&(viewerTeam==='blue'||viewerTeam==='red')&&(bot.team==='blue'||bot.team==='red')&&bot.team!==viewerTeam;}
-function agentEquipment(bot){const weapon=bot.remoteId?bot.netWeapon:bot.netTarget?.weapon||bot.record?.primary||bot.record?.secondary||"classic";return {weapon,character:bot.kit?.character||bot.netTarget?.kit?.character||'duelist',ultimate:bot.kit?.knivesActive&&weapon==="knife",knives:bot.kit?.knives||0,shotSequence:bot.netTarget?.shotSequence??bot.shotSequence??0,enemyRim:enemyRimFor(bot)};}
+function agentEquipment(bot){const weapon=bot.remoteId?bot.netWeapon:bot.netTarget?.weapon||bot.record?.primary||bot.record?.secondary||"classic";return {weapon,character:bot.kit?.character||bot.netTarget?.kit?.character||'duelist',ultimate:bot.kit?.knivesActive&&weapon==="knife",knives:bot.kit?.knives||0,shotSequence:bot.netTarget?.shotSequence??bot.shotSequence??0,enemyRim:enemyRimFor(bot),...roundDanceState(match,bot),...(reducedMotion.matches?{danceTime:0}:{})};}
 function updateBots(dt){
   const cfg=levels[difficulty]||levels.normal;
   const actors=[player,...bots];
@@ -2696,6 +2698,7 @@ function suspendSession(){
 window.addEventListener('blur',suspendSession);
 document.addEventListener('visibilitychange',()=>{if(document.hidden)suspendSession();else resetMouseLook();if(onlinePlaying&&online?.host){netHostPaused=document.hidden;tickOnline(.1);updateHUD();}});
 $('start').addEventListener('click',startGame);$('resume').addEventListener('click',resumeGame);
+$('victory-dance-preview')?.addEventListener('click',()=>victoryDance.preview(selectedCharacter(),performance.now()));
 $('explore-start')?.addEventListener('click',()=>{$('match-format').value='explore';updateFormatSummary();startGame();});
 $('range-start')?.addEventListener('click',()=>{$('match-format').value='range';updateFormatSummary();startGame();});
 $('restart').addEventListener('click',startGame);$('play-again').addEventListener('click',startGame);$('back-menu').addEventListener('click',backMenu);
@@ -2727,7 +2730,7 @@ if($('sensitivity')){$('sensitivity').value=sensitivity;$('sensitivity').addEven
 if($('volume')){$('volume').value=volume;$('volume').addEventListener('input',e=>{volume=Number(e.target.value);syncVictoryMusic();saveSettings();});}
 
 victoryMusicUI=bindVictoryMusicSettings({document,music:victoryMusic,preferences:{enabled:victoryMusicEnabled,volume:victoryMusicVolume},onChange:next=>{if(next.enabled!==undefined)victoryMusicEnabled=next.enabled;if(next.volume!==undefined)victoryMusicVolume=next.volume;syncVictoryMusic();saveSettings();}});
-window.addEventListener('pagehide',event=>{if(event.persisted)victoryMusic.stop();else victoryMusic.dispose();});
+window.addEventListener('pagehide',event=>{if(event.persisted)victoryMusic.stop();else {victoryMusic.dispose();victoryDance.dispose();}});
 
 // Touch controls use separate pointers for movement, aiming, and firing.
 const pad=$('move-pad');
@@ -2772,6 +2775,7 @@ function frame(now){
     while(remaining>1e-8&&(['play','shop','map','score'].includes(mode)||onlinePlaying&&mode==='pause')){const step=Math.min(remaining,.05);updatePlay(step);remaining-=step;}
   }
   tickOnline(dt);
+  victoryDance.sync({match,player,mode,character:player.kit?.character||selectedCharacter(),now,paused:netHostPaused});
   for(let i=effects.length-1;i>=0;i--){const effect=effects[i];if(['play','shop','map','score'].includes(mode)){effect.life-=dt;if(effect.velocity){effect.velocity.y-=6*dt;effect.object.position.addScaledVector(effect.velocity,dt);}}
     if(effect.life<=0){effectsGroup.remove(effect.object);effect.object.geometry.dispose();effect.object.material.dispose();effects.splice(i,1);}else effect.object.material.opacity=Math.min(1,effect.life/effect.max);
   }

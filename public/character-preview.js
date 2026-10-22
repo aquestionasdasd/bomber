@@ -10,7 +10,7 @@ export function createCharacterPreview(THREE, {
   cancelFrame = id => globalThis.cancelAnimationFrame(id),
   observeResize, pixelRatio = () => globalThis.devicePixelRatio || 1,
   reducedMotion = () => globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches,
-  onError = () => {},
+  onError = () => {}, dancing = false,
 } = {}) {
   let renderer = null, model = null, frameId = null, active = false, disposed = false, failed = false, contextLost = false;
   let character = 'duelist', team = 'blue', previous = null, lastRender = -Infinity, clock = 0;
@@ -54,7 +54,7 @@ export function createCharacterPreview(THREE, {
     model?.dispose();
     model = modelFactory(THREE, { team, character, variant:0 });
     model.group.rotation.y = character === 'veil' || character === 'car' ? -.56 : -.24; scene.add(model.group);
-    model.update(0, { alive:true, character, weapon:'vandal' }); fitCamera();
+    model.update(0, { alive:true, character, weapon:'vandal', dancing, danceTime:0 }); fitCamera();
   }
   function ensureRenderer() {
     if (renderer) return true;
@@ -75,7 +75,7 @@ export function createCharacterPreview(THREE, {
       const dt = previous === null ? 0 : Math.min(.08, Math.max(0, (now - previous) / 1000));
       previous = now; lastRender = now; clock += dt;
       model.group.rotation.y = (character === 'veil' || character === 'car' ? -.56 : -.24) + (reducedMotion() ? 0 : Math.sin(clock * .45) * .09);
-      model.update(dt, { alive:true, time:reducedMotion() ? 0 : clock, character, weapon:'vandal' });
+      model.update(dt, { alive:true, time:reducedMotion() ? 0 : clock, character, weapon:'vandal', dancing, danceTime:reducedMotion() ? 0 : clock });
       renderer.render(scene, camera);
     }
     schedule();
