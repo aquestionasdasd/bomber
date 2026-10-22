@@ -231,7 +231,15 @@ export function createGameAudio(){
     }else if(type==='frost-unravel'){
       if(!sample('cloth',{gain:.2,rate:1.4,length:.22}))hiss(.19,2500,.035,true);
       if(!sample('pluck',{delay:.035,gain:.25,rate:1.25,length:.15}))tone(740,1110,.13,.020,'sine',.035);
-    }else if(type==='duck-seal'){
+    }else if(type==='cat-bookmark'||type==='cat-return'){
+        if(!sample('pluck',{gain:.4,rate:type==='cat-return'?.7:1.4,length:.2}))tone(660,330,.2,.035,'sine');
+      }else if(type==='cat-pluck'){
+        if(!sample('cloth',{gain:.35,rate:1.3,length:.15}))hiss(.14,1200,.03,true);
+      }else if(type==='cat-fetch'){
+        if(!sample('pluck',{gain:.4,rate:.9,length:.2}))tone(440,880,.2,.035,'triangle');
+      }else if(type==='cat-clock'){
+        if(!sample('shimmer',{gain:.5,rate:.6,length:.45}))tone(330,165,.4,.04,'sine');
+      }else if(type==='duck-seal'){
       if(!sample('pluck',{gain:.5,rate:.75,length:.16}))tone(880,440,.16,.04,'triangle');
     }else if(type==='duck-shield'){
       if(!sample('shimmer',{gain:.45,rate:.85,length:.3}))tone(330,990,.25,.04,'sine');

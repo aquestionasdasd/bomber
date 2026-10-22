@@ -93,7 +93,7 @@ export class MatchRules {
     this.phase='buy';this.phaseTime=reset?45:30;this.roundTime=100;this.roundKills=0;this.resetSpike();
     this.events.push({type:'round-start',reset:reset||this.overtime,side:this.side,round:this.round});return true;
   }
-  tick(dt,{blueAlive=5,redAlive=5,playerAlive=true}={}){
+  tick(dt,{blueAlive=5,redAlive=5,playerAlive=true,clockPaused=false}={}){
     if(!(dt>0)||!Number.isFinite(dt)||this.phase==='match')return;
     if(this.phase==='buy'){this.phaseTime=Math.max(0,this.phaseTime-dt);if(this.phaseTime<=0)this.startLive();return;}
     if(this.phase==='post'){this.phaseTime=Math.max(0,this.phaseTime-dt);if(this.phaseTime<=0)this.nextRound();return;}
@@ -102,6 +102,7 @@ export class MatchRules {
     const attackers=this.attackerTeam==='blue'?blueAlive:redAlive,defenders=this.defenderTeam==='blue'?blueAlive:redAlive;
     if(defenders===0){this.endRound(this.attackerTeam,'elimination',{playerAlive});return;}
     if(attackers===0&&s.status!=='planted'){this.endRound(this.defenderTeam,'elimination',{playerAlive});return;}
+    if(clockPaused===true)return;
     if(s.status==='planted'){
       s.timer=Math.max(0,s.timer-dt);
       if(s.timer<=0){s.status='detonated';this.events.push({type:'detonated'});this.endRound(this.attackerTeam,'detonation',{playerAlive});}

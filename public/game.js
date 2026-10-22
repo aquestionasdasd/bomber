@@ -1,3 +1,4 @@
+import { createCatSkillFX } from './cat-skill-fx.js';
 import { createDuckSkillFX } from './duck-skill-fx.js';
 import * as THREE from './vendor/three.module.js';
 import { createMap } from './map.js';
@@ -10,7 +11,7 @@ import { createCharacterPicker } from './character-preview.js';
 import { createGameAudio } from './audio.js';
 import { RangeSession } from './range.js';
 import { RoomClient } from './online.js';
-import { DuelistKit, CHARACTER_DEFS, normalizeCharacter, signatureCooldown, DUCK_SKILLS, DUELIST, DUELIST_SKILLS, NOPE_SKILLS, MEND_SKILLS, IAGNU_SKILLS, VEIL_SKILLS, EMBER_SKILLS, FROST_SKILLS } from './abilities.js';
+import { DuelistKit, CHARACTER_DEFS, normalizeCharacter, signatureCooldown, CAT_SKILLS, DUCK_SKILLS, DUELIST, DUELIST_SKILLS, NOPE_SKILLS, MEND_SKILLS, IAGNU_SKILLS, VEIL_SKILLS, EMBER_SKILLS, FROST_SKILLS } from './abilities.js';
 import { createTeamAbilities } from './team-abilities.js';
 import { createCharacterFX } from './character-fx.js';
 import { createZoneAbilities } from './zone-abilities.js';
@@ -96,6 +97,7 @@ const mendSkillFX=createMendSkillFX(THREE,camera);scene.add(mendSkillFX.group);
 const iagnuSkillFX=createIagnuSkillFX(THREE,camera);scene.add(iagnuSkillFX.group);
 const grassSkillFX=createGrassSkillFX(THREE,camera);scene.add(grassSkillFX.group);
 const emberSkillFX=createEmberSkillFX(THREE,camera);scene.add(emberSkillFX.group);
+const catSkillFX=createCatSkillFX(THREE);scene.add(catSkillFX.group);const catReturnSeen=new Set();
 const duckSkillFX=createDuckSkillFX(THREE);scene.add(duckSkillFX.group);
 const frostSkillFX=createFrostSkillFX(THREE,camera);scene.add(frostSkillFX.group);
 const duelistSkillFX=createDuelistSkillFX(THREE,camera);scene.add(duelistSkillFX.group);
@@ -182,7 +184,7 @@ function resetTakeover(){takeoverState=null;takeoverClock=0;stationTakeover.rese
 function resetZoneAbilities(){zoneAbilities.reset();zoneFX.reset();zonePulseAudio.clear();zoneTargetPreview=null;zoneTargetPreviewAt=-Infinity;zoneTargetCharacter=null;if($('status-effects')){$('status-effects').hidden=true;$('status-effects').textContent='';}}
 const stoppedTurfEvents=new Map();
 const stoppedFrostEvents=new Map();
-function resetOrdinarySkills(){duckAim=null;duckSkillFX.reset();botHearing.reset();ordinarySkills.reset();ordinaryFX.reset();nopeDecoys.reset();nopeDecoyFX.reset();nopePops.length=0;nopeSeenPopSequence=0;mendSkillFX.reset();iagnuSkillFX.reset();grassSkillFX.reset();emberSkillFX.reset();frostSkillFX.reset();duelistSkillFX.reset();for(const actor of [player,...bots]){cancelServiceReload(actor);actor.lastHeard=null;actor.netStepClock=0;}stoppedServiceEvents.clear();stoppedTurfEvents.clear();stoppedFrostEvents.clear();ordinaryAudio.clear();ordinaryMarkerAudio.clear();const overlay=$('skill-blind-overlay');if(overlay){overlay.hidden=true;overlay.style.opacity='0';}}
+function resetOrdinarySkills(){catReturnSeen.clear();catSkillFX.reset();duckAim=null;duckSkillFX.reset();botHearing.reset();ordinarySkills.reset();ordinaryFX.reset();nopeDecoys.reset();nopeDecoyFX.reset();nopePops.length=0;nopeSeenPopSequence=0;mendSkillFX.reset();iagnuSkillFX.reset();grassSkillFX.reset();emberSkillFX.reset();frostSkillFX.reset();duelistSkillFX.reset();for(const actor of [player,...bots]){cancelServiceReload(actor);actor.lastHeard=null;actor.netStepClock=0;}stoppedServiceEvents.clear();stoppedTurfEvents.clear();stoppedFrostEvents.clear();ordinaryAudio.clear();ordinaryMarkerAudio.clear();const overlay=$('skill-blind-overlay');if(overlay){overlay.hidden=true;overlay.style.opacity='0';}}
 function resetTeamAbilities(){teamAbilities.reset();characterFX.reset();resetZoneAbilities();resetOrdinarySkills();}
 function actorGrounded(actor){
   if(!actor?.alive||!Number.isFinite(actor.y)||Number.isFinite(actor.vy)&&Math.abs(actor.vy)>1e-5)return false;
@@ -359,7 +361,7 @@ function updateOrdinarySkills(){
       ordinaryAudio.set(event.id,beat);
     }else{
       const trigger=ordinaryAudioTime(event),triggered=elapsed>=trigger;
-      if(triggered&&previous!==true&&elapsed-trigger<.18)sound({'nope-bottle':'bottle-pop','nope-flash':'flash','mend-seeds':'seed-bloom','mend-pollen':'pollen','mend-heal':'flower-heal','echo-tag':'echo-tag-set','echo-glint':'echo-glint','echo-kerning':'echo-kerning','veil-dust':'grass-dust','veil-roots':'grass-roots','veil-turf':'grass-turf','ember-solder':'solder-pop','ember-shade':'shade-check','ember-service':'quick-solder','frost-stitch':'frost-stitch','frost-mist':'frost-mist','frost-unravel':'frost-unravel','duelist-comet':'duelist-comet','duelist-lift':'duelist-lift','duck-seal':'duck-seal','duck-shield':'duck-shield','duck-hush':'duck-hush','duck-egg':'duck-egg'}[event.type]||'smoke',{entity:event,localOnly:true});
+      if(triggered&&previous!==true&&elapsed-trigger<.18)sound({'nope-bottle':'bottle-pop','nope-flash':'flash','mend-seeds':'seed-bloom','mend-pollen':'pollen','mend-heal':'flower-heal','echo-tag':'echo-tag-set','echo-glint':'echo-glint','echo-kerning':'echo-kerning','veil-dust':'grass-dust','veil-roots':'grass-roots','veil-turf':'grass-turf','ember-solder':'solder-pop','ember-shade':'shade-check','ember-service':'quick-solder','frost-stitch':'frost-stitch','frost-mist':'frost-mist','frost-unravel':'frost-unravel','duelist-comet':'duelist-comet','duelist-lift':'duelist-lift','duck-seal':'duck-seal','duck-shield':'duck-shield','duck-hush':'duck-hush','duck-egg':'duck-egg','cat-bookmark':'cat-bookmark','cat-return':'cat-return','cat-pluck':'cat-pluck','cat-fetch':'cat-fetch','cat-clock':'cat-clock'}[event.type]||'smoke',{entity:event,localOnly:true});
       ordinaryAudio.set(event.id,triggered);
     }
   }
@@ -378,7 +380,8 @@ function renderOrdinarySkills(){
   iagnuSkillFX.update(live?ordinarySkills.events(elapsed):[],elapsed,{viewer:viewer||player,actors:[player,...bots],showHand:live&&mode==='play'&&player.alive,reducedMotion:reducedMotion.matches});
   grassSkillFX.update(live?ordinarySkills.events(elapsed):[],elapsed,{viewer:viewer||player,actors:[player,...bots].map(ordinaryActorView),groundHeight:ordinaryGroundHeight,showHand:live&&mode==='play'&&player.alive,reducedMotion:reducedMotion.matches});
   emberSkillFX.update(live?ordinarySkills.events(elapsed):[],elapsed,{viewer:viewer||player,actors:[player,...bots].map(ordinaryActorView),showHand:live&&mode==='play'&&player.alive,reducedMotion:reducedMotion.matches});
-  duckSkillFX.update(live?ordinarySkills.events(elapsed):[],elapsed,{actors:[player,...bots],preview:live&&mode==='play'&&player.alive&&duckAim?{...getDuckTarget(player,duckAim==='c'?'duck-seal':'duck-shield'),type:duckAim}:null});
+  catSkillFX.update(live?ordinarySkills.events(elapsed):[],elapsed,{actors:[player,...bots],preview:live&&mode==='play'&&player.alive&&player.kit.character==='cat'&&duckAim?{...(duckAim==='q'?catEnemyTarget(player):catDropTarget(player)),type:duckAim}:null});
+  duckSkillFX.update(live?ordinarySkills.events(elapsed):[],elapsed,{actors:[player,...bots],preview:live&&mode==='play'&&player.alive&&player.kit.character==='duck'&&duckAim?{...getDuckTarget(player,duckAim==='c'?'duck-seal':'duck-shield'),type:duckAim}:null});
   frostSkillFX.update(live?ordinarySkills.events(elapsed):[],elapsed,{viewer:viewer||player,actors:[player,...bots].map(ordinaryActorView),groundHeight:ordinaryGroundHeight,reachable:ordinaryReachable,showHand:live&&mode==='play'&&player.alive,reducedMotion:reducedMotion.matches});
   duelistSkillFX.update(live?ordinarySkills.events(elapsed):[],elapsed,{viewer:viewer||player,showHand:live&&mode==='play'&&player.alive,reducedMotion:reducedMotion.matches});
   const remaining=live&&viewer?.alive?Math.max(0,ordinarySkills.blindUntil(viewer.id,elapsed)-elapsed):0,overlay=$('skill-blind-overlay');
@@ -523,9 +526,10 @@ function syncDrops(values){
     else addDrop(data);
   }
 }
-function pickupDroppedWeapon(actor,dropId){
+function pickupDroppedWeapon(actor,dropId,{catFetch=false}={}){
   if(!actor.alive||match?.phase!=='live')return false;
-  const drop=droppedWeapons.find(d=>d.id===dropId&&Math.hypot(d.x-actor.x,d.z-actor.z)<1.5);if(!drop)return false;
+  const remoteFetch=catFetch&&actor.kit?.character==='cat'&&!isGuest();
+  const drop=droppedWeapons.find(d=>d.id===dropId&&(remoteFetch?Math.hypot(d.x-actor.x,actor.y||0,d.z-actor.z)<=CAT_SKILLS.fetchRange&&catDropVisible(actor,d):Math.hypot(d.x-actor.x,d.z-actor.z)<1.5));if(!drop)return false;
   const slot=WEAPONS[drop.weapon].slot,local=actor===player;
   if(local)ammoStore[inventory.active]={ammo:player.ammo,reserve:player.reserve};
   else{actor.netStores||={};actor.netStores[actor.netWeapon]={ammo:actor.netAmmo,reserve:actor.netReserve};}
@@ -533,6 +537,7 @@ function pickupDroppedWeapon(actor,dropId){
   if(local){inventory[slot]=drop.weapon;ammoStore[drop.weapon]={ammo:drop.ammo,reserve:drop.reserve};equip(drop.weapon,true);}
   else{
     cancelServiceReload(actor);actor.record[slot]=drop.weapon;actor.netWeapon=drop.weapon;actor.netAmmo=drop.ammo;actor.netReserve=drop.reserve;actor.netReload=0;
+    if(remoteFetch&&!actor.remoteId){actor.aiWeapon=drop.weapon;actor.aiAmmo=drop.ammo;actor.aiReserve=drop.reserve;actor.aiReload=0;}
     actor.netStores||={};actor.netStores[drop.weapon]={ammo:drop.ammo,reserve:drop.reserve};
   }
   removeDrop(drop);return true;
@@ -713,7 +718,7 @@ function autoBuyBot(r){
   else if(r.secondary==='classic'&&r.credits>=500){r.secondary='ghost';r.credits-=500;}
   if(r.armor<50&&r.credits>=1000){r.armor=50;r.credits-=1000;}
   else if(r.armor<25&&r.credits>=400){r.armor=25;r.credits-=400;}
-  if(['duelist','nope','mend','echo','veil','ember','frost','duck'].includes(r.kit?.character))for(const key of ['c','q'])while(r.kit.buy(key,price=>{if(r.credits<price)return false;r.credits-=price;return true;})){}
+  if(['duelist','nope','mend','echo','veil','ember','frost','duck','cat'].includes(r.kit?.character))for(const key of ['c','q'])while(r.kit.buy(key,price=>{if(r.credits<price)return false;r.credits-=price;return true;})){}
 }
 function setVisible(id,visible) { if($(id))$(id).hidden=!visible; if(visible&&(id==='menu'||id==='result'))keyboardProtection.release(); if(id==='menu'||id==='online-overlay'||id==='online-lobby')characterPicker.sync(); }
 function clearCombatInput(){duckAim=null;
@@ -895,7 +900,9 @@ function startCharacterTrial(){
     const team=support?player.team:(player.team==='blue'?'red':'blue'),character=characterIds[(characterIds.indexOf(player.kit.character)+index)%characterIds.length];
     const record={id:`trial-${index}`,team,name:`${CHARACTER_DEFS[character].label} / 練習`,k:0,d:0,a:0,credits:0,secondary:'classic',kit:new DuelistKit({character})};
     makeBot(points[index],index,team,record);const target=bots.at(-1);target.rangeTarget=true;target.hp=support?35+index*25:100;target.group.rotation.y=0;
+    if(player.kit.character==='cat'){target.aiWeapon='classic';target.aiAmmo=WEAPONS.classic.mag;target.aiReserve=WEAPONS.classic.reserve;target.aiReload=0;}
   }
+  if(player.kit.character==='cat')addDrop({id:++dropSequence,weapon:'ghost',x:player.x,z:player.z-6,yaw:0,ammo:9,reserve:12});
   resumeGame();updateHUD();
   showMessage(`${CHARACTER_DEFS[player.kit.character].label} / スキル試用`,support?'X：自身と負傷した味方を回復 · Mから何度でもやり直せます':'X：固有ULTを試す · Mから何度でもやり直せます',5);
   return true;
@@ -1071,7 +1078,8 @@ function ordinaryGroundHeight(x,z,referenceY){
 }
 function getRootsTarget(actor,point=null,aim=null){
   if(!actorGrounded(actor))return null;
-  const input=netInputs.get(actor.remoteId)?.input,yaw=aim?.yaw??(actor===player?player.yaw:input?.yaw??actor.yaw??0);
+  if(ordinarySkills.blindUntil(actor.id,elapsed)>elapsed)return null;
+ const input=netInputs.get(actor.remoteId)?.input,yaw=aim?.yaw??(actor===player?player.yaw:input?.yaw??actor.yaw??0);
   let dx=point&&Number.isFinite(point.x)?point.x-actor.x:-Math.sin(yaw)*VEIL_SKILLS.rootsRange;
   let dz=point&&Number.isFinite(point.z)?point.z-actor.z:-Math.cos(yaw)*VEIL_SKILLS.rootsRange;
   const length=Math.hypot(dx,dz),reach=Math.min(length,VEIL_SKILLS.rootsRange);if(length<.5)return null;
@@ -1126,7 +1134,8 @@ function getCometTarget(actor,point=null,aim=null){
 }
 function getDuckTarget(actor,type,aim=null){
   if(type==='duck-hush'||type==='duck-egg')return{x:actor.x,y:actor.y||0,z:actor.z};
-  const input=netInputs.get(actor.remoteId)?.input,yaw=aim?.yaw??(actor===player?player.yaw:input?.yaw??actor.yaw??0),pitch=aim?.pitch??(actor===player?player.pitch:input?.pitch??0);
+  if(ordinarySkills.blindUntil(actor.id,elapsed)>elapsed)return null;
+ const input=netInputs.get(actor.remoteId)?.input,yaw=aim?.yaw??(actor===player?player.yaw:input?.yaw??actor.yaw??0),pitch=aim?.pitch??(actor===player?player.pitch:input?.pitch??0);
   if(!Number.isFinite(yaw)||!Number.isFinite(pitch))return null;
   const origin={x:actor.x,y:(actor.y||0)+1.7-(actor.crouch||0)*.55,z:actor.z},dx=-Math.sin(yaw)*Math.cos(pitch),dy=Math.sin(pitch),dz=-Math.cos(yaw)*Math.cos(pitch);
   if(type==='duck-seal'){
@@ -1144,6 +1153,63 @@ function getDuckTarget(actor,type,aim=null){
     return{x,y,z,yaw:Math.atan2(-dx,-dz)};
   }return null;
 }
+function catEnemyTarget(actor,aim=null){
+ if(ordinarySkills.blindUntil(actor.id,elapsed)>elapsed)return null;
+ const input=netInputs.get(actor.remoteId)?.input,yaw=aim?.yaw??(actor===player?player.yaw:input?.yaw??actor.yaw??0),pitch=aim?.pitch??(actor===player?player.pitch:input?.pitch??0);
+ if(!Number.isFinite(yaw)||!Number.isFinite(pitch))return null;
+ const origin=new THREE.Vector3(actor.x,(actor.y||0)+1.7-(actor.crouch||0)*.55,actor.z),direction=new THREE.Vector3(-Math.sin(yaw)*Math.cos(pitch),Math.sin(pitch),-Math.cos(yaw)*Math.cos(pitch));
+ let best=null;for(const enemy of [player,...bots])if(enemy.alive&&enemy.team!==actor.team&&visibleBetween(actor,enemy)){
+  const state=isGuest()?enemy.netTarget:null,w=state?.weapon||actorWeaponId(enemy),ammo=state?state.ammo:enemy===player?player.ammo:enemy.remoteId?enemy.netAmmo:enemy.aiAmmo;
+  if(!WEAPONS[w]?.mag||!(ammo>0)||enemy===player&&reloading>0||(state?state.reloading:enemy.remoteId?enemy.netReload:enemy.aiReload)>0||(state?state.serviceReload:enemy.serviceReload))continue;
+  const center=new THREE.Vector3(enemy.x,(enemy.y||0)+1.3-(enemy.crouch||0)*.55,enemy.z),offset=center.clone().sub(origin),along=offset.dot(direction);
+  if(along<0||Math.hypot(enemy.x-actor.x,center.y-(actor.y||0),enemy.z-actor.z)>CAT_SKILLS.pluckRange||offset.addScaledVector(direction,-along).length()>.55)continue;
+  if(!best||along<best.distance)best={enemy,weapon:w,ammo,distance:along,x:enemy.x,y:center.y,z:enemy.z,targetId:enemy.id};
+ }return best;
+}
+function catDropVisible(actor,drop){return ordinarySkills.blindUntil(actor.id,elapsed)<=elapsed&&!smokeBlocks(actor,{x:drop.x,y:-1.25,z:drop.z})&&map.collision.rayClear(actor.x,(actor.y||0)+1.7-(actor.crouch||0)*.55,actor.z,drop.x,.2,drop.z);}
+function catDropTarget(actor,aim=null){
+ if(ordinarySkills.blindUntil(actor.id,elapsed)>elapsed)return null;
+ const input=netInputs.get(actor.remoteId)?.input,yaw=aim?.yaw??(actor===player?player.yaw:input?.yaw??actor.yaw??0),pitch=aim?.pitch??(actor===player?player.pitch:input?.pitch??0);
+ if(!Number.isFinite(yaw)||!Number.isFinite(pitch))return null;
+ const origin=new THREE.Vector3(actor.x,(actor.y||0)+1.7-(actor.crouch||0)*.55,actor.z),direction=new THREE.Vector3(-Math.sin(yaw)*Math.cos(pitch),Math.sin(pitch),-Math.cos(yaw)*Math.cos(pitch));
+ let best=null;for(const drop of droppedWeapons){const target=new THREE.Vector3(drop.x,.2,drop.z),offset=target.clone().sub(origin),along=offset.dot(direction);if(along<0||Math.hypot(drop.x-actor.x,actor.y||0,drop.z-actor.z)>CAT_SKILLS.fetchRange||offset.addScaledVector(direction,-along).length()>.8||!catDropVisible(actor,drop))continue;if(!best||along<best.distance)best={drop,distance:along,x:drop.x,y:0,z:drop.z};}return best;
+}
+function activateCatAbility(actor,key,{predict=false,aim=null}={}){
+ key=String(key).toLowerCase();if(!['c','q','e','x'].includes(key)||netHostPaused||!actor?.alive||match?.phase!=='live'||actor.planting||actor.defusing||actor.serviceReload)return;
+ const view=ordinaryActorView(actor),before=actor.kit.snapshot();let target=null;
+ const bookmark=key==='c'?ordinarySkills.catBookmark(actor.id,elapsed):null;
+ if(bookmark){
+  if(Math.hypot(actor.x-bookmark.x,(actor.y||0)-bookmark.y,actor.z-bookmark.z)>CAT_SKILLS.returnRange||ordinaryGroundHeight(bookmark.x,bookmark.z,bookmark.y)===null||!canStand(bookmark.x,bookmark.z,.34,bookmark.y))return;
+  if(predict)return{type:'cat-return'};
+  const event=ordinarySkills.returnToCatBookmark(bookmark.id,view,elapsed,match.round);if(!event)return;
+  Object.assign(actor,{x:bookmark.x,y:bookmark.y,z:bookmark.z,vy:0,vx:0,vz:0,dashTimer:0});cancelServiceReload(actor);
+  if(actor===player){clearCombatInput();firing=false;reloading=0;}
+  if(actor.remoteId){const data=netInputs.get(actor.remoteId);if(data){Object.assign(data.input,{x:actor.x,y:actor.y,z:actor.z});actor.netPositionAck={seq:data.seq,connection:data.connection,round:data.round,x:actor.x,z:actor.z};}}
+  if(actor===player)showMessage('白いしおり / 帰還','保存した場所へ戻りました · HPと弾は巻き戻しません',2);return{type:'cat-return'};
+ }
+ if(key==='c'){if(!actorGrounded(actor))return;target={x:actor.x,y:actor.y||0,z:actor.z};}
+ if(key==='q'){target=catEnemyTarget(actor,aim);if(!target)return;}
+ if(key==='e'){target=catDropTarget(actor,aim);if(!target)return;}
+ if(key==='x')target={x:actor.x,y:actor.y||0,z:actor.z};
+ const effect=actor.kit.activate(key,elapsed);if(!effect)return;
+ const event=predict?null:ordinarySkills.cast(effect,view,target,elapsed,match.round);if(!predict&&!event){actor.kit.restore(before);return;}
+ if(!predict&&key==='q'){
+  const victim=target.enemy,remaining=Math.max(0,target.ammo-CAT_SKILLS.pluckAmmo);
+  if(victim===player){player.ammo=remaining;ammoStore[inventory.active]={ammo:remaining,reserve:player.reserve};showMessage('ひげの弾抜き','装填中の弾を抜かれました · 予備弾は残っています',1.5);}
+  else{if(victim.remoteId)victim.netAmmo=remaining;else victim.aiAmmo=remaining;if(victim.netStores?.[target.weapon])victim.netStores[target.weapon].ammo=remaining;}
+ }
+ if(!predict&&key==='e'&&!pickupDroppedWeapon(actor,target.drop.id,{catFetch:true})){ordinarySkills.cancelCatEvent(event.id);actor.kit.restore(before);return;}
+ if(actor===player)showMessage(key==='x'?'白紙の8秒':getCharacterSkill('cat',key).name,key==='x'?'8秒、試合時計を停止 · 移動・射撃・設置・電源オフは続きます':getCharacterSkill('cat',key).description,2);
+ return effect;
+}
+function confirmCatSkill(key){
+ if(netHostPaused||mode!=='play'||!player.alive||interactionHeld||objectivePractice)return;
+ refillMapPracticeSkills();const aim={yaw:player.yaw,pitch:player.pitch},effect=activateAbility(player,key,{predict:isGuest(),aim});
+ if(effect&&isGuest())queueNetAction('ability',{key,...aim});
+ if(!effect)showMessage('発動できません',key==='q'?'視線の通る敵の銃と装填弾を確認してください · 回数は消費しません':'見える落ちた銃を狙ってください · 回数は消費しません',2);
+ refillMapPracticeSkills();updateHUD();
+}
+
 function activateDuckEgg(actor,{predict=false}={}){
   if(netHostPaused||!actor?.alive||match?.phase!=='live'||actor.planting||actor.defusing||actor.serviceReload)return;
   const before=actor.kit.snapshot(),effect=actor.kit.activate('x',elapsed);if(!effect)return;
@@ -1190,6 +1256,7 @@ function getSkillTarget(actor,type,point=null,aim=null){
 }
 function activateAbility(actor,key,{predict=false,zonePoint=null,aim=null}={}){
   if(ordinarySkills.sealUntil(actor?.id,elapsed)>elapsed){if(actor===player)showMessage('羽根の封印', '新しいスキルは使えません · 銃と移動は使えます',1);return;}
+  if(actor?.kit?.character==='cat')return activateCatAbility(actor,key,{predict,aim});
   if(actor?.kit?.character==='duck'&&String(key).toLowerCase()==='x')return activateDuckEgg(actor,{predict});
   if(netHostPaused||!actor?.alive||match?.phase!=='live'||actor.planting||actor.defusing)return;
   actor.kit||=new DuelistKit();
@@ -1250,6 +1317,7 @@ function refillMapPracticeSkills(){
   kit.ultPoints=DUELIST.ultimatePoints;if(kit.knivesActive)kit.knives=DUELIST.knives;
 }
 function confirmDuckSkill(key){
+ if(player.kit?.character==='cat')return confirmCatSkill(key);
  if(netHostPaused||mode!=='play'||!player.alive||interactionHeld||objectivePractice)return;
  refillMapPracticeSkills();const aim={yaw:player.yaw,pitch:player.pitch},effect=activateAbility(player,key,{predict:isGuest(),aim});
  if(effect&&isGuest())queueNetAction('ability',{key,...aim});
@@ -1257,10 +1325,12 @@ function confirmDuckSkill(key){
  refillMapPracticeSkills();updateHUD();
 }
 function useAbility(key){
+ if(player.kit?.character==='cat'&&['q','e'].includes(key)&&mode==='play'&&player.alive&&match?.phase==='live'&&!netHostPaused&&!interactionHeld&&!objectivePractice){duckAim=duckAim===key?null:key;firing=false;aiming=false;if(duckAim)showMessage(getCharacterSkill('cat',key).name,'狙って左クリックで確定 / 右クリックで取消',30);return;}
+ const catReturning=player.kit?.character==='cat'&&key==='c'&&!!ordinarySkills.catBookmark(player.id,elapsed);
  if(player.kit?.character==='duck'&&['c','q'].includes(key)&&mode==='play'&&player.alive&&match?.phase==='live'&&!netHostPaused&&!interactionHeld){
   duckAim=duckAim===key?null:key;firing=false;aiming=false;if(duckAim)showMessage(getCharacterSkill('duck',key).name,'照準で狙う → 左クリックで確定 / 右クリックで取消',30);return;
  }
- refillMapPracticeSkills();if(netHostPaused||mode!=='play'||!player.alive||interactionHeld||objectivePractice)return;const aim={yaw:player.yaw,pitch:player.pitch};const effect=activateAbility(player,key,{predict:isGuest(),aim});if(isGuest()){queueNetAction('ability',{key,...aim,direction:effect?.type==='dash'?player.dashVec:null});if(effect?.type==='dash')player.netPredictDashUntil=elapsed+.6;}refillMapPracticeSkills();updateHUD();}
+ refillMapPracticeSkills();if(netHostPaused||mode!=='play'||!player.alive||interactionHeld||objectivePractice)return;const aim={yaw:player.yaw,pitch:player.pitch};const effect=activateAbility(player,key,{predict:isGuest(),aim});if(isGuest()){queueNetAction('ability',{key,...aim,...(catReturning?{catReturning:true}:{}),direction:effect?.type==='dash'?player.dashVec:null});if(effect?.type==='dash')player.netPredictDashUntil=elapsed+.6;}refillMapPracticeSkills();updateHUD();}
 function dash(){useAbility('q');}
 function scan(){useAbility('e');}
 function jump(){if(!netHostPaused&&mode==='play'&&player.alive&&player.vy===0&&!interactionHeld){player.vy=6.552;sound('reload');}}
@@ -1299,10 +1369,11 @@ function updateHUD(){
   if($('ability-x-glyph'))$('ability-x-glyph').setAttribute('d',character.ultIcon);
   if($('status-effects')){
     const scale=player.alive?actorSpeedScale(player):1,boosted=player.alive&&actorMovementScale(player)>1,slowed=scale<1,blind=player.alive&&ordinarySkills.blindUntil(player.id,elapsed)>elapsed;
+    const catBook=ordinarySkills.catBookmark(player.id,elapsed),catClock=ordinarySkills.clockFrozen(elapsed);
     const duckSeal=ordinarySkills.sealUntil(player.id,elapsed)>elapsed,duckQuiet=ordinarySkills.quiet(player.id,elapsed),duckEgg=ordinarySkills.events(elapsed).find(e=>e.type==='duck-egg'&&e.sourceId===player.id);
     const personal=player.alive?ordinarySkills.events(elapsed).filter(event=>event.sourceId===player.id):[],shade=personal.some(event=>event.type==='ember-shade'),unravel=personal.some(event=>event.type==='frost-unravel')&&actorGrounded(player);
-    $('status-effects').hidden=!duckAim&&!duckSeal&&!duckQuiet&&!duckEgg&&!slowed&&!boosted&&!blind&&!shade&&!unravel;
-    $('status-effects').textContent=[duckAim?'狙って左クリックで確定 / 右クリックで取消':'',duckSeal?'羽根の封印 · 新規スキル使用不可':'',duckQuiet?'忍びガモ · 足音・着地音なし':'',duckEgg?`不屈の卵 · 残り${duckEgg.power}回`:'',slowed?`足止め中 · 移動速度 ${Math.round(scale*100)}%`:'',boosted?`${CHARACTER_DEFS[player.kit.character].label} / ${getCharacterSkill(player.kit.character,'e').name} · ${Math.round(scale*100)}%`:'',blind?'FLASH · 視界回復中':'',shade?`遮光チェック · 新しい閃光の時間${Math.round(EMBER_SKILLS.shadeFlashScale*100)}%`:'',unravel?`ほどけるリボン · 減速分を${Math.round((1-FROST_SKILLS.unravelSlowFraction)*100)}%軽減`:''].filter(Boolean).join(' / ');
+    $('status-effects').hidden=!catBook&&!catClock&&!duckAim&&!duckSeal&&!duckQuiet&&!duckEgg&&!slowed&&!boosted&&!blind&&!shade&&!unravel;
+    $('status-effects').textContent=[catBook?`白いしおり · Cで帰還 ${Math.max(0,Math.ceil(catBook.endsAt-elapsed))}秒`:'',catClock?'白紙の8秒 · 試合時計停止 / 行動は継続':'',duckAim?'狙って左クリックで確定 / 右クリックで取消':'',duckSeal?'羽根の封印 · 新規スキル使用不可':'',duckQuiet?'忍びガモ · 足音・着地音なし':'',duckEgg?`不屈の卵 · 残り${duckEgg.power}回`:'',slowed?`足止め中 · 移動速度 ${Math.round(scale*100)}%`:'',boosted?`${CHARACTER_DEFS[player.kit.character].label} / ${getCharacterSkill(player.kit.character,'e').name} · ${Math.round(scale*100)}%`:'',blind?'FLASH · 視界回復中':'',shade?`遮光チェック · 新しい閃光の時間${Math.round(EMBER_SKILLS.shadeFlashScale*100)}%`:'',unravel?`ほどけるリボン · 減速分を${Math.round((1-FROST_SKILLS.unravelSlowFraction)*100)}%軽減`:''].filter(Boolean).join(' / ');
   }
   if($('ability-x-name'))$('ability-x-name').textContent=character.ultShortName;
   if($('mobile-ult-name'))$('mobile-ult-name').textContent=character.ultShortName;
@@ -1589,6 +1660,14 @@ function updateBots(dt){
       }
       bot.nextSkillAt=elapsed+(cast?2:.4);
     }
+    if(bot.kit?.character==='cat'&&!interactPlant&&!interactDefuse&&elapsed>=(bot.nextSkillAt||0)){
+      let cast=null;const bookmark=ordinarySkills.catBookmark(bot.id,elapsed);
+      if(bot.kit.ultPoints>=7&&(match.spike.status==='planted'||match.roundTime<20)&&!ordinarySkills.clockFrozen(elapsed))cast=activateAbility(bot,'x');
+      if(!cast&&bookmark&&bot.hp<45)cast=activateAbility(bot,'c');
+      if(!cast&&enemy&&visibleBetween(bot,enemy)){const aim={yaw:Math.atan2(-(enemy.x-bot.x),-(enemy.z-bot.z)),pitch:Math.atan2((enemy.y||0)+1.3-((bot.y||0)+1.7),Math.hypot(enemy.x-bot.x,enemy.z-bot.z))};cast=activateAbility(bot,'q',{aim});if(!cast&&!bookmark&&bot.hp>60)cast=activateAbility(bot,'c');}
+      if(!cast&&!enemy){const drop=droppedWeapons.find(d=>Math.hypot(d.x-bot.x,d.z-bot.z)<CAT_SKILLS.fetchRange);if(drop){const distance=Math.hypot(drop.x-bot.x,drop.z-bot.z),aim={yaw:Math.atan2(-(drop.x-bot.x),-(drop.z-bot.z)),pitch:Math.atan2(.2-((bot.y||0)+1.7),distance)};cast=activateAbility(bot,'e',{aim});}}
+      bot.nextSkillAt=elapsed+(cast?1:.5);
+    }
     if(bot.kit?.character==='duck'&&!interactPlant&&!interactDefuse&&elapsed>=(bot.nextSkillAt||0)){
       let cast=null;
       if(enemy&&visibleBetween(bot,enemy)){
@@ -1811,7 +1890,7 @@ function updatePlay(dt){
   updateBots(dt);
   botThinkTick-=dt;
   if(botThinkTick<=0){botThinkTick=.25;const front=new THREE.Vector3();camera.getWorldDirection(front);for(const bot of bots){if(bot.team===player.team||!bot.alive)continue;const offset=new THREE.Vector3(bot.x-player.x,0,bot.z-player.z);if(player.alive&&offset.length()<42&&offset.normalize().dot(front)>.55&&visibleBetween(player,bot))bot.spottedUntil=elapsed+.6;}}
-  if(!exploring&&!isGuest()){match.tick(dt,{blueAlive:aliveCount('blue'),redAlive:aliveCount('red'),playerAlive:player.alive});handleMatchEvents();}
+  if(!exploring&&!isGuest()){match.tick(dt,{clockPaused:match.phase==='live'&&ordinarySkills.clockFrozen(elapsed),blueAlive:aliveCount('blue'),redAlive:aliveCount('red'),playerAlive:player.alive});handleMatchEvents();}
   timeLeft=match.phase==='buy'||match.phase==='post'?match.phaseTime:match.spike.status==='planted'?match.spike.timer:match.roundTime;
   viewmodel.update(dt,{aiming:aiming&&controlled,reloading,reloadDuration:player.serviceReload?EMBER_SKILLS.serviceDuration:weapon().reload,kick,moving:len>0,time:elapsed,crouching:player.crouch,interacting:interactionHeld&&controlled,ultimate:player.kit.knivesActive&&inventory.active==='knife',knives:player.kit.knives,shotSequence});
   flash.visible=player.alive&&inventory.active!=='knife'&&elapsed-lastShot<.045;flash.rotation.z=elapsed*40;
@@ -2016,6 +2095,8 @@ function applyNetSnapshot(packet){
     ordinarySkills.restore((stoppedTurfEvents.size||stoppedServiceEvents.size||stoppedFrostEvents.size)&&Array.isArray(state.events)?{...state,events:state.events.filter(event=>!stoppedTurfEvents.has(event.id)&&!stoppedServiceEvents.has(event.id)&&!stoppedFrostEvents.has(event.id))}:state,elapsed,match.round);
   }
   else resetOrdinarySkills();
+  for(const event of ordinarySkills.events(elapsed))if(event.type==='cat-return'&&event.sourceId===ownId&&!catReturnSeen.has(event.id)){catReturnSeen.add(event.id);if(!fresh){player.x=self.x;player.y=self.y;player.z=self.z;player.vy=0;player.vx=0;player.vz=0;player.dashTimer=0;netPositionHistory.clear();netPositionAck=Math.max(netPositionAck,packet.positionAcks?.[online.session.memberId]?.seq||0);netPositionCorrectionX=0;netPositionCorrectionZ=0;clearCombatInput();}}
+  while(catReturnSeen.size>32)catReturnSeen.delete(catReturnSeen.values().next().value);
   if(fresh)for(const event of ordinarySkills.events(elapsed))ordinaryAudio.set(event.id,event.type==='nope-decoy'?Math.floor((elapsed-event.startedAt)/.65):elapsed>=ordinaryAudioTime(event));
   if(fresh)for(const event of zoneAbilities.events(elapsed))if(event.type==='ember')zonePulseAudio.set(event.id,emberPulseIndex(elapsed-event.startedAt));
   if(self.hp<player.hp)damageFlash=.35;
@@ -2032,7 +2113,7 @@ function applyNetSnapshot(packet){
     for(const action of netActions){
       if(action.round!==match.round)continue;
       if(action.type==='character'&&match.phase==='buy'&&match.round===1&&characterIds.includes(action.character))player.kit.character=action.character;
-      else if(action.type==='ability'){const effect=player.kit.activate(action.key,action.at);if(effect?.type==='knives')predictedKnives=true;}
+      else if(action.type==='ability'&&!(player.kit.character==='cat'&&action.key==='c'&&action.catReturning===true)){const effect=player.kit.activate(action.key,action.at);if(effect?.type==='knives')predictedKnives=true;}
       else if(action.type==='fire'&&action.ultimate)player.kit.consumeKnife();
     }
     player.kit.tick(elapsed);
