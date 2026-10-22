@@ -857,7 +857,7 @@ export function createAgentModel(THREE, { bot = null, team = 'red', variant = 0,
   const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3(), target = new THREE.Vector3();
   const hip = new THREE.Vector3(), ankle = new THREE.Vector3(), kneePoint = new THREE.Vector3();
   let moveBlend = 0, interactBlend = 0, fireKick = 0, flashTimer = 0, wasFiring = false, lastShotSequence = null, deathTime = 0, disposed = false;
-  function poseArm(part, side, drop, interaction) {
+  function poseArm(part, side, drop, interaction, danceTime = null) {
     const isRight = side < 0;
     a.set(side * .263, 1.325 + drop, .004);
     b.set(isRight ? -.285 : .12, (isRight ? 1.055 : 1.065) + drop, isRight ? -.014 : .255);
@@ -874,6 +874,11 @@ export function createAgentModel(THREE, { bot = null, team = 'red', variant = 0,
       c.lerp(target.set(side * .085, .88 + drop, .365), interaction);
     }
 
+    if (danceTime !== null) {
+      const wave = Math.sin(danceTime * 5.6 + side * 1.2);
+      b.set(side * .44, 1.36 + drop + wave * .10, .06);
+      c.set(side * (.36 + wave * .05), 1.67 + drop + wave * .16, .15);
+    }
     part.shoulder.position.copy(a); part.shoulder.rotation.z = side * -.2;
     placeSegment(part.upperArm, a, b); placeSegment(part.forearm, b, c);
     part.elbow.position.copy(b);
@@ -903,6 +908,8 @@ export function createAgentModel(THREE, { bot = null, team = 'red', variant = 0,
     if(state.character!==undefined)selectCharacter(state.character);
     dt = Math.min(.1, Math.max(0, Number(dt) || 0));
     const time = Number(state.time) || 0, smooth = 1 - Math.exp(-dt * 10);
+    const dancing = state.dancing === true && state.alive !== false && !state.planting && !state.defusing;
+    const danceTime = Number.isFinite(state.danceTime) ? state.danceTime : time;
     moveBlend += ((state.moving ? 1 : 0) - moveBlend) * smooth;
     const interacting = state.planting || state.defusing;
     interactBlend += ((interacting ? 1 : 0) - interactBlend) * smooth;
@@ -949,10 +956,22 @@ export function createAgentModel(THREE, { bot = null, team = 'red', variant = 0,
     if (state.alive === false) {
       deathTime = Math.min(1, deathTime + dt / .7);
       const fall = deathTime * deathTime * (3 - 2 * deathTime);
-      rig.rotation.x = fall * 1.49; rig.rotation.z = fall * (variant % 2 ? -.28 : .28);
+      rig.rotation.x = fall * 1.49; rig.rotation.y = 0; rig.rotation.z = fall * (variant % 2 ? -.28 : .28);
       rig.position.y = fall * .03; ring.visible = false; muzzle.visible = false;
       weaponPivot.rotation.z += fall * .9;
     } else { deathTime = 0; rig.rotation.set(0, 0, 0); rig.position.y = 0; ring.visible = true; }
+    if (dancing) {
+      const beat = danceTime * 5.6, sway = Math.sin(beat), step = Math.cos(beat);
+      rig.rotation.set(0, sway * .18, sway * .095);
+      rig.position.y = .035 + Math.abs(step) * .035;
+      upper.position.y = -.035; upper.rotation.z = -sway * .045;
+      head.rotation.x = .06 + Math.cos(beat * 2) * .06; head.rotation.y = -sway * .16;
+      poseArm(rightArm, -1, -.035, 0, danceTime); poseArm(leftArm, 1, -.035, 0, danceTime);
+      poseLeg(leftLeg, sway * .16, Math.max(0, step) * .12, -.035);
+      poseLeg(rightLeg, -sway * .16, Math.max(0, -step) * .12, -.035);
+      weapon.group.visible = false; if (knifeFan) knifeFan.group.visible = false;
+      muzzle.visible = false;
+    }
     if(activeCharacter==='mend')sunflowerAvatar.update(interactBlend);
     if(activeCharacter==='duelist')starMascotAvatar.update();
     if(activeCharacter==='ember')solderAvatar.update();

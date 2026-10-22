@@ -55,7 +55,7 @@
       <button id="start" class="primary-button deploy-button" type="button"><span class="button-index">01</span><span id="start-title">出撃する<small id="start-subtitle">DEPLOY TO HASHIMOTO</small></span><svg viewBox="0 0 32 24" aria-hidden="true"><path d="M1 12h27M18 2l10 10-10 10"/></svg></button>
       <button id="online-open" class="online-open-button" type="button"><svg viewBox="0 0 32 28" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M3 24v-3a9 9 0 0 1 18 0v3M22 5a4 4 0 0 1 0 8m2 4a7 7 0 0 1 5 7"/></svg><span>友達と遊ぶ<small>部屋を作る / コードで参加</small></span><span class="online-entry-tag">最大 10 人 <i>↗</i></span></button>
       <div class="practice-modes" role="group" aria-label="練習モード">
-        <button id="explore-start" class="explore-button" type="button"><span class="explore-icon" aria-hidden="true">⌖</span><span>マップ練習<small>MAP / 時間制限なし</small></span><span class="explore-arrow" aria-hidden="true">↗</span></button>
+          <button id="explore-start" class="explore-button" type="button"><span class="explore-icon" aria-hidden="true">⌖</span><span>マップ練習<small>MAP / 時間制限なし</small></span><span class="explore-arrow" aria-hidden="true">↗</span></button>
         <button id="range-start" class="explore-button range-button" type="button"><span class="explore-icon" aria-hidden="true">◎</span><span>射撃訓練<small>RANGE / 60秒</small></span><span class="explore-arrow" aria-hidden="true">↗</span></button>
       </div>
       <div class="ready-status"><span class="signal-dot"></span> SYSTEM READY<span class="ready-separator">/</span><span>クリックして作戦開始</span></div>
@@ -95,6 +95,7 @@
 
     <aside class="character-preview-panel" aria-label="選択中のキャラクター">
       <div class="character-preview-heading"><span class="signal-dot"></span><span>CHARACTER / SELECTED</span><span class="preview-live">3D</span></div>
+      <button id="victory-dance-preview" type="button">勝利ダンスを見る ✦</button>
       <div id="character-preview-stage" class="character-preview-stage"><canvas id="character-preview-canvas" width="360" height="420" role="img" aria-label="選択中のキャラクターの3Dモデル"></canvas></div>
       <div class="character-preview-caption"><h2 id="character-preview-name">ちぬつてのとのへめほ</h2><p id="character-preview-role">突入 / ブレードストーム</p><span id="character-preview-note">選択するとモデルが切り替わります</span></div>
       <section id="character-skills" class="character-skills" aria-label="選択中の通常スキル">
@@ -258,6 +259,8 @@
       <footer><span>ボンバーディフューザー3Dオンライン / TACTICAL MAP</span><span>2 SITES <i>·</i> 3 ROUTES <i>·</i> M で閉じる</span></footer>
     </div>
   </section>
+
+  <aside id="victory-dance" class="victory-dance" aria-label="勝利ダンス" hidden><div class="victory-dance-heading"><span id="victory-dance-label">開米 / VICTORY DANCE</span><span aria-hidden="true">✦</span></div><canvas id="victory-dance-canvas" aria-label="勝ったキャラクターの全身ダンス"></canvas></aside>
 
   <div id="loading" class="loading-screen"><div class="loading-mark">BD<span>/</span>3D</div><span class="label-mini">INITIALIZING OPERATION</span><strong class="loading-game-title" aria-label="ボンバーディフューザー3Dオンライン"><span>ボンバー</span><span>ディフューザー</span><span>3Dオンライン</span></strong><div class="loading-progress"><i></i></div><p id="loading-text">橋本駅前の競技マップを読み込んでいます…</p><span class="loading-coordinate">35°35′42″N / 139°20′42″E</span></div>
   <div id="error" class="error-banner" role="alert" hidden></div>
