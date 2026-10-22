@@ -32,7 +32,7 @@ async function main(){
     m.update(0,{...normal,planting:true,dancing:true});assert.equal(rig.position.y,0,'Interaction overrides emote');
     m.dispose();m.dispose();
   }
-  console.log('PASS: all 14 actual models move, 52 surfaces/root preserved, exact reset, death and interaction override');
+  console.log('PASS: all 15 actual models move, 52 surfaces/root preserved, exact reset, death and interaction override');
 
   // Execute the actual shared equipment adapter used by host AI, remote humans,
   // and guest replicas; no new field is added to network serialization.
