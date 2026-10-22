@@ -83,7 +83,7 @@ async function main() {
     assert.equal(new DuelistKit({character:'unknown'}).character,'duelist');
   });
   test('exactly ten character definitions and both menu selectors expose the same stable IDs', () => {
-    const ids = ['duelist', 'nope', 'mend', 'echo', 'veil', 'ember', 'frost', 'duck', 'cat', 'car', 'nobi', 'japan'];
+    const ids = ['duelist', 'nope', 'mend', 'echo', 'veil', 'ember', 'frost', 'duck', 'cat', 'car', 'nobi', 'japan', 'cap'];
     assert.deepEqual(Object.keys(CHARACTER_DEFS), ids); assert.equal(Object.isFrozen(CHARACTER_DEFS), true);
     for (const id of ids) {
       const definition = CHARACTER_DEFS[id];
@@ -91,7 +91,7 @@ async function main() {
       for (const key of ['label', 'role', 'ultName', 'ultShortName', 'description', 'ultIcon']) assert.ok(definition[key]?.length > 0);
       assert.equal(definition.ultimatePoints, 7); assert.match(definition.color, /^#[0-9a-f]{6}$/i);
       assert.match(definition.description, /7pt/);
-      assert.match(definition.description, id === 'japan' ? /C：.*国境線.*Q：.*装甲.*E：.*返送/ : id === 'nobi' ? /C：.*銃に弱く.*Q：.*連射.*E：.*電源オフ/ : id === 'car' ? /C：.*押し出す.*Q：.*煙.*除去.*E：.*移動射撃/ : id === 'nope' ? /C：瓶グレネード.*Q：顔フラッシュ.*E：.*全身の囮.*X：.*30体/ : id === 'mend' ? /C：足止めの種.*Q：花粉の煙幕.*E：単体60回復/ : id === 'echo' ? /C：.*金文字.*Q：反射閃光.*E：短い移動補助/ : id === 'veil' ? /C：.*土煙.*Q：.*根の帯.*E：.*芝走り/ : id === 'ember' ? /C：.*はんだ玉.*Q：.*遮光眼鏡.*E：.*整備/ : id === 'cat' ? /C：.*保存地点.*Q：.*5発.*E：.*遠隔回収/ : id === 'duck' ? /C：.*封印.*Q：.*羽盾.*E：.*着地音/ : id === 'frost' ? /C：.*円環.*Q：.*ドールミスト.*E：.*減速を軽減/ : /C：.*流れ星の幕.*Q：アンテナリフト.*E：.*ダッシュ/);
+      assert.match(definition.description, id === 'cap' ? /C：.*ADS.*Q：.*妨害.*E：.*反射/ : id === 'japan' ? /C：.*国境線.*Q：.*装甲.*E：.*返送/ : id === 'nobi' ? /C：.*銃に弱く.*Q：.*連射.*E：.*電源オフ/ : id === 'car' ? /C：.*押し出す.*Q：.*煙.*除去.*E：.*移動射撃/ : id === 'nope' ? /C：瓶グレネード.*Q：顔フラッシュ.*E：.*全身の囮.*X：.*30体/ : id === 'mend' ? /C：足止めの種.*Q：花粉の煙幕.*E：単体60回復/ : id === 'echo' ? /C：.*金文字.*Q：反射閃光.*E：短い移動補助/ : id === 'veil' ? /C：.*土煙.*Q：.*根の帯.*E：.*芝走り/ : id === 'ember' ? /C：.*はんだ玉.*Q：.*遮光眼鏡.*E：.*整備/ : id === 'cat' ? /C：.*保存地点.*Q：.*5発.*E：.*遠隔回収/ : id === 'duck' ? /C：.*封印.*Q：.*羽盾.*E：.*着地音/ : id === 'frost' ? /C：.*円環.*Q：.*ドールミスト.*E：.*減速を軽減/ : /C：.*流れ星の幕.*Q：アンテナリフト.*E：.*ダッシュ/);
       assert.match(definition.ultIcon, /^[MmLlHhVvAaQqCcSsTtZz0-9.,\s-]+$/, 'Only an SVG path is stored in icon metadata');
     }
     const html = fs.readFileSync(path.join(__dirname, 'public/play.html'), 'utf8');
@@ -176,9 +176,9 @@ async function main() {
       assert.deepEqual(restored.snapshot(), kit.snapshot());
       if (id !== 'duelist') {
         assert.equal(restored.activate('e', 10.9), null);
-        const readyAt = id === 'duck' || id === 'japan' ? 30 : id === 'nope' || id === 'veil' ? 25 : 28;
+        const readyAt = id === 'cap' ? 32 : id === 'duck' || id === 'japan' ? 30 : id === 'nope' || id === 'veil' ? 25 : 28;
         assert.equal(restored.nextSignatureAt, readyAt); assert.equal(restored.activate('e', readyAt - .001), null);
-        assert.equal(restored.activate('e', readyAt).type, id === 'nope' ? 'nope-decoy' : id === 'mend' ? 'mend-heal' : id === 'echo' ? 'echo-kerning' : id === 'veil' ? 'veil-turf' : id === 'ember' ? 'ember-service' : id === 'japan' ? 'japan-return' : id === 'nobi' ? 'nobi-tool' : id === 'car' ? 'car-gyro' : id === 'cat' ? 'cat-fetch' : id === 'duck' ? 'duck-hush' : 'frost-unravel'); assert.equal(restored.armReadyAt, null);
+        assert.equal(restored.activate('e', readyAt).type, id === 'nope' ? 'nope-decoy' : id === 'mend' ? 'mend-heal' : id === 'echo' ? 'echo-kerning' : id === 'veil' ? 'veil-turf' : id === 'ember' ? 'ember-service' : id === 'cap' ? 'cap-bank' : id === 'japan' ? 'japan-return' : id === 'nobi' ? 'nobi-tool' : id === 'car' ? 'car-gyro' : id === 'cat' ? 'cat-fetch' : id === 'duck' ? 'duck-hush' : 'frost-unravel'); assert.equal(restored.armReadyAt, null);
       } else { assert.equal(restored.activate('e', 10.249), null); assert.equal(restored.activate('e', 10.25).type, 'dash'); }
       const points = restored.ultPoints; restored.resetRound();
       assert.equal(restored.character, id); assert.equal(restored.smoke, 1); assert.equal(restored.updraft, 1); assert.equal(restored.ultPoints, points);
@@ -290,7 +290,7 @@ async function main() {
     assert.equal(kit.buy('echo-glint', spend), true); assert.equal(kit.buy('q', spend), false);
     assert.equal(kit.buy('echo-kerning', spend), false); assert.equal(kit.buy('nope-flash', spend), false); assert.equal(kit.buy('mend-seeds', spend), false);
     assert.equal(calls, 3); assert.equal(credits, 0); assert.equal(kit.smoke, 2); assert.equal(kit.updraft, 1);
-    assert.equal(Object.keys(CHARACTER_DEFS).length, 12); assert.equal(CHARACTER_DEFS.echo.label, 'IAGNU'); assert.equal(Object.isFrozen(IAGNU_SKILLS), true);
+    assert.equal(Object.keys(CHARACTER_DEFS).length, 13); assert.equal(CHARACTER_DEFS.echo.label, 'IAGNU'); assert.equal(Object.isFrozen(IAGNU_SKILLS), true);
     const empty = new DuelistKit({ character: 'echo' }); assert.equal(empty.buy('c', () => false), false); assert.equal(empty.smoke, 0);
   });
   test('IAGNU returns canonical tag, glint and immediate movement effects without spending or mutating its recon ultimate', () => {
@@ -331,7 +331,7 @@ async function main() {
     assert.equal(kit.buy('veil-roots', spend), true); assert.equal(kit.buy('updraft', spend), false); assert.equal(kit.buy('veil-turf', spend), false);
     for (const id of ['nope-bottle', 'mend-seeds', 'echo-tag', 'veil-veil-dust']) assert.equal(kit.buy(id, spend), false);
     assert.equal(calls, 3); assert.equal(credits, 0); assert.equal(kit.smoke, 2); assert.equal(kit.updraft, 1); assert.equal(kit.dash, 1);
-    assert.equal(Object.isFrozen(VEIL_SKILLS), true); assert.equal(Object.keys(CHARACTER_DEFS).length, 12);
+    assert.equal(Object.isFrozen(VEIL_SKILLS), true); assert.equal(Object.keys(CHARACTER_DEFS).length, 13);
     const empty = new DuelistKit({ character: 'veil' }); assert.equal(empty.buy('c', () => false), false); assert.equal(empty.smoke, 0);
   });
   test('VEIL returns canonical self-smoke, narrow roots and immediate ground-speed contracts without touching its original dome', () => {
@@ -396,7 +396,7 @@ async function main() {
       assert.equal(remote.nextSignatureAt, 0); assert.equal(remote.armReadyAt, null); assert.equal(remote.knivesActive, false); assert.equal(remote.knives, 0);
     }
     const before = kit.snapshot(); for (const invalid of [NaN, Infinity, -1, '10']) for (const key of ['c', 'q', 'e']) assert.equal(kit.activate(key, invalid), null);
-    assert.deepEqual(kit.snapshot(), before); assert.equal(Object.keys(CHARACTER_DEFS).length, 12);
+    assert.deepEqual(kit.snapshot(), before); assert.equal(Object.keys(CHARACTER_DEFS).length, 13);
   });
   test('FROST has immutable annular stitch, remote mist and slow-mitigation metadata with exact stocks and prices', () => {
     assert.equal(Object.isFrozen(FROST_SKILLS), true);
@@ -413,7 +413,7 @@ async function main() {
     }
     assert.equal(kit.buy('smoke', spend), true); assert.equal(credits, 0); assert.equal(calls, 3);
     for (const id of ['frost-stitch', 'frost-mist', 'mend-seeds', 'e']) assert.equal(kit.buy(id, spend), false);
-    assert.equal(calls, 3); assert.equal(signatureCooldown('frost'), 18); assert.equal(Object.keys(CHARACTER_DEFS).length, 12);
+    assert.equal(calls, 3); assert.equal(signatureCooldown('frost'), 18); assert.equal(Object.keys(CHARACTER_DEFS).length, 13);
   });
   test('FROST ordinary casts return canonical mechanics and leave the existing seven-point ultimate unchanged', () => {
     const kit = new DuelistKit({ character: 'frost' }); kit.buy('c', () => true); kit.buy('q', () => true); kit.ultPoints = 7;
@@ -454,7 +454,7 @@ async function main() {
     assert.equal(transferred.activate('e', 11).type, 'dash'); assert.equal(transferred.activate('e', 12).type, 'dash-armed');
     assert.equal(transferred.activate('e', 13).type, 'dash');
     const before = kit.snapshot(); for (const bad of [NaN, Infinity, -1, '10']) for (const key of ['c', 'q', 'e']) assert.equal(kit.activate(key, bad), null); assert.deepEqual(kit.snapshot(), before);
-    assert.equal(DUELIST.updraftVelocity, 7.8); assert.equal(DUELIST.dashDistance, 12); assert.equal(DUELIST.dashDuration, .18); assert.equal(Object.keys(CHARACTER_DEFS).length, 12);
+    assert.equal(DUELIST.updraftVelocity, 7.8); assert.equal(DUELIST.dashDistance, 12); assert.equal(DUELIST.dashDuration, .18); assert.equal(Object.keys(CHARACTER_DEFS).length, 13);
   });
   test('all strengthened tuning exports retain the agreed exact mechanics and unchanged ultimate budget', () => {
     assert.deepEqual(DUELIST,{smokeMax:2,smokePrice:100,smokeDuration:5,updraftMax:2,updraftPrice:100,updraftVelocity:7.8,dashArmDelay:.25,dashWindow:12,dashDistance:12,dashDuration:.18,signatureKills:1,ultimatePoints:7,knives:5});

@@ -48,7 +48,7 @@ async function main(){
     assert.equal(get('ability-q-count').textContent,'2/2');assert.equal(get('ability-e-count').textContent,'0/1');
     assert.ok(get('mobile-scan').attributes['aria-label'].endsWith('0/1'));
     kit.awardKill();ui.updateHUD(kit,1);assert.equal(get('ability-e-count').textContent,'READY');
-    for(const character of Object.keys(CHARACTER_DEFS).filter(id=>id!=='duelist')){const timed=new DuelistKit({character});assert.ok(timed.activate('e',0));ui.updateHUD(timed,1);assert.equal(get('ability-e-count').textContent,`${(character==='duck'||character==='japan'?20:character==='nope'||character==='veil'?15:18)-1}s`);}
+    for(const character of Object.keys(CHARACTER_DEFS).filter(id=>id!=='duelist')){const timed=new DuelistKit({character});assert.ok(timed.activate('e',0));ui.updateHUD(timed,1);assert.equal(get('ability-e-count').textContent,`${(character==='cap'?22:character==='duck'||character==='japan'?20:character==='nope'||character==='veil'?15:18)-1}s`);}
   });
   test('a long-range sunflower heal restores60HP and keeps the100HP cap',()=>heal(createCharacterSkills()));
   test('larger roots and outer frost annulus actually catch enemies beyond their old footprint, with walls and safe hole preserved',()=>{
