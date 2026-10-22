@@ -37,9 +37,11 @@ const iagnuTypes=['echo-tag-set','echo-tag-detect','echo-glint','echo-kerning'];
 const grassTypes=['grass-dust','grass-roots','grass-turf'];
 const emberTypes=['solder-pop','shade-check','quick-solder'];
 const frostTypes=['frost-stitch','frost-mist','frost-unravel'];
+const japanTypes=['japan-border','japan-levy','japan-return','japan-muster'];
 const nobiTypes=['nobi-tag','nobi-brake','nobi-tool','nobi-legend'];
 const duelistTypes=['duelist-comet','duelist-lift'];
 const expectedSamples={
+ 'japan-border':['scifi-doorClose_001.ogg'],'japan-levy':['interface-pluck_002.ogg'],'japan-return':['interface-pluck_002.ogg'],'japan-muster':['scifi-forceField_004.ogg'],
  'nobi-tag':['interface-pluck_002.ogg'],'nobi-brake':['interface-pluck_002.ogg'],'nobi-tool':['scifi-doorClose_001.ogg'],'nobi-legend':['scifi-forceField_004.ogg'],
   plant:['rpg-metalLatch.ogg','interface-confirmation_002.ogg'],defuse:['rpg-metalLatch.ogg','interface-minimize_005.ogg'],
   buy:['interface-click_001.ogg','rpg-beltHandle1.ogg'],'skill-throw':['rpg-cloth4.ogg','rpg-beltHandle1.ogg'],
@@ -226,7 +228,7 @@ async function main(){
         const before=failed.sources.length;fallback.play(type);assert.equal(failed.sources.length-before,2,`${failure} failure retains the ${type} fallback`);
         for(const source of failed.sources)source.end();assert.ok(failed.nodes.every(node=>node.disconnects===1));
       }
-      for(const type of [...newTypes,...iagnuTypes,...grassTypes,...emberTypes,...frostTypes,...duelistTypes,...nobiTypes,'plant','defuse']){
+      for(const type of [...newTypes,...iagnuTypes,...grassTypes,...emberTypes,...frostTypes,...duelistTypes,...nobiTypes,...japanTypes,'plant','defuse']){
         const sourceStart=failed.sources.length,nodeStart=failed.nodes.length;fallback.play(type,{pan:-.3,distance:7,occluded:true});
         const layers=failed.sources.slice(sourceStart);assert.ok(layers.length>=1&&layers.length<=3,`${failure}/${type} has a bounded procedural fallback`);
         if(type==='flower-heal'||type==='heal')assert.deepEqual(layers.map(source=>source.frequency.events),[[523,523],[659,659],[784,1046]],'The original three healing tones survive total sample failure');
@@ -254,7 +256,7 @@ async function main(){
       const plain=await protectedTrace(createGameAudio,mode),interleaved=await protectedTrace(createGameAudio,mode,true);
       assert.equal(plain,baseline[mode],`${mode}: all six shot/enemy profiles, footsteps, landings and output match original HEAD e7b9f8a`);
       assert.equal(interleaved,plain,`${mode}: new cues never change the protected footstep variation phase`);
-      for(const type of [...iagnuTypes,...grassTypes,...emberTypes,...frostTypes,...duelistTypes,...nobiTypes])assert.equal(await protectedTrace(createGameAudio,mode,type),plain,`${mode}: ${type} independently preserves original shot/step/land routing, timing and variation`);
+      for(const type of [...iagnuTypes,...grassTypes,...emberTypes,...frostTypes,...duelistTypes,...nobiTypes,...japanTypes])assert.equal(await protectedTrace(createGameAudio,mode,type),plain,`${mode}: ${type} independently preserves original shot/step/land routing, timing and variation`);
     }
     console.log('PASS: 16 source manifests/SHA256; original footstep bytes; HEAD-fixed cold/ready/failed 70-voice traces; each new cue independently preserves protected audio.');
 
