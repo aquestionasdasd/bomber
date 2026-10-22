@@ -132,3 +132,20 @@
   .menu-content .game-title{font-size:30px;max-width:none}.menu-content .menu-description{padding-right:0;min-height:0}
   .online-preparation{position:relative;padding-right:107px}.online-character-preview{position:absolute;right:0;top:0;width:96px;height:224px;display:flex;flex-direction:column;gap:0}.online-character-preview .character-preview-stage{width:94px;flex:1;height:auto;min-height:130px}.online-character-preview .character-preview-caption{padding:5px;text-align:center;flex:0 0 auto;width:100%}.online-character-preview .character-preview-caption h3{font-size:9px}.online-character-preview .character-preview-caption p{font-size:6px}.online-character-preview .character-preview-caption>span{display:none}
 }
+
+/* Victory music stays optional and separate from weapon/footstep volume. */
+#pause-menu{padding:24px;overflow:hidden}
+.pause-panel{max-height:calc(100dvh - 48px);overflow-y:auto;width:min(430px,100%)}
+.victory-music-settings{margin:8px 0 15px;border:1px solid #9eb0b63f;border-radius:3px;font-size:11px}
+.victory-music-settings summary{padding:13px 14px;cursor:pointer;color:var(--mint)}
+.victory-music-controls{padding:0 14px 14px;display:grid;gap:11px}
+.victory-music-controls label{font-size:11px;line-height:1.6}
+.victory-music-controls .music-check{display:flex;align-items:center;gap:8px}
+.victory-music-controls input{accent-color:var(--red);max-width:100%;min-width:0}
+.victory-music-controls input[type=range]{width:100%}
+.victory-music-controls input[type=file]{width:100%;font-size:10px}
+.victory-music-controls input::file-selector-button{background:#233943;color:#f0f7f7;border:1px solid #829da8;border-radius:3px;padding:8px;cursor:pointer;margin-right:8px}
+#victory-music-status{overflow-wrap:anywhere;line-height:1.6;color:#a9dfcf}
+.victory-music-controls .text-button{margin:0;text-align:left}
+.music-note{color:#aabac0;line-height:1.8;font-size:10px}
+@media(max-width:480px){#pause-menu{padding:16px}.pause-panel{max-height:calc(100dvh - 32px)}}
