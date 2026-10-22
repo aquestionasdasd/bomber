@@ -1,0 +1,146 @@
+[
+  {
+    "file": "interface-click_001.ogg",
+    "original": "Audio/click_001.ogg",
+    "pack": "interface-sounds",
+    "source_url": "https://kenney.nl/assets/interface-sounds",
+    "sha256": "ccfb7fa0cccdd9faec0eb16033c732b1e308d139d80f799161495d58f7adcdb9",
+    "seconds": 0.100023,
+    "bytes": 4876
+  },
+  {
+    "file": "interface-confirmation_002.ogg",
+    "original": "Audio/confirmation_002.ogg",
+    "pack": "interface-sounds",
+    "source_url": "https://kenney.nl/assets/interface-sounds",
+    "sha256": "33b17a9a9a2397c62b285c52c33a907fdffb476909c99e42dde603f6a7a8b12c",
+    "seconds": 0.539002,
+    "bytes": 14169
+  },
+  {
+    "file": "interface-error_003.ogg",
+    "original": "Audio/error_003.ogg",
+    "pack": "interface-sounds",
+    "source_url": "https://kenney.nl/assets/interface-sounds",
+    "sha256": "885b28175c7b511118bcffab95675b48bbac9005cf6514656ebdad979276b3ab",
+    "seconds": 0.533469,
+    "bytes": 12256
+  },
+  {
+    "file": "interface-maximize_005.ogg",
+    "original": "Audio/maximize_005.ogg",
+    "pack": "interface-sounds",
+    "source_url": "https://kenney.nl/assets/interface-sounds",
+    "sha256": "0ee06fc3ee494723fc95b2224f9dc0af857f2903e7f94d5d33d8e67f454b3cf7",
+    "seconds": 0.526372,
+    "bytes": 20900
+  },
+  {
+    "file": "interface-minimize_005.ogg",
+    "original": "Audio/minimize_005.ogg",
+    "pack": "interface-sounds",
+    "source_url": "https://kenney.nl/assets/interface-sounds",
+    "sha256": "4e6792a98c75d3ff187c0c55561c38c569e02c64757ebebb98831cfe84e3e172",
+    "seconds": 0.526372,
+    "bytes": 19501
+  },
+  {
+    "file": "interface-pluck_002.ogg",
+    "original": "Audio/pluck_002.ogg",
+    "pack": "interface-sounds",
+    "source_url": "https://kenney.nl/assets/interface-sounds",
+    "sha256": "c977fe249ff42d1c93a552b33abc13a8399df3879fa510475426e5c4bbac1da9",
+    "seconds": 0.164558,
+    "bytes": 6941
+  },
+  {
+    "file": "jingle-STEEL00.ogg",
+    "original": "Audio/Steel jingles/jingles_STEEL00.ogg",
+    "pack": "music-jingles",
+    "source_url": "https://kenney.nl/assets/music-jingles",
+    "sha256": "8799eb726d784ae0aa1a9df80648a873ac60015bc00aea12c8e2dd1431a2bd7d",
+    "seconds": 0.932812,
+    "bytes": 15691
+  },
+  {
+    "file": "jingle-STEEL07.ogg",
+    "original": "Audio/Steel jingles/jingles_STEEL07.ogg",
+    "pack": "music-jingles",
+    "source_url": "https://kenney.nl/assets/music-jingles",
+    "sha256": "206b5cb18870c1faa393047cb857eda28441b9682380c9eb5910119ea04c2ece",
+    "seconds": 1.554694,
+    "bytes": 22460
+  },
+  {
+    "file": "jingle-STEEL16.ogg",
+    "original": "Audio/Steel jingles/jingles_STEEL16.ogg",
+    "pack": "music-jingles",
+    "source_url": "https://kenney.nl/assets/music-jingles",
+    "sha256": "03f2048dc74dae100bc29b8cd59b4497ac7a057dae32c207916495c5dc214083",
+    "seconds": 0.908912,
+    "bytes": 15473
+  },
+  {
+    "file": "rpg-beltHandle1.ogg",
+    "original": "Audio/beltHandle1.ogg",
+    "pack": "rpg-audio",
+    "source_url": "https://kenney.nl/assets/rpg-audio",
+    "sha256": "2ef665bd8b65dbe669f4560be38a6d8f04a162e618b15a49e3e71b58e558aab0",
+    "seconds": 0.276708,
+    "bytes": 10820
+  },
+  {
+    "file": "rpg-cloth4.ogg",
+    "original": "Audio/cloth4.ogg",
+    "pack": "rpg-audio",
+    "source_url": "https://kenney.nl/assets/rpg-audio",
+    "sha256": "e7ab9a6c4466dea874196c61f59bf1da05cfe58748f42fadd695d441a154a99b",
+    "seconds": 0.384333,
+    "bytes": 11043
+  },
+  {
+    "file": "rpg-metalLatch.ogg",
+    "original": "Audio/metalLatch.ogg",
+    "pack": "rpg-audio",
+    "source_url": "https://kenney.nl/assets/rpg-audio",
+    "sha256": "ba9ba60b172b3ebc131a940f25793cd2e207aca7af73dc80d637277f060f1708",
+    "seconds": 0.261333,
+    "bytes": 10208
+  },
+  {
+    "file": "scifi-doorClose_001.ogg",
+    "original": "Audio/doorClose_001.ogg",
+    "pack": "sci-fi-sounds",
+    "source_url": "https://kenney.nl/assets/sci-fi-sounds",
+    "sha256": "2153e83ff9880c78f9539aa5dcce80fc9e3b39c6fa0f8dec9325ec6d7ea2c9d5",
+    "seconds": 0.528594,
+    "bytes": 21561
+  },
+  {
+    "file": "scifi-forceField_001.ogg",
+    "original": "Audio/forceField_001.ogg",
+    "pack": "sci-fi-sounds",
+    "source_url": "https://kenney.nl/assets/sci-fi-sounds",
+    "sha256": "5574e69dd04e5f59322c5ddffde5978f077b09170ae5e29cec0bd9901828cd90",
+    "seconds": 0.953424,
+    "bytes": 28947
+  },
+  {
+    "file": "scifi-forceField_004.ogg",
+    "original": "Audio/forceField_004.ogg",
+    "pack": "sci-fi-sounds",
+    "source_url": "https://kenney.nl/assets/sci-fi-sounds",
+    "sha256": "05609bb296cbc287ae95ac8924c89809d69c89d7bb357cc6a117ec1b1ef65e09",
+    "seconds": 0.954444,
+    "bytes": 26885
+  },
+  {
+    "file": "scifi-slime_000.ogg",
+    "original": "Audio/slime_000.ogg",
+    "pack": "sci-fi-sounds",
+    "source_url": "https://kenney.nl/assets/sci-fi-sounds",
+    "sha256": "480ee82b690136ea9db6966a3c3033356b8274752795c4e37afd6b6defcfacff",
+    "seconds": 0.5,
+    "bytes": 20870
+  }
+]

@@ -1,0 +1,89 @@
+Bundled sound effects / ボンバーディフューザー3Dオンライン
+Retrieved from the official distribution ZIP files on 2026-10-20.
+
+Author: Kenney / www.kenney.nl
+License: Creative Commons Zero (CC0 1.0 Universal), public domain dedication.
+https://creativecommons.org/publicdomain/zero/1.0/
+Both distribution archives include License.txt confirming CC0 and permission
+for personal, educational and commercial use. Attribution is optional.
+
+Impact Sounds (1.0), created/distributed by Kenney, 2019-12-19
+Source: https://kenney.nl/assets/impact-sounds
+Official ZIP:
+https://kenney.nl/media/pages/assets/impact-sounds/87b4ddecda-1677589768/kenney_impact-sounds.zip
+Included files (original names and unmodified OGG bytes):
+  footstep_concrete_000.ogg - concrete footsteps
+  footstep_concrete_001.ogg - alternate concrete footsteps
+  impactSoft_heavy_000.ogg - landing impact
+  impactMetal_light_000.ogg - equipment/reload mechanism
+  impactMetal_medium_000.ogg - metal/armor impact feedback
+
+Sci-Fi Sounds (1.0), created/distributed by Kenney, 2020-10-11
+Source (uploaded by Kenney): https://opengameart.org/content/sci-fi-sounds
+Official ZIP: https://opengameart.org/sites/default/files/sci-fi_sounds.zip
+Included files (original names and unmodified OGG bytes):
+  explosionCrunch_004.ogg - bomber explosion/collapse attack
+  forceField_000.ogg - smoke ability deployment
+  forceField_003.ogg - movement ability energy/whoosh
+
+The game performs mono mixing, peak limiting, filtering, playback-rate changes
+and short fades at runtime. The explosion is blended with an original procedural
+low-frequency collapse tail. If fetching or decoding fails, procedural effects
+remain available. No third-party request is made during gameplay.
+
+
+Additional original Kenney effects adopted on 2026-10-21 (cycle34).
+All 16 files below retain the exact original OGG bytes; only filenames changed.
+Author: Kenney / www.kenney.nl
+License: Creative Commons Zero (CC0 1.0 Universal), public domain dedication.
+https://creativecommons.org/publicdomain/zero/1.0/
+Each official distribution ZIP includes License.txt allowing personal and
+commercial projects and confirming that attribution is optional.
+Official commercial-use and attribution FAQ: https://kenney.nl/support
+Existing gunshot and footstep audio is retained unchanged.
+manifest.json records the original archive path, source, SHA-256, duration
+and byte size for each newly adopted file.
+
+Interface Sounds (1.0)
+Source: https://kenney.nl/assets/interface-sounds
+Official ZIP: https://kenney.nl/media/pages/assets/interface-sounds/fa43c1dd4d-1677589452/kenney_interface-sounds.zip
+License.txt: Creative Commons Zero, CC0; personal/commercial use allowed;
+Kenney attribution is not mandatory.
+Included files (original archive path -> bundled filename):
+  Audio/click_001.ogg -> interface-click_001.ogg
+  Audio/confirmation_002.ogg -> interface-confirmation_002.ogg
+  Audio/error_003.ogg -> interface-error_003.ogg
+  Audio/maximize_005.ogg -> interface-maximize_005.ogg
+  Audio/minimize_005.ogg -> interface-minimize_005.ogg
+  Audio/pluck_002.ogg -> interface-pluck_002.ogg
+
+Music Jingles
+Source: https://kenney.nl/assets/music-jingles
+Official ZIP: https://kenney.nl/media/pages/assets/music-jingles/f37e530b9e-1677590399/kenney_music-jingles.zip
+License.txt: Creative Commons Zero, CC0; personal/commercial use allowed;
+Kenney attribution is not mandatory.
+Included files (original archive path -> bundled filename):
+  Audio/Steel jingles/jingles_STEEL00.ogg -> jingle-STEEL00.ogg
+  Audio/Steel jingles/jingles_STEEL07.ogg -> jingle-STEEL07.ogg
+  Audio/Steel jingles/jingles_STEEL16.ogg -> jingle-STEEL16.ogg
+
+RPG Audio
+Source: https://kenney.nl/assets/rpg-audio
+Official ZIP: https://kenney.nl/media/pages/assets/rpg-audio/8e99002d76-1677590336/kenney_rpg-audio.zip
+License.txt: Creative Commons Zero, CC0; personal/commercial use allowed;
+Kenney attribution is not mandatory.
+Included files (original archive path -> bundled filename):
+  Audio/beltHandle1.ogg -> rpg-beltHandle1.ogg
+  Audio/cloth4.ogg -> rpg-cloth4.ogg
+  Audio/metalLatch.ogg -> rpg-metalLatch.ogg
+
+Sci-Fi Sounds (1.0), additional selected effects
+Source: https://kenney.nl/assets/sci-fi-sounds
+Official ZIP: https://kenney.nl/media/pages/assets/sci-fi-sounds/6b296f9ecf-1677589334/kenney_sci-fi-sounds.zip
+License.txt: Creative Commons Zero, CC0; personal/commercial use allowed;
+Kenney attribution is not mandatory.
+Included files (original archive path -> bundled filename):
+  Audio/doorClose_001.ogg -> scifi-doorClose_001.ogg
+  Audio/forceField_001.ogg -> scifi-forceField_001.ogg
+  Audio/forceField_004.ogg -> scifi-forceField_004.ogg
+  Audio/slime_000.ogg -> scifi-slime_000.ogg

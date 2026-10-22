@@ -1,0 +1,359 @@
+import { DUELIST_SKILLS, NOPE_SKILLS, MEND_SKILLS, IAGNU_SKILLS, VEIL_SKILLS, EMBER_SKILLS, FROST_SKILLS } from './abilities.js';
+
+// Ordinary skills are separate from ultimates. A restored event owns visuals,
+// never hit sampling; only a successful local cast may produce gameplay effects.
+export const CHARACTER_SKILLS = Object.freeze({ maxEvents: 20, maxBlinds: 20, maxMarkers: 20, castDistance: 20, decoyDistance: 6,
+  heightTolerance: 2.5, flashFacingDot: .2 });
+const specs = Object.freeze({
+  'duelist-comet': Object.freeze({ flight: DUELIST_SKILLS.cometFlight, delay: DUELIST_SKILLS.cometFlight, tail: DUELIST_SKILLS.cometDuration, radius: DUELIST_SKILLS.cometRadius }),
+  'duelist-lift': Object.freeze({ flight: 0, delay: 0, tail: DUELIST_SKILLS.liftVisualDuration, radius: 0 }),
+  'nope-bottle': Object.freeze({ flight: NOPE_SKILLS.bottleFlight, delay: NOPE_SKILLS.bottleFuse, tail: .6, radius: NOPE_SKILLS.bottleRadius }),
+  'nope-flash': Object.freeze({ flight: NOPE_SKILLS.flashFlight, delay: NOPE_SKILLS.flashFlight, tail: .4, radius: NOPE_SKILLS.flashRadius }),
+  'nope-decoy': Object.freeze({ flight: 0, delay: 0, tail: NOPE_SKILLS.decoyDuration, radius: 0 }),
+  'mend-seeds': Object.freeze({ flight: MEND_SKILLS.seedsFlight, delay: MEND_SKILLS.seedsFlight, tail: MEND_SKILLS.seedsDuration, radius: MEND_SKILLS.seedsRadius }),
+  'mend-pollen': Object.freeze({ flight: MEND_SKILLS.pollenFlight, delay: MEND_SKILLS.pollenFlight, tail: MEND_SKILLS.pollenDuration, radius: MEND_SKILLS.pollenRadius }),
+  'mend-heal': Object.freeze({ flight: 0, delay: 0, tail: MEND_SKILLS.healVisualDuration, radius: MEND_SKILLS.healRange }),
+  'echo-tag': Object.freeze({ flight: IAGNU_SKILLS.tagFlight, delay: IAGNU_SKILLS.tagFlight + IAGNU_SKILLS.tagArmDelay, tail: IAGNU_SKILLS.tagDuration, radius: IAGNU_SKILLS.tagRadius }),
+  'echo-glint': Object.freeze({ flight: IAGNU_SKILLS.glintFlight, delay: IAGNU_SKILLS.glintFlight, tail: .4, radius: IAGNU_SKILLS.glintRadius }),
+  'echo-kerning': Object.freeze({ flight: 0, delay: 0, tail: IAGNU_SKILLS.kerningDuration, radius: 0 }),
+  'veil-dust': Object.freeze({ flight: 0, delay: VEIL_SKILLS.dustArmDelay, tail: VEIL_SKILLS.dustDuration, radius: VEIL_SKILLS.dustRadius }),
+  'veil-roots': Object.freeze({ flight: 0, delay: VEIL_SKILLS.rootsArmDelay, tail: VEIL_SKILLS.rootsDuration, radius: VEIL_SKILLS.rootsWidth / 2 }),
+  'veil-turf': Object.freeze({ flight: 0, delay: 0, tail: VEIL_SKILLS.turfDuration, radius: 0 }),
+  'ember-solder': Object.freeze({ flight: EMBER_SKILLS.solderFlight, delay: EMBER_SKILLS.solderFlight + EMBER_SKILLS.solderArmDelay, tail: EMBER_SKILLS.solderTail, radius: EMBER_SKILLS.solderRadius }),
+  'ember-shade': Object.freeze({ flight: 0, delay: 0, tail: EMBER_SKILLS.shadeDuration, radius: 0 }),
+  'ember-service': Object.freeze({ flight: 0, delay: 0, tail: EMBER_SKILLS.serviceDuration, radius: 0 }),
+  'frost-stitch': Object.freeze({ flight: FROST_SKILLS.stitchFlight, delay: FROST_SKILLS.stitchFlight + FROST_SKILLS.stitchArmDelay, tail: FROST_SKILLS.stitchDuration, radius: FROST_SKILLS.stitchRadius }),
+  'frost-mist': Object.freeze({ flight: FROST_SKILLS.mistFlight, delay: FROST_SKILLS.mistFlight, tail: FROST_SKILLS.mistDuration, radius: FROST_SKILLS.mistRadius }),
+  'frost-unravel': Object.freeze({ flight: 0, delay: 0, tail: FROST_SKILLS.unravelDuration, radius: 0 }),
+});
+const isType = type => typeof type === 'string' && Object.hasOwn(specs, type);
+const team = value => value === 'blue' || value === 'red';
+const identifier = value => typeof value === 'string' && value.length > 0 && value.length <= 64 && !/[\u0000-\u001f\u007f]/.test(value);
+const coordinate = value => Number.isFinite(value) && Math.abs(value) <= 1000;
+const clock = value => Number.isFinite(value) && value >= 0;
+const roundNumber = value => Number.isSafeInteger(value) && value > 0;
+const position = value => value && coordinate(value.x) && coordinate(value.z) && (value.y === undefined || coordinate(value.y));
+const living = value => position(value) && identifier(value.id) && team(value.team) && value.alive === true && Number.isFinite(value.hp) && value.hp > 0 && value.hp <= 100;
+const point = value => position(value) && coordinate(value.y);
+const copy = value => ({ ...value });
+const close = (a, b) => Math.abs(a - b) < 1e-7;
+const idSequence = (id, type) => {
+  if (typeof id !== 'string' || !new RegExp(`^skill-${type}-[1-9][0-9]{0,14}$`).test(id)) return 0;
+  const seq = Number(id.slice(id.lastIndexOf('-') + 1)); return Number.isSafeInteger(seq) ? seq : 0;
+};
+const eyeY = actor => (actor.y || 0) + 1.7 - Math.max(0, Math.min(1, Number.isFinite(actor.crouch) ? actor.crouch : 0)) * .55;
+const feetDistance = (a, b) => Math.hypot(a.x - b.x, (a.y || 0) - (b.y || 0), a.z - b.z);
+const serviceWeapon = value => ['classic', 'ghost', 'spectre', 'vandal', 'phantom'].includes(value);
+const personal = type => ['echo-kerning', 'veil-turf', 'ember-shade', 'ember-service', 'frost-unravel'].includes(type);
+const groundedPersonal = type => type === 'veil-turf' || type === 'frost-unravel';
+const feetSource = type => type === 'mend-heal' || type === 'duelist-lift' || personal(type) || type.startsWith('veil-');
+const eventFields = ['id', 'type', 'team', 'sourceId', 'round', 'fromX', 'fromY', 'fromZ', 'x', 'y', 'z', 'startedAt', 'flight', 'triggerAt', 'endsAt', 'radius'];
+const withinCastRange = (type, actor, target, sourceEyeY = eyeY(actor)) => type === 'duelist-comet' ? Math.hypot(target.x - actor.x, target.y - sourceEyeY, target.z - actor.z) <= DUELIST_SKILLS.cometRange + 1e-8
+  : type === 'mend-heal' ? feetDistance(actor, target) <= MEND_SKILLS.healRange + 1e-8
+  : personal(type) || type === 'duelist-lift' ? feetDistance(actor, target) <= 1e-8
+  : type === 'veil-dust' ? Math.hypot(target.x - actor.x, target.z - actor.z) <= 1e-8 && close(target.y, (actor.y || 0) + VEIL_SKILLS.dustCenterOffset)
+  : type === 'veil-roots' ? Math.hypot(target.x - actor.x, target.z - actor.z) >= VEIL_SKILLS.rootsMinRange - 1e-8 && Math.hypot(target.x - actor.x, target.z - actor.z) <= VEIL_SKILLS.rootsRange + 1e-8
+  : Math.hypot(target.x - actor.x, target.z - actor.z) <= (type === 'nope-decoy' ? CHARACTER_SKILLS.decoyDistance : type === 'echo-tag' ? IAGNU_SKILLS.tagRange : type === 'ember-solder' ? EMBER_SKILLS.solderRange : type === 'frost-stitch' ? FROST_SKILLS.stitchRange : type === 'frost-mist' ? FROST_SKILLS.mistRange : CHARACTER_SKILLS.castDistance) + 1e-8;
+const flashDuration = eventId => idSequence(eventId, 'nope-flash') ? NOPE_SKILLS.flashDuration : idSequence(eventId, 'echo-glint') ? IAGNU_SKILLS.glintDuration : 0;
+const safeReach = (reachable, source, target) => {
+  if (typeof reachable !== 'function') return false;
+  try { return reachable(source, target) === true; } catch { return false; }
+};
+const safeGround = (groundHeight, x, z, referenceY) => {
+  if (typeof groundHeight !== 'function') return null;
+  try { const y = groundHeight(x, z, referenceY); return coordinate(y) ? y : null; } catch { return null; }
+};
+const healEligible = (actor, target, reachable) => living(actor) && living(target) && target.team === actor.team && target.hp < 100
+  && feetDistance(actor, target) <= MEND_SKILLS.healRange + 1e-8 && (target.id === actor.id || safeReach(reachable, actor, target));
+
+export function selectMendTarget(actor, actors, reachable) {
+  if (!living(actor)) return null;
+  const seen = new Set(), eligible = [];
+  for (const target of [actor, ...(Array.isArray(actors) ? actors : [])]) {
+    if (!target || !identifier(target.id) || seen.has(target.id)) continue;
+    seen.add(target.id); if (healEligible(actor, target, reachable)) eligible.push(target);
+  }
+  eligible.sort((a, b) => a.hp - b.hp || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  const target = eligible[0]; return target ? { id: target.id, team: target.team, x: target.x, y: target.y || 0, z: target.z, hp: target.hp, alive: true } : null;
+}
+
+export function skillProjectilePosition(event, now) {
+  if (!event || !isType(event.type) || !point(event) || !clock(now)) return null;
+  if (specs[event.type].flight === 0) return { x: event.x, y: event.y, z: event.z };
+  if (![event.fromX, event.fromY, event.fromZ].every(coordinate) || !clock(event.startedAt) || !Number.isFinite(event.flight) || event.flight <= 0) return null;
+  const t = Math.max(0, Math.min(1, (now - event.startedAt) / event.flight));
+  const arc = event.type === 'duelist-comet' ? 0 : event.type === 'nope-bottle' || event.type === 'mend-seeds' ? 1.4 : .8;
+  return { x: event.fromX + (event.x - event.fromX) * t,
+    y: event.fromY + (event.y - event.fromY) * t + 4 * t * (1 - t) * arc,
+    z: event.fromZ + (event.z - event.fromZ) * t };
+}
+
+export function createCharacterSkills() {
+  let currentRound = null, currentTime = -Infinity, lastRestoreTime = -Infinity, sequence = 0;
+  const active = new Map(), owned = new Set(), blinds = new Map(), detections = new Map(), decoyOwners = new Set(), decoyReactions = new Map();
+  function clear() { active.clear(); owned.clear(); blinds.clear(); detections.clear(); decoyOwners.clear(); decoyReactions.clear(); }
+  function prune(now) {
+    for (const [id, event] of active) if (event.endsAt <= now) { active.delete(id); owned.delete(id); decoyOwners.delete(id); }
+    for (const [id, endsAt] of decoyReactions) if (endsAt <= now) decoyReactions.delete(id);
+    for (const [id, blind] of blinds) if (blind.endsAt <= now) blinds.delete(id);
+    for (const [id, marker] of detections) if (marker.endsAt <= now) detections.delete(id);
+  }
+  function advance(now, round = currentRound) {
+    if (!clock(now) || !roundNumber(round) || currentRound !== null && (round < currentRound || round === currentRound && now < currentTime)) return false;
+    if (round !== currentRound) { clear(); currentRound = round; lastRestoreTime = -Infinity; }
+    currentTime = now; prune(now); return true;
+  }
+  function cast(effect, actor, target, now, round) {
+    const type = typeof effect === 'string' ? effect : effect?.type;
+    if (!isType(type) || !living(actor) || !point(target) || !withinCastRange(type, actor, target) || !coordinate(eyeY(actor)) || !clock(now) || !roundNumber(round)) return null;
+    if ((type.startsWith('veil-') || type === 'frost-unravel') && actor.grounded !== true) return null;
+    if (type === 'mend-heal' && !identifier(target.targetId)) return null;
+    if (type === 'ember-service' && (!serviceWeapon(target.weaponId) || actor.weaponId !== target.weaponId)) return null;
+    const spec = specs[type], endsAt = now + spec.delay + spec.tail;
+    if (!Number.isFinite(endsAt) || !advance(now, round) || active.size >= CHARACTER_SKILLS.maxEvents || sequence >= 999999999999999) return null;
+    if (personal(type) && [...active.values()].some(event => event.type === type && event.sourceId === actor.id)) return null;
+    const event = { id: `skill-${type}-${++sequence}`, type, team: actor.team, sourceId: actor.id, round,
+      fromX: actor.x, fromY: feetSource(type) ? actor.y || 0 : eyeY(actor), fromZ: actor.z, x: target.x, y: target.y, z: target.z,
+      startedAt: now, flight: spec.flight, triggerAt: now + spec.delay, endsAt, radius: spec.radius };
+    if (type === 'mend-heal') event.targetId = target.targetId;
+    if (type === 'ember-service') event.weaponId = target.weaponId;
+    active.set(event.id, event); if (type === 'nope-decoy') decoyOwners.add(event.id);
+    if (['nope-bottle', 'nope-flash', 'mend-heal', 'echo-tag', 'echo-glint', 'ember-solder'].includes(type)) owned.add(event.id); return copy(event);
+  }
+  function canReach(reachable, event, actor) {
+    return safeReach(reachable, event, actor);
+  }
+  function facesFlash(actor, event) {
+    const dx = event.x - actor.x, dy = event.y - eyeY(actor), dz = event.z - actor.z, distance = Math.hypot(dx, dy, dz);
+    if (distance > event.radius) return false;
+    if (distance < 1e-8) return true;
+    const yaw = Number.isFinite(actor.yaw) ? actor.yaw : Number.isFinite(actor.netYaw) ? actor.netYaw : Number.isFinite(actor.group?.rotation?.y) ? actor.group.rotation.y - Math.PI : 0;
+    const pitch = Number.isFinite(actor.pitch) ? Math.max(-1.35, Math.min(1.35, actor.pitch)) : 0;
+    return (-Math.sin(yaw) * Math.cos(pitch) * dx + Math.sin(pitch) * dy - Math.cos(yaw) * Math.cos(pitch) * dz) / distance > CHARACTER_SKILLS.flashFacingDot;
+  }
+  // Only locally owned E events can be broken. Restoring a snapshot never
+  // grants authority to consume a decoy or create damage on a guest.
+  function consumeDecoy(id, shooterTeam, now, round) {
+    if (!team(shooterTeam) || !advance(now, round)) return null;
+    const event = active.get(id);
+    if (!event || event.type !== 'nope-decoy' || !decoyOwners.has(id) || event.team === shooterTeam) return null;
+    active.delete(id); decoyOwners.delete(id); return copy(event);
+  }
+  // The game calls this only after its authoritative, wall-occluded shot has
+  // consumed an E decoy or one compact ultimate-wave member. The reaction
+  // consumes no ordinary-event slot, even when all twenty slots are occupied.
+  function flashDecoy(decoy, shooter, actors, now, round, { reachable } = {}) {
+    if (!decoy || decoy.type !== 'nope-decoy' || !identifier(decoy.id) || !identifier(decoy.sourceId)
+      || !point(decoy) || !team(decoy.team) || !living(shooter) || decoy.team === shooter.team
+      || decoy.round !== round || !clock(decoy.startedAt) || decoy.startedAt > now || !clock(decoy.endsAt) || decoy.endsAt <= now
+      || !advance(now, round) || decoyReactions.has(decoy.id) || sequence >= 999999999999999) return [];
+    while (decoyReactions.size >= 64) decoyReactions.delete(decoyReactions.keys().next().value);
+    decoyReactions.set(decoy.id, decoy.endsAt);
+    const event = { ...decoy, id: `skill-nope-flash-${++sequence}`, type: 'nope-flash', y: decoy.y + 1.55, radius: NOPE_SKILLS.flashRadius };
+    const effects = [], seen = new Set();
+    for (const actor of Array.isArray(actors) ? actors : []) {
+      if (!living(actor) || actor.team === event.team || seen.has(actor.id)) continue;
+      seen.add(actor.id);
+      if (!facesFlash(actor, event) || !canReach(reachable, event, actor)) continue;
+      const resisted = [...active.values()].some(other => other.type === 'ember-shade' && other.sourceId === actor.id && other.team === actor.team && now >= other.triggerAt);
+      const duration = NOPE_SKILLS.flashDuration * (resisted ? EMBER_SKILLS.shadeFlashScale : 1);
+      const blind = { eventId: event.id, targetId: actor.id, sourceId: event.sourceId, team: event.team, round, startedAt: now, endsAt: now + duration };
+      if (resisted) blind.resisted = true;
+      if (!blinds.has(actor.id) || blinds.get(actor.id).endsAt < blind.endsAt) {
+        while (!blinds.has(actor.id) && blinds.size >= CHARACTER_SKILLS.maxBlinds) blinds.delete(blinds.keys().next().value);
+        blinds.set(actor.id, blind);
+      }
+      effects.push({ type: 'blind', targetId: actor.id, sourceId: event.sourceId, duration });
+    }
+    return effects;
+  }
+  function update(actors, now, round, { reachable } = {}) {
+    if (!advance(now, round)) return [];
+    const effects = [], list = Array.isArray(actors) ? actors : [];
+    // A placed tag remains after its source dies. A personal movement effect
+    // ends permanently on death/removal, rather than reviving with the actor.
+    // Grounded personal effects end at the first airborne sample, permanently.
+    for (const [id, event] of active) if (personal(event.type)
+      && !list.some(actor => living(actor) && actor.id === event.sourceId && actor.team === event.team
+        && (!groundedPersonal(event.type) || actor.grounded === true)
+        && (event.type !== 'ember-service' || actor.weaponId === event.weaponId))) active.delete(id);
+    for (const id of owned) {
+      const event = active.get(id); if (!event || now + 1e-8 < event.triggerAt) continue;
+      if (event.type === 'echo-tag') {
+        const seen = new Set(), candidates = [];
+        for (const actor of list) {
+          if (!living(actor) || actor.team === event.team || seen.has(actor.id)) continue; seen.add(actor.id);
+          const distance = Math.hypot(actor.x - event.x, actor.z - event.z);
+          if (distance > event.radius || Math.abs((actor.y || 0) - (event.y - IAGNU_SKILLS.tagGroundOffset)) > CHARACTER_SKILLS.heightTolerance || !canReach(reachable, event, actor)) continue;
+          candidates.push({ actor, distance });
+        }
+        candidates.sort((a, b) => a.distance - b.distance || (a.actor.id < b.actor.id ? -1 : a.actor.id > b.actor.id ? 1 : 0));
+        if (!candidates.length) continue;
+        const target = candidates[0].actor, marker = { eventId: event.id, team: event.team, round, x: target.x, y: target.y || 0, z: target.z, detectedAt: now, endsAt: now + IAGNU_SKILLS.tagRevealDuration };
+        while (detections.size >= CHARACTER_SKILLS.maxMarkers) detections.delete(detections.keys().next().value);
+        detections.set(event.id, marker); active.delete(id); owned.delete(id);
+        effects.push({ type: 'detect', sourceId: event.sourceId, ...marker }); continue;
+      }
+      owned.delete(id); const seen = new Set();
+      if (event.type === 'mend-heal') {
+        const source = list.find(actor => actor?.id === event.sourceId), target = list.find(actor => actor?.id === event.targetId);
+        if (source?.team === event.team && target?.team === event.team && healEligible(source, target, (actor, other) => canReach(reachable, { ...event, x: actor.x, y: eyeY(actor), z: actor.z }, other))) {
+          effects.push({ type: 'heal', targetId: target.id, sourceId: source.id, amount: MEND_SKILLS.healAmount });
+        }
+        continue;
+      }
+      for (const actor of list) {
+        if (!living(actor) || seen.has(actor.id)) continue; seen.add(actor.id);
+        if (event.type === 'nope-bottle' || event.type === 'ember-solder') {
+          const distance = Math.hypot(actor.x - event.x, actor.z - event.z);
+          const solder = event.type === 'ember-solder', floor = event.y - (solder ? EMBER_SKILLS.solderGroundOffset : 0);
+          if (actor.team === event.team || distance >= event.radius || Math.abs((actor.y || 0) - floor) > CHARACTER_SKILLS.heightTolerance || !canReach(reachable, event, actor)) continue;
+          effects.push({ type: 'damage', targetId: actor.id, sourceId: event.sourceId, amount: (solder ? EMBER_SKILLS.solderDamage : NOPE_SKILLS.bottleDamage) * (1 - distance / event.radius) });
+        } else if ((event.type === 'nope-flash' || event.type === 'echo-glint') && facesFlash(actor, event) && canReach(reachable, event, actor)) {
+          const resisted = [...active.values()].some(other => other.type === 'ember-shade' && other.sourceId === actor.id && other.team === actor.team && now >= other.triggerAt);
+          const duration = flashDuration(event.id) * (resisted ? EMBER_SKILLS.shadeFlashScale : 1);
+          const blind = { eventId: event.id, targetId: actor.id, sourceId: event.sourceId, team: event.team, round,
+            startedAt: now, endsAt: now + duration };
+          if (resisted) blind.resisted = true;
+          if (!blinds.has(actor.id) || blinds.get(actor.id).endsAt < blind.endsAt) {
+            while (!blinds.has(actor.id) && blinds.size >= CHARACTER_SKILLS.maxBlinds) blinds.delete(blinds.keys().next().value);
+            blinds.set(actor.id, blind);
+          }
+          effects.push({ type: 'blind', targetId: actor.id, sourceId: event.sourceId, duration });
+        }
+      }
+    }
+    return effects;
+  }
+  // Reload ownership remains in the game. This only ends its matching visual.
+  function cancelService(actorId) {
+    if (!identifier(actorId)) return false;
+    let removed = false;
+    for (const [id, event] of active) if (event.type === 'ember-service' && event.sourceId === actorId) { active.delete(id); removed = true; }
+    return removed;
+  }
+  const viewTime = now => clock(now) && advance(Math.max(now, currentTime));
+  function events(now) { return viewTime(now) ? [...active.values()].map(copy) : []; }
+  function blindUntil(actorId, now) { return identifier(actorId) && viewTime(now) ? blinds.get(actorId)?.endsAt || 0 : 0; }
+  function markers(observerTeam, now) { return team(observerTeam) && viewTime(now) ? [...detections.values()].filter(marker => marker.team === observerTeam).map(copy) : []; }
+  function movementScale(actor, now) {
+    if (!viewTime(now)) return 1;
+    const alive = living(actor); let scale = 1;
+    for (const [id, event] of active) {
+      if (event.sourceId !== actor?.id) continue;
+      if (groundedPersonal(event.type) && (!alive || actor.team !== event.team || actor.grounded !== true)) { active.delete(id); continue; }
+      if (!alive || event.team !== actor.team || currentTime < event.triggerAt) continue;
+      if (event.type === 'veil-turf') scale = Math.max(scale, VEIL_SKILLS.turfSpeedScale);
+      if (event.type === 'echo-kerning') scale = Math.max(scale, IAGNU_SKILLS.kerningSpeedScale);
+    }
+    return scale;
+  }
+  // Apply once after combining all ground slows. This never supplies speed.
+  function mitigateSlow(actor, rawSlow, now) {
+    const raw = Number.isFinite(rawSlow) && rawSlow >= 0 && rawSlow <= 1 ? rawSlow : 1;
+    if (!viewTime(now)) return raw;
+    const alive = living(actor); let protectedNow = false;
+    for (const [id, event] of active) {
+      if (event.type !== 'frost-unravel' || event.sourceId !== actor?.id) continue;
+      if (!alive || actor.team !== event.team || actor.grounded !== true) { active.delete(id); continue; }
+      if (currentTime >= event.triggerAt) protectedNow = true;
+    }
+    return protectedNow ? 1 - (1 - raw) * FROST_SKILLS.unravelSlowFraction : raw;
+  }
+  function speedScale(actor, now, { reachable, groundHeight } = {}) {
+    if (!living(actor) || !viewTime(now)) return 1;
+    let scale = 1;
+    for (const event of active.values()) {
+      if (actor.team === event.team || currentTime < event.triggerAt) continue;
+      if (event.type === 'mend-seeds' && Math.hypot(actor.x - event.x, actor.z - event.z) <= event.radius
+        && Math.abs((actor.y || 0) - (event.y - MEND_SKILLS.seedsGroundOffset)) <= CHARACTER_SKILLS.heightTolerance && canReach(reachable, event, actor)) scale = Math.min(scale, MEND_SKILLS.seedsSpeedScale);
+      if (event.type === 'frost-stitch' && actor.grounded === true) {
+        const dx = actor.x - event.x, dz = actor.z - event.z, distance = Math.hypot(dx, dz);
+        if (distance >= FROST_SKILLS.stitchInnerRadius - 1e-8 && distance <= event.radius + 1e-8) {
+          const referenceY = event.y - FROST_SKILLS.stitchGroundOffset, radius = (FROST_SKILLS.stitchInnerRadius + event.radius) / 2;
+          const x = event.x + dx * radius / distance, z = event.z + dz * radius / distance;
+          const projectedFloor = safeGround(groundHeight, x, z, referenceY), actorFloor = safeGround(groundHeight, actor.x, actor.z, referenceY);
+          const tolerance = FROST_SKILLS.stitchHeightTolerance + 1e-8;
+          if (projectedFloor !== null && actorFloor !== null && Math.abs(projectedFloor - referenceY) <= tolerance
+            && Math.abs(actorFloor - referenceY) <= tolerance && Math.abs((actor.y || 0) - actorFloor) <= tolerance
+            && Math.abs((actor.y || 0) - projectedFloor) <= tolerance
+            && canReach(reachable, { ...event, x, y: projectedFloor, z }, actor)) scale = Math.min(scale, FROST_SKILLS.stitchSpeedScale);
+        }
+      }
+      if (event.type !== 'veil-roots' || actor.grounded !== true) continue;
+      const dx = event.x - event.fromX, dz = event.z - event.fromZ, lengthSquared = dx * dx + dz * dz;
+      const t = Math.max(0, Math.min(1, ((actor.x - event.fromX) * dx + (actor.z - event.fromZ) * dz) / lengthSquared));
+      const x = event.fromX + dx * t, z = event.fromZ + dz * t, referenceY = event.fromY + (event.y - event.fromY) * t;
+      if (Math.hypot(actor.x - x, actor.z - z) > event.radius) continue;
+      const floor = safeGround(groundHeight, x, z, referenceY);
+      if (floor === null || Math.abs(floor - referenceY) > VEIL_SKILLS.rootsHeightTolerance + 1e-8
+        || Math.abs((actor.y || 0) - floor) > VEIL_SKILLS.rootsHeightTolerance + 1e-8) continue;
+      // Test cover from the nearest actual floor point, never the far endpoint.
+      if (canReach(reachable, { ...event, x, y: floor, z }, actor)) scale = Math.min(scale, VEIL_SKILLS.rootsSpeedScale);
+    }
+    return scale;
+  }
+  function snapshot(observerTeam) { return { events: [...active.values()].map(copy), blinds: [...blinds.values()].map(copy),
+    markers: [...detections.values()].filter(marker => observerTeam === undefined || marker.team === observerTeam).map(copy) }; }
+  function validEvent(value, now, round) {
+    if (!value || typeof value !== 'object' || Array.isArray(value) || !isType(value.type) || !team(value.team) || !identifier(value.sourceId) || !point(value)
+      || ![value.fromX, value.fromY, value.fromZ].every(coordinate) || value.round !== round || !clock(value.startedAt) || value.startedAt > now || !clock(value.triggerAt) || !clock(value.endsAt) || !idSequence(value.id, value.type)) return false;
+    const spec = specs[value.type];
+    if ((value.type.startsWith('duelist-') || value.type.startsWith('veil-') || value.type.startsWith('ember-') || value.type.startsWith('frost-')) && !Object.keys(value).every(key => eventFields.includes(key) || value.type === 'ember-service' && key === 'weaponId')) return false;
+    if (value.type === 'mend-heal' ? !identifier(value.targetId) : value.targetId !== undefined) return false;
+    if (value.type === 'ember-service' ? !serviceWeapon(value.weaponId) : value.weaponId !== undefined) return false;
+    return value.flight === spec.flight && value.radius === spec.radius && withinCastRange(value.type, { x: value.fromX, y: value.fromY, z: value.fromZ }, value, value.fromY)
+      && close(value.triggerAt, value.startedAt + spec.delay) && close(value.endsAt, value.triggerAt + spec.tail);
+  }
+  function validBlind(value, now, round) {
+    return value && typeof value === 'object' && !Array.isArray(value)
+      && Object.keys(value).every(key => ['eventId', 'targetId', 'sourceId', 'team', 'round', 'startedAt', 'endsAt', 'resisted'].includes(key))
+      && (!Object.hasOwn(value, 'resisted') || value.resisted === true)
+      && flashDuration(value.eventId) > 0 && identifier(value.targetId) && identifier(value.sourceId) && team(value.team)
+      && value.round === round && clock(value.startedAt) && value.startedAt <= now && clock(value.endsAt)
+      && close(value.endsAt, value.startedAt + flashDuration(value.eventId) * (value.resisted === true ? EMBER_SKILLS.shadeFlashScale : 1));
+  }
+  function validMarker(value, now, round) {
+    return value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).every(key => ['eventId', 'team', 'round', 'x', 'y', 'z', 'detectedAt', 'endsAt'].includes(key))
+      && idSequence(value.eventId, 'echo-tag') && team(value.team) && value.round === round && point(value) && clock(value.detectedAt) && value.detectedAt <= now
+      && clock(value.endsAt) && close(value.endsAt, value.detectedAt + IAGNU_SKILLS.tagRevealDuration);
+  }
+  function restore(value, now, round) {
+    if (!clock(now) || !roundNumber(round) || !value || typeof value !== 'object' || Array.isArray(value) || !Array.isArray(value.events) || !Array.isArray(value.blinds)
+      || value.events.length > CHARACTER_SKILLS.maxEvents || value.blinds.length > CHARACTER_SKILLS.maxBlinds || value.markers !== undefined && !Array.isArray(value.markers)
+      || (value.markers?.length || 0) > CHARACTER_SKILLS.maxMarkers) return false;
+    const nextEvents = new Map(), nextBlinds = new Map(), nextMarkers = new Map(); let nextSequence = sequence;
+    for (const event of value.events) {
+      if (!validEvent(event, now, round) || nextEvents.has(event.id)) return false;
+      if ((groundedPersonal(event.type) || event.type.startsWith('ember-') && personal(event.type)) && [...nextEvents.values()].some(other => other.type === event.type && other.sourceId === event.sourceId)) return false;
+      const clean = { id: event.id, type: event.type, team: event.team, sourceId: event.sourceId, round, fromX: event.fromX, fromY: event.fromY, fromZ: event.fromZ,
+        x: event.x, y: event.y, z: event.z, startedAt: event.startedAt, flight: event.flight, triggerAt: event.triggerAt, endsAt: event.endsAt, radius: event.radius };
+      if (event.type === 'mend-heal') clean.targetId = event.targetId;
+      if (event.type === 'ember-service') clean.weaponId = event.weaponId;
+      nextEvents.set(clean.id, clean); nextSequence = Math.max(nextSequence, idSequence(clean.id, clean.type));
+    }
+    for (const blind of value.blinds) {
+      if (!validBlind(blind, now, round) || nextBlinds.has(blind.targetId)) return false;
+      const clean = { eventId: blind.eventId, targetId: blind.targetId, sourceId: blind.sourceId, team: blind.team, round, startedAt: blind.startedAt, endsAt: blind.endsAt };
+      if (blind.resisted === true) clean.resisted = true;
+      nextBlinds.set(blind.targetId, clean);
+      nextSequence = Math.max(nextSequence, idSequence(blind.eventId, 'nope-flash'), idSequence(blind.eventId, 'echo-glint'));
+    }
+    for (const marker of value.markers || []) {
+      if (!validMarker(marker, now, round) || nextMarkers.has(marker.eventId) || nextEvents.has(marker.eventId)) return false;
+      nextMarkers.set(marker.eventId, { eventId: marker.eventId, team: marker.team, round, x: marker.x, y: marker.y, z: marker.z, detectedAt: marker.detectedAt, endsAt: marker.endsAt });
+      nextSequence = Math.max(nextSequence, idSequence(marker.eventId, 'echo-tag'));
+    }
+    // The render clock may lead the host. Compare restore order only with the
+    // previous host clock, while retaining monotonic expiry on this client.
+    if (currentRound !== null && (round < currentRound || round === currentRound && now < lastRestoreTime)) return false;
+    currentTime = round === currentRound ? Math.max(currentTime, now) : now; currentRound = round; lastRestoreTime = now; sequence = nextSequence;
+    clear();
+    for (const [id, event] of nextEvents) if (event.endsAt > currentTime) active.set(id, event);
+    for (const [id, blind] of nextBlinds) if (blind.endsAt > currentTime) blinds.set(id, blind);
+    for (const [id, marker] of nextMarkers) if (marker.endsAt > currentTime) detections.set(id, marker);
+    return true;
+  }
+  function reset() { clear(); currentRound = null; currentTime = -Infinity; lastRestoreTime = -Infinity; }
+  return { cast, update, events, snapshot, restore, reset, blindUntil, speedScale, markers, movementScale, mitigateSlow, cancelService, consumeDecoy, flashDecoy };
+}

@@ -1,0 +1,9 @@
+Hashimoto geographic database
+© OpenStreetMap contributors
+https://www.openstreetmap.org/copyright
+Open Database License 1.0 (ODbL): https://opendatacommons.org/licenses/odbl/1-0/
+
+Download the complete projected database: ./city-data.json
+Source timestamp: 2026-10-19T15:44:21Z
+Projection: local equirectangular metres around 35.5949, 139.34497; east is +X and south is +Z.
+Road and building footprints derive from OpenStreetMap. Heights missing from source are estimates; landmark detailing and game objects are original artistic work. This is not a survey or an official station plan.

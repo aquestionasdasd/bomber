@@ -1,0 +1,134 @@
+.agent-select{display:grid;gap:5px;margin:10px 0 0;color:#b7ccd0;font-size:9px;letter-spacing:1px}
+.agent-select select{width:100%;min-height:32px;padding:5px 10px;border:1px solid #41535b;background:#172b37;color:#e2ece8;font:600 11px "Yu Gothic",sans-serif;border-radius:0;outline-offset:3px}
+.agent-select small{font-size:8px;letter-spacing:.25px;color:#91aaaf}
+.coin-label{font-size:9px;letter-spacing:0;color:#b9cec8}
+.shop-wallet>span{letter-spacing:.5px;font-size:11px}.shop-wallet strong{font-size:25px}
+#result-title.japanese-result{font-family:"Yu Gothic","Meiryo",sans-serif;font-weight:900;font-size:clamp(82px,15vw,164px);line-height:1.08;letter-spacing:.12em;text-indent:.12em;color:#8ff1d0;text-shadow:0 0 55px #5ddcbd35}
+#result-title.japanese-result.defeat{color:#ff667a;text-shadow:0 0 55px #ff365a35}
+#round-banner{font-size:16px;line-height:1.35;letter-spacing:.08em;white-space:pre-line;color:#aaf3d6}
+#round-banner::first-line{font-size:clamp(60px,7vw,88px);font-weight:900;line-height:1.12}
+#round-banner.defeat{color:#ff7180}
+.audio-credit{display:inline-block;margin-top:9px;font-size:8px;color:#91aaaf}
+.menu-footer .audio-credit{margin-top:0;color:#a7beb8;font-size:7px;letter-spacing:.2px;white-space:nowrap;text-underline-offset:3px}
+.menu-footer .audio-credit:hover{color:var(--mint)}
+
+/* Keep all four play entries in view on laptop displays; the manual can scroll. */
+@media(min-width:801px) and (min-height:501px) and (max-height:900px){
+  .menu-content{top:82px;transform:none;max-height:calc(100vh - 128px);max-height:calc(100dvh - 128px);padding-bottom:3px}
+  .menu-content .eyebrow{font-size:8px;letter-spacing:1.5px;margin-bottom:8px}
+  .menu-content .game-title{font-size:32px;line-height:1.04}
+  .menu-content .title-jp{margin-top:8px;font-size:8px;gap:12px}
+  .menu-content .title-jp>span:first-child{font-size:7px;letter-spacing:1px}
+  .menu-content .menu-description{margin:10px 0;font-size:10px;line-height:1.65}
+  .menu-content .menu-description br{display:none}
+  .menu-content .mission-select{margin-top:10px}
+  .menu-content .mission-mode{padding:8px 10px;gap:10px}
+  .menu-content .mission-mode .label-mini{font-size:7px;letter-spacing:1.2px}
+  .menu-content .mission-mode strong{font-size:11px;margin-top:3px}
+  .menu-content .mission-tag{font-size:6px;padding:4px 5px}
+  .menu-content .mode-icon{font-size:25px}
+  .menu-content .match-options{padding:8px 10px;gap:10px}
+  .menu-content .match-options label{gap:4px}
+  .menu-content .match-options label>span{font-size:7px}
+  .menu-content .match-options select{padding:5px 6px;font-size:8px}
+  .menu-content .difficulty-row{padding:6px 10px;font-size:9px}
+  .menu-content .agent-select{grid-template-columns:120px minmax(0,1fr);align-items:center;column-gap:10px;row-gap:4px;margin-top:7px}
+  .menu-content .agent-select>span{font-size:8px;line-height:1.5;letter-spacing:.55px}
+  .menu-content .agent-select select{min-height:30px;padding:4px 8px;font-size:10px}
+  .menu-content .agent-select small{grid-column:1/-1;font-size:8px;line-height:1.5;letter-spacing:0}
+  .menu-content .rules-summary{margin:8px 0;gap:7px}
+  .menu-content .rules-summary>span{font-size:8px;gap:3px}
+  .menu-content .rules-summary i{font-size:5px}
+  .menu-content .deploy-button{min-height:54px;margin-top:6px;padding:11px 18px}
+  .menu-content .deploy-button>span:nth-child(2){font-size:17px}
+  .menu-content .deploy-button small{font-size:6px;margin-top:4px}
+  .menu-content .online-open-button{min-height:47px;margin-top:7px;padding:8px 14px;gap:11px}
+  .menu-content .online-open-button>span:nth-child(2){font-size:12px}
+  .menu-content .online-open-button small{font-size:6px;margin-top:3px}
+  .menu-content .online-open-button>svg{height:24px;width:24px}
+  .menu-content .practice-modes{margin-top:7px;gap:7px}
+  .menu-content .practice-modes .explore-button{min-height:44px;padding:7px 10px;gap:8px}
+  .menu-content .practice-modes .explore-icon{font-size:20px}
+  .menu-content .practice-modes .explore-button>span:nth-child(2){font-size:10px}
+  .menu-content .ready-status{margin-top:8px;font-size:6px}
+  .menu-content .controls-guide{margin-top:13px;padding-top:10px}
+  .menu-content .guide-heading{min-height:16px}
+}
+@media(min-width:801px) and (min-height:501px) and (max-height:640px){
+  .menu-content{top:71px;max-height:calc(100vh - 110px);max-height:calc(100dvh - 110px)}
+  .menu-content .game-title{font-size:27px;line-height:1.01}
+  .menu-content .menu-description{display:none}
+  .menu-content .title-jp{margin-top:6px}
+  .menu-content .mission-select{margin-top:8px}
+  .menu-content .mission-mode{padding-top:6px;padding-bottom:6px}
+  .menu-content .agent-select{margin-top:6px}
+  .menu-content .rules-summary{margin:6px 0}
+  .menu-content .ready-status{display:none}
+  .menu-content .controls-guide{margin-top:10px;padding-top:8px}
+}
+@media(max-width:600px){.agent-select{margin-top:8px;gap:3px}.agent-select small{font-size:7px}.coin-label{font-size:7px}.economy-status{font-size:10px}.shop-wallet>span{font-size:9px}#result-title.japanese-result{font-size:90px}}
+/* Leave the practice module's physical display unobstructed at close range. */
+@media (min-width:801px){.hud.objective-practice .interaction{top:18%}}
+
+/* The full model lives beside the menu, leaving every play entry at its old height. */
+.character-preview-panel{position:absolute;top:100px;bottom:90px;right:6%;width:min(40vw,460px);display:flex;flex-direction:column;padding:18px 22px 14px;border:1px solid #bbd8dc30;border-top:2px solid #9fcfc880;background:radial-gradient(ellipse at 50% 45%,#41556352,transparent 72%),linear-gradient(150deg,#182d38ad,#0b1923b8);box-shadow:0 18px 70px #07131b30;pointer-events:none}
+.character-preview-heading{display:flex;align-items:center;gap:8px;font-size:8px;letter-spacing:1.7px;color:#b9d3d6;flex:0 0 auto}
+.character-preview-heading .signal-dot{background:var(--mint)}
+.preview-live{margin-left:auto;font-size:7px;border:1px solid #92b9b74d;padding:4px 5px;color:var(--mint);letter-spacing:1px}
+.character-preview-stage{position:relative;flex:1;min-height:0;width:100%;overflow:hidden}
+#character-preview-canvas{display:block;width:100%;height:100%;outline:none;pointer-events:none}
+.character-preview-caption{flex:0 0 auto;text-align:center;padding:5px 0 9px}
+.character-preview-caption h2,.character-preview-caption h3{font:800 clamp(16px,1.8vw,25px)/1.4 "Yu Gothic",Meiryo,sans-serif;letter-spacing:.04em;overflow-wrap:anywhere;color:#f0efe2}
+.character-preview-caption p{font-size:9px;color:var(--mint);letter-spacing:.8px;margin-top:5px}
+.character-preview-caption>span{display:block;font-size:7px;color:#91aab1;letter-spacing:.2px;margin-top:7px}
+.character-preview-map{display:flex;justify-content:space-between;gap:10px;border-top:1px solid #b7d5d12b;padding-top:10px;font-size:7px;letter-spacing:1px;color:#a3bac0;flex:0 0 auto}
+.online-character-preview{display:flex;min-width:0;min-height:0;height:116px;gap:8px;border:1px solid #9ac2c12b;background:linear-gradient(110deg,#142935,#233d4759);grid-column:1/-1}
+.online-character-preview .character-preview-stage{flex:0 0 110px;width:110px;height:114px}
+.online-character-preview .character-preview-caption{flex:1;min-width:0;text-align:left;align-self:center;padding:8px 10px 8px 0}
+.online-character-preview .character-preview-caption h3{font-size:13px;letter-spacing:0}
+.online-character-preview .character-preview-caption p{font-size:8px;line-height:1.7;margin-top:3px}
+.online-character-preview .character-preview-caption>span{font-size:6px;line-height:1.5;margin-top:5px}
+@media(min-width:801px) and (max-height:760px){
+  .character-preview-panel{top:82px;bottom:65px;right:5%;padding:14px 18px 12px}
+  .character-preview-caption h2{font-size:20px}
+  .online-preparation{position:relative;padding-right:113px}
+  .online-character-preview{position:absolute;right:0;top:0;width:99px;height:226px;display:flex;flex-direction:column;gap:0}
+  .online-character-preview .character-preview-stage{width:97px;flex:1;height:auto;min-height:130px}
+  .online-character-preview .character-preview-caption{padding:6px 5px 8px;text-align:center;flex:0 0 auto;width:100%}
+  .online-character-preview .character-preview-caption h3{font-size:9px}
+  .online-character-preview .character-preview-caption p{font-size:6px}
+  .online-character-preview .character-preview-caption>span{display:none}
+  .online-preparation .online-field select{min-width:0;width:100%;font-size:9px;padding-left:7px;padding-right:6px}
+}
+@media(max-width:800px){
+  .character-preview-panel{top:142px;right:24px;bottom:auto;width:122px;height:192px;padding:5px 4px 6px;background:radial-gradient(ellipse at 50% 40%,#6684913d,transparent 74%);border:0;border-bottom:1px solid #b1d6d52b;box-shadow:none}
+  .character-preview-heading{font-size:5px;letter-spacing:.5px;gap:5px}
+  .character-preview-heading>span:nth-child(2){font-size:0}
+  .character-preview-heading>span:nth-child(2)::after{content:'CHARACTER';font-size:5px}
+  .preview-live{font-size:5px;padding:2px 3px}
+  .character-preview-caption{padding:0 1px 3px}
+  .character-preview-caption h2{font-size:9px;line-height:1.4;letter-spacing:0}
+  .character-preview-caption p{font-size:6px;line-height:1.5;letter-spacing:0;margin-top:3px}
+  .character-preview-caption>span,.character-preview-map{display:none}
+  .menu-content .game-title{font-size:clamp(24px,6.9vw,36px);max-width:calc(100% - 125px)}
+  .menu-content .menu-description{padding-right:118px;min-height:48px}
+}
+@media(max-width:600px){
+  .online-preparation{position:relative;padding-right:105px;grid-template-columns:1fr;gap:10px}
+  .online-character-preview{position:absolute;right:0;top:0;width:95px;height:223px;display:flex;flex-direction:column;gap:0}
+  .online-character-preview .character-preview-stage{width:93px;height:auto;flex:1;min-height:125px}
+  .online-character-preview .character-preview-caption{padding:5px;text-align:center;flex:0 0 auto;width:100%}
+  .online-character-preview .character-preview-caption h3{font-size:9px}
+  .online-character-preview .character-preview-caption p{font-size:6px}
+  .online-character-preview .character-preview-caption>span{display:none}
+  .online-preparation .online-field select{font-size:9px;padding:8px 5px;min-width:0;width:100%}
+  .online-preparation .online-ready-note{margin-right:-105px}
+}
+@media(max-width:350px){.character-preview-panel{right:21px;width:102px;height:180px}.menu-content .game-title{font-size:24px;max-width:calc(100% - 105px)}.menu-content .menu-description{padding-right:100px}.online-preparation{padding-right:88px}.online-character-preview{width:80px}.online-character-preview .character-preview-stage{width:78px}.online-preparation .online-ready-note{margin-right:-88px}}
+@media(max-height:500px) and (orientation:landscape){
+  .character-preview-panel{position:fixed;top:75px;bottom:30px;right:4%;width:37%;height:auto;padding:9px 13px;background:linear-gradient(150deg,#182d38a8,#0b192389);border:1px solid #bbd8dc30}
+  .character-preview-heading{font-size:6px;letter-spacing:1px}.character-preview-heading>span:nth-child(2){font-size:6px}.character-preview-heading>span:nth-child(2)::after{content:none}
+  .character-preview-caption h2{font-size:12px}.character-preview-caption p{font-size:7px}
+  .menu-content .game-title{font-size:30px;max-width:none}.menu-content .menu-description{padding-right:0;min-height:0}
+  .online-preparation{position:relative;padding-right:107px}.online-character-preview{position:absolute;right:0;top:0;width:96px;height:224px;display:flex;flex-direction:column;gap:0}.online-character-preview .character-preview-stage{width:94px;flex:1;height:auto;min-height:130px}.online-character-preview .character-preview-caption{padding:5px;text-align:center;flex:0 0 auto;width:100%}.online-character-preview .character-preview-caption h3{font-size:9px}.online-character-preview .character-preview-caption p{font-size:6px}.online-character-preview .character-preview-caption>span{display:none}
+}
