@@ -76,6 +76,13 @@ async function main() {
   async function test(name, fn) { await fn(); passed++; console.log(`PASS: ${name}`); }
 
   try {
+    await test('host chooses map at start; invalid/guest maps never mutate room, reconnect retains map',async()=>{
+      const host=await create(),guest=await join(host);await ready(host);await ready(guest);
+      assert.equal((await api(`/${host.code}/start`,{method:'POST',member:guest,body:{format:'swift',mapId:'hirakata'}})).status,403);
+      assert.equal((await api(`/${host.code}/start`,{method:'POST',member:host,body:{format:'swift',mapId:'invalid'}})).status,400);
+      assert.equal((await api(`/${host.code}`,{member:host})).value.status,'lobby');
+      const started=await api(`/${host.code}/start`,{method:'POST',member:host,body:{format:'swift',mapId:'hirakata'}});assert.equal(started.status,200);assert.equal(started.value.settings.mapId,'hirakata');assert.equal((await api(`/${host.code}`,{member:guest})).value.settings.mapId,'hirakata');
+    });
     await test('room creation issues private hashed credentials and protects every member read', async () => {
       const host = await create('  ホスト  ');
       assert.match(host.code, /^[A-HJ-NP-Z2-9]{8}$/);
@@ -305,7 +312,7 @@ async function main() {
       assert.equal(nopeDecoys.start(player,Array.from({length:30},(_,i)=>({x:-999.99+i*.01,y:-999.99,z:999.99-i*.01,yaw:3.1415})),now,1),true);
       const nopeState=nopeDecoys.snapshot();nopeState.id='nope-wave-1-999999999999999';assert.equal(nopeDecoys.restore(nopeState,now,1),true);
       const serializeNopePops=()=>Array.from({length:8},(_,i)=>[Number.MAX_SAFE_INTEGER-7+i,-999.1234567890123,-999.1234567890123,-999.1234567890123,now]);
-      const sent = [], sandbox = { player, bots, roster, match, elapsed: now, teamAbilities, zoneAbilities, ordinarySkills, nopeDecoys, serializeNopePops, onlinePlaying: true,
+      const sent = [], sandbox = { map:{id:"hirakata",traffic:true}, fitTrafficSnapshot:(await import(pathToFileURL(path.join(__dirname,"public/traffic-state.js")).href)).fitTrafficSnapshot, player, bots, roster, match, elapsed: now, teamAbilities, zoneAbilities, ordinarySkills, nopeDecoys, serializeNopePops, onlinePlaying: true,
         online: { host: true, send: (packet, options) => sent.push({ packet, team: options?.team }) }, netClock: 0, netSequence: 0, netHostPaused: false,
         inventory: { active: 'phantom', primary: 'phantom', secondary: 'ghost' }, reloading: 1.2345678901234567, shotSequence: 0, lastShot: now,
         serializeNetCues: () => cues, serializeSmokes: () => smokes, serializeDrops: () => drops,
@@ -384,6 +391,10 @@ async function main() {
       for(let i=0;i<10;i++){const source={...actors[i],x:-81.123456+i*.01,y:10.987654,z:-81.123456+i*.01},target={x:source.x+1,y:source.y,z:source.z,targetId:actors[(i+5)%10].id};assert.ok(mixedPool.cast('onnara-tax',source,target,now,1));assert.ok(mixedPool.cast('onnara-orb',source,{...source,yaw:1.2345678901234567},now,1));}
       mixedPacket.ordinarySkills.events=mixedPool.snapshot().events;assert.ok(createCharacterSkills().restore(mixedPacket.ordinarySkills,now,1));const mixedBytes=Buffer.byteLength(JSON.stringify(mixedPacket),'utf8');assert.ok(mixedBytes<=65536);assert.equal((await send(host,'team:red','game',mixedPacket)).status,201);console.log(`ONNARA LIVE-MAP MIX:20 effects/10 actual roster IDs/negative boundary coordinates ${mixedBytes}B /65536B`);
       console.log(`SNAPSHOT CAPACITY: ${bytes}B / 65536B;20 team events,50 private pings,20 zones,20 ordinary events,20 blinds,20 private tags,20 smoke,32 gear,64 cues,10 actors`);
+      const{fitTrafficSnapshot}=await import(pathToFileURL(path.join(__dirname,'public/traffic-state.js')).href);
+      const full=JSON.parse(JSON.stringify(snapshot));for(const actor of full.actors)actor.trafficHit=[99999,now+.8,17.123456,16.123456,5.6];
+      full.cues.push(...Array.from({length:30},(_,i)=>({...full.cues[0],seq:100+i})));
+      const limited=fitTrafficSnapshot(full);assert.ok(limited);assert.ok(limited.cues.length<full.cues.length);assert.deepEqual(limited.actors,full.actors);assert.deepEqual(limited.ordinarySkills,full.ordinarySkills);assert.deepEqual(limited.rules,full.rules);assert.ok(Buffer.byteLength(JSON.stringify(limited))<=65536);clock+=200;assert.equal((await send(host,'team:red','game',limited)).status,201);console.log(`HIRAKATA simultaneous10 launches full wire ${Buffer.byteLength(JSON.stringify(limited))}B /65536B; only old cosmetic cues reduced`);
     });
 
     await test('competing joins and team changes cannot overfill a ten-person room or five-person team', async () => {

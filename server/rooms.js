@@ -122,7 +122,7 @@ async function createRoom(request, db, now) {
   cleanTeam(body.team, 'blue');
   await cleanup(db, now);
   const token = randomHex(), tokenHash = await hashToken(token), id = crypto.randomUUID();
-  const settings = JSON.stringify({ format: 'swift', maxPlayers: 10 });
+  const settings = JSON.stringify({ format: 'swift', mapId: 'hashimoto', maxPlayers: 10 });
   for (let attempt = 0; attempt < 4; attempt++) {
     const code = randomCode();
     try {
@@ -171,7 +171,9 @@ async function startRoom(request, db, room, member, now) {
   if (member.id !== room.host_id) fail(403, 'host_only', 'ホストだけが開始できます。');
   const body = await readBody(request);
   if (!['swift', 'standard'].includes(body.format)) fail(400, 'invalid_format', '試合形式を選択してください。');
-  const settings = JSON.stringify({ format: body.format, maxPlayers: 10 });
+  const mapId=body.mapId??'hashimoto';
+  if(!['hashimoto','hirakata'].includes(mapId))fail(400,'invalid_map','マップを選択してください。');
+  const settings = JSON.stringify({ format: body.format, mapId, maxPlayers: 10 });
   const result = await statement(db, `UPDATE online_rooms SET status = 'playing', settings = ? WHERE code = ? AND status = 'lobby'
     AND (SELECT COUNT(*) FROM online_members WHERE room_code = ? AND left_at IS NULL) >= 2
     AND EXISTS (SELECT 1 FROM online_members WHERE room_code = ? AND team = 'blue' AND left_at IS NULL)

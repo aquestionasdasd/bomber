@@ -13,7 +13,8 @@ import { createCarSkillFX } from './car-skill-fx.js';
 import { createCatSkillFX } from './cat-skill-fx.js';
 import { createDuckSkillFX } from './duck-skill-fx.js';
 import * as THREE from './vendor/three.module.js';
-import { createMap } from './map.js';
+import { createMap, normalizeMapId } from './map.js';
+import {trafficMarker, fitTrafficSnapshot} from './traffic-state.js';
 import { resolveMapCallout, drawMapShapes, getMapCalloutLabels } from './map-callouts.js';
 import { MatchRules, WEAPONS, applyArmorDamage } from './rules.js';
 import { createNavigation } from './navigation.js';
@@ -87,10 +88,11 @@ scene.add(sun);
 scene.add(sun.target);
 const environment = new THREE.Group();
 scene.add(environment);
-const map = createMap(THREE, environment);
+let map = createMap(THREE, environment);
+const arenaCache=new Map([['hashimoto',map]]);
 const textureFiltering = Math.min(8,renderer.capabilities.getMaxAnisotropy());
 environment.traverse(object=>{for(const material of Array.isArray(object.material)?object.material:[object.material])if(material?.map)material.map.anisotropy=textureFiltering;});
-const navigation = createNavigation(map);
+let navigation = createNavigation(map);
 const botsGroup = new THREE.Group();
 scene.add(botsGroup);
 const effectsGroup = new THREE.Group();
@@ -712,6 +714,7 @@ function clearBots() {
   bots.length=0;
 }
 function spawnRound(reset=false) {
+  resetTraffic();
   victoryMusic.stop();lastRoundAudio='';
   clearCombatInput();
   resetDetonation();
@@ -772,11 +775,52 @@ function requestLock() {
   pointerRequested=true;
   try { const p=canvas.requestPointerLock(); if(p?.catch)p.catch(()=>{inputActive=true;showMessage('MOUSE LOOK','マウスを動かすだけで視点を操作できます',3);}); } catch { inputActive=true; }
 }
+function selectArena(id){
+  id=normalizeMapId(id);if((map.id||'hashimoto')===id){updateMapLabels();return;}
+  map.traffic?.reset();map.world?.removeFromParent();
+  if(!arenaCache.has(id))arenaCache.set(id,createMap(THREE,environment,id));
+  map=arenaCache.get(id);environment.add(map.world);navigation=createNavigation(map);updateBots.tactics=null;nopeDecoyTownCandidates=null;
+  environment.traverse(object=>{for(const material of Array.isArray(object.material)?object.material:[object.material])if(material?.map)material.map.anisotropy=textureFiltering;});
+  map.world.updateMatrixWorld(true);updateMapLabels();
+}
+function updateMapLabels(){
+  const name=map.name||'橋本駅',short=map.shortName||'HASHIMOTO';
+  const copies={'mission-map':name+' 爆破・電源オフ作戦','menu-map-name':name+'前','character-preview-map':name+'前','hud-map-name':short+' STATION','map-title':name+' / 戦術マップ','map-area-name':name+' · 164m × 164m','map-route-copy':map.id==='hirakata'?'南北自由通路 / 東側高架下 / 百貨店西連絡路':'バス通り / 中央連絡路 / ミウィ通り'};
+  copies['map-site-a-name']=map.sites[0].name;copies['map-site-b-name']=map.sites[1].name;copies['map-detail']=map.id==='hirakata'?'公式図面と写真を参照して再構成。車道を走る京阪バスに注意。':'橋本駅前の景観をもとに構成したオリジナルマップです。';
+  copies['map-coordinate-copy']=copies['menu-coordinate-copy']=map.id==='hirakata'?'34.815°N / 135.649°E':'35°35′42″N / 139°20′42″E';copies['menu-map-note']=map.id==='hirakata'?'枚方市駅 / 南北広場・屋内自由通路':'非公式ファンメイド / 橋本駅前をモチーフにしたオリジナルマップ';copies['radar-map-copy']=short+' / 2 SITES';
+  canvas.setAttribute('aria-label',name+'の3D競技マップ');$('large-minimap')?.setAttribute('aria-label',name+'の戦術マップ');
+  for(const[id,text]of Object.entries(copies))if($(id))$(id).textContent=text;
+  for(const id of ['map-select','online-map'])if($(id)&&(!onlinePlaying||id==='map-select'))$(id).value=map.id||'hashimoto';
+  if($('start-subtitle'))$('start-subtitle').textContent=(['explore','range','plant','defuse'].includes($('match-format')?.value)?'PRACTICE IN ':'DEPLOY TO ')+short;
+}
+function resetTraffic(){map.traffic?.reset();for(const actor of [player,...bots])actor.trafficLaunch=null;}
+function updateTraffic(dt){
+  map.busModels?.update(elapsed);if(!map.traffic)return;
+  const actors=[player,...bots];
+  if(!isGuest()){
+    for(const hit of map.traffic.impacts(actors,elapsed,{enabled:match.phase==='live'})){
+      const actor=actors.find(a=>a.id===hit.actorId);actor.trafficLaunch={seq:hit.sequence,endsAt:hit.endsAt,vx:hit.vx,vz:hit.vz,vy:hit.vy};actor.vy=hit.vy;actor.dashTimer=0;actor.vx=0;actor.vz=0;actor.path=[];actor.planAt=0;
+      cancelServiceReload(actor);match.cancelPlant(actor.id);match.cancelDefuse(actor.id);damageEntity(actor,hit.damage,null);
+      if(actor===player){damageFlash=.55;showMessage('京阪バスと接触','100ダメージ · 車道から離れてください',3);}
+    }
+  }
+  for(const actor of actors){const hit=actor.trafficLaunch;if(!hit)continue;
+    // Remote victims follow the host snapshot; their client only predicts itself.
+    if(isGuest()&&actor!==player)continue;
+    if(match.phase!=='live'&&!(match.phase==='post'&&!actor.alive)){actor.trafficLaunch=null;continue;}
+    if(elapsed<hit.endsAt)moveEntity(actor,hit.vx*dt,hit.vz*dt,actor===player?.34:.4);
+    // Living vertical physics already ran once. Dead bodies still fly and land.
+    if(!actor.alive||actor.remoteId&&!isGuest())updateActorVertical(actor,dt,actor===player?.34:.4);
+    if(elapsed>=hit.endsAt&&(actor.alive||actor.vy===0))actor.trafficLaunch=null;
+    if(actor.group){actor.group.position.set(actor.x,actor.y,actor.z);if(!actor.alive){actor.death=Math.max(actor.death||0,hit.endsAt-elapsed+.2);actor.group.visible=true;}}
+  }
+}
 function startGame() {
   victoryMusic.reset();
   player.kit=new DuelistKit({character:selectedCharacter()});netCharacterRequested=false;
   if(onlinePlaying&&mode!=='menu'){leaveOnline();return;}
   if(online&&!onlinePlaying){online.close(true);online=null;}
+  selectArena(onlinePlaying?online.room.settings.mapId:$('map-select')?.value);resetTraffic();
   netHostPaused=false;syncSmokes([]);scene.fog.near=145;scene.fog.far=380;scene.fog.color.set('#b7d0dd');
   player.id='player';player.team='blue';
   audioInit();difficulty=$('difficulty')?.value||'normal';
@@ -811,7 +855,7 @@ function startGame() {
     else if(rangeSession){
       relocate(map.rangeArea?.spawn||{x:-20.75,z:-25.5,yaw:0});spawnRangeTarget();
       showMessage('AIM DRILL / 60秒','標的を撃破して次へ · 頭で撃破150点 / 胴で撃破100点 · Bでライフル変更',5);
-    }else showMessage('HASHIMOTO / マップ練習','時間制限なし · Mでルート確認・地点移動 · Bでライフル変更',5);
+    }else showMessage((map.shortName||'HASHIMOTO')+' / マップ練習','時間制限なし · Mでルート確認・地点移動 · Bでライフル変更',5);
   }
   updateTravelButtons();requestLock();updateHUD();
 }
@@ -829,7 +873,7 @@ function resumeGame() {
   clearCombatInput();mode='play';for(const id of ['pause-menu','map-overlay','shop-overlay','scoreboard'])setVisible(id,false);audioInit();requestLock();
 }
 function backMenu() {
-  victoryMusic.reset();
+  resetTraffic();victoryMusic.reset();
   if(online){leaveOnline();return;}
   netHostPaused=false;syncSmokes([]);scene.fog.near=145;scene.fog.far=380;scene.fog.color.set('#b7d0dd');
   updateFormatSummary();
@@ -846,7 +890,7 @@ function finish(won) {
   $('result-title').textContent=won?'開米':'閉米';
   $('result-title').classList.add('japanese-result');
   $('result-title').classList.toggle('defeat',!won);
-  $('result-description').textContent=`${match.score.blue} — ${match.score.red} · ${match.format==='swift'?'スイフト':'スタンダード'} · 橋本駅の試合が終了しました。`;
+  $('result-description').textContent=`${match.score.blue} — ${match.score.red} · ${match.format==='swift'?'スイフト':'スタンダード'} · ${map.name||'橋本駅'}の試合が終了しました。`;
   $('result-kills').textContent=totalKills;
   $('result-accuracy').textContent=`${shots?Math.round(hits/shots*100):0}%`;
   $('result-time').textContent=formatTime(elapsed);
@@ -893,8 +937,8 @@ function feed(text) {
 }
 function formatTime(t){return `${String(Math.floor(Math.max(0,t)/60)).padStart(2,'0')}:${String(Math.floor(Math.max(0,t)%60)).padStart(2,'0')}`;}
 function relocate(point){
-  const safe=navigation.nearest(point.travelX??point.x,point.travelZ??point.z);if(!safe)return false;
-  player.x=safe.x;player.z=safe.z;player.y=0;player.vy=0;player.vx=0;player.vz=0;player.pitch=0;player.recoil=0;renderedRecoil=0;
+  const upper=Number.isFinite(point.y)&&point.y>0,safe=upper&&canStand(point.x,point.z,.34,point.y)?point:upper?null:navigation.nearest(point.travelX??point.x,point.travelZ??point.z);if(!safe)return false;
+  player.x=safe.x;player.z=safe.z;player.y=upper?point.y:0;player.vy=0;player.vx=0;player.vz=0;player.trafficLaunch=null;player.pitch=0;player.recoil=0;renderedRecoil=0;
   if(Number.isFinite(point.yaw))player.yaw=point.yaw;resetMouseLook();return true;
 }
 function resetObjectivePractice(siteId='A'){
@@ -1014,7 +1058,7 @@ function moveEntity(entity,dx,dz,r=.34) {
 }
 function visibleBetween(a,b) {
   const eye=entity=>(entity.y||0)+1.45-(entity===player?player.crouch*.5:0);
-  return !smokeBlocks(a,b)&&map.collision.rayClear(a.x,eye(a),a.z,b.x,eye(b),b.z);
+  return !smokeBlocks(a,b)&&map.collision.rayClear(a.x,eye(a),a.z,b.x,eye(b),b.z)&&(!map.traffic||map.traffic.rayClear({x:a.x,y:eye(a),z:a.z},{x:b.x,y:eye(b),z:b.z},elapsed));
 }
 function safeDropPoint(entity=player){
   const forwardX=-Math.sin(entity.yaw||0),forwardZ=-Math.cos(entity.yaw||0);
@@ -1707,9 +1751,9 @@ function updateHUD(){
   const zone=resolveMapCallout(map,!player.alive&&spectatedBot?spectatedBot:player);
   $('zone').textContent=zone?.name||'NORTH PLAZA / 北口広場';
   if(exploring){
-    $('timer').textContent='∞';$('round-label').textContent='HASHIMOTO / MAP PRACTICE';$('side-label').textContent='マップ練習';
+    $('timer').textContent='∞';$('round-label').textContent=(map.shortName||'HASHIMOTO')+' / MAP PRACTICE';$('side-label').textContent='マップ練習';
     $('phase-label').textContent='2 SITES / 3 LANES';$('objective-label').textContent=!rangeSession&&!objectivePractice?'C/Q/E/X 無限 · M：ルート確認・地点移動 · B：ライフル変更':'M：ルート確認・地点移動 · WASD：移動 · B：ライフル変更';
-    $('spike-state').textContent='バス通り / 中央連絡路 / ミウィ通り';$('zone').textContent=zone?.name||'橋本駅前';
+    $('spike-state').textContent=map.id==='hirakata'?'南北自由通路 / バス車道に注意 / 接触100ダメージ':'バス通り / 中央連絡路 / ミウィ通り';$('zone').textContent=zone?.name||((map.name||'橋本駅')+'前');
   }
   if($('ally-label'))$('ally-label').textContent=rangeSession?'SCORE':'YOUR TEAM';
   if($('enemy-label'))$('enemy-label').textContent=rangeSession?'HEADSHOT':'ENEMY TEAM';
@@ -1745,6 +1789,7 @@ function drawMinimap(target,large=false){
   for(let x=Math.ceil(bounds.minX/grid)*grid;x<bounds.maxX;x+=grid){ctx.beginPath();ctx.moveTo(px(x),0);ctx.lineTo(px(x),h);ctx.stroke();}
   for(let z=Math.ceil(bounds.minZ/grid)*grid;z<bounds.maxZ;z+=grid){ctx.beginPath();ctx.moveTo(0,pz(z));ctx.lineTo(w,pz(z));ctx.stroke();}
   drawMapShapes(ctx,map.mapShapes,{bounds,px,pz,scale,large});
+  if(map.traffic)for(const bus of map.traffic.poses(elapsed)){ctx.save();ctx.translate(px(bus.x),pz(bus.z));ctx.rotate(-bus.yaw);ctx.fillStyle='#ee6675';ctx.fillRect(-1.25*scale,-5.3*scale,2.5*scale,10.6*scale);ctx.restore();}
   ctx.textAlign='center';ctx.textBaseline='middle';
   for(const pos of map.sites){
     if(pos.polygon?.length){ctx.beginPath();ctx.moveTo(px(pos.polygon[0][0]),pz(pos.polygon[0][1]));for(const [x,z] of pos.polygon.slice(1))ctx.lineTo(px(x),pz(z));ctx.closePath();ctx.fillStyle='rgba(237,178,132,.13)';ctx.fill();ctx.strokeStyle='#c5b080';ctx.lineWidth=large?1.8:1;ctx.stroke();}
@@ -1826,6 +1871,7 @@ function updateBots(dt){
     const dx=point.x-bot.x,dz=point.z-bot.z,length=Math.hypot(dx,dz)||1;
     const speed=(3.35+cfg.speed*.25)*1.15*actorSpeedScale(bot);
     const step=Math.min(length,speed*dt),oldX=bot.x,oldZ=bot.z;
+    if(elapsed<(bot.trafficLaunch?.endsAt||0)||map.traffic&&map.traffic.dangerous(bot.x+dx/length*step,bot.z+dz/length*step,elapsed))return false;
     moveEntity(bot,dx/length*step,dz/length*step,.4);
     bot.group.rotation.y=Math.atan2(dx,dz);
     const moved=Math.hypot(bot.x-oldX,bot.z-oldZ)>.002;
@@ -1846,6 +1892,7 @@ function updateBots(dt){
   for(const bot of bots){
     bot.flash=Math.max(0,(bot.flash||0)-dt);bot.muzzle.visible=bot.flash>0;
     if(!bot.alive){
+      if(isGuest()&&bot.netTarget?.trafficHit){const t=1-Math.exp(-dt*15);bot.x=THREE.MathUtils.lerp(bot.x,bot.netTarget.x,t);bot.z=THREE.MathUtils.lerp(bot.z,bot.netTarget.z,t);bot.y=THREE.MathUtils.lerp(bot.y||0,bot.netTarget.y||0,t);bot.group.position.set(bot.x,bot.y,bot.z);}
       bot.visual.update(dt,{...agentEquipment(bot),time:elapsed,moving:false,planting:false,defusing:false,firing:false,alive:false});
       if(bot.death>0){bot.death-=dt;if(bot.death<=0)bot.group.visible=false;}
       continue;
@@ -2253,6 +2300,7 @@ function updatePlay(dt){
   }
   updateTeamAbilities();
   updateBots(dt);
+  updateTraffic(dt);
   botThinkTick-=dt;
   if(botThinkTick<=0){botThinkTick=.25;const front=new THREE.Vector3();camera.getWorldDirection(front);for(const bot of bots){if(bot.team===player.team||!bot.alive)continue;const offset=new THREE.Vector3(bot.x-player.x,0,bot.z-player.z);if(player.alive&&offset.length()<42&&offset.normalize().dot(front)>.55&&visibleBetween(player,bot))bot.spottedUntil=elapsed+.6;}}
   if(!exploring&&!isGuest()){match.tick(dt,{clockPaused:match.phase==='live'&&ordinarySkills.clockFrozen(elapsed),blueAlive:aliveCount('blue'),redAlive:aliveCount('red'),playerAlive:player.alive});handleMatchEvents();}
@@ -2328,6 +2376,7 @@ function updateRoom(room){
   $('online-ready').textContent=me?.ready?'準備を取り消す':'準備完了';$('online-team').value=me?.team||'red';$('online-team').disabled=online.host;
   characterPicker.sync();
   $('online-start').hidden=!online.host;$('online-format').disabled=!online.host;
+  if($('online-map')){$('online-map').disabled=!online.host;if(!online.host||room.status==='playing')$('online-map').value=normalizeMapId(room.settings.mapId);}
   if(room.status==='playing'&&!onlinePlaying){
     onlinePlaying=true;netSequence=0;netLastSnapshot=0;netActionSequence=0;netActions=[];netApplied.clear();netInputs.clear();netRound=0;netClock=0;netSeenCueSequence=0;netCues.length=0;
     $('match-format').value=room.settings.format;setVisible('online-overlay',false);startGame();
@@ -2395,7 +2444,7 @@ function receiveNetPacket(from,packet){
     const ack=netApplied.get(from)||0,actions=new Map();
     for(const action of [...(!changed?previous?.actions||[]:[]),...(Array.isArray(packet.actions)?packet.actions.slice(0,64):[])])if(action&&Number.isSafeInteger(action.seq)&&action.seq>ack&&action.seq<=ack+64&&!actions.has(action.seq))actions.set(action.seq,action);
     netInputs.set(from,{seq:packet.seq,connection,retiredConnections:[...retired].slice(-16),round:packet.round,input:packet.input&&typeof packet.input==='object'?packet.input:{},actions:[...actions.values()].sort((a,b)=>a.seq-b.seq),received:elapsed,receivedAt:Date.now()});
-  }else if(from===online.session.hostId&&packet.type==='snapshot'&&packet.seq>netLastSnapshot){netLastSnapshot=packet.seq;applyNetSnapshot(packet);}
+  }else if(from===online.session.hostId&&packet.type==='snapshot'&&packet.seq>netLastSnapshot&&(packet.mapId||'hashimoto')===(map.id||'hashimoto')){netLastSnapshot=packet.seq;applyNetSnapshot(packet);}
 }
 function captureNetActor(actor){
   const local=actor===player,record=local?roster[0]:actor.record;
@@ -2403,11 +2452,13 @@ function captureNetActor(actor){
     hp:actor.hp,armor:actor.armor,alive:actor.alive,moving:local?Math.hypot(player.vx,player.vz)>.5:!!actor.moving,
     weapon:local?inventory.active:actor.netWeapon||record?.primary||record?.secondary||'classic',primary:local?inventory.primary:record?.primary,secondary:local?inventory.secondary:record?.secondary,
     ammo:local?player.ammo:actor.remoteId?actor.netAmmo:actor.aiAmmo,reserve:local?player.reserve:actor.remoteId?actor.netReserve:actor.aiReserve,reloading:local?reloading:actor.remoteId?actor.netReload||0:actor.aiReload||0,credits:local?match.credits:record?.credits||0,
+    ...(actor.trafficLaunch?{trafficHit:[actor.trafficLaunch.seq,actor.trafficLaunch.endsAt,actor.trafficLaunch.vx,actor.trafficLaunch.vz,actor.vy||0]}:{}),
     serviceReload:actor.serviceReload?{...actor.serviceReload}:null,
     kit:actor.kit?.snapshot(),dashTimer:actor.dashTimer||0,dashVec:actor.dashVec?{x:actor.dashVec.x,z:actor.dashVec.z}:null,
     shotSequence:local?shotSequence:actor.shotSequence||0,planting:match.spike.plantActor===actor.id,defusing:match.spike.defuseActor===actor.id,flash:local?elapsed-lastShot<.05:actor.flash>0};
 }
 function applyNetSnapshot(packet){
+  if((packet.mapId||'hashimoto')!==(map.id||'hashimoto'))return;
   if(!packet.rules||!Array.isArray(packet.actors)||packet.actors.length>10||!Array.isArray(packet.roster)||!Number.isFinite(packet.time))return;
   const ownId=netParticipants.get(online.session.memberId),self=packet.actors.find(a=>a.id===ownId);if(!self)return;
   const fresh=netRound!==packet.rules.round||!netHasSnapshot,previousPhase=match.phase,previousSpikeStatus=match.spike.status,wasAlive=player.alive,wasPaused=netHostPaused;
@@ -2445,6 +2496,11 @@ function applyNetSnapshot(packet){
       player.x=self.x;player.z=self.z;player.y=self.y;
     }
   }
+  const launch=trafficMarker(self.trafficHit,packet.time);
+  if(launch&&(match.phase==='live'||match.phase==='post'&&!self.alive)){
+    player.trafficLaunch=launch;player.x=self.x;player.y=self.y;player.z=self.z;player.vy=launch.vy;player.vx=0;player.vz=0;player.dashTimer=0;
+    netPositionHistory.clear();netPositionAck=Math.max(netPositionAck,packet.positionAcks?.[online.session.memberId]?.seq||0);netPositionCorrectionX=0;netPositionCorrectionZ=0;
+  }else player.trafficLaunch=null;
   applyNetDetonation(packet);
   applyNetTakeover(packet,{audible:!fresh});
   if(match.phase==='live'){nopeDecoys.restore(packet.nopeDecoys??null,elapsed,match.round);applyNetNopePops(packet.nopePops||[],fresh);}
@@ -2521,14 +2577,14 @@ function updateRemoteActor(actor,dt){
     const inputGrounded=actorGrounded({...actor,x:input.x,z:input.z,y:inputFeet,vy:0});
     let dx=input.x-actor.x,dz=input.z-actor.z;
     if(actor.dashTimer>0&&actor.dashVec){const step=Math.min(dt,actor.dashTimer)*12/.18;dx=actor.dashVec.x*step;dz=actor.dashVec.z*step;}
-    else if(actor.netDashInputSequence===data.seq||elapsed<(actor.carImpulseUntil||0)){dx=0;dz=0;}
+    else if(actor.netDashInputSequence===data.seq||elapsed<Math.max(actor.carImpulseUntil||0,actor.trafficLaunch?.endsAt||0)){dx=0;dz=0;}
     const distance=Math.hypot(dx,dz),limit=(actor.dashTimer>0?12/.18:(input.quiet===true?2.8:7)*1.15*actorSpeedScale(actor,inputGrounded))*dt;
     if(distance>limit){dx*=limit/distance;dz*=limit/distance;}
     if(match.phase==='buy'){const area=map.buyAreas[actor.team===match.attackerTeam?'attack':'defend'];if(Math.hypot(actor.x+dx-area.x,actor.z+dz-area.z)>area.radius-.4){dx=0;dz=0;}}
     moveEntity(actor,dx,dz);
     const blocked=Math.hypot(actor.x-previousX-dx,actor.z-previousZ-dz)>1e-5;
     if(!wasDashing&&actor.netDashInputSequence!==data.seq&&(Math.hypot(input.x-actor.x,input.z-actor.z)<1e-5||blocked||distance>2))actor.netPositionAck={seq:data.seq,connection:data.connection,round:data.round,x:actor.x,z:actor.z};
-    if(Number.isFinite(input.y)&&elapsed>=(actor.carImpulseUntil||0)){
+    if(Number.isFinite(input.y)&&elapsed>=Math.max(actor.carImpulseUntil||0,actor.trafficLaunch?.endsAt||0)){
       const floor=inputGrounded?getZoneFloor(actor.x,actor.z,Math.max(actor.y,inputFeet)+.22):null;
       // A capped stair input follows support at the accepted XZ, not the feet
       // height of a point the host has not reached yet.
@@ -2639,8 +2695,8 @@ function tickOnline(dt){
   if(!onlinePlaying||!online||!match)return;netClock+=dt;if(netClock<.065)return;netClock=0;
   if(online.host){
     const rules={format:match.format,startingSide:match.startingSide,round:match.round,score:{...match.score},phase:match.phase,phaseTime:match.phaseTime,roundTime:match.roundTime,winner:match.winner,lastRound:match.lastRound?{...match.lastRound}:null,spike:{...match.spike}};
-    const teamState=teamAbilities.snapshot(),packet={type:'snapshot',seq:++netSequence,time:elapsed,paused:netHostPaused,cues:serializeNetCues(),smokes:serializeSmokes(),drops:serializeDrops(),detonation:detonationState?{...detonationState}:null,takeover:takeoverState?{...takeoverState}:null,zoneAbilities:zoneAbilities.snapshot(),rules,roster:roster.map(r=>({...r,kit:r.kit?.snapshot()})),actors:[player,...bots].map(captureNetActor),acks:Object.fromEntries(netApplied),positionAcks:Object.fromEntries(bots.filter(b=>b.remoteId&&b.netPositionAck).map(b=>[b.remoteId,{...b.netPositionAck}]))};
-    for(const team of ['blue','red'])online.send({...packet,teamAbilities:{...teamState,pings:teamState.pings.filter(ping=>ping.observerTeam===team)},ordinarySkills:ordinarySkills.snapshot(team),nopeDecoys:nopeDecoys.snapshot(),nopePops:serializeNopePops()},{team});
+    const teamState=teamAbilities.snapshot(),packet={type:'snapshot',mapId:map.id||'hashimoto',seq:++netSequence,time:elapsed,paused:netHostPaused,cues:serializeNetCues(),smokes:serializeSmokes(),drops:serializeDrops(),detonation:detonationState?{...detonationState}:null,takeover:takeoverState?{...takeoverState}:null,zoneAbilities:zoneAbilities.snapshot(),rules,roster:roster.map(r=>({...r,kit:r.kit?.snapshot()})),actors:[player,...bots].map(captureNetActor),acks:Object.fromEntries(netApplied),positionAcks:Object.fromEntries(bots.filter(b=>b.remoteId&&b.netPositionAck).map(b=>[b.remoteId,{...b.netPositionAck}]))};
+    for(const team of ['blue','red']){let state={...packet,teamAbilities:{...teamState,pings:teamState.pings.filter(ping=>ping.observerTeam===team)},ordinarySkills:ordinarySkills.snapshot(team),nopeDecoys:nopeDecoys.snapshot(),nopePops:serializeNopePops()};if(map.traffic)state=fitTrafficSnapshot(state);if(state)online.send(state,{team});}
   }else if(netHasSnapshot){
     const seq=++netSequence,input={x:player.x,z:player.z,y:player.y,yaw:player.yaw,pitch:player.pitch,crouch:player.crouch,quiet:keys.has('ShiftLeft')||keys.has('ShiftRight'),interact:mode==='play'&&interactionHeld};
     netPositionHistory.set(seq,{x:input.x,z:input.z,correctionX:netPositionCorrectionX,correctionZ:netPositionCorrectionZ});while(netPositionHistory.size>128)netPositionHistory.delete(netPositionHistory.keys().next().value);
@@ -2655,7 +2711,7 @@ $('online-room-code')?.addEventListener('click',selectPartyCode);
 $('online-code')?.addEventListener('paste',event=>{const code=normalizePartyCode(event.clipboardData?.getData('text')||'');if(/^[A-Z2-9]{8}$/.test(code)){event.preventDefault();$('online-code').value=code;}});
 $('online-ready')?.addEventListener('click',async()=>{try{const me=online.room.members.find(m=>m.id===online.session.memberId);await online.ready(!me.ready,$('online-team').value);}catch(error){$('online-error').textContent=error.message;}});
 $('online-team')?.addEventListener('change',()=>online?.ready(false,$('online-team').value).catch(error=>{$('online-error').textContent=error.message;}));
-$('online-start')?.addEventListener('click',()=>online?.start($('online-format').value).catch(error=>{$('online-error').textContent=error.message;}));
+$('online-start')?.addEventListener('click',()=>online?.start($('online-format').value,normalizeMapId($('online-map')?.value)).catch(error=>{$('online-error').textContent=error.message;}));
 $('online-leave')?.addEventListener('click',()=>leaveOnline());
 restoreRoomSession();
 
@@ -2780,7 +2836,7 @@ function updateFormatSummary(){
   if($('starting-side')){$('starting-side').disabled=objective;if(objective)$('starting-side').value=format==='plant'?'attack':'defend';}
   if($('mission-tag'))$('mission-tag').textContent=practice?'SOLO PRACTICE':'SOLO + BOTS';
   if($('start-title')?.firstChild)$('start-title').firstChild.nodeValue=practice?'練習を始める ':'出撃する ';
-  if($('start-subtitle'))$('start-subtitle').textContent=practice?'PRACTICE IN HASHIMOTO':'DEPLOY TO HASHIMOTO';
+  if($('start-subtitle'))$('start-subtitle').textContent=(practice?'PRACTICE IN ':'DEPLOY TO ')+(map.shortName||'HASHIMOTO');
   const summary=$('format-summary');if(!summary)return;
   summary.replaceChildren();summary.parentElement?.classList.toggle('explore-summary',practice);
   const strong=document.createElement('b'),small=document.createElement('i');
@@ -2790,10 +2846,12 @@ function updateFormatSummary(){
 $('match-format')?.addEventListener('change',updateFormatSummary);updateFormatSummary();
 $('fullscreen').addEventListener('click',async()=>{try{if(document.fullscreenElement){keyboardProtection.release();await document.exitFullscreen();}else{const state=await keyboardProtection.enable();if(state==='unavailable')showMessage('全画面のキー保護を使えません','しゃがみは V 長押しで操作できます',3);}}catch{showMessage('FULLSCREEN','このブラウザでは全画面に切り替えられません',2);}});
 $('keyboard-protect')?.addEventListener('click',()=>keyboardProtection.enable());
-function saveSettings(){try{localStorage.setItem('hashimoto-settings',JSON.stringify({sensitivity,volume,victoryMusicEnabled,victoryMusicVolume,lookVersion:2,character:selectedCharacter()}));}catch{}}
+function saveSettings(){try{localStorage.setItem('hashimoto-settings',JSON.stringify({mapId:map.id||'hashimoto',sensitivity,volume,victoryMusicEnabled,victoryMusicVolume,lookVersion:2,character:selectedCharacter()}));}catch{}}
 for(const id of ['agent-select','online-agent'])if($(id)){$(id).value=normalizeCharacter(settings.character);$(id).addEventListener('change',e=>{const value=normalizeCharacter(e.target.value);for(const other of ['agent-select','online-agent'])if($(other))$(other).value=value;updateCharacterDescription();saveSettings();});}
 updateCharacterDescription();
 function updateSensitivityLabel(){if($('sensitivity-value'))$('sensitivity-value').textContent=sensitivity.toFixed(2);}
+for(const id of ['map-select','online-map'])if($(id))$(id).addEventListener('change',e=>{if(mode!=='menu'||onlinePlaying)return;selectArena(e.target.value);saveSettings();});
+selectArena(settings.mapId);
 if($('sensitivity')){$('sensitivity').value=sensitivity;$('sensitivity').addEventListener('input',e=>{const value=Number(e.target.value);if(Number.isFinite(value))sensitivity=clamp(value,.05,1.5);updateSensitivityLabel();saveSettings();});updateSensitivityLabel();}
 if($('volume')){$('volume').value=volume;$('volume').addEventListener('input',e=>{volume=Number(e.target.value);syncVictoryMusic();saveSettings();});}
 
@@ -2854,4 +2912,4 @@ $('loading-text').textContent='HASHIMOTO / 駅前アリーナ、ロード完了'
 setVisible('loading',false);requestAnimationFrame(frame);
 
 // A read-only snapshot allows reproducible smoke checks without exposing mutation hooks.
-window.hashimotoGame={snapshot:()=>({mode,exploring,round:match?.round||1,phase:match?.phase,side:match?.side,score:match?{...match.score}:null,credits:match?.credits,hp:player.hp,armor:player.armor,alive:player.alive,weapon:inventory.active,ammo:player.ammo,reserve:player.reserve,kills:totalKills,remaining:aliveCount('red'),allies:aliveCount('blue'),spike:match?{...match.spike}:null,player:{x:player.x,z:player.z},time:timeLeft,colliders:map.colliders.length,city:map.stats,renderCalls:renderer.info.render.calls,webgl:!!renderer.getContext()})};
+window.hashimotoGame={snapshot:()=>({mode,exploring,round:match?.round||1,phase:match?.phase,side:match?.side,score:match?{...match.score}:null,credits:match?.credits,hp:player.hp,armor:player.armor,alive:player.alive,weapon:inventory.active,ammo:player.ammo,reserve:player.reserve,kills:totalKills,remaining:aliveCount('red'),allies:aliveCount('blue'),spike:match?{...match.spike}:null,player:{x:player.x,y:player.y,z:player.z},mapId:map.id||'hashimoto',buses:map.traffic?.poses(elapsed)||[],time:timeLeft,colliders:map.colliders.length,city:map.stats,renderCalls:renderer.info.render.calls,webgl:!!renderer.getContext()})};

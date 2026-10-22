@@ -65,3 +65,10 @@ C/Q/E/Xの全4技について、既存全員との比較表を先に作り、効
 - [x] 新専用rules/model/FX/renderer10群と実game独立VM10群、旧model/rim/dance/music/audio/知覚/戦術と通信16群を検証。
 - [x] 最終統合試験246647mswall/314110msCPUと本番build成功。公開・GitHub差分共有の確定状態はworkspace cycle57-release.jsonに従う。
 - [ ] 新キャラの実2タブ対戦、実スマホ/別家庭回線/10実端末、実音聴感は未確認。次のキャラは全15人と比較する。
+
+## 第58巡：枚方市駅追加
+- [x] 公式構内図/市の南北ロータリー資料/提供写真の照合、HIRAKATA-DESIGN.mdに出典と近似範囲を記録。
+- [x] 橋本を保持し南北ロータリー/1F屋内自由通路/2F中央改札/外階段を選択可能に。host mapId決定と全参加者同期。
+- [x] 4台の高速バス、100入力ダメージと吹き飛ばし、BOT待避/視線、host権威/ACK/低FPS/重複/清掃/容量の専用検証。
+- [x] 実地形40経路・4階段・4seedBOT、独立JSON VM、所有非表示無音UIの接触を確認。公開とGitHubの確定状態はworkspace cycle58-release.jsonへ記録。
+- [ ] 測量実寸/全店舗広告の一致、実スマホ/別家庭回線/10実端末は未確認。旧backlogの未完了項目を保持。

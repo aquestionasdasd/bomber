@@ -1,9 +1,14 @@
 import { createCollisionIndex } from './collision.js';
 import { SITE_AREAS } from './site-areas.js';
 import { TACTICAL_BUILDINGS, TACTICAL_PROP_MOVES, createTacticalMetadata } from './tactical-layout.js';
+import {createHirakataMap} from './hirakata-map.js';
+
+export const MAP_CATALOG=Object.freeze([{id:'hashimoto',name:'橋本駅'},{id:'hirakata',name:'枚方市駅'}]);
+export function normalizeMapId(id){return id==='hirakata'?'hirakata':'hashimoto';}
 
 // Hand-built two-site Hashimoto station arena. East +X, north -Z.
-export function createMap(THREE, scene) {
+export function createMap(THREE, scene, id='hashimoto') {
+  if(id==='hirakata')return createHirakataMap(THREE,scene);
   const world = new THREE.Group(); world.name = 'HASHIMOTO / North Exit Arena'; scene.add(world);
   const bounds = { minX: -82, maxX: 82, minZ: -82, maxZ: 82 };
   const colliders = [], railingColliders = [], surfaceColliders = [], mapShapes = [], ramps = [], batches = new Map();
