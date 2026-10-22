@@ -374,6 +374,15 @@ async function main() {
       const urchinPacket=JSON.parse(JSON.stringify(snapshot)),urchinPool=createCharacterSkills();
       for(const type of ['urchin-jam','urchin-disarm','urchin-pearl','urchin-trident'])assert.ok(urchinPool.cast(type,player,{...player,...(['urchin-jam','urchin-disarm'].includes(type)?{targetId:'s'.repeat(64)}:{})},now,1));
       urchinPacket.ordinarySkills.events=urchinPool.snapshot().events;assert.ok(createCharacterSkills().restore(urchinPacket.ordinarySkills,now,1));assert.equal((await send(host,'team:red','game',urchinPacket)).status,201);
+      for(const type of ['onnara-tax','onnara-orb','onnara-hover','onnara-chain']){
+        clock+=200;const worst=JSON.parse(JSON.stringify(snapshot)),pool=createCharacterSkills();
+        for(let i=0;i<20;i++){const source={...player,id:'o'.repeat(62)+String(i).padStart(2,'0'),y:1.2345678901234567,grounded:false},target={x:source.x,y:source.y,z:source.z,...(type==='onnara-tax'?{targetId:'t'.repeat(62)+String(i).padStart(2,'0')}:{yaw:1.2345678901234567})};assert.ok(pool.cast(type,source,target,now,1));if(type==='onnara-chain')pool.recordConstellation(source.id,{x:123.456,y:7.891,z:-123.456},{x:124.456,y:7.891,z:-123.456},now);}
+        worst.ordinarySkills.events=pool.snapshot().events.map((e,i)=>({...e,id:`skill-${type}-${999999999999980+i}`}));
+        assert.ok(createCharacterSkills().restore(worst.ordinarySkills,now,1));const bytes=Buffer.byteLength(JSON.stringify(worst),'utf8');assert.ok(bytes<=65536,`${type} full snapshot ${bytes}B`);assert.equal((await send(host,'team:red','game',worst)).status,201);console.log(`ONNARA SNAPSHOT CAPACITY: ${type} ${bytes}B /65536B`);
+      }
+      clock+=200;const mixedPacket=JSON.parse(JSON.stringify(snapshot)),mixedPool=createCharacterSkills();
+      for(let i=0;i<10;i++){const source={...actors[i],x:-81.123456+i*.01,y:10.987654,z:-81.123456+i*.01},target={x:source.x+1,y:source.y,z:source.z,targetId:actors[(i+5)%10].id};assert.ok(mixedPool.cast('onnara-tax',source,target,now,1));assert.ok(mixedPool.cast('onnara-orb',source,{...source,yaw:1.2345678901234567},now,1));}
+      mixedPacket.ordinarySkills.events=mixedPool.snapshot().events;assert.ok(createCharacterSkills().restore(mixedPacket.ordinarySkills,now,1));const mixedBytes=Buffer.byteLength(JSON.stringify(mixedPacket),'utf8');assert.ok(mixedBytes<=65536);assert.equal((await send(host,'team:red','game',mixedPacket)).status,201);console.log(`ONNARA LIVE-MAP MIX:20 effects/10 actual roster IDs/negative boundary coordinates ${mixedBytes}B /65536B`);
       console.log(`SNAPSHOT CAPACITY: ${bytes}B / 65536B;20 team events,50 private pings,20 zones,20 ordinary events,20 blinds,20 private tags,20 smoke,32 gear,64 cues,10 actors`);
     });
 

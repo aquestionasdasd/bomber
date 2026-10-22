@@ -2969,6 +2969,7 @@ async function main() {
       showMessage=function(title,description,seconds){if(title.includes('再使用可能'))feedbackReadyMessages.push({title,description,time:elapsed});return feedbackMessageOriginal(title,description,seconds)};
       function feedbackSetup(character){if(online)leaveOnline();onlinePlaying=false;mode='menu';$('agent-select').value=character;$('match-format').value='standard';startGame();startRound();
         elapsed=10;clearCombatInput();Object.assign(player,{x:0,z:20,y:0,vy:0,yaw:0,pitch:-.2,hp:40,alive:true,dashTimer:0});player.kit=new DuelistKit({character});inventory.primary='vandal';equip('vandal',true);player.ammo=4;player.reserve=5;
+        if(character==='onnara'){player.y=1;player.vy=2;}
         if(character==='cat')addDrop({id:++dropSequence,weapon:'ghost',x:player.x,z:player.z-6,yaw:0,ammo:9,reserve:12});
         Object.assign(dashFeedback,{round:null,state:null,expires:0,charge:null,signatureAt:0});feedbackReadySounds.length=0;feedbackReadyMessages.length=0;updateAbilityFeedback();
       }`;
@@ -3044,7 +3045,7 @@ async function main() {
   // independent host/guest JSON state, rather than sharing actors or effects.
   {
     const characterHTML = fs.readFileSync(path.join(__dirname, 'public/play.html'), 'utf8');
-    const characterIds = ['duelist', 'nope', 'mend', 'echo', 'veil', 'ember', 'frost', 'duck', 'cat', 'car', 'nobi', 'japan', 'cap', 'urchin'];
+    const characterIds = ['duelist', 'nope', 'mend', 'echo', 'veil', 'ember', 'frost', 'duck', 'cat', 'car', 'nobi', 'japan', 'cap', 'urchin', 'onnara'];
     for (const id of ['agent-select', 'online-agent']) {
       const options = characterHTML.match(new RegExp(`<select[^>]*id="${id}"[^>]*>([\\s\\S]*?)</select>`))?.[1];
       assert.ok(options, `${id} must remain present`);

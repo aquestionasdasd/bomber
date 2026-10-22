@@ -231,6 +231,8 @@ export function createGameAudio(){
     }else if(type==='frost-unravel'){
       if(!sample('cloth',{gain:.2,rate:1.4,length:.22}))hiss(.19,2500,.035,true);
       if(!sample('pluck',{delay:.035,gain:.25,rate:1.25,length:.15}))tone(740,1110,.13,.020,'sine',.035);
+    }else if(['onnara-tax','onnara-orb','onnara-hover','onnara-chain'].includes(type)){
+      if(!sample(type==='onnara-tax'?'latch':type==='onnara-hover'?'cloth':'shimmer',{gain:.3,rate:type==='onnara-chain'?.8:1.15,length:.4}))tone(550,1000,.25,.025,'sine');
     }else if(['urchin-jam','urchin-disarm','urchin-pearl','urchin-trident'].includes(type)){
       if(!sample(type==='urchin-pearl'?'confirm':type==='urchin-trident'?'field':'latch',{gain:.3,rate:type==='urchin-jam'?1.2:.9,length:.4}))tone(420,720,.22,.025,'sine');
     }else if(['cap-lock','cap-clean','cap-bank','cap-magazine'].includes(type)){

@@ -58,3 +58,10 @@ C/Q/E/Xの全4技について、既存全員との比較表を先に作り、効
 
 ### 第56巡: 勝利ダンス（公開確認中）
 - 全14人の生存勝者のpost専用ダンス、自分の全身カード、メニュー5秒プレビュー。次Rで通常poseへ完全復帰。既存勝利BGM設定はそのまま。公開根拠はcycle56-release.jsonへ記録。
+
+
+## 第57巡：おんなら（15人目）
+- [x] ONNARA-DESIGN.md：既存14人とCQEXを事前比較。金髪/青目/星冠/赤金鎧の全身model、徴税刻印/固定地点の映像宝玉/空中静止/銃撃連鎖。構え左確定右取消、host権威、BOT、在庫/価格/CD/HUD/FX、strictJSON、死亡/次R/退出清掃を実装。
+- [x] 新専用rules/model/FX/renderer10群と実game独立VM10群、旧model/rim/dance/music/audio/知覚/戦術と通信16群を検証。
+- [x] 最終統合試験246647mswall/314110msCPUと本番build成功。公開・GitHub差分共有の確定状態はworkspace cycle57-release.jsonに従う。
+- [ ] 新キャラの実2タブ対戦、実スマホ/別家庭回線/10実端末、実音聴感は未確認。次のキャラは全15人と比較する。
