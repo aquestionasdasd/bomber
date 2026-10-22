@@ -15,7 +15,7 @@ import { createCharacterFX } from './character-fx.js';
 import { createZoneAbilities } from './zone-abilities.js';
 import { createZoneFX } from './zone-fx.js';
 import { isInsideSite, getSitePlantPosition } from './site-areas.js';
-import { createBotTactics, inVisionCone } from './bot-tactics.js';
+import { createBotTactics, inVisionCone, createBotHearing } from './bot-tactics.js';
 import { createObjectiveModel } from './objective-model.js';
 import { createDroppedEquipment } from './dropped-equipment.js';
 import { createStationDetonation } from './detonation.js';
@@ -157,6 +157,7 @@ const keyboardProtection=createKeyboardProtection({document,navigator,onStatus:s
 }});
 
 const gameAudio=createGameAudio();
+const botHearing=createBotHearing();
 function audioInit(){gameAudio.init();}
 function sound(type,{weapon:id=inventory.active,entity=null,localOnly=false}={}){
   if(!localOnly&&onlinePlaying&&online?.host&&actionCueTypes.has(type)){
@@ -164,6 +165,7 @@ function sound(type,{weapon:id=inventory.active,entity=null,localOnly=false}={})
     netCues.push({seq:++netCueSequence,round:match?.round,type,weapon:id,id:actor.id,x:actor.x,y:actor.y||0,z:actor.z,time:elapsed});
     if(netCues.length>64)netCues.splice(0,netCues.length-64);
   }
+  if(!localOnly&&!isGuest()&&match?.phase==='live'){const actor=entity||player;if(actor===player||bots.includes(actor))botHearing.emit(actor,type==='enemy'||type==='shot'?(id==='knife'?null:'shot'):type,elapsed);}
   if(!soundEnabled||!volume)return;
   const dx=entity?entity.x-player.x:0,dz=entity?entity.z-player.z:0,distance=Math.hypot(dx,dz);
   if(type!=='explosion'&&distance>65)return;
@@ -176,7 +178,7 @@ function resetTakeover(){takeoverState=null;takeoverClock=0;stationTakeover.rese
 function resetZoneAbilities(){zoneAbilities.reset();zoneFX.reset();zonePulseAudio.clear();zoneTargetPreview=null;zoneTargetPreviewAt=-Infinity;zoneTargetCharacter=null;if($('status-effects')){$('status-effects').hidden=true;$('status-effects').textContent='';}}
 const stoppedTurfEvents=new Map();
 const stoppedFrostEvents=new Map();
-function resetOrdinarySkills(){ordinarySkills.reset();ordinaryFX.reset();nopeDecoys.reset();nopeDecoyFX.reset();nopePops.length=0;nopeSeenPopSequence=0;mendSkillFX.reset();iagnuSkillFX.reset();grassSkillFX.reset();emberSkillFX.reset();frostSkillFX.reset();duelistSkillFX.reset();for(const actor of [player,...bots])cancelServiceReload(actor);stoppedServiceEvents.clear();stoppedTurfEvents.clear();stoppedFrostEvents.clear();ordinaryAudio.clear();ordinaryMarkerAudio.clear();const overlay=$('skill-blind-overlay');if(overlay){overlay.hidden=true;overlay.style.opacity='0';}}
+function resetOrdinarySkills(){botHearing.reset();ordinarySkills.reset();ordinaryFX.reset();nopeDecoys.reset();nopeDecoyFX.reset();nopePops.length=0;nopeSeenPopSequence=0;mendSkillFX.reset();iagnuSkillFX.reset();grassSkillFX.reset();emberSkillFX.reset();frostSkillFX.reset();duelistSkillFX.reset();for(const actor of [player,...bots]){cancelServiceReload(actor);actor.lastHeard=null;actor.netStepClock=0;}stoppedServiceEvents.clear();stoppedTurfEvents.clear();stoppedFrostEvents.clear();ordinaryAudio.clear();ordinaryMarkerAudio.clear();const overlay=$('skill-blind-overlay');if(overlay){overlay.hidden=true;overlay.style.opacity='0';}}
 function resetTeamAbilities(){teamAbilities.reset();characterFX.reset();resetZoneAbilities();resetOrdinarySkills();}
 function actorGrounded(actor){
   if(!actor?.alive||!Number.isFinite(actor.y)||Number.isFinite(actor.vy)&&Math.abs(actor.vy)>1e-5)return false;
@@ -1347,7 +1349,7 @@ function updateBots(dt){
       bot.think=(bot.think||0)-dt;
       const sees=enemy=>ordinarySkills.blindUntil(bot.id,elapsed)<=elapsed&&enemy.alive&&enemy.team!==bot.team&&inVisionCone(bot,enemy,{yaw:bot.group.rotation.y})&&visibleBetween(bot,enemy);
       if(bot.think<=0||bot.target&&!bot.target.alive){
-        let target=bot.target&&sees(bot.target)?bot.target:null,best=target?distance(bot,target)-4:38;
+        let target=bot.target&&sees(bot.target)?bot.target:null,best=target?distance(bot,target)-4:240;
         for(const enemy of actors){
           if(enemy.team===bot.team||!enemy.alive)continue;
           const dist=distance(bot,enemy);
@@ -1357,6 +1359,8 @@ function updateBots(dt){
         bot.target=target;bot.think=.18+Math.random()*.12;
       }
       if(bot.target&&!sees(bot.target))bot.target=null;
+      const heard=botHearing.listen(bot,elapsed,{occluded:(a,b)=>!map.collision.rayClear(a.x,(a.y||0)+1.4,a.z,b.x,b.y+1.4,b.z)});
+      if(heard)bot.lastHeard=heard;
       if(bot.target){
         const enemy=bot.target;
         bot.lastSeen={id:enemy.id,team:enemy.team,x:enemy.x,z:enemy.z,seenAt:elapsed};
@@ -1451,7 +1455,8 @@ function updateBots(dt){
       if(plan?.defuserId===bot.id)shouldDefuse=distance(bot,spike)<2.05;
     }
     const search=!enemy?tactics.investigation(bot,elapsed,role,spike):null;
-    if(search)goal=search;
+    const heard=!enemy&&bot.lastHeard&&elapsed>=bot.lastHeard.at&&elapsed-bot.lastHeard.at<1.8&&!role?.urgent&&!['plant','defuse'].includes(role?.role)?bot.lastHeard:null;
+    if(search||heard)goal=search||heard;
     // A tag is a short-lived, frozen contact. It can guide investigation, never
     // supply a live actor reference or bypass the BOT's visible-target checks.
     const tagContact=!enemy?ordinarySkills.markers(bot.team,elapsed).filter(point=>distance(bot,point)<24).sort((a,b)=>b.detectedAt-a.detectedAt||a.eventId.localeCompare(b.eventId))[0]:null;
@@ -1621,11 +1626,11 @@ function updateBots(dt){
         }
       }
     }else if(bot.aiReload>0&&bot.reloadGoal&&!role?.urgent)bot.moving=advance(bot,bot.reloadGoal,'reload');
-    else if(goal)bot.moving=advance(bot,goal,search?'search':role?.role||'objective');
+    else if(goal)bot.moving=advance(bot,goal,search?'search':heard?'heard':role?.role||'objective');
     if(!enemy&&!bot.moving&&!bot.planting&&!bot.defusing){
       const remembered=bot.lastSeen&&elapsed-bot.lastSeen.seenAt<2.8?bot.lastSeen:null;
       const shared=tactics.contacts(bot.team,elapsed).filter(c=>distance(bot,c)<32).sort((a,b)=>b.seenAt-a.seenAt)[0];
-      if(remembered||shared||tagContact||role?.watch)face(bot,remembered||shared||tagContact||role.watch,3.5);
+      if(remembered||shared||tagContact||heard||role?.watch)face(bot,remembered||shared||tagContact||heard||role.watch,3.5);
     }
     if(!bot.planting)match.cancelPlant(bot.id);
     if(!bot.defusing)match.cancelDefuse(bot.id);
@@ -1633,7 +1638,7 @@ function updateBots(dt){
     bot.group.position.y=bot.y||0;
     bot.visual.update(dt,{...agentEquipment(bot),time:elapsed,moving:bot.moving,planting:bot.planting,defusing:bot.defusing,firing:bot.flash>0,alive:bot.alive});
     bot.stepClock=bot.moving&&actorGrounded(bot)?(bot.stepClock||0)+dt:0;
-    if(bot.stepClock>.41){bot.stepClock=0;if(distance(bot,player)<19)sound('step',{entity:bot});}
+    if(bot.stepClock>.41){bot.stepClock=0;if(distance(bot,player)<19)sound('step',{entity:bot});else botHearing.emit(bot,'step',elapsed);}
   }
   separateBots(dt);
 }
@@ -2005,7 +2010,7 @@ function updateRemoteActor(actor,dt){
     let dx=input.x-actor.x,dz=input.z-actor.z;
     if(actor.dashTimer>0&&actor.dashVec){const step=Math.min(dt,actor.dashTimer)*12/.18;dx=actor.dashVec.x*step;dz=actor.dashVec.z*step;}
     else if(actor.netDashInputSequence===data.seq){dx=0;dz=0;}
-    const distance=Math.hypot(dx,dz),limit=(actor.dashTimer>0?12/.18:7*1.15*actorSpeedScale(actor,inputGrounded))*dt;
+    const distance=Math.hypot(dx,dz),limit=(actor.dashTimer>0?12/.18:(input.quiet===true?2.8:7)*1.15*actorSpeedScale(actor,inputGrounded))*dt;
     if(distance>limit){dx*=limit/distance;dz*=limit/distance;}
     if(match.phase==='buy'){const area=map.buyAreas[actor.team===match.attackerTeam?'attack':'defend'];if(Math.hypot(actor.x+dx-area.x,actor.z+dz-area.z)>area.radius-.4){dx=0;dz=0;}}
     moveEntity(actor,dx,dz);
@@ -2024,6 +2029,8 @@ function updateRemoteActor(actor,dt){
     actorMovementScale(actor);
     actor.netYaw=Number.isFinite(input.yaw)?input.yaw:0;actor.netPitch=clamp(Number(input.pitch)||0,-1.35,1.35);actor.group.rotation.y=actor.netYaw+Math.PI;
   }
+  const remoteRunning=active&&match.phase==='live'&&input.quiet!==true&&actor.crouch<.5&&!wasDashing&&actorGrounded(actor)&&Math.hypot(actor.x-previousX,actor.z-previousZ)>dt*2;
+  actor.netStepClock=remoteRunning?(actor.netStepClock||0)+dt:0;if(actor.netStepClock>.35){actor.netStepClock=0;sound('step',{entity:actor});}
   actor.kit?.tick(elapsed);actor.dashTimer=Math.max(0,(actor.dashTimer||0)-dt);actor.moving=Math.hypot(actor.x-previousX,actor.z-previousZ)>dt*.5;
   const stationary=Math.hypot(actor.x-previousX,actor.z-previousZ)<dt*.25&&Math.abs(actor.y||0)<=.05,held=active&&input.interact===true&&match.phase==='live';
   match.pickupSpike(actor.id,actor.team,actor.x,actor.z);const site=map.sites.find(s=>isInsideSite(s,actor.x,actor.z));
@@ -2116,7 +2123,7 @@ function tickOnline(dt){
     const teamState=teamAbilities.snapshot(),packet={type:'snapshot',seq:++netSequence,time:elapsed,paused:netHostPaused,cues:serializeNetCues(),smokes:serializeSmokes(),drops:serializeDrops(),detonation:detonationState?{...detonationState}:null,takeover:takeoverState?{...takeoverState}:null,zoneAbilities:zoneAbilities.snapshot(),rules,roster:roster.map(r=>({...r,kit:r.kit?.snapshot()})),actors:[player,...bots].map(captureNetActor),acks:Object.fromEntries(netApplied),positionAcks:Object.fromEntries(bots.filter(b=>b.remoteId&&b.netPositionAck).map(b=>[b.remoteId,{...b.netPositionAck}]))};
     for(const team of ['blue','red'])online.send({...packet,teamAbilities:{...teamState,pings:teamState.pings.filter(ping=>ping.observerTeam===team)},ordinarySkills:ordinarySkills.snapshot(team),nopeDecoys:nopeDecoys.snapshot(),nopePops:serializeNopePops()},{team});
   }else if(netHasSnapshot){
-    const seq=++netSequence,input={x:player.x,z:player.z,y:player.y,yaw:player.yaw,pitch:player.pitch,crouch:player.crouch,interact:mode==='play'&&interactionHeld};
+    const seq=++netSequence,input={x:player.x,z:player.z,y:player.y,yaw:player.yaw,pitch:player.pitch,crouch:player.crouch,quiet:keys.has('ShiftLeft')||keys.has('ShiftRight'),interact:mode==='play'&&interactionHeld};
     netPositionHistory.set(seq,{x:input.x,z:input.z,correctionX:netPositionCorrectionX,correctionZ:netPositionCorrectionZ});while(netPositionHistory.size>128)netPositionHistory.delete(netPositionHistory.keys().next().value);
     online.send({type:'input',seq,round:match.round,input,actions:netActions});
   }

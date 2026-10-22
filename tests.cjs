@@ -2363,7 +2363,7 @@ async function main() {
     assert.equal(run('JSON.stringify({x:player.x,y:player.y,z:player.z,vy:player.vy,dashTimer:player.dashTimer})'), run('decoyOrigin'), 'NOPE E must place a face without moving or launching the caster');
     assert.equal(run('player.kit.armReadyAt'), null); assert.equal(run('player.kit.nextSignatureAt'), 10+NOPE_SKILLS.signatureCooldown);
     run("var secondDecoy=ordinarySkills.cast('nope-decoy',player,{x:2,y:0,z:15},elapsed,match.round)");
-    run(`Object.assign(player,{x:35,z:35});bots.filter(bot=>bot.team==='blue').forEach(bot=>{bot.x=-35;bot.z=35});
+    run(`Object.assign(player,{x:35,z:-35});bots.filter(bot=>bot.team==='blue').forEach(bot=>{bot.x=-35;bot.z=-35});
       ordinaryEnemy=bots.find(bot=>bot.id==='red-0');Object.assign(ordinaryEnemy,{x:0,z:10,rangeTarget:false,target:null,lastSeen:null,fire:999});ordinaryEnemy.group.rotation.y=0;
       elapsed=10.1;updateBots(.05);`);
     assert.equal(run('ordinaryEnemy.decoySeen.has(firstDecoy.id)'), true);

@@ -7,7 +7,7 @@ const {pathToFileURL}=require('node:url');
 async function main(){
   const started=performance.now();
   const load=file=>import(pathToFileURL(path.join(__dirname,'public',file)).href);
-  const [{createBotTactics,inVisionCone},{createNavigation},{createCollisionIndex},{MatchRules,WEAPONS},THREE,areas,{DuelistKit,NOPE_SKILLS,MEND_SKILLS,IAGNU_SKILLS,VEIL_SKILLS,EMBER_SKILLS,FROST_SKILLS},{selectMendTarget}]=await Promise.all([
+  const [{createBotTactics,inVisionCone,createBotHearing},{createNavigation},{createCollisionIndex},{MatchRules,WEAPONS},THREE,areas,{DuelistKit,NOPE_SKILLS,MEND_SKILLS,IAGNU_SKILLS,VEIL_SKILLS,EMBER_SKILLS,FROST_SKILLS},{selectMendTarget}]=await Promise.all([
     load('bot-tactics.js'),load('navigation.js'),load('collision.js'),load('rules.js'),load('vendor/three.module.js'),load('site-areas.js'),load('abilities.js'),load('character-skills.js')]);
   const sites=[{id:'A',x:-22,z:-12,radius:7,plantPositions:[{id:'A-cover',x:-24,z:-11,style:'cover'},{id:'A-open',x:-20,z:-14,style:'open'}]},
     {id:'B',x:22,z:-12,radius:7,plantPositions:[{id:'B-cover',x:24,z:-11,style:'cover'},{id:'B-open',x:20,z:-14,style:'open'}]}];
@@ -21,8 +21,8 @@ async function main(){
   const tactics=makeTactics(makeMap()),observer=actor('blue-1','blue',0,0),enemy=actor('red-0','red',1,12);
   assert.equal(inVisionCone(observer,enemy,{yaw:0}),true);
   assert.equal(inVisionCone(observer,{x:0,z:-12},{yaw:0}),false,'A bot must not spot a distant enemy behind its back');
-  assert.equal(inVisionCone(observer,{x:0,z:-3},{yaw:0}),true,'A close threat can be noticed without a full turn');
-  assert.equal(inVisionCone(observer,{x:0,z:39},{yaw:0}),false);
+  assert.equal(inVisionCone(observer,{x:0,z:-3},{yaw:0}),false,'A silent close target behind the BOT is not visible');
+  assert.equal(inVisionCone(observer,{x:0,z:120},{yaw:0}),true);
   tactics.observe('blue',observer.id,enemy,1);enemy.x=30;enemy.z=30;
   assert.deepEqual(tactics.contacts('blue',2).map(c=>[c.x,c.z]),[[1,12]],'Hidden movement must not update a last-seen position');
   const copied=tactics.contacts('blue',2);copied[0].x=999;
@@ -30,7 +30,7 @@ async function main(){
   assert.equal(tactics.contacts('red',2).length,0,'Sighting information belongs only to the observing team');
   assert.equal(tactics.contacts('blue',5.01).length,0,'Shared sightings must expire after four seconds');
   tactics.observe('blue',observer.id,enemy,6);tactics.reset(2);assert.equal(tactics.contacts('blue',6).length,0,'Round changes must clear intelligence');
-  console.log('PASS: limited forward vision, close awareness, copied team-only sighting memory and round/TTL expiry');
+  console.log('PASS: forward vision across the map, no silent rear awareness, copied team-only sighting memory and round/TTL expiry');
 
   // Site decisions use the carrier, known map and sightings, never hidden defender coordinates.
   const carrier=actor('player','blue',0,30),hidden=actor('red-0','red',-20,-12),attackers=[1,2,3,4].map(i=>actor(`blue-${i}`,'blue',i-3,30+i,i));
@@ -90,14 +90,14 @@ async function main(){
   function integration({map=makeMap(),player=actor('player','blue',0,0),bots=[],match=new MatchRules(),random=.99,ordinarySkills={blindUntil:()=>0,events:()=>[],markers:()=>[]}}={}){
     match.startLive();let bulletHits=0,shots=0;const casts=[],traces=[];ordinarySkills={cancelService(){},speedScale:()=>1,...ordinarySkills};
     const math=Object.create(Math);math.random=typeof random==='function'?random:()=>random;
-    const sandbox={THREE,WEAPONS,NOPE_SKILLS,IAGNU_SKILLS,VEIL_SKILLS,EMBER_SKILLS,...areas,createBotTactics,inVisionCone,map,navigation:createNavigation(map),player,bots,match,elapsed:0,inventory:{active:'classic'},reloading:0,
+    const sandbox={THREE,WEAPONS,NOPE_SKILLS,IAGNU_SKILLS,VEIL_SKILLS,EMBER_SKILLS,...areas,createBotTactics,inVisionCone,createBotHearing,map,navigation:createNavigation(map),player,bots,match,elapsed:0,inventory:{active:'classic'},reloading:0,
       levels:{normal:{interval:1.25,aim:.68,speed:2.1}},difficulty:'normal',Math:math,clamp:(v,a,b)=>Math.max(a,Math.min(b,v)),
-      isGuest:()=>false,ordinarySkills,zoneAbilities:{speedMultiplier:()=>1},actorSpeedScale:()=>1,agentEquipment:()=>({}),selectMendTarget,activePollenFields:()=>[],
+      isGuest:()=>false,botHearing:createBotHearing(),ordinarySkills,zoneAbilities:{speedMultiplier:()=>1},actorSpeedScale:()=>1,agentEquipment:()=>({}),selectMendTarget,activePollenFields:()=>[],
       ordinaryActorView:value=>({...value,grounded:sandbox.actorGrounded(value)}),ordinaryGroundHeight:()=>0,rampFloor:()=>null,
       ordinaryReachable:(event,value)=>map.collision.rayClear(event.x,(event.y||0)+.18,event.z,value.x,(value.y||0)+.18,value.z),
       actorGrounded:actor=>actor.alive&&Math.abs(actor.y||0)<1e-8&&Math.abs(actor.vy||0)<1e-8,
       activeOrdinarySmokeFields:()=>ordinarySkills.events(sandbox.elapsed).filter(event=>event.type==='veil-dust'&&sandbox.elapsed>=event.triggerAt),
-      updateRemoteActor(){},sound(){},tracer(from,to){shots++;traces.push({from:from.clone(),to:to.clone()});},separateBots(){},
+      allNopeDecoys:()=>ordinarySkills.events(sandbox.elapsed).filter(e=>e.type==='nope-decoy'),raycastNopeDecoy:()=>null,hitNopeDecoy(){},updateRemoteActor(){},sound(){},tracer(from,to){shots++;traces.push({from:from.clone(),to:to.clone()});},separateBots(){},
       mendReachable:(a,b)=>a===b||map.collision.rayClear(a.x,(a.y||0)+1.45,a.z,b.x,(b.y||0)+1.45,b.z),
       activateAbility(actor,key,options){const effect=actor.kit.activate(key,sandbox.elapsed);if(!effect)return;casts.push({actorId:actor.id,key,effect,options});if(effect.type==='mend-heal'){const selected=selectMendTarget(actor,[player,...bots],sandbox.mendReachable),target=[player,...bots].find(value=>value.id===selected?.id);if(target)target.hp=Math.min(100,target.hp+effect.healing);}if(effect.type==='ember-service')sandbox.beginServiceReload(actor,{id:'bot-service-'+casts.length,weaponId:sandbox.actorWeaponId(actor),endsAt:sandbox.elapsed+EMBER_SKILLS.serviceDuration});return effect;},
       damageEntity(target,damage){bulletHits++;target.hp-=damage;if(target.hp<=0){target.alive=false;match.dropSpike(target.id,target.x,target.z);}},

@@ -3,11 +3,35 @@ const distance=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
 const aiActor=actor=>actor.alive&&!actor.remoteId&&!actor.rangeTarget&&actor.id!=='player'&&!actor.human;
 const hash=(text)=>{let value=2166136261;for(const char of String(text))value=Math.imul(value^char.charCodeAt(0),16777619);return(value>>>0)/4294967296;};
 
-export function inVisionCone(observer,target,{yaw=observer.yaw||0,range=38,close=5,angle=130}={}){
+export function inVisionCone(observer,target,{yaw=observer.yaw||0,range=240,angle=130}={}){
   const dx=target.x-observer.x,dz=target.z-observer.z,length=Math.hypot(dx,dz);
   if(!Number.isFinite(length)||length>range)return false;
-  if(length<=close)return true;
+  if(length<.001)return true;
   return (Math.sin(yaw)*dx+Math.cos(yaw)*dz)/length>=Math.cos(angle*Math.PI/360);
+}
+
+// Host-only sound pulses contain the position at emission, never a live target.
+// Muting playback must not change the simulation's hearing rules.
+export function createBotHearing(){
+  const pulses=[];let sequence=0;
+  function emit(actor,kind,now){
+    const radius={step:19,land:15,shot:65}[kind];
+    if(!Number.isFinite(radius)||!actor?.alive||!['blue','red'].includes(actor.team)||![actor.x,actor.z,now].every(Number.isFinite))return;
+    pulses.push({x:actor.x,y:actor.y||0,z:actor.z,team:actor.team,at:now,radius,sequence:++sequence});
+    if(pulses.length>64)pulses.splice(0,pulses.length-64);
+  }
+  function listen(observer,now,{occluded=()=>false}={}){
+    while(pulses.length&&(now-pulses[0].at>.65||now<pulses[0].at))pulses.shift();
+    let best=null;
+    for(const pulse of pulses){
+      if(pulse.team===observer.team||now<pulse.at||now-pulse.at>.65)continue;
+      const distance=Math.hypot(observer.x-pulse.x,(observer.y||0)-pulse.y,observer.z-pulse.z);
+      if(distance>pulse.radius||distance>pulse.radius*(occluded(observer,pulse) ? .55 : 1))continue;
+      if(!best||pulse.at>best.at)best=pulse;
+    }
+    return best?{x:best.x,y:best.y,z:best.z,at:best.at,sequence:best.sequence}:null;
+  }
+  return {emit,listen,reset(){pulses.length=0;sequence=0;}};
 }
 
 export function createBotTactics({sites,navigation,collision,lanes=[],attackSpawn={x:0,z:65},defendSpawn={x:0,z:-70}}){
