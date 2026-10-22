@@ -1,0 +1,7 @@
+export function createCapSkillFX(THREE){
+ const group=new THREE.Group();group.name='キャップは？ / optics';const items=new Map(),g=new THREE.TorusGeometry(.20,.018,6,24),m=new THREE.MeshBasicMaterial({color:'#ef8152',transparent:true,opacity:.9,depthWrite:false}),bar=new THREE.BoxGeometry(.28,.035,.035),blue=m.clone();blue.color.set('#79e7ee');
+ function update(events,now,{actors=[]}={}){const seen=new Set();for(const e of events){if(!e.type.startsWith('cap-'))continue;const actor=actors.find(a=>a.id===(e.targetId||e.sourceId));if(!actor?.alive)continue;seen.add(e.id);let root=items.get(e.id);if(!root){root=new THREE.Group();root.name=e.type;group.add(root);items.set(e.id,root);for(const side of[-1,1]){const lens=new THREE.Mesh(g,e.type==='cap-clean'?blue:m);lens.position.x=side*.24;lens.raycast=()=>{};root.add(lens);}const bridge=new THREE.Mesh(bar,e.type==='cap-clean'?blue:m);bridge.raycast=()=>{};root.add(bridge);if(e.type==='cap-lock'){const slash=new THREE.Mesh(bar,m);slash.scale.set(3,1,1);slash.rotation.z=.7;slash.raycast=()=>{};root.add(slash);}}
+ root.position.set(actor.x,(actor.y||0)+2-(actor.crouch||0)*.55,actor.z);root.rotation.y=now*1.1;
+ }for(const[id,o]of items)if(!seen.has(id)){o.removeFromParent();items.delete(id);}}
+ function reset(){for(const o of items.values())o.removeFromParent();items.clear();}return{group,update,reset,dispose(){reset();group.removeFromParent();g.dispose();bar.dispose();m.dispose();blue.dispose();}};
+}

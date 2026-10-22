@@ -231,6 +231,8 @@ export function createGameAudio(){
     }else if(type==='frost-unravel'){
       if(!sample('cloth',{gain:.2,rate:1.4,length:.22}))hiss(.19,2500,.035,true);
       if(!sample('pluck',{delay:.035,gain:.25,rate:1.25,length:.15}))tone(740,1110,.13,.020,'sine',.035);
+    }else if(['cap-lock','cap-clean','cap-bank','cap-magazine'].includes(type)){
+      if(!sample(type==='cap-clean'?'shimmer':type==='cap-magazine'?'door':'pluck',{gain:.34,rate:type==='cap-bank'?1.2:.9,length:.35}))tone(350,850,.25,.025,'sine');
     }else if(type==='japan-border'||type==='japan-levy'||type==='japan-return'||type==='japan-muster'){
       if(!sample(type==='japan-border'?'door':type==='japan-muster'?'shimmer':'pluck',{gain:.34,rate:type==='japan-return'?.72:1,length:.35}))tone(340,900,.28,.025,'sine');
     }else if(type==='nobi-tag'||type==='nobi-brake'||type==='nobi-tool'||type==='nobi-legend'){

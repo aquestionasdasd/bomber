@@ -1,3 +1,5 @@
+import { CAP_SKILLS } from './abilities.js';
+import { createCapSkillFX } from './cap-skill-fx.js';
 import { createJapanSkillFX } from './japan-skill-fx.js';
 import { createNobiSkillFX } from './nobi-skill-fx.js';
 import { carAimVector, carSmokeIntersection, carMovementSpread } from './car-targeting.js';
@@ -101,6 +103,7 @@ const mendSkillFX=createMendSkillFX(THREE,camera);scene.add(mendSkillFX.group);
 const iagnuSkillFX=createIagnuSkillFX(THREE,camera);scene.add(iagnuSkillFX.group);
 const grassSkillFX=createGrassSkillFX(THREE,camera);scene.add(grassSkillFX.group);
 const emberSkillFX=createEmberSkillFX(THREE,camera);scene.add(emberSkillFX.group);
+const capSkillFX=createCapSkillFX(THREE);scene.add(capSkillFX.group);
 const japanSkillFX=createJapanSkillFX(THREE);scene.add(japanSkillFX.group);
 const nobiSkillFX=createNobiSkillFX(THREE);scene.add(nobiSkillFX.group);
 const carSkillFX=createCarSkillFX(THREE);scene.add(carSkillFX.group);const carImpulseSeen=new Set();
@@ -191,7 +194,7 @@ function resetTakeover(){takeoverState=null;takeoverClock=0;stationTakeover.rese
 function resetZoneAbilities(){zoneAbilities.reset();zoneFX.reset();zonePulseAudio.clear();zoneTargetPreview=null;zoneTargetPreviewAt=-Infinity;zoneTargetCharacter=null;if($('status-effects')){$('status-effects').hidden=true;$('status-effects').textContent='';}}
 const stoppedTurfEvents=new Map();
 const stoppedFrostEvents=new Map();
-function resetOrdinarySkills(){japanSkillFX.reset();nobiSkillFX.reset();carImpulseSeen.clear();carSkillFX.reset();catReturnSeen.clear();catSkillFX.reset();duckAim=null;duckSkillFX.reset();botHearing.reset();ordinarySkills.reset();ordinaryFX.reset();nopeDecoys.reset();nopeDecoyFX.reset();nopePops.length=0;nopeSeenPopSequence=0;mendSkillFX.reset();iagnuSkillFX.reset();grassSkillFX.reset();emberSkillFX.reset();frostSkillFX.reset();duelistSkillFX.reset();for(const actor of [player,...bots]){cancelServiceReload(actor);actor.lastHeard=null;actor.netStepClock=0;}stoppedServiceEvents.clear();stoppedTurfEvents.clear();stoppedFrostEvents.clear();ordinaryAudio.clear();ordinaryMarkerAudio.clear();const overlay=$('skill-blind-overlay');if(overlay){overlay.hidden=true;overlay.style.opacity='0';}}
+function resetOrdinarySkills(){capSkillFX.reset();japanSkillFX.reset();nobiSkillFX.reset();carImpulseSeen.clear();carSkillFX.reset();catReturnSeen.clear();catSkillFX.reset();duckAim=null;duckSkillFX.reset();botHearing.reset();ordinarySkills.reset();ordinaryFX.reset();nopeDecoys.reset();nopeDecoyFX.reset();nopePops.length=0;nopeSeenPopSequence=0;mendSkillFX.reset();iagnuSkillFX.reset();grassSkillFX.reset();emberSkillFX.reset();frostSkillFX.reset();duelistSkillFX.reset();for(const actor of [player,...bots]){cancelServiceReload(actor);actor.lastHeard=null;actor.netStepClock=0;}stoppedServiceEvents.clear();stoppedTurfEvents.clear();stoppedFrostEvents.clear();ordinaryAudio.clear();ordinaryMarkerAudio.clear();const overlay=$('skill-blind-overlay');if(overlay){overlay.hidden=true;overlay.style.opacity='0';}}
 function resetTeamAbilities(){teamAbilities.reset();characterFX.reset();resetZoneAbilities();resetOrdinarySkills();}
 function actorGrounded(actor){
   if(!actor?.alive||!Number.isFinite(actor.y)||Number.isFinite(actor.vy)&&Math.abs(actor.vy)>1e-5)return false;
@@ -343,6 +346,7 @@ function hitNopeDecoy(event,shooter){
 function updateOrdinarySkills(){
   if(!match)return;
   if(match.phase!=='live'){resetOrdinarySkills();return;}
+  if(ordinarySkills.capLocked(player.id,elapsed))aiming=false;
   if(!isGuest()){
     const actors=[player,...bots],views=actors.map(actor=>{
       if(!actor.remoteId)return ordinaryActorView(actor);
@@ -368,7 +372,7 @@ function updateOrdinarySkills(){
       ordinaryAudio.set(event.id,beat);
     }else{
       const trigger=ordinaryAudioTime(event),triggered=elapsed>=trigger;
-      if(triggered&&previous!==true&&elapsed-trigger<.18)sound({'nope-bottle':'bottle-pop','nope-flash':'flash','mend-seeds':'seed-bloom','mend-pollen':'pollen','mend-heal':'flower-heal','echo-tag':'echo-tag-set','echo-glint':'echo-glint','echo-kerning':'echo-kerning','veil-dust':'grass-dust','veil-roots':'grass-roots','veil-turf':'grass-turf','ember-solder':'solder-pop','ember-shade':'shade-check','ember-service':'quick-solder','frost-stitch':'frost-stitch','frost-mist':'frost-mist','frost-unravel':'frost-unravel','duelist-comet':'duelist-comet','duelist-lift':'duelist-lift','duck-seal':'duck-seal','duck-shield':'duck-shield','duck-hush':'duck-hush','duck-egg':'duck-egg','cat-bookmark':'cat-bookmark','cat-return':'cat-return','cat-pluck':'cat-pluck','cat-fetch':'cat-fetch','cat-clock':'cat-clock','japan-border':'japan-border','japan-levy':'japan-levy','japan-return':'japan-return','japan-muster':'japan-muster','nobi-tag':'nobi-tag','nobi-brake':'nobi-brake','nobi-tool':'nobi-tool','nobi-legend':'nobi-legend','car-bumper':'car-bumper','car-wash':'car-wash','car-gyro':'car-gyro','car-pit':'car-pit'}[event.type]||'smoke',{entity:event,localOnly:true});
+      if(triggered&&previous!==true&&elapsed-trigger<.18)sound({'nope-bottle':'bottle-pop','nope-flash':'flash','mend-seeds':'seed-bloom','mend-pollen':'pollen','mend-heal':'flower-heal','echo-tag':'echo-tag-set','echo-glint':'echo-glint','echo-kerning':'echo-kerning','veil-dust':'grass-dust','veil-roots':'grass-roots','veil-turf':'grass-turf','ember-solder':'solder-pop','ember-shade':'shade-check','ember-service':'quick-solder','frost-stitch':'frost-stitch','frost-mist':'frost-mist','frost-unravel':'frost-unravel','duelist-comet':'duelist-comet','duelist-lift':'duelist-lift','duck-seal':'duck-seal','duck-shield':'duck-shield','duck-hush':'duck-hush','duck-egg':'duck-egg','cat-bookmark':'cat-bookmark','cat-return':'cat-return','cat-pluck':'cat-pluck','cat-fetch':'cat-fetch','cat-clock':'cat-clock','cap-lock':'cap-lock','cap-clean':'cap-clean','cap-bank':'cap-bank','cap-magazine':'cap-magazine','japan-border':'japan-border','japan-levy':'japan-levy','japan-return':'japan-return','japan-muster':'japan-muster','nobi-tag':'nobi-tag','nobi-brake':'nobi-brake','nobi-tool':'nobi-tool','nobi-legend':'nobi-legend','car-bumper':'car-bumper','car-wash':'car-wash','car-gyro':'car-gyro','car-pit':'car-pit'}[event.type]||'smoke',{entity:event,localOnly:true});
       ordinaryAudio.set(event.id,triggered);
     }
   }
@@ -387,6 +391,7 @@ function renderOrdinarySkills(){
   iagnuSkillFX.update(live?ordinarySkills.events(elapsed):[],elapsed,{viewer:viewer||player,actors:[player,...bots],showHand:live&&mode==='play'&&player.alive,reducedMotion:reducedMotion.matches});
   grassSkillFX.update(live?ordinarySkills.events(elapsed):[],elapsed,{viewer:viewer||player,actors:[player,...bots].map(ordinaryActorView),groundHeight:ordinaryGroundHeight,showHand:live&&mode==='play'&&player.alive,reducedMotion:reducedMotion.matches});
   emberSkillFX.update(live?ordinarySkills.events(elapsed):[],elapsed,{viewer:viewer||player,actors:[player,...bots].map(ordinaryActorView),showHand:live&&mode==='play'&&player.alive,reducedMotion:reducedMotion.matches});
+  capSkillFX.update(live?ordinarySkills.events(elapsed):[],elapsed,{actors:[player,...bots].filter(a=>a.team===player.team||ordinarySkills.blindUntil(player.id,elapsed)<=elapsed&&visibleBetween(player,a))});
   japanSkillFX.update(live?ordinarySkills.events(elapsed):[],elapsed,{actors:[player,...bots].filter(a=>a.team===player.team||ordinarySkills.blindUntil(player.id,elapsed)<=elapsed&&visibleBetween(player,a))});
   nobiSkillFX.update(live?ordinarySkills.events(elapsed):[],elapsed,{actors:[player,...bots].filter(a=>a.team===player.team||ordinarySkills.blindUntil(player.id,elapsed)<=elapsed&&visibleBetween(player,a))});
   carSkillFX.update(live?ordinarySkills.events(elapsed):[],elapsed,{actors:[player,...bots],preview:live&&mode==='play'&&player.alive&&player.kit.character==='car'&&duckAim?carSkillTarget(player,duckAim):null});
@@ -915,6 +920,7 @@ function startCharacterTrial(){
     if(['cat','car','nobi','japan'].includes(player.kit.character)){target.aiWeapon='classic';target.aiAmmo=WEAPONS.classic.mag;target.aiReserve=WEAPONS.classic.reserve;target.aiReload=0;}
     if(player.kit.character==='japan')target.armor=50;
   }
+  if(player.kit.character==='cap'&&bots[0])ordinarySkills.cast('cap-lock',ordinaryActorView(bots[0]),{...ordinaryActorView(player),targetId:player.id},elapsed,match.round);
   if(player.kit.character==='cat')addDrop({id:++dropSequence,weapon:'ghost',x:player.x,z:player.z-6,yaw:0,ammo:9,reserve:12});
   resumeGame();updateHUD();
   showMessage(`${CHARACTER_DEFS[player.kit.character].label} / スキル試用`,support?'X：自身と負傷した味方を回復 · Mから何度でもやり直せます':'X：固有ULTを試す · Mから何度でもやり直せます',5);
@@ -1010,7 +1016,7 @@ function shoot(shotTime=elapsed) {
   const ultimate=player.kit.knivesActive&&inventory.active==='knife',melee=inventory.active==='knife'&&!ultimate;
   if(ultimate&&!player.kit.consumeKnife())return;
   if(!melee&&!ultimate&&player.ammo<=0){reload();return;}
-  if(!melee&&!ultimate)player.ammo--;shots++;rangeSession?.recordShot();lastShot=shotTime;kick=melee?.1:.035;shotSequence++;
+  if(!melee&&!ultimate&&!ordinarySkills.capMagazine(player.id,elapsed))player.ammo--;shots++;rangeSession?.recordShot();lastShot=shotTime;kick=melee?.1:.035;shotSequence++;
   if(!ultimate)player.recoil=Math.min(.085,player.recoil+(spec.slot==='primary'?.012:.008));sound('shot');
   camera.position.set(player.x,1.7-player.crouch*.55+player.y,player.z);camera.rotation.set(player.pitch+renderedRecoil,player.yaw,0);
   camera.getWorldDirection(direction);
@@ -1036,7 +1042,7 @@ function shoot(shotTime=elapsed) {
       if(['phantom','spectre','ghost','classic'].includes(inventory.active)&&hit.distance>15)damage*=hit.distance>30?.8:.9;
       damageEntity(bot,damage,player,{firearm:!melee&&!ultimate});hitFlash=.14;burst(hit.point,head?'#fff3c8':'#ff737e',5);sound('hit');
       if(rangeSession&&bot.rangeTarget)rangeSession.recordHit({head,eliminated:!bot.alive});
-    }else burst(hit.point,'#f9ce9a',4);
+    }else{burst(hit.point,'#f9ce9a',4);if(!melee&&!ultimate)capBounceShot(player,camera.position,direction,hit,spec);}
   }
   if(!spec.auto)firing=false;
   raycaster.far=190;updateHUD();
@@ -1205,6 +1211,37 @@ function japanLevyTarget(actor,aim=null){
   if(!best||along<best.distance)best={x:enemy.x,y:enemy.y||0,z:enemy.z,targetId:enemy.id,enemy,distance:along};
  }return best;
 }
+function capTarget(actor,key,aim=null){
+ if(ordinarySkills.blindUntil(actor.id,elapsed)>elapsed&&key==='c')return null;
+ const d=carAim(actor,aim);if(!d)return null;const range=key==='c'?CAP_SKILLS.lockRange:CAP_SKILLS.cleanRange,origin={x:actor.x,y:(actor.y||0)+1.7-(actor.crouch||0)*.55,z:actor.z};let best=null;
+ for(const target of[player,...bots]){if(!target.alive||target===actor||(key==='c'?target.team===actor.team:target.team!==actor.team)||!visibleBetween(actor,target))continue;const v={x:target.x-origin.x,y:(target.y||0)+1.3-(target.crouch||0)*.55-origin.y,z:target.z-origin.z},along=v.x*d.x+v.y*d.y+v.z*d.z;if(along<0||Math.hypot(v.x,v.y,v.z)>range||Math.hypot(v.x-d.x*along,v.y-d.y*along,v.z-d.z*along)>.55)continue;if(!best||along<best.distance)best={x:target.x,y:target.y||0,z:target.z,targetId:target.id,actor:target,distance:along};}
+ if(key==='q'&&!best)best={x:actor.x,y:actor.y||0,z:actor.z,targetId:actor.id,actor};
+ return best&&(key==='c'||ordinarySkills.hasImpairment(best.actor.id,best.actor.team,elapsed))?best:null;
+}
+function activateCapAbility(actor,key,{predict=false,aim=null}={}){
+ key=String(key).toLowerCase();if(netHostPaused||!actor?.alive||match?.phase!=='live'||actor.planting||actor.defusing||actor.serviceReload||!['c','q','e','x'].includes(key))return;
+ const type={c:'cap-lock',q:'cap-clean',e:'cap-bank',x:'cap-magazine'}[key];if(['e','x'].includes(key)&&ordinarySkills.events(elapsed).some(e=>e.sourceId===actor.id&&e.type===type))return;
+ const target=['c','q'].includes(key)?capTarget(actor,key,aim):{x:actor.x,y:actor.y||0,z:actor.z};if(!target)return;
+ const before=actor.kit.snapshot(),effect=actor.kit.activate(key,elapsed);if(!effect)return;
+ if(!predict){const event=ordinarySkills.cast(effect,ordinaryActorView(actor),target,elapsed,match.round);if(!event){actor.kit.restore(before);return;}if(key==='q')ordinarySkills.cleanse(target.actor.id,target.actor.team,elapsed);if(key==='c'&&target.actor===player)aiming=false;}
+ if(actor===player)showMessage(key==='x'?'エンドレスマガジン':getCharacterSkill('cap',key).name,key==='x'?'9秒、装填済みの銃弾を消費せず撃てます。空弾倉は装填が必要。':getCharacterSkill('cap',key).description,3);return effect;
+}
+function confirmCapSkill(key){if(netHostPaused||mode!=='play'||!player.alive||interactionHeld||objectivePractice)return;refillMapPracticeSkills();const aim={yaw:player.yaw,pitch:player.pitch},effect=activateAbility(player,key,{predict:isGuest(),aim});if(effect&&isGuest())queueNetAction('ability',{key,...aim});if(!effect)showMessage('対象を確認','敵・味方・現在の妨害・視線・距離を確認 · 消費していません',2);refillMapPracticeSkills();updateHUD();}
+function capBounceShot(actor,origin,incoming,hit,spec){
+ if(!ordinarySkills.capBank(actor.id,elapsed)||!spec.mag||!hit?.face||hit.object.userData.bot||!Number.isFinite(hit.distance)||hit.distance>=CAP_SKILLS.bounceRange-.1)return null;
+ const transform=hit.object.matrixWorld.clone();if(hit.object.isInstancedMesh&&Number.isInteger(hit.instanceId)){const instance=new THREE.Matrix4();hit.object.getMatrixAt(hit.instanceId,instance);transform.multiply(instance);}
+ const normal=hit.face.normal.clone().applyNormalMatrix(new THREE.Matrix3().getNormalMatrix(transform));if(Math.abs(normal.y)>.3)return null;
+ const aim=incoming.clone().normalize().reflect(normal).normalize();if(aim.dot(normal)<0)normal.negate();const from=hit.point.clone().addScaledVector(normal,.025),remaining=CAP_SKILLS.bounceRange-hit.distance;
+ botsGroup.updateMatrixWorld(true);const ray=new THREE.Raycaster(from,aim,.005,remaining),hits=ray.intersectObjects([environment,botsGroup],true).filter(h=>h.object.userData.bot!==actor&&(!h.object.userData.bot||h.object.userData.bot.alive));
+ const next=hits[0];let target=next?.object.userData.bot,point=next?.point,head=!!next?.object.userData.head,nearest=next?.distance??remaining;
+ if(player!==actor&&player.alive&&player.team!==actor.team){const c=(player.crouch||0)*.55;for(const[p,h]of[[ray.ray.intersectSphere(new THREE.Sphere(new THREE.Vector3(player.x,player.y+1.62-c,player.z),.19),new THREE.Vector3()),true],[ray.ray.intersectBox(new THREE.Box3(new THREE.Vector3(player.x-.28,player.y+.4,player.z-.28),new THREE.Vector3(player.x+.28,player.y+1.45-c,player.z+.28)),new THREE.Vector3()),false]])if(p&&from.distanceTo(p)<nearest){target=player;point=p;head=h;nearest=from.distanceTo(p);}}
+ const fake=raycastNopeDecoy(from,aim,nearest,actor.team),shield=ordinarySkills.interceptShield(from,aim,fake?.distance??nearest,spec.body*CAP_SKILLS.bounceScale,elapsed,match.round,{consume:!isGuest()});
+ if(shield){target=null;point=new THREE.Vector3(shield.point.x,shield.point.y,shield.point.z);}else if(fake){target=null;point=fake.point;if(!isGuest())hitNopeDecoy(fake.event,actor);}
+ const end=point||from.clone().addScaledVector(aim,remaining);tracer(hit.point,end,'#71e3ed',.12);
+ if(target?.alive&&target.team!==actor.team&&!isGuest()){let amount=nobiBulletDamage(actor,target,head?spec.head:point.y-(target.y||0)<.7?spec.leg:spec.body,spec.head,true)*CAP_SKILLS.bounceScale;const weaponId=actor===player?inventory.active:actor.remoteId?actor.netWeapon:actor.aiWeapon;if(['phantom','spectre','ghost','classic'].includes(weaponId)&&hit.distance+nearest>15)amount*=hit.distance+nearest>30?.8:.9;damageEntity(target,amount,actor,{firearm:true});burst(point,'#79e7ee',5);}
+ return{targetId:target?.id||null,point:end,head};
+}
+
 function japanMusterTargets(source){
  const occupied=[player,...bots].filter(a=>a.alive),targets=[];
  for(const actor of[player,...bots]){if(actor.alive||actor.team!==source.team)continue;
@@ -1394,7 +1431,8 @@ function getSkillTarget(actor,type,point=null,aim=null){
 }
 function activateAbility(actor,key,{predict=false,zonePoint=null,aim=null}={}){
   if(ordinarySkills.sealUntil(actor?.id,elapsed)>elapsed){if(actor===player)showMessage('羽根の封印', '新しいスキルは使えません · 銃と移動は使えます',1);return;}
-  if(actor?.kit?.character==='japan')return activateJapanAbility(actor,key,{predict,aim});
+  if(actor?.kit?.character==='cap')return activateCapAbility(actor,key,{predict,aim});
+ if(actor?.kit?.character==='japan')return activateJapanAbility(actor,key,{predict,aim});
   if(actor?.kit?.character==='nobi')return activateNobiAbility(actor,key,{predict,aim});
   if(actor?.kit?.character==='car')return activateCarAbility(actor,key,{predict,aim});
   if(actor?.kit?.character==='cat')return activateCatAbility(actor,key,{predict,aim});
@@ -1458,6 +1496,7 @@ function refillMapPracticeSkills(){
   kit.ultPoints=DUELIST.ultimatePoints;if(kit.knivesActive)kit.knives=DUELIST.knives;
 }
 function confirmDuckSkill(key){
+ if(player.kit?.character==='cap')return confirmCapSkill(key);
  if(player.kit?.character==='japan')return confirmJapanSkill(key);
  if(player.kit?.character==='nobi')return confirmNobiSkill(key);
  if(player.kit?.character==='car')return confirmCarSkill(key);
@@ -1469,6 +1508,7 @@ function confirmDuckSkill(key){
  refillMapPracticeSkills();updateHUD();
 }
 function useAbility(key){
+ if(player.kit?.character==='cap'&&['c','q'].includes(key)&&mode==='play'&&player.alive&&match?.phase==='live'&&!netHostPaused&&!interactionHeld&&!objectivePractice){duckAim=duckAim===key?null:key;firing=false;aiming=false;if(duckAim)showMessage(getCharacterSkill('cap',key).name,'照準で狙う → 左クリックで確定 / 右クリックで取消',30);return;}
  if(player.kit?.character==='japan'&&['c','q'].includes(key)&&mode==='play'&&player.alive&&match?.phase==='live'&&!netHostPaused&&!interactionHeld&&!objectivePractice){duckAim=duckAim===key?null:key;firing=false;aiming=false;if(duckAim)showMessage(getCharacterSkill('japan',key).name,'照準で狙う → 左クリックで確定 / 右クリックで取消',30);return;}
  if(player.kit?.character==='nobi'&&['c','q'].includes(key)&&mode==='play'&&player.alive&&match?.phase==='live'&&!netHostPaused&&!interactionHeld&&!objectivePractice){duckAim=duckAim===key?null:key;firing=false;aiming=false;if(duckAim)showMessage(getCharacterSkill('nobi',key).name,'照準で狙う → 左クリックで確定 / 右クリックで取消',30);return;}
  if(player.kit?.character==='car'&&['c','q'].includes(key)&&mode==='play'&&player.alive&&match?.phase==='live'&&!netHostPaused&&!interactionHeld&&!objectivePractice){duckAim=duckAim===key?null:key;firing=false;aiming=false;if(duckAim)showMessage(getCharacterSkill('car',key).name,'照準で狙う → 左クリックで確定 / 右クリックで取消',30);return;}
@@ -1518,6 +1558,9 @@ function updateHUD(){
     const scale=player.alive?actorSpeedScale(player):1,boosted=player.alive&&actorMovementScale(player)>1,slowed=scale<1,blind=player.alive&&ordinarySkills.blindUntil(player.id,elapsed)>elapsed;
     const statuses=[];
     const carGyro=ordinarySkills.carGyro(player.id,elapsed);
+    if(ordinarySkills.capLocked(player.id,elapsed))statuses.push('スコープロック · ADS不可');
+    if(ordinarySkills.capBank(player.id,elapsed))statuses.push('バンクレンズ · 1回跳弾');
+    if(ordinarySkills.capMagazine(player.id,elapsed))statuses.push('エンドレスマガジン · 銃弾消費なし');
     if(ordinarySkills.japanReturn(player.id,elapsed)>0)statuses.push('弾丸返送 · 被銃撃の65%を返す');
     if(ordinarySkills.nobiVulnerability(player.id,elapsed)>1)statuses.push('鈴の弱点 · 被銃撃135%');
     if(ordinarySkills.nobiInterval(player.id,elapsed)>1)statuses.push('ひげブレーキ · 銃の射撃間隔160%');
@@ -1814,6 +1857,12 @@ function updateBots(dt){
       }
       bot.nextSkillAt=elapsed+(cast?2:.4);
     }
+    if(bot.kit?.character==='cap'&&!interactPlant&&!interactDefuse&&elapsed>=(bot.nextSkillAt||0)){
+      const friend=[bot,...bots.filter(b=>b.team===bot.team),...(player.team===bot.team?[player]:[])].find(a=>a.alive&&ordinarySkills.hasImpairment(a.id,a.team,elapsed)&&distance(bot,a)<=CAP_SKILLS.cleanRange&&(a===bot||visibleBetween(bot,a)));
+      if(friend)activateAbility(bot,'q',{aim:{yaw:Math.atan2(bot.x-friend.x,bot.z-friend.z),pitch:Math.atan2((friend.y||0)+1.3-((bot.y||0)+1.7),Math.max(.001,distance(bot,friend)))}});
+      if(enemy&&enemyDistance<CAP_SKILLS.lockRange&&visibleBetween(bot,enemy)){const enemyWeapon=enemy===player?inventory.active:enemy.remoteId?enemy.netWeapon:enemy.aiWeapon;if((enemy===player||enemy.remoteId)&&WEAPONS[enemyWeapon]?.slot==='primary'&&!ordinarySkills.capLocked(enemy.id,elapsed))activateAbility(bot,'c',{aim:{yaw:Math.atan2(bot.x-enemy.x,bot.z-enemy.z),pitch:Math.atan2((enemy.y||0)+1.3-((bot.y||0)+1.7),Math.max(.001,enemyDistance))}});if(enemyDistance<35){activateAbility(bot,'e');if(bot.aiAmmo>0&&bot.kit.ultPoints>=7)activateAbility(bot,'x');}}
+      bot.nextSkillAt=elapsed+1;
+    }
     if(bot.kit?.character==='japan'&&!interactPlant&&!interactDefuse&&elapsed>=(bot.nextSkillAt||0)){
       let cast=activateJapanAbility(bot,'x');if(!cast&&enemy&&visibleBetween(bot,enemy)){const aim={yaw:Math.atan2(bot.x-enemy.x,bot.z-enemy.z),pitch:Math.atan2((enemy.y||0)+1.3-((bot.y||0)+1.7),Math.hypot(enemy.x-bot.x,enemy.z-bot.z))};if(bot.armor<50&&enemy.armor>0)cast=activateJapanAbility(bot,'q',{aim});if(!cast)cast=activateJapanAbility(bot,'e');if(!cast)cast=activateJapanAbility(bot,'c',{aim:{...aim,pitch:-.12}});}if(cast)bot.nextSkillAt=elapsed+1;
     }
@@ -1891,7 +1940,7 @@ function updateBots(dt){
       if(aligned&&elapsed>=bot.reactionUntil&&elapsed>=(bot.skillThrowUntil||0)&&bot.fire<=0&&!(bot.aiReload>0)){
         if(bot.aiAmmo<=0){bot.aiReload=spec.reload||1.7;bot.fire=bot.aiReload;bot.reloadGoal=role?.urgent?null:reloadCover(bot,enemy);}
         else{
-          bot.aiAmmo--;bot.flash=.065;bot.shotSequence=(bot.shotSequence||0)+1;bot.muzzle.visible=true;
+          if(!ordinarySkills.capMagazine(bot.id,elapsed))bot.aiAmmo--;bot.flash=.065;bot.shotSequence=(bot.shotSequence||0)+1;bot.muzzle.visible=true;
           if(spec.auto){bot.burst=(bot.burst||0)+1;bot.fire=bot.burst<3?spec.interval+.035:cfg.interval*.46+Math.random()*.22;if(bot.burst>=3)bot.burst=0;}
           else bot.fire=Math.max(spec.interval,.19+cfg.interval*.25)+Math.random()*.12;
           if(spec.mag>0)bot.fire*=ordinarySkills.nobiInterval?.(bot.id,elapsed)||1;
@@ -1902,17 +1951,18 @@ function updateBots(dt){
           const from=new THREE.Vector3(bot.x,(bot.y||0)+1.2,bot.z);
           const to=new THREE.Vector3(enemy.x,(enemy.y||0)+(head?1.62:1.15),enemy.z);
           if(!hit){to.x+=(Math.random()-.5)*1.8;to.y+=(Math.random()-.5)*.8;}
-          const clearShot=map.collision.rayClear(from.x,from.y,from.z,to.x,to.y,to.z);
+          const clearShot=map.collision.rayClear(from.x,from.y,from.z,to.x,to.y,to.z);let bounceSurface=null;
           if(!clearShot){
             direction.subVectors(to,from).normalize();raycaster.set(from,direction);raycaster.far=from.distanceTo(to);
             const surface=raycaster.intersectObject(environment,true)[0];
-            if(surface)to.copy(surface.point);
+            if(surface){to.copy(surface.point);bounceSurface=surface;}
             raycaster.far=190;
           }
           const fake=raycastNopeDecoy(from,to.clone().sub(from).normalize(),from.distanceTo(to),bot.team);
           const shield=ordinarySkills.interceptShield(from,to.clone().sub(from).normalize(),fake?.distance??from.distanceTo(to),spec.body||1,elapsed,match.round);
           if(shield)to.set(shield.point.x,shield.point.y,shield.point.z);
           else if(fake){to.copy(fake.point);hitNopeDecoy(fake.event,bot);}
+          else if(bounceSurface)capBounceShot(bot,from,direction,bounceSurface,spec);
           tracer(from,to,bot.team==='blue'?'#a5eee0':'#ff7b76',.09);
           sound('enemy',{weapon:weaponId,entity:bot});
           if(hit&&clearShot&&!fake&&!shield)damageEntity(enemy,nobiBulletDamage(bot,enemy,head?spec.head:spec.body,spec.head,spec.mag>0),bot,{firearm:spec.mag>0});
@@ -1928,7 +1978,7 @@ function updateBots(dt){
           botsGroup.updateMatrixWorld(true);const ray=new THREE.Raycaster(from,aim,0,from.distanceTo(to)+1);
           const blocking=ray.intersectObjects([environment,botsGroup],true).find(hit=>hit.object.userData.bot!==bot&&(!hit.object.userData.bot||hit.object.userData.bot.alive));
           const fake=raycastNopeDecoy(from,aim,blocking?.distance??from.distanceTo(to)+1,bot.team);
-          bot.aiAmmo--;bot.fire=Math.max(spec.interval,.4)*(spec.mag>0?(ordinarySkills.nobiInterval?.(bot.id,elapsed)||1):1);bot.flash=.065;bot.shotSequence=(bot.shotSequence||0)+1;bot.muzzle.visible=true;
+          if(!ordinarySkills.capMagazine(bot.id,elapsed))bot.aiAmmo--;bot.fire=Math.max(spec.interval,.4)*(spec.mag>0?(ordinarySkills.nobiInterval?.(bot.id,elapsed)||1):1);bot.flash=.065;bot.shotSequence=(bot.shotSequence||0)+1;bot.muzzle.visible=true;
           const shield=ordinarySkills.interceptShield(from,aim,fake?.distance??blocking?.distance??from.distanceTo(to)+1,spec.body||1,elapsed,match.round);
           tracer(from,shield?new THREE.Vector3(shield.point.x,shield.point.y,shield.point.z):fake?.point||blocking?.point||to,bot.team==='blue'?'#a5eee0':'#ff7b76',.09);sound('enemy',{weapon:weaponId,entity:bot});
           if(fake&&!shield)hitNopeDecoy(fake.event,bot);
@@ -2415,7 +2465,7 @@ function applyRemoteAction(actor,action,actionTime=elapsed){
   }
   if(action.type!=='fire'||match.phase!=='live'||actor.netWeapon==='spike'||actor.netReload>0||actor.serviceReload||actor.planting||actor.defusing||elapsed<(actor.skillThrowUntil||0)||actionTime-(actor.lastNetShot??-10)+1e-8<nobiShotInterval(spec,actor))return;
   const yaw=Number(action.yaw),pitch=Number(action.pitch);if(!Number.isFinite(yaw)||!Number.isFinite(pitch))return;
-  const melee=!knives&&actor.netWeapon==='knife';if(knives){if(!actor.kit.consumeKnife())return;}else{if(!melee&&!(actor.netAmmo>0))return;if(!melee)actor.netAmmo--;}
+  const melee=!knives&&actor.netWeapon==='knife';if(knives){if(!actor.kit.consumeKnife())return;}else{if(!melee&&!(actor.netAmmo>0))return;if(!melee&&!ordinarySkills.capMagazine(actor.id,elapsed))actor.netAmmo--;}
   actor.lastNetShot=actionTime;actor.flash=.07;actor.shotSequence=(actor.shotSequence||0)+1;
   const origin=new THREE.Vector3(actor.x,1.7+(actor.y||0)-(actor.crouch||0)*.55,actor.z),aim=new THREE.Vector3(-Math.sin(yaw)*Math.cos(pitch),Math.sin(pitch),-Math.cos(yaw)*Math.cos(pitch));
   botsGroup.updateMatrixWorld(true);const ray=new THREE.Raycaster(origin,aim,0,melee?2.2:120);
@@ -2431,6 +2481,7 @@ function applyRemoteAction(actor,action,actionTime=elapsed){
   if(shield){target=null;point=new THREE.Vector3(shield.point.x,shield.point.y,shield.point.z);nearest=shield.distance;}
   if(fake&&!shield){target=null;point=fake.point;nearest=fake.distance;hitNopeDecoy(fake.event,actor);}
   if(melee&&nearest>2.2)target=null;const end=point||origin.clone().addScaledVector(aim,90);if(!melee)tracer(origin,end);sound('shot',{weapon:actor.netWeapon,entity:actor});
+  if(!target&&!fake&&!shield&&!melee&&!knives&&hit)capBounceShot(actor,origin,aim,hit,spec);
   if(target&&target.team!==actor.team){let damage=nobiBulletDamage(actor,target,head?spec.head:point.y-(target.y||0)<.7?spec.leg:spec.body,spec.head,!melee&&!knives);if(!knives&&['phantom','spectre','ghost','classic'].includes(actor.netWeapon)&&nearest>15)damage*=nearest>30?.8:.9;damageEntity(target,damage,actor,{firearm:!melee&&!knives});burst(point,head?'#fff3c8':'#ff737e',5);}
 }
 function tickOnline(dt){
@@ -2518,7 +2569,7 @@ document.addEventListener('pointerlockchange',()=>{
 document.addEventListener('pointerlockerror',()=>{inputActive=true;resetMouseLook();if(mode==='play')showMessage('MOUSE LOOK','マウスを動かすだけで視点を操作できます',3);});
 document.addEventListener('mousemove',mouseLook);
 canvas.addEventListener('mouseenter',resetMouseLook);canvas.addEventListener('mouseleave',resetMouseLook);
-canvas.addEventListener('mousedown',e=>{if(duckAim){e.preventDefault();if(e.button===2){duckAim=null;showMessage('スキルを取り消しました','回数は消費していません',1);return;}if(e.button===0){const key=duckAim;duckAim=null;confirmDuckSkill(key);return;}}if(netHostPaused||mode!=='play')return;if(!player.alive){if(e.button===0)spectateIndex++;return;}if(e.button===0){firing=true;shoot();}if(e.button===2)aiming=weapon().slot==='primary';});
+canvas.addEventListener('mousedown',e=>{if(duckAim){e.preventDefault();if(e.button===2){duckAim=null;showMessage('スキルを取り消しました','回数は消費していません',1);return;}if(e.button===0){const key=duckAim;duckAim=null;confirmDuckSkill(key);return;}}if(netHostPaused||mode!=='play')return;if(!player.alive){if(e.button===0)spectateIndex++;return;}if(e.button===0){firing=true;shoot();}if(e.button===2)aiming=weapon().slot==='primary'&&!ordinarySkills.capLocked(player.id,elapsed);});
 document.addEventListener('mouseup',e=>{if(e.button===0)firing=false;if(e.button===2)aiming=false;});
 window.addEventListener('contextmenu',e=>{if(mode==='play')e.preventDefault();});
 document.addEventListener('keydown',e=>{
@@ -2613,7 +2664,7 @@ $('mobile-weapon')?.addEventListener('click',()=>{
 });
 $('mobile-ads')?.addEventListener('click',()=>{
   if(netHostPaused||mode!=='play'||!player.alive||interactionHeld||weapon().slot!=='primary')return;
-  aiming=!aiming;updateHUD();
+  aiming=!aiming&&!ordinarySkills.capLocked(player.id,elapsed);updateHUD();
 });
 $('mobile-crouch')?.addEventListener('click',()=>{
   if(netHostPaused||mode!=='play'||!player.alive||interactionHeld)return;
