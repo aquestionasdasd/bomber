@@ -345,7 +345,7 @@ async function main() {
       assert.equal((await send(host, 'team:red', 'game', snapshot)).status, 201);
       const delivered = (await getMessages(guest)).value.messages;
       assert.equal(delivered.length, 1); assert.deepEqual(delivered[0].data, snapshot, 'HTTP fallback must preserve every state/effect/cue/marker/drop without truncation');
-      for(const type of ['duck-seal','duck-shield','cat-pluck','car-bumper','nobi-tag','nobi-brake','japan-levy','japan-border','cap-lock','cap-clean']){
+      for(const type of ['duck-seal','duck-shield','cat-pluck','car-bumper','nobi-tag','nobi-brake','japan-levy','japan-border','cap-lock','cap-clean','urchin-jam','urchin-disarm']){
         clock+=200; // Model the existing relay cadence while testing more roster payloads.
         const worst=JSON.parse(JSON.stringify(snapshot)),pool=createCharacterSkills();
         for(let i=0;i<20;i++)assert.ok(pool.cast(type,player,{x:player.x,y:0,z:player.z-3,targetId:'s'.repeat(64),yaw:1.2345678901234567},now,1));
@@ -370,6 +370,10 @@ async function main() {
       const capPacket=JSON.parse(JSON.stringify(snapshot)),capPool=createCharacterSkills();
       for(const type of ['cap-lock','cap-clean','cap-bank','cap-magazine'])assert.ok(capPool.cast(type,player,{...player,...(['cap-lock','cap-clean'].includes(type)?{targetId:'s'.repeat(64)}:{})},now,1));
       capPacket.ordinarySkills.events=capPool.snapshot().events;assert.ok(createCharacterSkills().restore(capPacket.ordinarySkills,now,1));assert.equal((await send(host,'team:red','game',capPacket)).status,201);
+      clock+=200;
+      const urchinPacket=JSON.parse(JSON.stringify(snapshot)),urchinPool=createCharacterSkills();
+      for(const type of ['urchin-jam','urchin-disarm','urchin-pearl','urchin-trident'])assert.ok(urchinPool.cast(type,player,{...player,...(['urchin-jam','urchin-disarm'].includes(type)?{targetId:'s'.repeat(64)}:{})},now,1));
+      urchinPacket.ordinarySkills.events=urchinPool.snapshot().events;assert.ok(createCharacterSkills().restore(urchinPacket.ordinarySkills,now,1));assert.equal((await send(host,'team:red','game',urchinPacket)).status,201);
       console.log(`SNAPSHOT CAPACITY: ${bytes}B / 65536B;20 team events,50 private pings,20 zones,20 ordinary events,20 blinds,20 private tags,20 smoke,32 gear,64 cues,10 actors`);
     });
 
