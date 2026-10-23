@@ -16,6 +16,7 @@ const config = {
   maps: (options.maps || 'hashimoto,hirakata').split(','),
   focal: options.focal || 'cap', ablate: options.ablate || 'c',
   weapon: options.weapon || 'vandal', magazine: options.magazine || 'full', reserve: options.reserve || 'full',
+  diagnostics: options.diagnostics === 'true',
   survey: options.survey === 'true', out: options.out || path.join(root, '..', 'bot-balance-report.json'),
   sourceSha256: Object.fromEntries(['game.js','abilities.js','character-skills.js','rules.js'].map(f => [f,createHash('sha256').update(fs.readFileSync(path.join(root,'public',f))).digest('hex')])),
 };
@@ -63,6 +64,7 @@ const body = `
        player.alive=false;player.hp=0;player.x=map.teamSpawns.attack[0].x;player.z=map.teamSpawns.attack[0].z;
        roster=[];const focalIndex=(caseConfig.seed-1)%5;
        bench={focalId:'blue-'+focalIndex,disabled:caseConfig.disabled,actors:{},plants:0,defuses:0,sightSeconds:0,lockSeconds:0};
+       if(benchConfig.diagnostics)bench.frostQ={liveSeconds:0,stockSeconds:0,knownSeconds:0,oldRangeSeconds:0,oldNeedSeconds:0,oldWindowSeconds:0,visibleAdvanceSeconds:0,roleSeconds:{}};
        for(const team of ['blue','red'])for(let i=0;i<5;i++){
          const character=caseConfig.survey?caseConfig.chars[((caseConfig.seed-1)*5+i+(team==='red'?7:0))%caseConfig.chars.length]:i===focalIndex?benchConfig.focal:['nope','mend','ember','nobi','duck'][i];
          const record={id:team+'-'+i,team,name:team+'-'+i,k:0,d:0,a:0,credits:3000,primary:'vandal',secondary:'classic',armor:50,survived:false,kit:new DuelistKit({character})};
@@ -72,10 +74,24 @@ const body = `
          bench.actors[record.id]={character,team,casts:{},damage:0,kills:0,serviceCompletions:0,serviceRounds:0};
          if(record.id===bench.focalId){const actor=bots.at(-1),weaponId=record.primary||record.secondary,spec=WEAPONS[weaponId];Object.assign(actor,{aiWeapon:weaponId,aiAmmo:benchConfig.magazine==='empty'?0:benchConfig.magazine==='low'?Math.max(1,Math.floor(spec.mag*.25)):spec.mag,aiReserve:benchConfig.reserve==='empty'?0:benchConfig.reserve==='short'?Math.max(1,Math.floor(spec.mag*.25)):spec.reserve,aiReload:0});bench.initialFocal={weapon:weaponId,ammo:actor.aiAmmo,reserve:actor.aiReserve};}
        }
+       if(benchConfig.diagnostics&&updateBots.tactics&&!updateBots.tactics.benchMeasured){
+         const actualPlan=updateBots.tactics.update;updateBots.tactics.update=function(...args){const plan=actualPlan.apply(this,args);if(bench)bench.focalRole=plan?.roles.get(bench.focalId);return plan;};updateBots.tactics.benchMeasured=true;
+       }
        match.spike.carrier=match.attackerTeam+'-0';match.startLive();match.drainEvents();
        for(let frame=0;frame<Math.ceil(160/benchConfig.dt)&&match.phase==='live';frame++){
          const dt=benchConfig.dt;elapsed+=dt;for(const bot of bots)bot.kit.tick(elapsed);
          updateTeamAbilities();updateBots(dt);updateTraffic(dt);
+         if(bench.frostQ){const focal=bots.find(bot=>bot.id===bench.focalId),m=bench.frostQ,role=bench.focalRole;
+           if(focal?.alive&&focal.kit.character==='frost'){
+             m.liveSeconds+=dt;m.roleSeconds[role?.role||'none']=(m.roleSeconds[role?.role||'none']||0)+dt;
+             if(focal.kit.updraft>0){m.stockSeconds+=dt;const known=focal.target||(focal.lastSeen&&elapsed-focal.lastSeen.seenAt<1?focal.lastSeen:null);
+               if(known){const d=Math.hypot(focal.x-known.x,focal.z-known.z),oldRange=d>5&&d<20,need=focal.hp<65||role?.urgent;
+                 m.knownSeconds+=dt;if(oldRange)m.oldRangeSeconds+=dt;if(need)m.oldNeedSeconds+=dt;if(oldRange&&need)m.oldWindowSeconds+=dt;
+                 if(focal.target&&d>12&&d<=FROST_SKILLS.mistRange+10&&role?.goal&&Math.hypot(focal.x-role.goal.x,focal.z-role.goal.z)>5)m.visibleAdvanceSeconds+=dt;
+               }
+             }
+           }
+         }
          for(const bot of bots)if(bot.alive&&bot.target){bench.sightSeconds+=dt;if(ordinarySkills.capLocked(bot.id,elapsed))bench.lockSeconds+=dt;}
          match.tick(dt,{blueAlive:aliveCount('blue'),redAlive:aliveCount('red'),playerAlive:false,clockPaused:ordinarySkills.clockFrozen(elapsed)});
          for(const e of match.drainEvents()){if(e.type==='planted')bench.plants++;if(e.type==='defused')bench.defuses++;}
