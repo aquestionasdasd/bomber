@@ -365,7 +365,7 @@ async function main() {
       assert.equal(nopeDecoys.start(player,Array.from({length:30},(_,i)=>({x:-999.99+i*.01,y:-999.99,z:999.99-i*.01,yaw:3.1415})),now,1),true);
       const nopeState=nopeDecoys.snapshot();nopeState.id='nope-wave-1-999999999999999';assert.equal(nopeDecoys.restore(nopeState,now,1),true);
       const serializeNopePops=()=>Array.from({length:8},(_,i)=>[Number.MAX_SAFE_INTEGER-7+i,-999.1234567890123,-999.1234567890123,-999.1234567890123,now]);
-      const sent = [], sandbox = { map:{id:"hirakata",traffic:true}, fitTrafficSnapshot:(await import(pathToFileURL(path.join(__dirname,"public/traffic-state.js")).href)).fitTrafficSnapshot, player, bots, roster, match, elapsed: now, teamAbilities, zoneAbilities, ordinarySkills, nopeDecoys, serializeNopePops, onlinePlaying: true,
+      const sent = [], sandbox = { map:{id:"hirakata",traffic:{service:{snapshot:()=>[]}}}, fitTrafficSnapshot:(await import(pathToFileURL(path.join(__dirname,"public/traffic-state.js")).href)).fitTrafficSnapshot, player, bots, roster, match, elapsed: now, teamAbilities, zoneAbilities, ordinarySkills, nopeDecoys, serializeNopePops, onlinePlaying: true,
         online: { host: true, send: (packet, options) => sent.push({ packet, team: options?.team }) }, netClock: 0, netSequence: 0, netHostPaused: false,
         inventory: { active: 'phantom', primary: 'phantom', secondary: 'ghost' }, reloading: 1.2345678901234567, shotSequence: 0, lastShot: now,
         serializeNetCues: () => cues, serializeSmokes: () => smokes, serializeDrops: () => drops,
@@ -461,6 +461,9 @@ async function main() {
       const full=JSON.parse(JSON.stringify(snapshot));for(const actor of full.actors)actor.trafficHit=[99999,now+.8,17.123456,16.123456,5.6];
       full.cues.push(...Array.from({length:30},(_,i)=>({...full.cues[0],seq:100+i})));
       const limited=fitTrafficSnapshot(full);assert.ok(limited);assert.ok(limited.cues.length<full.cues.length);assert.deepEqual(limited.actors,full.actors);assert.deepEqual(limited.ordinarySkills,full.ordinarySkills);assert.deepEqual(limited.rules,full.rules);assert.ok(Buffer.byteLength(JSON.stringify(limited))<=65536);clock+=200;assert.equal((await send(host,'team:red','game',limited)).status,201);console.log(`HIRAKATA simultaneous10 launches full wire ${Buffer.byteLength(JSON.stringify(limited))}B /65536B; only old cosmetic cues reduced`);
+      const driven={...full,busTransit:[[0,0,0,now+25,29.123,-35.789,-1.571,17,[0,1,2]],[1,0,3,now+25,1.234,32.456,1.571,17,[3,4,5]],[2,0,6,now+25,31.456,-36.123,1.571,17,[6,7]],[3,0,8,now+25,3.456,33.123,1.571,17,[8,9]]]};
+      const busFit=fitTrafficSnapshot(driven);assert.ok(busFit);assert.deepEqual(busFit.busTransit,driven.busTransit);assert.deepEqual(busFit.actors,driven.actors);assert.deepEqual(busFit.ordinarySkills,driven.ordinarySkills);assert.ok(Buffer.byteLength(JSON.stringify(busFit))<=65536);clock+=200;assert.equal((await send(host,'team:red','game',busFit)).status,201);console.log(`BUS4 /10 riders / full skills capacity ${Buffer.byteLength(JSON.stringify(busFit))}B /65536B`);
+
     });
 
     await test('competing joins and team changes cannot overfill a ten-person room or five-person team', async () => {

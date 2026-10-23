@@ -1,3 +1,4 @@
+import {busPoint} from './bus-service.js';
 import { createSkillSpectacle, createSkillFeedback, SKILL_LOOKS } from './skill-spectacle.js';
 import { createFullComboTracker, renderRoundBanner } from './full-combo.js';
 import { ONNARA_SKILLS } from './abilities.js';
@@ -457,7 +458,7 @@ function renderOrdinarySkills(){
   duelistSkillFX.update(live?ordinarySkills.events(elapsed):[],elapsed,{viewer:viewer||player,showHand:live&&mode==='play'&&player.alive,reducedMotion:reducedMotion.matches});
   const remaining=live&&viewer?.alive?Math.max(0,ordinarySkills.blindUntil(viewer.id,elapsed)-elapsed):0,overlay=$('skill-blind-overlay');
   if(overlay){overlay.hidden=!(remaining>0&&mode==='play');overlay.style.opacity=String(clamp(remaining/.35,0,.94));}
-  if(['play','pause','shop','map','score'].includes(mode))gun.visible=player.alive&&inventory.active!=='spike'&&!ordinaryFX.throwing(elapsed)&&!mendSkillFX.throwing(elapsed)&&!iagnuSkillFX.throwing(elapsed)&&!grassSkillFX.throwing(elapsed)&&!emberSkillFX.throwing(elapsed)&&!frostSkillFX.throwing(elapsed)&&!duelistSkillFX.throwing(elapsed);
+  if(['play','pause','shop','map','score'].includes(mode))gun.visible=player.alive&&!busDriving()&&inventory.active!=='spike'&&!ordinaryFX.throwing(elapsed)&&!mendSkillFX.throwing(elapsed)&&!iagnuSkillFX.throwing(elapsed)&&!grassSkillFX.throwing(elapsed)&&!emberSkillFX.throwing(elapsed)&&!frostSkillFX.throwing(elapsed)&&!duelistSkillFX.throwing(elapsed);
 }
 function updateTeamAbilities(){
   if(!match)return;
@@ -681,9 +682,9 @@ function updateScoreboard(){
 }
 function aliveCount(team){return bots.filter(b=>b.alive&&b.team===team).length+(team===player.team&&player.alive?1:0);}
 function recordOf(entity){return entity.id==='player'?roster[0]:entity.record;}
-function damageEntity(entity,amount,killer,{firearm=false,returned=false,chain=true,skill=null}={}){
+function damageEntity(entity,amount,killer,{firearm=false,returned=false,chain=true,skill=null,vehicle=false}={}){
   if(isGuest())return;
-  if(!entity.alive||match?.phase!=='live'||(killer&&entity.team===killer.team))return;
+  if(!entity.alive||match?.phase!=='live'||(killer&&entity.team===killer.team&&!vehicle))return;
   if(rangeSession&&entity.rangeTarget){
     entity.hp=Math.max(0,entity.hp-amount);
     if(!entity.hp){entity.alive=false;entity.death=.35;rangeRespawn=.18;totalKills++;sound('kill');}
@@ -696,11 +697,12 @@ function damageEntity(entity,amount,killer,{firearm=false,returned=false,chain=t
   if(returnScale){const actual=Math.max(0,healthBefore-entity.hp)+Math.max(0,armorBefore-entity.armor);if(actual>0)damageEntity(killer,actual*returnScale,entity,{returned:true,skill:'japan'});}
   if(firearm&&chain&&!returned&&killer?.alive&&ordinarySkills.onnaraEvent?.('onnara-chain',killer.id,elapsed)){const actual=Math.max(0,healthBefore-entity.hp)+Math.max(0,armorBefore-entity.armor);const next=actual>0?constellationTarget(entity,killer,[player,...bots],visibleBetween):null;if(next){const from=new THREE.Vector3(entity.x,(entity.y||0)+1.2,entity.z),to=new THREE.Vector3(next.x,(next.y||0)+1.2,next.z);ordinarySkills.recordConstellation(killer.id,from,to,elapsed);damageEntity(next,actual*ONNARA_SKILLS.chainScale,killer,{chain:false,skill:'onnara'});}}
   if(entity.hp>0)return;
-  fullComboTracker.record(match.round,entity,killer);
+  const creditedKiller=killer&&killer.team!==entity.team?killer:null;
+  fullComboTracker.record(match.round,entity,creditedKiller);
   entity.alive=false;cancelServiceReload(entity);entity.kit?.awardPoint();const record=recordOf(entity);if(record)record.d++;
   match.dropSpike(entity.id,entity.x,entity.z);match.cancelPlant(entity.id);match.cancelDefuse(entity.id);
   const item=entity===player?inventory.primary:record?.primary;dropItem(item,entity);
-  if(killer){killer.kit?.awardKill();const k=recordOf(killer);if(k)k.k++;if(killer===player){totalKills++;match.awardKill();sound('kill');}else if(k)k.credits=Math.min(9000,k.credits+200);feed(`${k?.name||'SENTINEL'}  ⌁  ${record?.name||'YOU'}`);}
+  if(creditedKiller){killer.kit?.awardKill();const k=recordOf(killer);if(k)k.k++;if(killer===player){totalKills++;match.awardKill();sound('kill');}else if(k)k.credits=Math.min(9000,k.credits+200);feed(`${k?.name||'SENTINEL'}  ⌁  ${record?.name||'YOU'}`);}
   if(entity===player)beginDeathView();
   else{entity.death=.85;entity.defusing=false;entity.planting=false;}
 }
@@ -847,14 +849,48 @@ function updateMapLabels(){
   for(const id of ['map-select','online-map'])if($(id)&&(!online||id==='map-select'))$(id).value=map.id||'hashimoto';
   if($('start-subtitle'))$('start-subtitle').textContent=(['explore','range','plant','defuse'].includes($('match-format')?.value)?'PRACTICE IN ':'DEPLOY TO ')+short;
 }
-function resetTraffic(){map.traffic?.reset();for(const actor of [player,...bots])actor.trafficLaunch=null;}
+function busSeat(actor=player){return map.traffic?.service.seat(actor.id)||null;}
+function busDriving(actor=player){return busSeat(actor)?.driving===true;}
+function busCanExit(p){return canStand(p.x,p.z,.34,0)&&getZoneFloor(p.x,p.z,.6)<.45;}
+function busCanDrive(p,old){
+ const bounds=activeArenaBounds();
+ for(const x of[-1.3,0,1.3])for(const z of[-5.35,0,5.35]){const point=busPoint(p,x,z),previous=busPoint(old,x,z);
+  if(point.x<bounds.minX||point.x>bounds.maxX||point.z<bounds.minZ||point.z>bounds.maxZ||map.collision.blocked(point.x,point.z,.12,.35)||!map.collision.rayClear(previous.x,1.5,previous.z,point.x,1.5,point.z))return false;
+ }return true;
+}
+function busControls(id){
+ if(id===player.id)return mode==='play'?{throttle:(keys.has('KeyW')?1:0)-(keys.has('KeyS')?1:0)-touchMove.y,steer:(keys.has('KeyD')?1:0)-(keys.has('KeyA')?1:0)+touchMove.x,brake:keys.has('Space')}:{};
+ const actor=bots.find(a=>a.id===id),data=actor?.remoteId&&netInputs.get(actor.remoteId);return data&&data.round===match.round&&elapsed-data.received<.3?data.input?.bus||{}:{};
+}
+function busInteract(actor=player){
+ if(!actor.alive||match?.phase!=='live'||carMotionActive(actor)||actor.trafficLaunch||actor.planting||actor.defusing)return false;
+ const candidate=map.traffic?.service.candidate(actor,elapsed);if(!candidate)return false;
+ if(candidate.kind==='board'){const p=map.traffic.poses(elapsed).find(p=>p.id===candidate.busId),door=busPoint(p,-1.8,3.8);if(!map.collision.rayClear(actor.x,(actor.y||0)+1.2,actor.z,door.x,1.2,door.z))return false;}
+ if(actor===player&&isGuest()){queueNetAction('bus');interactionHeld=false;return true;}
+ const ok=map.traffic.service.interact(actor,elapsed,busCanExit);
+ if(ok){cancelServiceReload(actor);match.cancelPlant(actor.id);match.cancelDefuse(actor.id);actor.path=[];actor.dashTimer=0;actor.vx=actor.vz=0;
+  if(actor===player){interactionHeld=false;firing=false;aiming=false;duckAim=null;reloading=0;const p=map.traffic.poses(elapsed).find(p=>p.id===busSeat(actor)?.busId);if(p)player.yaw=p.yaw+Math.PI;}
+ }
+ return true;
+}
+function busSurfaceVisible(hit){return !hit.object.userData.busDriver||map.traffic?.poses(elapsed).some(p=>p.id===hit.object.userData.busDriver&&p.driverHP>0);}
+function shootBusDriver(hit,actor,damage,{visualOnly=false}={}){
+ const id=hit?.object.userData.busDriver;if(!id)return false;
+ if(!visualOnly&&map.traffic?.service.damageDriver(id,actor.id,damage,elapsed)){if(actor===player){hitFlash=.14;sound('hit');}map.busModels?.update(elapsed);}
+ burst(hit.point,'#e9c586',3);return true;
+}
+function resetTraffic(){map.traffic?.reset();for(const actor of [player,...bots]){actor.trafficLaunch=null;delete actor.busFrameYaw;}}
 function updateTraffic(dt){
-  map.busModels?.update(elapsed);if(!map.traffic)return;
+  if(!map.traffic)return;
   const actors=[player,...bots];
+  if(!isGuest())map.traffic.service.tick(dt,elapsed,actors,{enabled:match.phase==='live',controls:busControls,canDrive:busCanDrive,canExit:busCanExit});
+  else for(const actor of actors)map.traffic.service.place(actor,elapsed);
+  for(const actor of actors)if(busSeat(actor)&&actor.group)actor.group.position.set(actor.x,actor.y,actor.z);
+  map.busModels?.update(elapsed);
   if(!isGuest()){
     for(const hit of map.traffic.impacts(actors,elapsed,{enabled:match.phase==='live'})){
       const actor=actors.find(a=>a.id===hit.actorId);actor.carMotion=null;actor.carImpulseUntil=0;actor.carFallUntil=0;actor.trafficLaunch={seq:hit.sequence,endsAt:hit.endsAt,vx:hit.vx,vz:hit.vz,vy:hit.vy};actor.vy=hit.vy;actor.dashTimer=0;actor.vx=0;actor.vz=0;actor.path=[];actor.planAt=0;
-      cancelServiceReload(actor);match.cancelPlant(actor.id);match.cancelDefuse(actor.id);damageEntity(actor,hit.damage,null);
+      cancelServiceReload(actor);match.cancelPlant(actor.id);match.cancelDefuse(actor.id);damageEntity(actor,hit.damage,actors.find(a=>a.id===hit.owner)||null,{vehicle:true});
       if(actor===player){damageFlash=.55;showMessage('京阪バスと接触','100ダメージ · 車道から離れてください',3);}
     }
   }
@@ -1142,7 +1178,7 @@ function burst(position,color='#ffac6b',number=7) {
 }
 function shoot(shotTime=elapsed) {
   const spec=weapon();
-  if(netHostPaused||mode!=='play'||!player.alive||carMotionActive(player)||match?.phase!=='live'||inventory.active==='spike'||interactionHeld||ordinaryFX.throwing(elapsed)||mendSkillFX.throwing(elapsed)||iagnuSkillFX.throwing(elapsed)||grassSkillFX.throwing(elapsed)||emberSkillFX.throwing(elapsed)||frostSkillFX.throwing(elapsed)||duelistSkillFX.throwing(elapsed)||player.serviceReload||reloading>0||shotTime-lastShot+1e-8<nobiShotInterval(spec,player))return;
+  if(netHostPaused||mode!=='play'||!player.alive||busDriving()||carMotionActive(player)||match?.phase!=='live'||inventory.active==='spike'||interactionHeld||ordinaryFX.throwing(elapsed)||mendSkillFX.throwing(elapsed)||iagnuSkillFX.throwing(elapsed)||grassSkillFX.throwing(elapsed)||emberSkillFX.throwing(elapsed)||frostSkillFX.throwing(elapsed)||duelistSkillFX.throwing(elapsed)||player.serviceReload||reloading>0||shotTime-lastShot+1e-8<nobiShotInterval(spec,player))return;
   const ultimate=player.kit.knivesActive&&inventory.active==='knife',melee=inventory.active==='knife'&&!ultimate;
   if(ultimate&&!player.kit.consumeKnife())return;
   if(!melee&&!ultimate&&player.ammo<=0){reload();return;}
@@ -1162,7 +1198,7 @@ function shoot(shotTime=elapsed) {
   if(isGuest())queueNetAction('fire',{yaw:player.yaw,pitch:player.pitch+renderedRecoil,ultimate});
   // A target can spawn between rendered frames, including while the trigger is held.
   botsGroup.updateMatrixWorld(true);
-  const targets=raycaster.intersectObjects([environment,botsGroup],true).filter(h=>!h.object.userData.bot||h.object.userData.bot.alive);
+  const targets=raycaster.intersectObjects([environment,botsGroup],true).filter(h=>busSurfaceVisible(h)&&(!h.object.userData.bot||h.object.userData.bot.alive));
   const hit=targets[0],fake=!melee?raycastNopeDecoy(camera.position,direction,hit?.distance??120,player.team):null;
   const shield=!melee?ordinarySkills.interceptShield(camera.position,direction,fake?.distance??hit?.distance??120,spec.body||1,elapsed,match.round,{consume:!isGuest()}):null;
   const to=shield?new THREE.Vector3(shield.point.x,shield.point.y,shield.point.z):fake?.point||hit?.point||camera.position.clone().addScaledVector(direction,90);
@@ -1170,6 +1206,7 @@ function shoot(shotTime=elapsed) {
   if(shield){burst(to,'#f8dc72',4);}
   else if(fake){if(!isGuest())hitNopeDecoy(fake.event,player);}
   else if(hit){
+    if(shootBusDriver(hit,player,hit.object.userData.head?spec.head:spec.body,{visualOnly:isGuest()})){raycaster.far=190;updateHUD();return;}
     const bot=hit.object.userData.bot;
     if(bot&&bot.alive&&bot.team!==player.team&&!isGuest()){
       hits++;const head=hit.object.userData.head;let damage=nobiBulletDamage(player,bot,head?spec.head:hit.point.y-(bot.y||0)<.7?spec.leg:spec.body,spec.head,!melee&&!ultimate);
@@ -1196,7 +1233,7 @@ function fireArsenal(actor,origin,aim,spec,ads=false,{visualOnly=false}={}){
   for(const offset of shotPattern(id,{ads,moving,airborne:!actorGrounded(actor),sequence})){
     const dir=forward.clone().addScaledVector(right,offset.x).addScaledVector(up,offset.y).normalize();
     const ray=new THREE.Raycaster(origin,dir,0,120);
-    const hit=ray.intersectObjects(targets,true).find(h=>h.object.userData.bot!==actor&&(!h.object.userData.bot||h.object.userData.bot.alive));
+    const hit=ray.intersectObjects(targets,true).find(h=>busSurfaceVisible(h)&&h.object.userData.bot!==actor&&(!h.object.userData.bot||h.object.userData.bot.alive));
     let target=hit?.object.userData.bot,point=hit?.point,part=hit?.object.userData.head?'head':point&&target&&point.y-(target.y||0)<.7?'leg':'body',nearest=hit?.distance??120;
     if(actor!==player&&player.alive){
       const crouch=player.crouch*.55;
@@ -1210,6 +1247,7 @@ function fireArsenal(actor,origin,aim,spec,ads=false,{visualOnly=false}={}){
     tracer(origin,end,actor.team==='blue'?'#a5eee0':'#ff7b76',.07);
     if(shield){burst(end,'#f8dc72',2);continue;}
     if(fake){if(!visualOnly)hitNopeDecoy(fake.event,actor);continue;}
+    if(shootBusDriver(hit,actor,weaponDamage(id,hit?.object.userData.head?'head':'body',nearest),{visualOnly}))continue;
     if(target?.alive&&target.team!==actor.team){
       const damage=nobiBulletDamage(actor,target,weaponDamage(id,part,nearest),weaponDamage(id,'head',nearest),true);
       totals.set(target,(totals.get(target)||0)+damage);anyHit=true;headHit||=part==='head';
@@ -1224,7 +1262,7 @@ function fireArsenal(actor,origin,aim,spec,ads=false,{visualOnly=false}={}){
 }
 function reload(){
   if(ordinarySkills.urchinJammed(player.id,elapsed))return;
-  const spec=weapon();if(netHostPaused||mode!=='play'||!player.alive||carMotionActive(player)||interactionHeld||inventory.active==='spike'||!spec.mag||reloading||player.ammo===spec.mag||player.reserve<=0||player.serviceReload)return;
+  const spec=weapon();if(netHostPaused||mode!=='play'||!player.alive||busDriving()||carMotionActive(player)||interactionHeld||inventory.active==='spike'||!spec.mag||reloading||player.ammo===spec.mag||player.reserve<=0||player.serviceReload)return;
   if(isGuest())queueNetAction('reload');
   reloading=spec.reload;firing=false;sound('reload');
 }
@@ -1460,7 +1498,7 @@ function confirmUrchinSkill(key){if(netHostPaused||mode!=='play'||!player.alive|
 function urchinTridentShot(actor,origin,incoming,spec){
  if(!ordinarySkills.urchinTrident?.(actor.id,elapsed)||!spec.mag)return [];
  botsGroup.updateMatrixWorld(true);const results=[];
- for(const side of[-1,1]){const aim=incoming.clone().normalize().applyAxisAngle(new THREE.Vector3(0,1,0),side*URCHIN_SKILLS.tridentAngle),from=origin.clone(),ray=new THREE.Raycaster(from,aim,0,URCHIN_SKILLS.tridentRange),all=ray.intersectObjects([environment,botsGroup],true).filter(h=>h.object.userData.bot!==actor&&(!h.object.userData.bot||h.object.userData.bot.alive));
+ for(const side of[-1,1]){const aim=incoming.clone().normalize().applyAxisAngle(new THREE.Vector3(0,1,0),side*URCHIN_SKILLS.tridentAngle),from=origin.clone(),ray=new THREE.Raycaster(from,aim,0,URCHIN_SKILLS.tridentRange),all=ray.intersectObjects([environment,botsGroup],true).filter(h=>busSurfaceVisible(h)&&h.object.userData.bot!==actor&&(!h.object.userData.bot||h.object.userData.bot.alive));
   const hit=all[0];let target=hit?.object.userData.bot,point=hit?.point,head=!!hit?.object.userData.head,nearest=hit?.distance??URCHIN_SKILLS.tridentRange;
   if(player!==actor&&player.alive&&player.team!==actor.team){const c=(player.crouch||0)*.55;for(const[p,h]of[[ray.ray.intersectSphere(new THREE.Sphere(new THREE.Vector3(player.x,player.y+1.62-c,player.z),.19),new THREE.Vector3()),true],[ray.ray.intersectBox(new THREE.Box3(new THREE.Vector3(player.x-.28,player.y+.4,player.z-.28),new THREE.Vector3(player.x+.28,player.y+1.45-c,player.z+.28)),new THREE.Vector3()),false]])if(p&&from.distanceTo(p)<nearest){target=player;point=p;head=h;nearest=from.distanceTo(p);}}
   const fake=raycastNopeDecoy(from,aim,nearest,actor.team),shield=ordinarySkills.interceptShield(from,aim,fake?.distance??nearest,spec.body*URCHIN_SKILLS.tridentScale,elapsed,match.round,{consume:!isGuest()});
@@ -1497,7 +1535,7 @@ function capBounceShot(actor,origin,incoming,hit,spec){
  if(!ordinarySkills.capBank(actor.id,elapsed)||!spec.mag||!hit?.face||hit.object.userData.bot||!Number.isFinite(hit.distance)||hit.distance>=CAP_SKILLS.bounceRange-.1)return null;
  const frame=capBounceFrame(THREE,incoming,hit);if(!frame)return null;
  const {aim,from,remaining}=frame;
- botsGroup.updateMatrixWorld(true);const ray=new THREE.Raycaster(from,aim,.005,remaining),hits=ray.intersectObjects([environment,botsGroup],true).filter(h=>h.object.userData.bot!==actor&&(!h.object.userData.bot||h.object.userData.bot.alive));
+ botsGroup.updateMatrixWorld(true);const ray=new THREE.Raycaster(from,aim,.005,remaining),hits=ray.intersectObjects([environment,botsGroup],true).filter(h=>busSurfaceVisible(h)&&h.object.userData.bot!==actor&&(!h.object.userData.bot||h.object.userData.bot.alive));
  const next=hits[0];let target=next?.object.userData.bot,point=next?.point,head=!!next?.object.userData.head,nearest=next?.distance??remaining;
  if(player!==actor&&player.alive&&player.team!==actor.team){const c=(player.crouch||0)*.55;for(const[p,h]of[[ray.ray.intersectSphere(new THREE.Sphere(new THREE.Vector3(player.x,player.y+1.62-c,player.z),.19),new THREE.Vector3()),true],[ray.ray.intersectBox(new THREE.Box3(new THREE.Vector3(player.x-.28,player.y+.4,player.z-.28),new THREE.Vector3(player.x+.28,player.y+1.45-c,player.z+.28)),new THREE.Vector3()),false]])if(p&&from.distanceTo(p)<nearest){target=player;point=p;head=h;nearest=from.distanceTo(p);}}
  const fake=raycastNopeDecoy(from,aim,nearest,actor.team),shield=ordinarySkills.interceptShield(from,aim,fake?.distance??nearest,spec.body*CAP_SKILLS.bounceScale,elapsed,match.round,{consume:!isGuest()});
@@ -1747,7 +1785,7 @@ function getSkillTarget(actor,type,point=null,aim=null){
   return null;
 }
 function activateAbility(actor,key,{predict=false,zonePoint=null,aim=null}={}){
-  if(carMotionActive(actor))return;
+  if(carMotionActive(actor)||busSeat(actor))return;
   if(ordinarySkills.sealUntil(actor?.id,elapsed)>elapsed){if(actor===player)showMessage('羽根の封印', '新しいスキルは使えません · 銃と移動は使えます',1);return;}
   if(actor?.kit?.character==='onnara')return activateOnnaraAbility(actor,key,{predict,aim});
   if(actor?.kit?.character==='urchin')return activateUrchinAbility(actor,key,{predict,aim});
@@ -1830,7 +1868,7 @@ function confirmDuckSkill(key){
  if(!effect)showMessage('発動できません',key==='c'?'視線の通る敵の胴体へ照準を合わせてください · 回数は消費しません':'床・在庫・封印状態を確認してください · 回数は消費しません',2);
  refillMapPracticeSkills();updateHUD();
 }
-function useAbility(key){
+function useAbility(key){if(busSeat())return;
  if(player.kit?.character==='onnara'&&['c','q'].includes(key)&&mode==='play'&&player.alive&&match?.phase==='live'&&!netHostPaused&&!interactionHeld&&!objectivePractice){duckAim=duckAim===key?null:key;firing=false;aiming=false;if(duckAim)showMessage(getCharacterSkill('onnara',key).name,'照準で狙う → 左クリックで確定 / 右クリックで取消',30);return;}
  if(player.kit?.character==='urchin'&&['c','q'].includes(key)&&mode==='play'&&player.alive&&match?.phase==='live'&&!netHostPaused&&!interactionHeld&&!objectivePractice){duckAim=duckAim===key?null:key;firing=false;aiming=false;if(duckAim)showMessage(getCharacterSkill('urchin',key).name,'照準で狙う → 左クリックで確定 / 右クリックで取消',30);return;}
  if(player.kit?.character==='cap'&&['c','q'].includes(key)&&mode==='play'&&player.alive&&match?.phase==='live'&&!netHostPaused&&!interactionHeld&&!objectivePractice){duckAim=duckAim===key?null:key;firing=false;aiming=false;if(duckAim)showMessage(getCharacterSkill('cap',key).name,'照準で狙う → 左クリックで確定 / 右クリックで取消',30);return;}
@@ -1854,7 +1892,7 @@ function duckFlap(actor){
   if(actor.duckFlapEvent===event.id&&elapsed<(actor.duckFlapAt||0)+DUCK_SKILLS.flapInterval)return false;
   actor.duckFlapEvent=event.id;actor.duckFlapAt=elapsed;actor.vy=DUCK_SKILLS.flapVelocity;return true;
 }
-function jump(){if(carMotionActive(player))return;if(!netHostPaused&&mode==='play'&&player.alive&&!interactionHeld&&duckFlap(player))return;
+function jump(){if(carMotionActive(player)||busSeat())return;if(!netHostPaused&&mode==='play'&&player.alive&&!interactionHeld&&duckFlap(player))return;
 if(!netHostPaused&&mode==='play'&&player.alive&&player.vy===0&&!ordinarySkills.onnaraEvent?.('onnara-hover',player.id,elapsed)&&!interactionHeld){player.vy=6.552;sound('reload');}}
 function updateHUD(){
   if(!match)return;
@@ -2087,6 +2125,7 @@ function updateBots(dt){
       bot.planting=false;bot.defusing=false;bot.moving=false;bot.muzzle.visible=false;
       bot.visual.update(dt,{...agentEquipment(bot),time:elapsed,moving:false,planting:false,defusing:false,firing:false,alive:true});continue;
     }
+    if(busSeat(bot)){bot.group.position.set(bot.x,bot.y||0,bot.z);continue;}
     if(carMotionActive(bot)){bot.group.position.set(bot.x,bot.y||0,bot.z);bot.visual.update(dt,{...agentEquipment(bot),time:elapsed,moving:true,alive:true});continue;}
     if(bot.vy||bot.y)updateActorVertical(bot,dt,.4);
     bot.fire=Math.max(0,(bot.fire||0)-dt);
@@ -2452,7 +2491,7 @@ function updatePlay(dt){
     if(rangeRespawn>0){rangeRespawn-=dt;if(rangeRespawn<=0)spawnRangeTarget();}
   }
   if(spectatedBot){spectatedBot.group.visible=spectatedBot.alive||spectatedBot.death>0;spectatedBot=null;}
-  const controlled=mode==='play'&&player.alive&&!carMotionActive(player);
+  const controlled=mode==='play'&&player.alive&&!carMotionActive(player)&&!busSeat();
   const yaw=player.yaw;
   const forward=controlled?((keys.has('KeyW')?1:0)-(keys.has('KeyS')?1:0)-touchMove.y):0;
   const side=controlled?((keys.has('KeyD')?1:0)-(keys.has('KeyA')?1:0)+touchMove.x):0;
@@ -2467,7 +2506,7 @@ function updatePlay(dt){
   player.vx+=clamp(desiredX-player.vx,-rate,rate);player.vz+=clamp(desiredZ-player.vz,-rate,rate);
   const velocity=Math.hypot(player.vx,player.vz);if((slow<1||player.turfMovementEnded)&&velocity>speed){player.vx*=speed/velocity;player.vz*=speed/velocity;}player.turfMovementEnded=false;
   const previousY=player.y,previousVy=player.vy,previousX=player.x,previousZ=player.z;
-  if(player.alive&&!player.carMotion){
+  if(player.alive&&!player.carMotion&&!busSeat()){
     if(player.dashTimer>0){const step=Math.min(dt,player.dashTimer);moveEntity(player,player.dashVec.x*(12/.18)*step,player.dashVec.z*(12/.18)*step);player.dashTimer-=step;player.vx=0;player.vz=0;}else moveEntity(player,player.vx*dt,player.vz*dt);
     updateActorVertical(player,dt);
     const running=controlled&&(slideSpeed>0||!walking&&!crouching)&&player.vy===0&&Math.hypot(player.x-previousX,player.z-previousZ)>dt*2;
@@ -2481,7 +2520,7 @@ function updatePlay(dt){
   player.recoil=Math.max(0,player.recoil-dt*.065);kick=Math.max(0,kick-dt*.4);
   renderedRecoil=THREE.MathUtils.lerp(renderedRecoil,player.recoil,1-Math.exp(-dt*22));
   if(elapsed-lastShot>.3)shotSequence=0;
-  if(!exploring||objectivePractice&&!objectivePractice.completed)updateInteraction(dt,controlled&&Math.hypot(player.x-previousX,player.z-previousZ)<dt*.25&&player.vy===0);
+  if(map.traffic||!exploring||objectivePractice&&!objectivePractice.completed)updateInteraction(dt,controlled&&Math.hypot(player.x-previousX,player.z-previousZ)<dt*.25&&player.vy===0);
   if(objectivePractice)updateObjectivePractice(dt);
   if(ordinarySkills.urchinJammed(player.id,elapsed))urchinCancelReload(player);
   if(!tickServiceReload(player,dt)&&reloading>0){reloading-=dt;if(reloading<=0){const n=Math.min(weapon().mag-player.ammo,player.reserve);player.ammo+=n;player.reserve-=n;reloading=0;sound('reload');}}
@@ -2501,7 +2540,7 @@ function updatePlay(dt){
   const scoped=!!(aiming&&controlled&&weapon().scope&&!reloading&&!player.serviceReload&&!interactionHeld);
   setVisible('sniper-scope',scoped);gun.visible=player.alive&&inventory.active!=='spike'&&!scoped;
   camera.fov=THREE.MathUtils.lerp(camera.fov,scoped?weapon().scope:aiming&&controlled?62:76,Math.min(1,dt*12));camera.updateProjectionMatrix();
-  if(firing&&controlled){
+  if(firing&&mode==='play'&&player.alive&&!busDriving()){
     for(let count=0;count<12&&firing&&elapsed-lastShot+1e-8>=nobiShotInterval(weapon(),player);count++){
       const previousShot=lastShot;
       shoot(Math.max(lastShot+nobiShotInterval(weapon(),player),elapsed-dt));
@@ -2512,7 +2551,8 @@ function updatePlay(dt){
   updateBots(dt);
   updateTraffic(dt);
   updateCarMotions(dt);
-  if(player.alive&&carMotionActive(player))camera.position.set(player.x,1.7-player.crouch*.55+player.y,player.z);
+  if(player.alive&&busSeat()){map.traffic.service.place(player,elapsed);const p=map.traffic.poses(elapsed).find(p=>p.id===busSeat().busId);if(busDriving())player.yaw=p.yaw+Math.PI;camera.rotation.set(player.pitch,player.yaw,0);gun.visible=!busDriving();}
+  if(player.alive&&(carMotionActive(player)||busSeat()))camera.position.set(player.x,1.7-player.crouch*.55+player.y,player.z);
   botThinkTick-=dt;
   if(botThinkTick<=0){botThinkTick=.25;const front=new THREE.Vector3();camera.getWorldDirection(front);for(const bot of bots){if(bot.team===player.team||!bot.alive)continue;const offset=new THREE.Vector3(bot.x-player.x,0,bot.z-player.z);if(player.alive&&offset.length()<42&&offset.normalize().dot(front)>.55&&visibleBetween(player,bot))bot.spottedUntil=elapsed+.6;}}
   if(!exploring&&!isGuest()){match.tick(dt,{clockPaused:match.phase==='live'&&ordinarySkills.clockFrozen(elapsed),blueAlive:aliveCount('blue'),redAlive:aliveCount('red'),playerAlive:player.alive});handleMatchEvents();}
@@ -2531,6 +2571,10 @@ function updatePlay(dt){
   if(mode==='shop')updateShop();if(mode==='score')updateScoreboard();
 }
 function updateInteraction(dt,stationary){
+  const bus=player.alive&&match.phase==='live'?map.traffic?.service.candidate(player,elapsed):null;
+  if(bus){setVisible('interaction',bus.available);$('interaction-title').textContent=bus.available?'F · '+(bus.kind==='board'?'乗車':bus.kind==='drive'?'運転席':'降車'):' ';$('interaction-progress').style.width='0%';if($('mobile-interact-label'))$('mobile-interact-label').textContent='F';return;}
+
+  if(exploring&&!objectivePractice){setVisible('interaction',false);return;}
   const grounded=Math.abs(player.y)<=.05&&player.vy===0;
   stationary=stationary&&grounded;
   const s=match.spike,live=match.phase==='live'&&player.alive;
@@ -2575,7 +2619,7 @@ function queueNetAction(type,data={}){
 function leaveOnline(notify=true){
   const client=online;online=null;onlinePlaying=false;netHasSnapshot=false;netHostPaused=false;
   netSeenCueSequence=0;netCues.length=0;
-  client?.close(notify);netActions=[];netInputs.clear();netApplied.clear();netParticipants.clear();player.id='player';player.team='blue';
+  client?.close(notify);resetTraffic();netActions=[];netInputs.clear();netApplied.clear();netParticipants.clear();player.id='player';player.team='blue';
   $('online-intro').textContent='パーティーコードを共有して、同じマップへ。最大10人で参加でき、空いている枠はBOTが補充します。';
   setVisible('online-overlay',false);backMenu();
 }
@@ -2604,11 +2648,11 @@ function updateRoom(room){
   if(onlinePlaying&&online.host)for(const [memberId,entityId] of netParticipants){
     if(memberId===room.hostId)continue;
     const member=room.members.find(m=>m.id===memberId),actor=bots.find(b=>b.id===entityId);
-    if(!member){if(actor){match.cancelPlant(actor.id);match.cancelDefuse(actor.id);actor.planting=false;actor.defusing=false;transferEmberControl(actor,false);actor.remoteId=null;actor.record.memberId=null;actor.record.netFallback=false;actor.record.name=`${actor.record.name} / BOT`;}netParticipants.delete(memberId);}
+    if(!member){if(actor){match.cancelPlant(actor.id);match.cancelDefuse(actor.id);actor.planting=false;actor.defusing=false;transferEmberControl(actor,false);map.traffic?.service.exit(actor,elapsed,busCanExit);actor.remoteId=null;actor.record.memberId=null;actor.record.netFallback=false;actor.record.name=`${actor.record.name} / BOT`;}netParticipants.delete(memberId);}
     else if(actor){
       const fallback=member.connected===false&&Date.now()-(netInputs.get(memberId)?.receivedAt||0)>=20000;
       actor.record.netFallback=fallback;
-      if(fallback){if(actor.remoteId){match.cancelPlant(actor.id);match.cancelDefuse(actor.id);transferEmberControl(actor,false);actor.remoteId=null;actor.planting=false;actor.defusing=false;}}
+      if(fallback){if(actor.remoteId){match.cancelPlant(actor.id);match.cancelDefuse(actor.id);transferEmberControl(actor,false);map.traffic?.service.exit(actor,elapsed,busCanExit);actor.remoteId=null;actor.planting=false;actor.defusing=false;}}
       else if(actor.remoteId!==memberId){transferEmberControl(actor,true);actor.remoteId=memberId;actor.netYaw=actor.group.rotation.y-Math.PI;actor.lastNetInput=elapsed;}
     }
   }
@@ -2695,6 +2739,7 @@ function applyNetSnapshot(packet){
   if((packet.mapId||'hashimoto')!==(map.id||'hashimoto'))return;
   if(!packet.rules||!Array.isArray(packet.actors)||packet.actors.length>10||!Array.isArray(packet.roster)||!Number.isFinite(packet.time))return;
   const ownId=netParticipants.get(online.session.memberId),self=packet.actors.find(a=>a.id===ownId);if(!self)return;
+  if(map.traffic&&!map.traffic.service.restore(packet.busTransit||[],packet.actors.map(a=>a.id),packet.time))return;
   const fresh=netRound!==packet.rules.round||!netHasSnapshot,previousPhase=match.phase,previousSpikeStatus=match.spike.status,wasAlive=player.alive,wasPaused=netHostPaused;
   // A same-round reconnect resets rendering, but must not revive a grounded
   // effect already stopped by this player's movement before its host ACK.
@@ -2805,6 +2850,7 @@ function applyNetSnapshot(packet){
     actor.hp=state.hp;actor.armor=state.armor;actor.alive=state.alive;actor.moving=state.moving;actor.netTarget=state;actor.carMotion=carMotionMarker(state.carMove,packet.time);if(actor.carMotion)actor.carMotion.team=state.team;actor.planting=state.planting;actor.defusing=state.defusing;actor.flash=state.flash?.07:0;actor.shotSequence=state.shotSequence||0;
     if(state.kit&&actor.kit)actor.kit.restore(state.kit);
   }
+  if(busSeat()){map.traffic.service.place(player,elapsed);player.vx=player.vz=player.vy=0;}
   netHasSnapshot=true;setVisible('loading',false);setVisible('hud',true);setVisible('spectator-hint',!player.alive&&!deathView.holding);syncDeathUI();buyBarrier.visible=match.phase==='buy';const area=map.buyAreas[ownSide()];if(area){buyBarrier.position.set(area.x,2,area.z);buyBarrier.scale.set(area.radius,1,area.radius);}
   if(!netHostPaused&&!netCharacterRequested&&match.phase==='buy'&&match.round===1){netCharacterRequested=true;queueNetAction('character',{character:selectedCharacter()});player.kit.character=selectedCharacter();}
   if(match.phase==='match'&&mode!=='result')finish(match.winner===player.team);
@@ -2813,7 +2859,7 @@ function applyNetSnapshot(packet){
 function updateRemoteActor(actor,dt){
   const data=netInputs.get(actor.remoteId);if(!data){actor.planting=false;actor.defusing=false;match.cancelPlant(actor.id);match.cancelDefuse(actor.id);return;}
   const input=data.input,active=elapsed-data.received<.8&&actor.alive&&data.round===match.round,previousX=actor.x,previousY=actor.y||0,previousZ=actor.z,wasDashing=actor.dashTimer>0;
-  if(active&&Number.isFinite(input.x)&&Number.isFinite(input.z)){
+  if(active&&!busSeat(actor)&&Number.isFinite(input.x)&&Number.isFinite(input.z)){
     // An accepted airborne pose ends turf before applying this input's speed cap.
     const inputFeet=Number.isFinite(input.y)?clamp(input.y,0,11):actor.y;
     const inputGrounded=actorGrounded({...actor,x:input.x,z:input.z,y:inputFeet,vy:0});
@@ -2848,10 +2894,11 @@ function updateRemoteActor(actor,dt){
     actorMovementScale(actor);
     actor.netYaw=Number.isFinite(input.yaw)?input.yaw:0;actor.netPitch=clamp(Number(input.pitch)||0,-1.35,1.35);actor.group.rotation.y=actor.netYaw+Math.PI;
   }
+  if(active&&busSeat(actor)){actor.netYaw=Number.isFinite(input.yaw)?input.yaw:actor.netYaw||0;actor.netPitch=clamp(Number(input.pitch)||0,-1.35,1.35);}
   const remoteRunning=active&&match.phase==='live'&&(frostSlideSpeed(actor)>0||input.quiet!==true&&actor.crouch<.5)&&!wasDashing&&actorGrounded(actor)&&Math.hypot(actor.x-previousX,actor.z-previousZ)>dt*2;
   actor.netStepClock=remoteRunning?(actor.netStepClock||0)+dt:0;if(actor.netStepClock>.35){actor.netStepClock=0;sound('step',{entity:actor});}
   actor.kit?.tick(elapsed);actor.dashTimer=Math.max(0,(actor.dashTimer||0)-dt);actor.moving=Math.hypot(actor.x-previousX,actor.z-previousZ)>dt*.5;
-  const stationary=Math.hypot(actor.x-previousX,actor.z-previousZ)<dt*.25&&Math.abs(actor.y||0)<=.05,held=active&&!carMotionActive(actor)&&input.interact===true&&match.phase==='live';
+  const stationary=Math.hypot(actor.x-previousX,actor.z-previousZ)<dt*.25&&Math.abs(actor.y||0)<=.05,held=active&&!busSeat(actor)&&!carMotionActive(actor)&&input.interact===true&&match.phase==='live';
   match.pickupSpike(actor.id,actor.team,actor.x,actor.z);const site=map.sites.find(s=>isInsideSite(s,actor.x,actor.z));
   actor.planting=!!(held&&stationary&&site&&match.spike.carrier===actor.id);
   actor.defusing=!!(held&&stationary&&actor.team===match.defenderTeam&&match.spike.status==='planted'&&Math.hypot(actor.x-match.spike.x,actor.z-match.spike.z)<2.3);
@@ -2876,6 +2923,8 @@ function updateRemoteActor(actor,dt){
 }
 function applyRemoteAction(actor,action,actionTime=elapsed){
   if(!actor.alive)return;const r=actor.record;
+  if(action.type==='bus'){busInteract(actor);return;}
+  if(busDriving(actor)||busSeat(actor)&&['ability','drop','pickup'].includes(action.type))return;
   if((actor.planting||actor.defusing)&&['fire','reload','equip','ability','drop'].includes(action.type))return;
   if(action.type==='character'){if(match.phase==='buy'&&match.round===1&&characterIds.includes(action.character))actor.kit.character=action.character;return;}
   if(action.type==='buy'&&match.phase==='buy'){
@@ -2928,7 +2977,7 @@ function applyRemoteAction(actor,action,actionTime=elapsed){
   if(spec.arsenal){sound('shot',{weapon:actor.netWeapon,entity:actor});fireArsenal(actor,origin,aim,spec,action.ads===true);return;}
   if(!melee&&!knives)capDistortAim(actor,aim);
   botsGroup.updateMatrixWorld(true);const ray=new THREE.Raycaster(origin,aim,0,melee?2.2:120);
-  const all=ray.intersectObjects([environment,botsGroup],true).filter(h=>h.object.userData.bot!==actor&&(!h.object.userData.bot||h.object.userData.bot.alive));
+  const all=ray.intersectObjects([environment,botsGroup],true).filter(h=>busSurfaceVisible(h)&&h.object.userData.bot!==actor&&(!h.object.userData.bot||h.object.userData.bot.alive));
   const hit=all[0];let target=hit?.object.userData.bot,point=hit?.point,head=!!hit?.object.userData.head,nearest=hit?.distance??120;
   if(player.alive&&player.team!==actor.team){
     const crouch=player.crouch*.55,headDistance=ray.ray.intersectSphere(new THREE.Sphere(new THREE.Vector3(player.x,1.62+player.y-crouch,player.z),.19),new THREE.Vector3());
@@ -2942,6 +2991,7 @@ function applyRemoteAction(actor,action,actionTime=elapsed){
   if(melee&&nearest>2.2)target=null;const end=point||origin.clone().addScaledVector(aim,90);if(!melee)tracer(origin,end);sound('shot',{weapon:actor.netWeapon,entity:actor});
   if(!target&&!fake&&!shield&&!melee&&!knives&&hit)capBounceShot(actor,origin,aim,hit,spec);
   if(!melee&&!knives)urchinTridentShot(actor,origin,aim,spec);
+  if(!fake&&!shield&&shootBusDriver(hit,actor,head?spec.head:spec.body))return;
   if(target&&target.team!==actor.team){let damage=nobiBulletDamage(actor,target,head?spec.head:point.y-(target.y||0)<.7?spec.leg:spec.body,spec.head,!melee&&!knives);if(!knives&&['phantom','spectre','ghost','classic'].includes(actor.netWeapon)&&nearest>15)damage*=nearest>30?.8:.9;damageEntity(target,damage,actor,{firearm:!melee&&!knives,skill:knives?'duelist':null});burst(point,head?'#fff3c8':'#ff737e',5);}
 }
 function tickOnline(dt){
@@ -2949,10 +2999,10 @@ function tickOnline(dt){
   if(online.host){
     const rules={format:match.format,startingSide:match.startingSide,round:match.round,score:{...match.score},phase:match.phase,phaseTime:match.phaseTime,roundTime:match.roundTime,winner:match.winner,lastRound:match.lastRound?{...match.lastRound}:null,spike:{...match.spike}};
     if(rules.lastRound&&match.phase!=='post')delete rules.lastRound.fullCombo;
-    const teamState=teamAbilities.snapshot(),packet={type:'snapshot',mapId:map.id||'hashimoto',seq:++netSequence,time:elapsed,paused:netHostPaused,cues:serializeNetCues(),smokes:serializeSmokes(),drops:serializeDrops(),detonation:detonationState?{...detonationState}:null,takeover:takeoverState?{...takeoverState}:null,zoneAbilities:zoneAbilities.snapshot(),rules,roster:roster.map(r=>({...r,kit:r.kit?.snapshot()})),actors:[player,...bots].map(captureNetActor),acks:Object.fromEntries(netApplied),positionAcks:Object.fromEntries(bots.filter(b=>b.remoteId&&b.netPositionAck).map(b=>[b.remoteId,{...b.netPositionAck}]))};
+    const teamState=teamAbilities.snapshot(),packet={type:'snapshot',mapId:map.id||'hashimoto',seq:++netSequence,time:elapsed,paused:netHostPaused,cues:serializeNetCues(),smokes:serializeSmokes(),drops:serializeDrops(),detonation:detonationState?{...detonationState}:null,takeover:takeoverState?{...takeoverState}:null,zoneAbilities:zoneAbilities.snapshot(),...(map.traffic?{busTransit:map.traffic.service.snapshot([player,...bots].map(a=>a.id))}:{}),rules,roster:roster.map(r=>({...r,kit:r.kit?.snapshot()})),actors:[player,...bots].map(captureNetActor),acks:Object.fromEntries(netApplied),positionAcks:Object.fromEntries(bots.filter(b=>b.remoteId&&b.netPositionAck).map(b=>[b.remoteId,{...b.netPositionAck}]))};
     for(const team of ['blue','red']){let state={...packet,teamAbilities:{...teamState,pings:teamState.pings.filter(ping=>ping.observerTeam===team)},ordinarySkills:ordinarySkills.snapshot(team),nopeDecoys:nopeDecoys.snapshot(),nopePops:serializeNopePops()};if(map.traffic||[player,...bots].some(carMotionActive)||match.phase==='post'||state.cues.some(c=>c.type==='skill-hit'||c.type==='skill-heal'))state=fitTrafficSnapshot(state);if(state)online.send(state,{team});}
   }else if(netHasSnapshot){
-    const seq=++netSequence,input={x:player.x,z:player.z,y:player.y,yaw:player.yaw,pitch:player.pitch,crouch:player.crouch,quiet:keys.has('ShiftLeft')||keys.has('ShiftRight'),interact:mode==='play'&&interactionHeld};
+    const seq=++netSequence,input={x:player.x,z:player.z,y:player.y,yaw:player.yaw,pitch:player.pitch,crouch:player.crouch,quiet:keys.has('ShiftLeft')||keys.has('ShiftRight'),interact:mode==='play'&&interactionHeld,...(busDriving()?{bus:busControls(player.id)}:{})};
     netPositionHistory.set(seq,{x:input.x,z:input.z,correctionX:netPositionCorrectionX,correctionZ:netPositionCorrectionZ});while(netPositionHistory.size>128)netPositionHistory.delete(netPositionHistory.keys().next().value);
     online.send({type:'input',seq,round:match.round,input,actions:netActions});
   }
@@ -3060,7 +3110,7 @@ document.addEventListener('keydown',e=>{
   if(e.code==='Tab'&&['play','score'].includes(mode)){if(mode==='play')showScoreboard();return;}
   if(netHostPaused||mode!=='play')return;
   keys.add(e.code);
-  if(e.code==='KeyF'&&player.alive&&match?.phase==='live'&&!objectivePractice?.completed)interactionHeld=true;
+  if(e.code==='KeyF'&&player.alive&&match?.phase==='live'&&!objectivePractice?.completed){if(busInteract())return;interactionHeld=true;}
   if(player.alive){
     if(e.code==='Digit1'&&inventory.primary)equip(inventory.primary);
     if(e.code==='Digit2')equip(inventory.secondary);
@@ -3150,7 +3200,7 @@ $('mobile-crouch')?.addEventListener('click',()=>{
 $('mobile-fire')?.addEventListener('pointerdown',e=>{e.preventDefault();if(duckAim){const key=duckAim;duckAim=null;confirmDuckSkill(key);return;}if(netHostPaused||mode!=='play'||!player.alive||match?.phase!=='live')return;firing=true;shoot();$( 'mobile-fire').setPointerCapture(e.pointerId);});
 for(const type of ['pointerup','pointercancel'])$('mobile-fire')?.addEventListener(type,()=>firing=false);
 $('mobile-shop')?.addEventListener('click',openShop);
-$('mobile-interact')?.addEventListener('pointerdown',e=>{e.preventDefault();if(netHostPaused||mode!=='play'||!player.alive||match?.phase!=='live'||objectivePractice?.completed)return;interactionHeld=true;$('mobile-interact').setPointerCapture(e.pointerId);});
+$('mobile-interact')?.addEventListener('pointerdown',e=>{e.preventDefault();if(netHostPaused||mode!=='play'||!player.alive||match?.phase!=='live'||objectivePractice?.completed)return;if(busInteract())return;interactionHeld=true;$('mobile-interact').setPointerCapture(e.pointerId);});
 for(const type of ['pointerup','pointercancel'])$('mobile-interact')?.addEventListener(type,()=>interactionHeld=false);
 canvas.addEventListener('pointercancel',e=>{if(touchLook?.id===e.pointerId)touchLook=null;});
 
