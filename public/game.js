@@ -26,6 +26,7 @@ import { createCharacterPicker } from './character-preview.js';
 import { roundDanceState, createVictoryDance } from './victory-dance.js';
 import { createGameAudio } from './audio.js';
 import { createVictoryMusic, bindVictoryMusicSettings } from './victory-music.js';
+import { createDeathView } from './death-view.js';
 import { RangeSession } from './range.js';
 import { RoomClient } from './online.js';
 import { DuelistKit, CHARACTER_DEFS, normalizeCharacter, signatureCooldown, JAPAN_SKILLS, NOBI_SKILLS, CAR_SKILLS, CAT_SKILLS, DUCK_SKILLS, DUELIST, DUELIST_SKILLS, NOPE_SKILLS, MEND_SKILLS, IAGNU_SKILLS, VEIL_SKILLS, EMBER_SKILLS, FROST_SKILLS } from './abilities.js';
@@ -76,6 +77,16 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.02;
 const camera = new THREE.PerspectiveCamera(76, innerWidth / innerHeight, 0.06, 500);
+const deathView=createDeathView();
+function syncDeathUI(){
+  setVisible('death-card',!player.alive&&deathView.holding&&mode==='play');
+  setVisible('crosshair',player.alive);
+}
+function beginDeathView(){
+  deathView.begin([camera.position.x,camera.position.y,camera.position.z],[camera.rotation.x,camera.rotation.y,camera.rotation.z]);
+  spectateIndex=0;gun.visible=false;clearCombatInput();reloading=0;
+  setVisible('spectator-hint',false);syncDeathUI();
+}
 camera.rotation.order = 'YXZ';
 scene.add(camera);
 scene.add(new THREE.HemisphereLight('#d9edff', '#647063', 1.65));
@@ -657,7 +668,7 @@ function damageEntity(entity,amount,killer,{firearm=false,returned=false,chain=t
   match.dropSpike(entity.id,entity.x,entity.z);match.cancelPlant(entity.id);match.cancelDefuse(entity.id);
   const item=entity===player?inventory.primary:record?.primary;dropItem(item,entity);
   if(killer){killer.kit?.awardKill();const k=recordOf(killer);if(k)k.k++;if(killer===player){totalKills++;match.awardKill();sound('kill');}else if(k)k.credits=Math.min(9000,k.credits+200);feed(`${k?.name||'SENTINEL'}  ⌁  ${record?.name||'YOU'}`);}
-  if(entity===player){gun.visible=false;clearCombatInput();reloading=0;spectateIndex=0;setVisible('spectator-hint',true);showMessage('ELIMINATED','味方を観戦中',3);}
+  if(entity===player)beginDeathView();
   else{entity.death=.85;entity.defusing=false;entity.planting=false;}
 }
 function showRoundResult(team,reason,{audible=true}={}){
@@ -718,6 +729,7 @@ function clearBots() {
   bots.length=0;
 }
 function spawnRound(reset=false) {
+  deathView.reset();syncDeathUI();
   resetTraffic();
   victoryMusic.stop();lastRoundAudio='';
   clearCombatInput();
@@ -823,6 +835,7 @@ function updateTraffic(dt){
   }
 }
 function startGame() {
+  deathView.reset();
   victoryMusic.reset();
   player.kit=new DuelistKit({character:selectedCharacter()});netCharacterRequested=false;
   if(onlinePlaying&&mode!=='menu'){leaveOnline();return;}
@@ -881,6 +894,7 @@ function resumeGame() {
   clearCombatInput();mode='play';for(const id of ['pause-menu','map-overlay','shop-overlay','scoreboard'])setVisible(id,false);audioInit();requestLock();
 }
 function backMenu() {
+  deathView.reset();syncDeathUI();
   resetTraffic();victoryMusic.reset();
   if(online){leaveOnline();return;}
   netHostPaused=false;syncSmokes([]);scene.fog.near=145;scene.fog.far=380;scene.fog.color.set('#b7d0dd');
@@ -892,6 +906,7 @@ function backMenu() {
   if(document.pointerLockElement)document.exitPointerLock();
 }
 function finish(won) {
+  deathView.reset();syncDeathUI();
   resetTeamAbilities();
   if(!match||mode==='result')return;mode='result';clearCombatInput();reloading=0;gun.visible=false;buyBarrier.visible=false;
   if(document.pointerLockElement)document.exitPointerLock();
@@ -2342,10 +2357,16 @@ function updatePlay(dt){
   if(ordinarySkills.urchinJammed(player.id,elapsed))urchinCancelReload(player);
   if(!tickServiceReload(player,dt)&&reloading>0){reloading-=dt;if(reloading<=0){const n=Math.min(weapon().mag-player.ammo,player.reserve);player.ammo+=n;player.reserve-=n;reloading=0;sound('reload');}}
   if(exploring&&player.reserve<weapon().mag)player.reserve=weapon().reserve;
-  if(player.alive){camera.position.set(player.x,1.7-player.crouch*.55+player.y,player.z);camera.rotation.set(player.pitch+renderedRecoil,player.yaw,0);}
+  if(player.alive){deathView.reset();camera.position.set(player.x,1.7-player.crouch*.55+player.y,player.z);camera.rotation.set(player.pitch+renderedRecoil,player.yaw,0);}
+  else if(deathView.holding){
+    const pose=deathView.view();camera.position.set(...pose.position);camera.rotation.set(...pose.rotation);
+    setVisible('spectator-hint',false);if(mode==='play')deathView.tick(dt);
+  }
   else{
     const team=bots.filter(b=>b.alive&&b.team===player.team);const watched=team[spectateIndex%Math.max(1,team.length)];
     if(watched){spectatedBot=watched;watched.group.visible=false;camera.position.set(watched.x,1.65+(watched.y||0),watched.z);camera.rotation.set(0,watched.group.rotation.y+Math.PI,0);$('spectator-hint').textContent=`${watched.record.name} を観戦中 · クリックで切り替え`;}
+    else $('spectator-hint').textContent='倒されました · 次のラウンドで復帰します';
+    setVisible('spectator-hint',true);
   }
   const withinSmoke=smokes.find(s=>camera.position.distanceToSquared(s.mesh.position)<s.radius*s.radius),withinField=activeOrdinarySmokeFields().find(s=>(camera.position.x-s.x)**2+(camera.position.y-s.y)**2+(camera.position.z-s.z)**2<s.radius*s.radius),obscured=withinSmoke||withinField;scene.fog.near=obscured?.1:145;scene.fog.far=obscured?2.5:380;scene.fog.color.set(withinSmoke?.kind==='veil'?'#77718f':withinField?.type==='veil-dust'?'#8d7659':withinField?.type==='frost-mist'?'#c3bfdb':withinField?.type==='duelist-comet'?'#abcddd':withinField?'#b6bb72':withinSmoke?'#a9c6d2':'#b7d0dd');
   const scoped=!!(aiming&&controlled&&weapon().scope&&!reloading&&!player.serviceReload&&!interactionHeld);
@@ -2607,6 +2628,8 @@ function applyNetSnapshot(packet){
   if(fresh)for(const event of zoneAbilities.events(elapsed))if(event.type==='ember')zonePulseAudio.set(event.id,emberPulseIndex(elapsed-event.startedAt));
   if(self.hp<player.hp)damageFlash=.35;
   player.id=ownId;player.team=self.team;player.hp=self.hp;player.armor=self.armor;player.alive=self.alive;
+  if(fresh||self.alive)deathView.reset();
+  else if(wasAlive)beginDeathView();
   if(fresh)for(const marker of ordinarySkills.markers(player.team,elapsed))ordinaryMarkerAudio.add(marker.eventId);
   if(!fresh&&previousSpikeStatus!==match.spike.status){
     if(match.spike.status==='planted'){sound('plant',{entity:match.spike,localOnly:true});lastSpikeBeep=0;}
@@ -2645,7 +2668,7 @@ function applyNetSnapshot(packet){
     actor.hp=state.hp;actor.armor=state.armor;actor.alive=state.alive;actor.moving=state.moving;actor.netTarget=state;actor.planting=state.planting;actor.defusing=state.defusing;actor.flash=state.flash?.07:0;actor.shotSequence=state.shotSequence||0;
     if(state.kit&&actor.kit)actor.kit.restore(state.kit);
   }
-  netHasSnapshot=true;setVisible('loading',false);setVisible('hud',true);setVisible('spectator-hint',!player.alive);buyBarrier.visible=match.phase==='buy';const area=map.buyAreas[ownSide()];if(area){buyBarrier.position.set(area.x,2,area.z);buyBarrier.scale.set(area.radius,1,area.radius);}
+  netHasSnapshot=true;setVisible('loading',false);setVisible('hud',true);setVisible('spectator-hint',!player.alive&&!deathView.holding);syncDeathUI();buyBarrier.visible=match.phase==='buy';const area=map.buyAreas[ownSide()];if(area){buyBarrier.position.set(area.x,2,area.z);buyBarrier.scale.set(area.radius,1,area.radius);}
   if(!netHostPaused&&!netCharacterRequested&&match.phase==='buy'&&match.round===1){netCharacterRequested=true;queueNetAction('character',{character:selectedCharacter()});player.kit.character=selectedCharacter();}
   if(match.phase==='match'&&mode!=='result')finish(match.winner===player.team);
   updateHUD();
@@ -2868,7 +2891,7 @@ document.addEventListener('pointerlockchange',()=>{
 document.addEventListener('pointerlockerror',()=>{inputActive=true;resetMouseLook();if(mode==='play')showMessage('MOUSE LOOK','マウスを動かすだけで視点を操作できます',3);});
 document.addEventListener('mousemove',mouseLook);
 canvas.addEventListener('mouseenter',resetMouseLook);canvas.addEventListener('mouseleave',resetMouseLook);
-canvas.addEventListener('mousedown',e=>{if(duckAim){e.preventDefault();if(e.button===2){duckAim=null;showMessage('スキルを取り消しました','回数は消費していません',1);return;}if(e.button===0){const key=duckAim;duckAim=null;confirmDuckSkill(key);return;}}if(netHostPaused||mode!=='play')return;if(!player.alive){if(e.button===0)spectateIndex++;return;}if(e.button===0){firing=true;shoot();}if(e.button===2)aiming=weapon().slot==='primary'&&!ordinarySkills.capLocked(player.id,elapsed);});
+canvas.addEventListener('mousedown',e=>{if(duckAim){e.preventDefault();if(e.button===2){duckAim=null;showMessage('スキルを取り消しました','回数は消費していません',1);return;}if(e.button===0){const key=duckAim;duckAim=null;confirmDuckSkill(key);return;}}if(netHostPaused||mode!=='play')return;if(!player.alive){if(e.button===0&&!deathView.holding)spectateIndex++;return;}if(e.button===0){firing=true;shoot();}if(e.button===2)aiming=weapon().slot==='primary'&&!ordinarySkills.capLocked(player.id,elapsed);});
 document.addEventListener('mouseup',e=>{if(e.button===0)firing=false;if(e.button===2)aiming=false;});
 window.addEventListener('contextmenu',e=>{if(mode==='play')e.preventDefault();});
 document.addEventListener('keydown',e=>{
@@ -2999,7 +3022,7 @@ function frame(now){
     if(effect.life<=0){effectsGroup.remove(effect.object);effect.object.geometry.dispose();effect.object.material.dispose();effects.splice(i,1);}else effect.object.material.opacity=Math.min(1,effect.life/effect.max);
   }
   miniTick+=dt;if(miniTick>.1&&['play','shop','map','score'].includes(mode)){drawMinimap($('minimap'));if(mode==='map')drawMinimap($('large-minimap'),true);miniTick=0;}
-  renderWithDetonation(dt);
+  syncDeathUI();renderWithDetonation(dt);
 }
 $('loading-text').textContent='HASHIMOTO / 駅前アリーナ、ロード完了';
 setVisible('loading',false);requestAnimationFrame(frame);
