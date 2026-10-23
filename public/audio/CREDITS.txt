@@ -1,3 +1,39 @@
+現在のゲーム内効果音 / Current runtime audio — 2026-10-24
+
+効果音：効果音ラボ / OtoLogic / On-Jin ～音人～
+すべての通常再生は、この3サイトの編集済み音源を使用します。
+旧Kenney音源は未使用の履歴素材です。足音・着地だけは読み込み失敗時に合成音を使用し、その他は無音になります。
+
+OtoLogic — https://otologic.jp/
+Copyright OtoLogic. Licensed under Creative Commons Attribution 4.0:
+https://creativecommons.org/licenses/by/4.0/
+Terms: https://otologic.jp/free/license.html
+使用素材：サイバー21-1 / 21-2、サイバー19-1 / 19-2、天使01-1。
+変更：先頭無音と長さの調整、モノラル化、音量調整、フェード、OGG変換。
+ゲーム内では音量・速度・フィルターを場面に応じて調整しています。
+
+On-Jin ～音人～ — https://on-jin.com/
+著作権はOn-Jin ～音人～に帰属します。音源の二次配布・無断利用禁止。
+Terms: https://on-jin.com/kiyaku.php
+個人制作ゲームへの組み込みとして使用。音源単体の素材配布は不可。
+企業・営利事業（個人事業を含む）として利用する場合は、同サイトへの
+利用詳細の連絡と許諾が必要です。ゲームの商用展開時は再確認してください。
+変更：先頭無音と長さの調整、モノラル化、音量調整、フェード、OGG変換。
+
+効果音ラボ — https://soundeffect-lab.info/
+Terms: https://soundeffect-lab.info/agreement/
+FAQ: https://soundeffect-lab.info/faq/
+音源単体の再配布・直リンク・AI学習・他者に影響するContent ID登録は禁止。
+ゲーム組み込み・編集・GitHubでのゲーム公開については公式FAQを確認済み。
+
+出典・原音名・取得日・編集内容・SHA-256：
+  soundeffect-lab-manifest.json （先行16音源）
+  extra-sources-manifest.json （追加14音源）
+いずれも音源単体の配布を目的としたファイルではありません。
+
+
+--- 同梱旧素材の履歴（現在の効果音割当では不使用） ---
+
 Current audio revision: cycle71 / 2026-10-23
 Kenney CC0 recorded foley and pizzicato effects replace synthesized skill/UI/result
 beeps and the procedural explosion tail. 82 non-gun cue recipes use recorded

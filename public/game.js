@@ -427,7 +427,7 @@ function updateOrdinarySkills(){
       ordinaryAudio.set(event.id,beat);
     }else{
       const trigger=ordinaryAudioTime(event),triggered=elapsed>=trigger;
-      if(triggered&&previous!==true&&elapsed-trigger<.18)sound({'onnara-tax':'onnara-tax','onnara-orb':'onnara-orb','onnara-hover':'onnara-hover','onnara-chain':'onnara-chain','nope-bottle':'bottle-pop','nope-flash':'flash','mend-seeds':'seed-bloom','mend-pollen':'pollen','mend-heal':'flower-heal','echo-tag':'echo-tag-set','echo-glint':'echo-glint','echo-kerning':'echo-kerning','veil-dust':'grass-dust','veil-roots':'grass-roots','veil-turf':'grass-turf','ember-solder':'solder-pop','ember-shade':'shade-check','ember-service':'quick-solder','frost-stitch':'frost-stitch','frost-mist':'frost-mist','frost-unravel':'frost-unravel','duelist-comet':'duelist-comet','duelist-lift':'duelist-lift','duck-pad':'duck-seal','duck-seal':'duck-seal','duck-shield':'duck-shield','duck-hush':'duck-hush','duck-egg':'duck-egg','cat-bookmark':'cat-bookmark','cat-return':'cat-return','cat-pluck':'cat-pluck','cat-fetch':'cat-fetch','cat-clock':'cat-clock','urchin-lance':'urchin-jam','urchin-jam':'urchin-jam','urchin-disarm':'urchin-disarm','urchin-pearl':'urchin-pearl','urchin-trident':'urchin-trident','cap-lock':'cap-lock','cap-clean':'cap-clean','cap-bank':'cap-bank','cap-magazine':'cap-magazine','japan-border':'japan-border','japan-levy':'japan-levy','japan-return':'japan-return','japan-muster':'japan-muster','nobi-tag':'nobi-tag','nobi-brake':'nobi-brake','nobi-tool':'nobi-tool','nobi-legend':'nobi-legend','car-bumper':'car-bumper','car-wash':'car-wash','car-gyro':'car-gyro','car-pit':'car-pit'}[event.type]||'smoke',{entity:event,localOnly:true});
+      if(triggered&&previous!==true&&elapsed-trigger<.18)sound({'onnara-tax':'onnara-tax','onnara-orb':'onnara-orb','onnara-hover':'onnara-hover','onnara-chain':'onnara-chain','nope-bottle':'bottle-pop','nope-flash':'flash','mend-seeds':'seed-bloom','mend-pollen':'pollen','mend-heal':'flower-heal','echo-tag':'echo-tag-set','echo-glint':'echo-glint','echo-kerning':'echo-kerning','veil-dust':'grass-dust','veil-roots':'grass-roots','veil-turf':'grass-turf','ember-solder':'solder-pop','ember-shade':'shade-check','ember-service':'quick-solder','frost-stitch':'frost-stitch','frost-mist':'frost-mist','frost-unravel':'frost-unravel','duelist-comet':'duelist-comet','duelist-lift':'duelist-lift','duck-pad':'duck-pad','duck-seal':'duck-seal','duck-shield':'duck-shield','duck-hush':'duck-hush','duck-egg':'duck-egg','cat-bookmark':'cat-bookmark','cat-return':'cat-return','cat-pluck':'cat-pluck','cat-fetch':'cat-fetch','cat-clock':'cat-clock','urchin-lance':'urchin-lance','urchin-jam':'urchin-jam','urchin-disarm':'urchin-disarm','urchin-pearl':'urchin-pearl','urchin-trident':'urchin-trident','cap-lock':'cap-lock','cap-clean':'cap-clean','cap-bank':'cap-bank','cap-magazine':'cap-magazine','japan-border':'japan-border','japan-levy':'japan-levy','japan-return':'japan-return','japan-muster':'japan-muster','nobi-tag':'nobi-tag','nobi-brake':'nobi-brake','nobi-tool':'nobi-tool','nobi-legend':'nobi-legend','car-bumper':'car-bumper','car-wash':'car-wash','car-gyro':'car-gyro','car-pit':'car-pit'}[event.type]||'smoke',{entity:event,localOnly:true});
       ordinaryAudio.set(event.id,triggered);
     }
   }
@@ -1939,10 +1939,10 @@ function duckAirAim(actor){return match?.phase==='live'&&actor?.alive&&!actorGro
 function duckFlap(actor){
   const event=duckFlight(actor);if(!event||actor.planting||actor.defusing||actor.trafficLaunch||actor.y>=Math.min(11,event.y+DUCK_SKILLS.flightHeight)-.02)return false;
   if(actor.duckFlapEvent===event.id&&elapsed<(actor.duckFlapAt||0)+DUCK_SKILLS.flapInterval)return false;
-  actor.duckFlapEvent=event.id;actor.duckFlapAt=elapsed;actor.vy=DUCK_SKILLS.flapVelocity;return true;
+  actor.duckFlapEvent=event.id;actor.duckFlapAt=elapsed;actor.vy=DUCK_SKILLS.flapVelocity;sound('duck-flap',{entity:actor,localOnly:true});return true;
 }
 function jump(){if(carMotionActive(player)||busSeat())return;if(!netHostPaused&&mode==='play'&&player.alive&&!interactionHeld&&duckFlap(player))return;
-if(!netHostPaused&&mode==='play'&&player.alive&&player.vy===0&&!ordinarySkills.onnaraEvent?.('onnara-hover',player.id,elapsed)&&!interactionHeld){player.vy=6.552;sound('reload');}}
+if(!netHostPaused&&mode==='play'&&player.alive&&player.vy===0&&!ordinarySkills.onnaraEvent?.('onnara-hover',player.id,elapsed)&&!interactionHeld){player.vy=6.552;sound('jump',{localOnly:true});}}
 function updateHUD(){
   if(!match)return;
   const armedWeapon=weapon(),ultimateKnives=player.kit.knivesActive&&inventory.active==='knife',firearm=inventory.active!=='spike'&&armedWeapon.mag>0;
@@ -2565,7 +2565,7 @@ function tickDuckPads(){
     if(!actor.alive||actor.planting||actor.defusing||actor.trafficLaunch||carMotionActive(actor)||busSeat(actor)||!actorGrounded(actor))continue;
     const e=ordinarySkills.duckPad(ordinaryActorView(actor),elapsed,{groundHeight:ordinaryGroundHeight});
     if(!e||!actors.some(a=>a.id===e.sourceId&&a.alive&&a.team===e.team)||actor.duckPadAt===elapsed)continue;
-    actor.duckPadAt=elapsed;actor.duckPadUntil=elapsed+4;actor.duckPadRound=match.round;actor.duckPadTeam=actor.team;actor.vy=DUCK_SKILLS.padVelocity;
+    actor.duckPadAt=elapsed;actor.duckPadUntil=elapsed+4;actor.duckPadRound=match.round;actor.duckPadTeam=actor.team;actor.vy=DUCK_SKILLS.padVelocity;sound('duck-launch',{entity:actor,localOnly:true});
     if(actor===player)skillFeedback.note('cast','pad:'+e.id+':'+elapsed,'duck',elapsed,'羽根の跳び床');
   }
 }
