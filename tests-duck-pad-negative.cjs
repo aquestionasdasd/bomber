@@ -1,0 +1,2 @@
+const cp=require('node:child_process');
+for(const fault of ['lift','remote','source']){const p=cp.spawnSync(process.execPath,['tests-duck-pad.cjs','--fault='+fault],{cwd:__dirname,encoding:'utf8',timeout:90000,windowsHide:true});if(p.status!==1||!p.stderr.includes('AssertionError'))throw Error('Undetected in-memory pad fault '+fault+' '+p.stderr);console.log('PASS: in-memory pad fault detected / '+fault);}

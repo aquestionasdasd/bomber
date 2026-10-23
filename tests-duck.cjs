@@ -11,7 +11,7 @@ async function main(){
  test('eighth identity, distinct four effects, bounded purchases and CD',()=>{
   assert.equal(CHARACTER_DEFS.duck.label,'🦆');const kit=new DuelistKit({character:'duck'});let spent=0;
   for(const k of ['c','c','q'])assert.ok(kit.buy(k,n=>(spent+=n,true)));assert.equal(spent,300);assert.equal(kit.buy('q',()=>true),false);
-  assert.equal(kit.activate('c',1).type,'duck-seal');assert.equal(kit.activate('q',1).type,'duck-shield');assert.equal(kit.activate('e',1).type,'duck-hush');assert.equal(kit.activate('e',20.99),null);assert.equal(kit.activate('e',21).type,'duck-hush');kit.ultPoints=7;assert.equal(kit.activate('x',21).type,'duck-egg');assert.equal(kit.ultPoints,0);assert.equal(kit.knivesActive,false);
+  assert.equal(kit.activate('c',1).type,'duck-pad');assert.equal(kit.activate('q',1).type,'duck-shield');assert.equal(kit.activate('e',1).type,'duck-hush');assert.equal(kit.activate('e',20.99),null);assert.equal(kit.activate('e',21).type,'duck-hush');kit.ultPoints=7;assert.equal(kit.activate('x',21).type,'duck-egg');assert.equal(kit.ultPoints,0);assert.equal(kit.knivesActive,false);
   const copy=new DuelistKit();assert.ok(copy.restore(JSON.parse(JSON.stringify(kit.snapshot()))));assert.deepEqual(copy.snapshot(),kit.snapshot());
   for(const k of ['c','q','e'])assert.ok(getCharacterSkill('duck',k).type.startsWith('duck-'));
  });

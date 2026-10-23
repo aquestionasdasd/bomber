@@ -17,8 +17,8 @@ export const CHARACTER_DEFS = Object.freeze({
     description: 'C：小さく弾けるはんだ玉 / Q：新しい閃光を軽減する遮光眼鏡 / E：予備弾で素早く整備。X：半径6m・30ダメージ×3回の爆撃（7pt）。', color: '#eaa36f', ultIcon: 'M18 2v5m0 16v5M2 15h5m22 0h5M8 5l4 4m12 12 4 4M28 5l-4 4M12 21l-4 4M18 8l3 5 5 2-5 2-3 5-3-5-5-2 5-2Z' }),
   frost: Object.freeze({ id: 'frost', label: '尾野', role: '守備', ultName: 'クライオフィールド', ultShortName: '足止め', ultimatePoints: 7,
     description: 'C：円環の霜のステッチ / Q：遠くのドールミスト / E：低い姿勢で滑り込み、減速にも耐える。X：最大20m先に半径7mの減速場を10秒展開（7pt）。', color: '#96dce5', ultIcon: 'M18 2v26M6 8l24 14M6 22 30 8M14 5l4 4 4-4M14 25l4-4 4 4M6 13l6-1-1-6M30 17l-6 1 1 6M6 17l6 1-1 6M30 13l-6-1 1-6' }),
-  duck: Object.freeze({ id:'duck', label:'🦆', role:'防護・封印', ultName:'不屈の卵', ultShortName:'卵', ultimatePoints:7,
-    description:'C：狙った敵の新しいスキルを封印 / Q：弾だけを止める羽盾 / E：10秒スペース連打で飛行、最初の5秒は消音。X：8秒、致死攻撃を2回までHP1で耐える（7pt）。', color:'#77b34c', ultIcon:'M18 2C9 2 5 16 5 21a13 9 0 0 0 26 0C31 16 27 2 18 2Zm-2 10 5 5-5 4 4 5' }),
+  duck: Object.freeze({ id:'duck', label:'🦆', role:'跳躍・防護', ultName:'不屈の卵', ultShortName:'卵', ultimatePoints:7,
+    description:'C：全員が跳べる羽根床を設置 / Q：弾だけを止める羽盾 / E：10秒スペース連打で飛行、最初の5秒は消音。X：8秒、致死攻撃を2回までHP1で耐える（7pt）。', color:'#77b34c', ultIcon:'M18 2C9 2 5 16 5 21a13 9 0 0 0 26 0C31 16 27 2 18 2Zm-2 10 5 5-5 4 4 5' }),
   cat: Object.freeze({id:'cat',label:'猫の画像',role:'回収・時制',ultName:'白紙の8秒',ultShortName:'時止め',ultimatePoints:7,description:'C：保存地点へ帰還 / Q：敵の装填弾を最大5発裂き、1発12・最大60ダメージ / E：落ちた銃を遠隔回収。X：8秒、ラウンドとボンバーの時計を止める。行動と電源オフは進む（7pt）。',color:'#eee8dd',ultIcon:'M18 3a12 12 0 1 0 0 24 12 12 0 0 0 0-24ZM14 9v12m8-12v12'}),
   car: Object.freeze({id:'car',label:'トミカ',role:'排除・補給',ultName:'ピットクルー',ultShortName:'補給',ultimatePoints:7,description:'C：本体突進で75ダメージ＋最大24m吹き飛ばし / Q：狙った煙を一つ除去 / E：接地中の移動射撃を安定化。X：視線内24mの味方と自身のC/Q/Eを補給（7pt）。',color:'#e9ece8',ultIcon:'M4 23h28V10H4ZM8 14h8v5H8Zm12 0h8v5h-8ZM12 4v4m12-4v4M9 25v4m18-4v4'}),
   nobi:Object.freeze({id:'nobi',label:'のび',role:'弱点・工作',ultName:'逆転えり',ultShortName:'逆転',ultimatePoints:7,description:'C：敵を銃に弱くする鈴 / Q：敵の連射を遅らせるひげ / E：設置と電源オフを加速。X：8秒、胴・脚への銃撃も頭相当の威力（7pt）。',color:'#f3cb48',ultIcon:'M18 3 3 13l15 15 15-15ZM10 13l8 8 8-8M18 3v11'}),
@@ -55,14 +55,14 @@ export const JAPAN_SKILLS=Object.freeze({borderRange:40,borderWidth:10,borderHei
 export const NOBI_SKILLS=Object.freeze({tagRange:35,tagDuration:6,vulnerability:1.35,brakeRange:40,brakeDuration:5,fireIntervalScale:1.6,toolDuration:6,toolScale:1.5,signatureCooldown:18,legendDuration:8});
 export const CAR_SKILLS=Object.freeze({bumperRange:35,bumperDistance:24,bumperSpeed:26,bumperDamage:75,bumperLaunchTime:1,bumperLift:6,washRange:40,gyroDuration:4,signatureCooldown:18,pitRange:24});
 export const CAT_SKILLS=Object.freeze({bookmarkDuration:10,returnRange:24,pluckRange:30,pluckAmmo:5,pluckDamagePerRound:12,fetchRange:18,signatureCooldown:18,clockDuration:8});
-export const DUCK_SKILLS = Object.freeze({ sealRange:40, sealDuration:4, shieldRange:28, shieldDuration:6, shieldHP:180, shieldWidth:3, shieldHeight:2.4, hushDuration:5, flightDuration:10, flapVelocity:5.8, flapInterval:.18, flightHeight:8, signatureCooldown:20, eggDuration:8, eggLives:2 });
+export const DUCK_SKILLS = Object.freeze({ sealRange:40, sealDuration:4, padRange:28, padRadius:2, padArm:.25, padDuration:8, padVelocity:11, shieldRange:28, shieldDuration:6, shieldHP:180, shieldWidth:3, shieldHeight:2.4, hushDuration:5, flightDuration:10, flapVelocity:5.8, flapInterval:.18, flightHeight:8, signatureCooldown:20, eggDuration:8, eggLives:2 });
 const catSkills={
  c:{name:'白いしおり',shortName:'帰還',description:'接地中に場所を記録。10秒以内にCを再押しで24m以内の記録地点へ戻る。HP・弾は戻らず、着地先が塞がると不発。初回だけ回数消費。',max:2,price:100,type:'cat-bookmark',icon:'M10 3h16v26l-8-6-8 6ZM14 9h8m-8 5h8'},
  q:{name:'ひげの弾裂き',shortName:'弾裂き',description:'Qで構え、30mの視線内敵へ左確定・右取消。現在の銃から最大5発を裂き、実際に抜いた1発につき12ダメージ（最大60・装甲あり）。予備弾は残る。空・装填中・ナイフには無効。',max:1,price:100,type:'cat-pluck',icon:'M8 7h6v18H8Zm14 0h6v18h-6ZM3 16h5m20 0h5M16 12l4 8'},
  e:{name:'ねこの手',shortName:'銃回収',description:'Eで構え、18mの見える落ちた銃へ左確定・右取消。銃を回収し前の同枠装備は足元へ落とす。弾は生成せず、18秒で再使用。',max:1,price:0,type:'cat-fetch',icon:'M7 26V14l5 7V5h5v13V3h5v16l4-8 4 2-4 15Z'},
 };
 const duckSkills = {
- c:{name:'羽根の封印',shortName:'封印',description:'Cで構え、40m以内の照準の敵へ左クリック確定・右クリック取消。4秒、新規スキル発動だけを封じる。壁と煙越しは不可。',max:2,price:100,type:'duck-seal',icon:'M8 25 28 5M12 9l8 8M9 13l7 7M17 6l8 8M5 27l4-1'},
+ c:{name:'羽根の跳び床',shortName:'跳び床',description:'Cで構え、28mの見える床へ左確定・右取消。0.25秒後から8秒、半径2mの羽根床に乗ると約4m跳躍。自分・味方・敵が再利用でき、天井で止まる。',max:2,price:100,type:'duck-pad',icon:'M8 25 28 5M12 9l8 8M9 13l7 7M17 6l8 8M5 27l4-1'},
  q:{name:'浮き羽の盾',shortName:'羽盾',description:'Qで構え、28m以内の床へ左クリック設置・右クリック取消。6秒・180耐久の羽盾。両軍の弾を止め、視線・歩行・近接は通す。',max:1,price:100,type:'duck-shield',icon:'M18 3 5 8v9c0 8 13 12 13 12s13-4 13-12V8ZM18 8v16M10 12l8 4 8-4'},
  e:{name:'忍びガモ',shortName:'羽ばたき',description:'10秒、スペースを押すたび空中で羽ばたく。連打で上昇・維持、離すと落下。発動地点から最大8m。最初の5秒は足音・着地音なし。銃声は消えない。20秒で再使用。',max:1,price:0,type:'duck-hush',icon:'M18 24V10m-5 5 5-6 5 6M16 19 3 9l3 13 10 5m4-8L33 9l-3 13-10 5'},
 };
@@ -187,7 +187,7 @@ export class DuelistKit {
         if(this.character==='nobi')return {type:'nobi-tag'};
         if (this.character === 'car') return {type:'car-bumper'};
         if (this.character === 'cat') return {type:'cat-bookmark'};
-        if (this.character === 'duck') return {type:'duck-seal'};
+        if (this.character === 'duck') return {type:'duck-pad'};
         if (this.character === 'mend') return { type: 'mend-seeds', flight: MEND_SKILLS.seedsFlight, duration: MEND_SKILLS.seedsDuration, radius: MEND_SKILLS.seedsRadius, speedScale: MEND_SKILLS.seedsSpeedScale };
         if (this.character === 'echo') return { type: 'echo-tag', flight: IAGNU_SKILLS.tagFlight, armDelay: IAGNU_SKILLS.tagArmDelay, duration: IAGNU_SKILLS.tagDuration, radius: IAGNU_SKILLS.tagRadius, range: IAGNU_SKILLS.tagRange, revealDuration: IAGNU_SKILLS.tagRevealDuration };
         if (this.character === 'veil') return { type: 'veil-dust', armDelay: VEIL_SKILLS.dustArmDelay, duration: VEIL_SKILLS.dustDuration, radius: VEIL_SKILLS.dustRadius };

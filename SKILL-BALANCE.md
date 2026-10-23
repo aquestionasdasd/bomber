@@ -120,3 +120,13 @@ SCOUT単独の勝利は4対4、FORGE3対3、PUMP5対2であり、全武器で勝
 - 青ウニ契約5/実game15、新lance実savedgame10/strict契約5/4memory故障検出、通常55/SQLite20（新type20個も容量検査、既存最大65516/65536B）/知覚8/戦術14PASS行と実地4seed/測定7/演出8/録音mock4/本番5段階build成功。全mainは再実行しない。初回の旧jam期待、装甲期待、次Rfixture、JSON循環、40m端点fixtureを修正し、製品権威や射程を緩めていない。
 - 所有hidden local179は初手SOUND OFFfalse/AX0、説明/C構え左確定/予告射線と同標的2回で敵3→2/撃破00→01を実確認、warn/error0。80数値/装甲/多重命中/横避けは独立savedgame検査で実browser数値確認ではない。local179をNOPE/hashimoto/standard/attack/normalへ復元し閉鎖。8047/8048は保持sessionへ停止入力しlistener0。失敗178は8047接続timeoutで制御handle未取得、操作/開始せず一時タブ自動cleanup対象、error URL policyを回避しない。ユーザー3/5/8/10/12不操作、foreground/実音/試聴なし。新実2タブ/実端末未確認。
 - 公開確定/共有の正本はworkspace cycle84-release.json。全15人調整は未完了。次は🦆C等の弱い封印系を使用機会/追撃/目標寄与で比較し、一技ずつ再設計。完成した同一48round/全mainの無用反復をしない。CAR75raw24m/Japan人間指定10倍を保持。
+
+## 第85巡 / 🦆Cを全員利用可能な「羽根の跳び床」へ
+
+- 旧4秒の新技封印を廃止し、28mの見える実床へ構え→左確定/右取消で設置する移動支援へ。0.25秒後から8秒、半径2mへ接地した自分/味方/敵をvy11で打ち上げ、重力15で約4mへ連続移動。着地後再利用可能。天井/床を守り、設置者死亡/team/次R/退出で床を清掃、既に飛んだ身体は重力で落下。C2/100coin、Q/E/X保持。全15人比較と公式操作参考はDUCK-C-REVIEW.md。
+- strict16field duck-pad、hostが設置と接地を承認し遠隔actorの飛行中Yを計算、guestは受信済み床による自分の移動だけ予測。未ACK設置から跳べず、古い受信/重複/満杯20event拒否rollbackを保持。actor通信field追加なし。旧duck-sealは旧snapshot互換のみ。固定円盤/輪/6上向き矢印、既存録音cueを使用。地形/音源不変。
+- 修正前8組16roundはC16対0/対象team勝利7対7/生存3対5/撃破7対6/与ダメ1011対1235。初期案24組48round seed1–6は勝利14対15で、当時のresetがduckPadAtを消さない実不具合を専用検査で発見して修正。rawをdraftとして別名保存し最終値と混同しない。最終seed7–12の24組48roundはC33対0/勝利13対10/生存7対5/撃破13対14/与ダメ2362対1983。撃破は改善していない。本人設置床73利用（自分を含む味方71/敵2、再着地の重複利用を含み人数ではない）。本人跳躍45対6、無効側6は別の🦆の床。全チーム設置17対16/電源オフ4対3は本人貢献ではない。
+- 精鋭5v5、両map攻守、全Vandal50armor満在庫7pt、青本人Cだけ有効無効。実updatePlay一frame一回、source/harnessSHAをrawに記録。小標本/武器経済の偏り/発動後PRNG分岐があり、人間や全15人の勝率保証ではない。初期案/旧技と最終seedが異なり直接の因果比較ではない。cycle85-duck-before/after/final.jsonとbalance-summary.jsonを正本にする。
+- 🦆契約7/既存実game18、新pad実savedgame9/3memory故障（低い打上げ、遠隔Y権威漏れ、死亡設置者guard欠落）、通常55/SQLite20（20pad62390B、最大65516/65536B）/知覚8/戦術14行実地4seed/測定7/演出8/録音mock4/本番build5段階を確認。20/60/144Hzで約4m/着地/再利用、実天井、全team、期限、設置者死亡後の他rider落下、nextR、pending拒否とJSONを検査。全main再実行なし。旧seal期待/生成test引用/guest在庫fixture/変異の死亡riderfixtureを修正し権威は緩めない。
+- local所有hidden180は新規初手SOUND OFFfalse/AX0、タイトル新C/QEX説明、C構え左確定、固定床/輪/矢印と移動を確認warn/error0。実browserで正確4mの頂点や全跳躍を計時したとは扱わず、数値物理/権威は独立savedgame根拠。NOPE/hashimoto/standard/attack/normal復元、180閉鎖/8049は保持sessionへ停止入力しlistener0。新publicbrowser/実2タブ/実端末/聴感未確認。ユーザー3/5/8/10/12不操作、foreground/再生なし。
+- 公開/共有の実IDはworkspace cycle85-release.jsonを正本とする。全15人汎用性は未完了。次は残る封印系やニッチ技の使用機会/追撃を一技ずつ比較。跳び床を使うBOTの着地点選択は改善余地があり、見えない敵情報を与えない。CAR75raw24m/Japan人間指定10倍を保持。同じ48round/全mainの無用反復を避ける。
