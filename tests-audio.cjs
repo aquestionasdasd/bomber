@@ -86,7 +86,7 @@ async function main(){
   for(const mode of ['cold','ready','failed'])assert.equal(await protectedTrace(createGameAudio,mode),await protectedTrace(createGameAudio,mode,true));
   const adopted=['soundeffect-lab-manifest.json','extra-sources-manifest.json'].flatMap(file=>JSON.parse(fs.readFileSync(path.join(__dirname,'public/audio',file),'utf8')));
   for(const entry of adopted){const bytes=fs.readFileSync(path.join(__dirname,'public/audio',entry.file));assert.equal(sha(bytes),entry.sha256);assert.equal(bytes.length,entry.bytes);}
-  assert.ok([...files].every(file=>adopted.some(entry=>entry.file===file)),'Every active cue has documented provenance');
+  assert.ok([...files].every(file=>[...adopted,...manifests].some(entry=>entry.file===file)),'Every active cue has documented provenance');
   assert.deepEqual(SAMPLE_CUES.jump.map(cue=>cue.file),['lab-cloth.ogg']);assert.ok(SAMPLE_CUES.jump[0].length<=.2);
   console.log('PASS: replacement asset hashes/provenance; soft jump; isolated footstep variation');
 

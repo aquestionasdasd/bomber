@@ -41,10 +41,10 @@ export function createTrcTraversal(map,{doorMeshes=new Map()}={}){
  function restore(s){if(!valid(s))return false;for(let i=0;i<s.length;i++){const d=doors[i];d.hp=s[i][1];d.open=s[i][2];sync(d);}update(10);return true;}
  function update(dt){for(const d of doors){const v=doorMeshes.get(d.id);if(!v)continue;const target=d.open?1:0;v.amount+=Math.max(-dt*4,Math.min(dt*4,target-v.amount));v.leaf.scale.y=Math.max(.025,1-v.amount);v.leaf.position.y=1.45+v.amount*1.45;v.group.updateMatrixWorld(true);}}
  const routes={
-  attackA:[P(34.9,36.7),P(34.9,29),P(34.9,27),P(32,27),P(32,23),{...P(30.4,23,3.2),ladder:'L1'},P(28.6,18,3.2),P(23,16,3.2)],
-  attackB:[P(65,33),P(70,33),P(70,21),P(66,21),{...P(64.4,21,3.6),ladder:'L2'},P(64,25.5,3.6)],
-  defendA:[P(14,8),P(14,16,3.2),P(23,16,3.2)],
-  defendB:[P(59,6),P(59,16,3.6),P(64,25.5,3.6)]
+  attackA:[P(13,58),P(8.5,58),P(8.5,49),P(5.2,49),P(5.2,34),P(9,34),P(9,30),{...P(10.4,30,3.2),ladder:'L1'},P(11.8,24.5,3.2),P(15,24.5,3.2),P(25,24,3.2)],
+  attackB:[P(84,70),P(84,59),P(96,59),P(96,48),P(89,48),P(89,43),P(84,35)],
+  defendA:[P(32,12),P(32,22,3.2),P(25,24,3.2)],
+  defendB:[P(81,29),P(81,24,1.2),P(84,24,1.2)]
  };
  return {doors,ladders:TRC_LADDERS,routes,nearby,interact,damage,climb,reset,restore,valid,update,snapshot:()=>doors.map(d=>[d.id,d.hp,d.open])};
 }

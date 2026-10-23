@@ -886,10 +886,10 @@ function activeArenaBounds(){return exploring&&!onlinePlaying?map.bounds:map.com
 function updateMapLabels(){
   const name=map.name||'橋本駅',short=map.shortName||'HASHIMOTO',viewBounds=activeArenaBounds();
   const copies={'mission-map':name+' 爆破・電源オフ作戦','menu-map-name':name+'前','character-preview-map':name+'前','hud-map-name':short+' STATION','map-title':name+' / 戦術マップ','map-area-name':name+' · '+(viewBounds.maxX-viewBounds.minX)+'m × '+(viewBounds.maxZ-viewBounds.minZ)+'m','map-route-copy':map.id==='hirakata'?'屋内A / 屋内B / MID横挟みルート':'バス通り / 中央連絡路 / ミウィ通り'};
-  if(map.id==='trc')Object.assign(copies,{'menu-map-name':name,'character-preview-map':name,'hud-map-name':'TRC / SOUND MARKET','map-route-copy':'A ロング・ショート / MID / B メイン・舞台裏'});
+  if(map.id==='trc')Object.assign(copies,{'menu-map-name':name,'character-preview-map':name,'hud-map-name':'TRC / SOUND MARKET','map-route-copy':'屋外 A ロング / 正面ロビー・MID / 搬入 B メイン'});
   copies['map-site-a-name']=map.sites[0].name;copies['map-site-b-name']=map.sites[1].name;copies['map-detail']=map.id==='hirakata'?'対戦は従来の164m四方。マップ練習では周辺224m四方も探索できます。車道の京阪バスに注意。':'橋本駅前の景観をもとに構成したオリジナルマップです。';
   copies['map-coordinate-copy']=copies['menu-coordinate-copy']=map.id==='hirakata'?'34.815°N / 135.649°E':'35°35′42″N / 139°20′42″E';copies['menu-map-note']=map.id==='hirakata'?'枚方市駅 / 南北広場・自由通路・駅周辺街区':'非公式ファンメイド / 橋本駅前をモチーフにしたオリジナルマップ';copies['radar-map-copy']=short+' / 2 SITES';
-  if(map.id==='trc')Object.assign(copies,{'map-detail':'東京流通センターをモチーフに再構成した屋内会場。ダクト・はしご・上層で挟み込み。Fでドア操作、Ctrlでダクト、Shiftで消音。','map-coordinate-copy':'TRC INSPIRED / INDOOR EXHIBITION','menu-coordinate-copy':'TRC INSPIRED / INDOOR EXHIBITION','menu-map-note':'同人音楽即売会 / オリジナル対戦レイアウト'});
+  if(map.id==='trc')Object.assign(copies,{'map-detail':'屋外前庭から会場へ侵入する縦長マップ。Aはダクト・準備室経由のヘブン、Bは低いステージ。サイトの主床に広く設置可能。Fでドア・はしご、Ctrlでダクト、Shiftで消音。','map-coordinate-copy':'TRC INSPIRED / OUTDOOR APPROACH','menu-coordinate-copy':'TRC INSPIRED / OUTDOOR APPROACH','menu-map-note':'同人音楽即売会 / オリジナル対戦レイアウト'});
   canvas.setAttribute('aria-label',name+'の3D競技マップ');$('large-minimap')?.setAttribute('aria-label',name+'の戦術マップ');
   for(const[id,text]of Object.entries(copies))if($(id))$(id).textContent=text;
   for(const id of ['map-select','online-map'])if($(id)&&(!online||id==='map-select'))$(id).value=map.id||'hashimoto';
@@ -1168,8 +1168,15 @@ function updateTravelButtons(){
   const trial=document.createElement('button');trial.type='button';trial.textContent='キャラ能力を試す';trial.disabled=!exploring||!!rangeSession;
   trial.addEventListener('click',startCharacterTrial);container.append(trial);
 }
+function trcObjectivePriority(actor=player){
+  if(!map.traversal||!actor.alive||match?.phase!=='live'||exploring&&!objectivePractice||Math.abs(actor.y||0)>.05)return false;
+  const s=match.spike;
+  return s.status==='carried'&&s.carrier===actor.id&&actor.team===match.attackerTeam&&map.sites.some(site=>isInsideSite(site,actor.x,actor.z))||
+    s.status==='planted'&&actor.team===match.defenderTeam&&Math.hypot(actor.x-s.x,actor.z-s.z)<2.3;
+}
 function trcInteract(actor=player,request=null){
   if(!map.traversal||!actor.alive||match?.phase!=='live'||carMotionActive(actor))return false;
+  if(!request&&trcObjectivePriority(actor))return false;
   const n=request||map.traversal.nearby(actor);if(!n)return false;
   if(actor===player&&isGuest()){
     queueNetAction('trc-interact',{kind:n.kind,id:n.id});
@@ -2082,7 +2089,7 @@ function updateHUD(){
   if(exploring){
     $('timer').textContent='∞';$('round-label').textContent=(map.shortName||'HASHIMOTO')+' / MAP PRACTICE';$('side-label').textContent='マップ練習';
     $('phase-label').textContent='2 SITES / 3 LANES';$('objective-label').textContent=!rangeSession&&!objectivePractice?'C/Q/E/X 無限 · M：ルート確認・地点移動 · B：武器選択':'M：ルート確認・地点移動 · WASD：移動 · B：武器選択';
-    $('spike-state').textContent=map.id==='trc'?'A ロング / MID / B 舞台裏 / 上層・ダクト':map.id==='hirakata'?'南北自由通路 / バス車道に注意 / 接触100ダメージ':'バス通り / 中央連絡路 / ミウィ通り';$('zone').textContent=zone?.name||((map.name||'橋本駅')+'前');
+    $('spike-state').textContent=map.id==='trc'?'屋外前庭 / A ロング / MID / 搬入 B メイン':map.id==='hirakata'?'南北自由通路 / バス車道に注意 / 接触100ダメージ':'バス通り / 中央連絡路 / ミウィ通り';$('zone').textContent=zone?.name||((map.name||'橋本駅')+'前');
   }
   if($('ally-label'))$('ally-label').textContent=rangeSession?'SCORE':'YOUR TEAM';
   if($('enemy-label'))$('enemy-label').textContent=rangeSession?'HEADSHOT':'ENEMY TEAM';
@@ -2755,7 +2762,7 @@ function updatePlay(dt){
   if(mode==='shop')updateShop();if(mode==='score')updateScoreboard();
 }
 function updateInteraction(dt,stationary){
-  const trc=match.phase==='live'&&map.traversal?.nearby(player);
+  const trc=!trcObjectivePriority(player)&&match.phase==='live'&&map.traversal?.nearby(player);
   if(trc){if(!isGuest()){match.cancelPlant(player.id);match.cancelDefuse(player.id);}setVisible('interaction',true);$('interaction-title').textContent=trc.label;$('interaction-progress').style.width='0%';if($('mobile-interact-label'))$('mobile-interact-label').textContent='F';return;}
   const bus=player.alive&&match.phase==='live'?map.traffic?.service.candidate(player,elapsed):null;
   if(bus){setVisible('interaction',bus.available);$('interaction-title').textContent=bus.available?'F · '+(bus.kind==='board'?'乗車':bus.kind==='drive'?'運転席':'降車'):' ';$('interaction-progress').style.width='0%';if($('mobile-interact-label'))$('mobile-interact-label').textContent='F';return;}

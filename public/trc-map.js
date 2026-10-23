@@ -1,23 +1,25 @@
 import {createCollisionIndex} from './collision.js';
 import {createTrcTraversal} from './trc-traversal.js';
-import {TRC_FLOOR,TRC_DECKS,TRC_STAIRS,TRC_LADDERS,TRC_DUCTS,TRC_DOORS,TRC_COVERS,TRC_SCREENS,trcPoint as P,trcRect as R,contains,rectPolygon,stairHeight,trcDeckCut,trcDuctAt} from './trc-layout.js';
+import {TRC_BOUNDS,TRC_ROOMS,TRC_OUTDOORS,TRC_PORTALS,TRC_WALLS,TRC_SITES,TRC_FLOOR,TRC_DECKS,TRC_STAIRS,TRC_LADDERS,TRC_DUCTS,TRC_DOORS,TRC_COVERS,TRC_SCREENS,trcPoint as P,trcRect as R,contains,rectPolygon,stairHeight,trcDeckCut,trcDuctAt} from './trc-layout.js';
 
 // A joined architectural shell, with authored surface profiles and batched
 // fixtures. Collision is built from the same floor/wall outlines as the art.
 export function createTrcMap(T,scene){
  const world=new T.Group();world.name='TRC / independent sound market';scene.add(world);
- const bounds={minX:-36,maxX:36,minZ:-30,maxZ:30},colliders=[],mapShapes=[],batches=new Map();
+ const bounds={...TRC_BOUNDS},colliders=[],mapShapes=[],batches=new Map();
  const materials={},textures=[];
  const material=(key,color,roughness=.8,metalness=0)=>materials[key]=new T.MeshStandardMaterial({color,roughness,metalness});
  material('wall','#d7d2c5');material('dado','#888c86');material('trim','#ece6d8',.55,.35);
  material('steel','#3b4b53',.45,.65);material('aluminium','#9bacae',.38,.72);material('dark','#1d2b33');
  material('orange','#bc6142');material('blue','#347782');material('cream','#cbbfa2');material('wood','#b49c78');
- material('floor','#aaaca4',.92);material('rubber','#303d43',.95);material('cloth','#c8beb1',.96);
+ material('tile','#d4cbb8',.7);material('paving','#8b969c',.95);material('glass','#346077',.26,.35);material('plant','#587461');material('floor','#aaaca4',.92);material('rubber','#303d43',.95);material('cloth','#c8beb1',.96);
+ material('siteA','#c3b69c',.9);material('siteB','#91a6a0',.88);
  material('light','#e6f2ed',.32);materials.light.emissive=new T.Color('#bfdedc');materials.light.emissiveIntensity=1.7;
  material('warmLight','#ffdb96',.35);materials.warmLight.emissive=new T.Color('#ffc779');materials.warmLight.emissiveIntensity=1.5;
  function texture(draw,w=512,h=512){const c=document.createElement('canvas');c.width=w;c.height=h;draw(c.getContext('2d'),w,h);const t=new T.CanvasTexture(c);t.colorSpace=T.SRGBColorSpace;textures.push(t);return t;}
  const concrete=texture((c,w,h)=>{c.fillStyle='#d5d4ce';c.fillRect(0,0,w,h);for(let i=0;i<8000;i++){c.fillStyle=i%3?'rgba(51,61,58,.035)':'rgba(255,255,255,.16)';c.fillRect(i*73%w,(i*131+Math.floor(i/17)*13)%h,1+i%3,1);}c.strokeStyle='rgba(51,61,58,.18)';c.lineWidth=1;c.strokeRect(.5,.5,w-1,h-1);});
- concrete.wrapS=concrete.wrapT=T.RepeatWrapping;concrete.repeat.set(1/6,1/6);materials.floor.map=concrete;
+ concrete.wrapS=concrete.wrapT=T.RepeatWrapping;concrete.repeat.set(1/6,1/6);materials.floor.map=concrete;materials.tile.map=concrete;materials.paving.map=concrete;
+ materials.siteA.map=materials.siteB.map=concrete;
  const panel=texture((c,w,h)=>{c.fillStyle='#dddcd5';c.fillRect(0,0,w,h);c.fillStyle='#8f9793';c.fillRect(0,0,2,h);c.fillRect(0,0,w,2);for(let i=0;i<2000;i++){c.fillStyle='rgba(42,49,45,.035)';c.fillRect(i*47%w,i*101%h,2,1);}});
  panel.wrapS=panel.wrapT=T.RepeatWrapping;panel.repeat.set(.42,.3);materials.wall.map=panel;
  const metalTex=texture((c,w,h)=>{c.fillStyle='#bcc5c5';c.fillRect(0,0,w,h);for(let i=0;i<64;i++){c.strokeStyle=i%2?'#a4afaf':'#e0e6e4';c.beginPath();c.moveTo(i*8,0);c.lineTo(i*8,h);c.stroke();}},256,256);
@@ -47,22 +49,52 @@ export function createTrcMap(T,scene){
  }
  function walls(edges,lo,hi,key){for(const [x,z,X,Z]of edges)quad([x,lo,z],[X,lo,Z],[X,hi,Z],[x,hi,z],key);}
  function slab(rects,cuts,lo,hi,key,id){const u=union(rects,cuts);for(const r of u.cells){const {minX:x,maxX:X,minZ:z,maxZ:Z}=r;quad([x,hi,z],[x,hi,Z],[X,hi,Z],[X,hi,z],key);quad([x,lo,z],[X,lo,z],[X,lo,Z],[x,lo,Z],key);}walls(u.edges,lo,hi,key);for(const r of u.rectangles)physical(r,lo,hi,'surface',{surfaceId:id});return u;}
- // One continuous hall floor and envelope, rather than separate room boxes.
- quad([-36,0,-30],[-36,0,30],[36,0,30],[36,0,-30],'floor',[[0,0],[0,60],[72,60],[72,0]]);
- const shell=union(TRC_FLOOR,[],true);walls(shell.edges,0,1.15,'dado');walls(shell.edges,1.15,1.21,'steel');walls(shell.edges,1.21,9.6,'wall');
- for(const r of shell.rectangles){physical(r,0,9.6,'building');mapShapes.push({polygon:rectPolygon(r),color:'#536069',kind:'building'});}
- // Exterior cap and ceiling prevent all flight skills from leaving the hall.
- for(const r of [R(0,0,72,.3),R(0,59.7,72,.3),R(0,0,.3,60),R(71.7,0,.3,60)])solid(r,0,10,'wall','building');
- slab([bounds],[],9.6,9.85,'dark','ceiling');
- function rail(x,z,w,d,y){solid({minX:x-w/2,maxX:x+w/2,minZ:z-d/2,maxZ:z+d/2},y,y+.78,'steel','railing');part(x,y+.84,z,w,.09,d+.06,'aluminium');}
- for(const height of [1.2,3.2,3.6]){
+ // Outdoor paving is open to the sky. Individual rooms have their own roofs,
+ // materials and ceiling heights; there is no global enclosing hall ceiling.
+ quad([bounds.minX,0,bounds.minZ],[bounds.minX,0,bounds.maxZ],[bounds.maxX,0,bounds.maxZ],[bounds.maxX,0,bounds.minZ],'paving',[[0,0],[0,140],[110,140],[110,0]]);
+ // Non-playable landscaped/service blocks close gaps between the actual rooms.
+ const voids=union(TRC_FLOOR,[],true);
+ for(const r of voids.rectangles){solid(r,0,3.2,'dado','service-block');part((r.minX+r.maxX)/2,3.21,(r.minZ+r.maxZ)/2,r.maxX-r.minX,.02,r.maxZ-r.minZ,'plant');mapShapes.push({polygon:rectPolygon(r),color:'#56696a',kind:'building'});}
+ const envelope=union(TRC_ROOMS);
+ for(const e of envelope.edges){
+  const [x,z,X,Z]=e,horizontal=Math.abs(z-Z)<.001,lo=horizontal?Math.min(x,X):Math.min(z,Z),hi=horizontal?Math.max(x,X):Math.max(z,Z);
+  const at=t=>({x:horizontal?t:x,z:horizontal?z:t});
+  const portals=TRC_PORTALS.filter(p=>horizontal?z>=p.minZ&&z<=p.maxZ&&p.maxX>lo&&p.minX<hi:x>=p.minX&&x<=p.maxX&&p.maxZ>lo&&p.minZ<hi);
+  const breaks=[...new Set([lo,hi,...portals.flatMap(p=>horizontal?[Math.max(lo,p.minX),Math.min(hi,p.maxX)]:[Math.max(lo,p.minZ),Math.min(hi,p.maxZ)])])].sort((a,b)=>a-b);
+  for(let i=0;i<breaks.length-1;i++){
+   const a=at(breaks[i]),b=at(breaks[i+1]),m=at((breaks[i]+breaks[i+1])/2),height=Math.max(...TRC_ROOMS.filter(r=>contains(r,m.x,m.z,.02)).map(r=>r.ceiling));
+   const r={minX:Math.min(a.x,b.x)-.16,maxX:Math.max(a.x,b.x)+.16,minZ:Math.min(a.z,b.z)-.16,maxZ:Math.max(a.z,b.z)+.16};
+   const opening=portals.find(p=>contains(p,m.x,m.z));
+   if(opening){if(opening.base>0)solid(r,0,opening.base,'wall','building');if(height>opening.top)solid(r,opening.top,height,'wall','building');}
+   else {solid(r,0,height,'wall','building');part(m.x,.55,m.z,r.maxX-r.minX+.015,1.1,r.maxZ-r.minZ+.015,'dado');part(m.x,1.14,m.z,r.maxX-r.minX+.02,.06,r.maxZ-r.minZ+.02,'aluminium');}
+  }
+ }
+ for(const room of TRC_ROOMS){
+  const {minX:x,maxX:X,minZ:z,maxZ:Z}=room;
+  quad([x,.006,z],[x,.006,Z],[X,.006,Z],[X,.006,z],room.finish,[[x,z],[x,Z],[X,Z],[X,z]]);
+  slab([room],[],room.ceiling,room.ceiling+.28,'wall','ceiling-'+room.id);
+  // Close the riser above a neighbouring lower roof; it must not leave a
+  // floating ceiling or allow sky/shots through the room's upper envelope.
+  for(const [horizontal,fixed,lo,hi,out]of [[true,z,x,X,-1],[true,Z,x,X,1],[false,x,z,Z,-1],[false,X,z,Z,1]]){
+   const breaks=[...new Set([lo,hi,...TRC_ROOMS.flatMap(r=>horizontal?[r.minX,r.maxX]:[r.minZ,r.maxZ]).filter(t=>t>lo&&t<hi)])].sort((a,b)=>a-b);
+   for(let i=0;i<breaks.length-1;i++){
+    const t=(breaks[i]+breaks[i+1])/2,px=horizontal?t:fixed+out*.02,pz=horizontal?fixed+out*.02:t;
+    const adjacent=TRC_ROOMS.filter(r=>contains(r,px,pz)),other=adjacent.length?Math.max(...adjacent.map(r=>r.ceiling)):Infinity;
+    if(other>=room.ceiling)continue;
+    const r=horizontal?{minX:breaks[i],maxX:breaks[i+1],minZ:fixed-.16,maxZ:fixed+.16}:{minX:fixed-.16,maxX:fixed+.16,minZ:breaks[i],maxZ:breaks[i+1]};
+    solid(r,other,room.ceiling,'wall','roof-riser');
+   }
+  }
+ }
+ for(const r of TRC_WALLS){solid(r,r.base,r.height,'wall','partition');mapShapes.push({polygon:rectPolygon(r),color:'#687877',kind:r.base?'overhead':'building'});}
+ // Low, visible perimeter walls rather than a roof over the exterior.
+ for(const r of [R(0,0,110,.3),R(0,103.7,110,.3),R(0,0,.3,104),R(109.7,0,.3,104)])solid(r,0,3.2,'dado','boundary');
+ for(const height of [1.2,3.2]){
   const decks=TRC_DECKS.filter(r=>r.y===height),cuts=[...TRC_STAIRS.filter(r=>r.height===height),...TRC_LADDERS.filter(l=>l.height===height).map(l=>l.hole)];
   const u=slab(decks,cuts,height-.22,height,'steel','deck-'+height);
   for(const r of decks)mapShapes.push({polygon:rectPolygon(r),color:'#a6c7bf',kind:'overhead'});
-  // Continuous fascia at the gallery edge, interrupted at stairs and ladders.
-  if(height>2)for(const [x,z,X,Z]of u.edges){const len=Math.hypot(X-x,Z-z);if(len<.6)continue;const mid={x:(x+X)/2,z:(z+Z)/2};if(TRC_STAIRS.some(r=>r.height===height&&contains(r,mid.x,mid.z,.3))||TRC_LADDERS.some(l=>l.height===height&&contains(l.hole,mid.x,mid.z,.2)))continue;rail(mid.x,mid.z,Math.max(.1,Math.abs(X-x)),Math.max(.1,Math.abs(Z-z)),height);}
  }
- // Gallery rails are vaultable (0.87m); a normal jump drops into each site.
+ // Traversable stair treads share exact geometry with collision and support.
  for(const r of TRC_STAIRS){
   const count=r.steps,w=r.maxX-r.minX,d=r.maxZ-r.minZ;
   for(let i=0;i<count;i++){
@@ -79,12 +111,10 @@ export function createTrcMap(T,scene){
  for(const duct of TRC_DUCTS){
   const u=union(duct.rects);
   slab(duct.rects,[],duct.height,duct.height+.13,'aluminium',duct.id+'-roof');
-  const opening=([x,z,X,Z])=>duct.id==='U1'?Math.abs(z-Z)<.01&&(Math.abs(z-5.9)<.02||Math.abs(z+4.1)<.02):Math.abs(x-X)<.01&&(Math.abs(x-29)<.02||Math.abs(x-30.9)<.02);
+  const opening=([x,z,X,Z])=>duct.openings.some(r=>contains(r,(x+X)/2,(z+Z)/2));
   for(const e of u.edges){if(opening(e))continue;const[x,z,X,Z]=e,r={minX:Math.min(x,X)-.065,maxX:Math.max(x,X)+.065,minZ:Math.min(z,Z)-.065,maxZ:Math.max(z,Z)+.065};solid(r,0,duct.height+.13,'aluminium','duct-wall');}
   for(const r of duct.rects){part((r.minX+r.maxX)/2,.004,(r.minZ+r.maxZ)/2,r.maxX-r.minX,.008,r.maxZ-r.minZ,'aluminium');mapShapes.push({polygon:rectPolygon(r),color:'#669b8f',kind:'overhead'});}
  }
- // The A service shaft is separated from the site by a wall below the catwalk.
- for(const r of [R(30,20,.18,7),R(33.82,20,.18,6),R(30,20,4,.18)])solid(r,0,3.0,'steel','shaft-wall');
  for(const l of TRC_LADDERS){
   for(const dz of [-.5,.5])part(l.x+.55,l.height/2,l.z+dz,.045,l.height+1,.045,'orange',0,cylinder);
   for(let y=.2;y<l.height+.4;y+=.28)part(l.x+.55,y,l.z,.052,.95,.052,'aluminium',Math.PI/2,cylinder,Math.PI/2);
@@ -132,20 +162,27 @@ export function createTrcMap(T,scene){
   part((r.minX+r.maxX)/2,h+.025,(r.minZ+r.maxZ)/2,r.maxX-r.minX+.03,.05,r.maxZ-r.minZ+.03,'aluminium');
  }
  // Structural columns support the galleries; open space beneath is usable Hell.
- for(const [x,z,h]of [[17,13,3.2],[25,13,3.2],[29,25,3.2],[51,13,3.6],[60,13,3.6],[67,18,3.6]]){
+ for(const [x,z,h]of [[15,22,3.2],[35,22,3.2],[6,26,3.2]]){
   const p=P(x,z),r={minX:p.x-.18,maxX:p.x+.18,minZ:p.z-.18,maxZ:p.z+.18};solid(r,0,h,'steel','column');
  }
  function sign(text,sub,x,y,z,w,h,bg='#223e47',fg='#f0e6d5',ry=0){
   const tex=texture((c,cw,ch)=>{c.fillStyle=bg;c.fillRect(0,0,cw,ch);c.fillStyle=fg;c.textAlign='left';c.textBaseline='middle';c.font='600 74px "Yu Gothic",sans-serif';c.fillText(text,36,sub?ch*.38:ch/2,cw-72);if(sub){c.font='500 27px "Segoe UI",sans-serif';c.fillText(sub,38,ch*.78,cw-76);}c.fillRect(0,0,12,ch);},1024,256);
   const m=new T.MeshBasicMaterial({map:tex,side:T.DoubleSide,polygonOffset:true,polygonOffsetFactor:-1});const o=new T.Mesh(new T.PlaneGeometry(w,h),m);o.position.set(x,y,z);o.rotation.y=ry;world.add(o);return o;
  }
- function banner(text,sub,x,z,key){const p=P(x,z);part(p.x,6,p.z,7,.08,.2,'steel');sign(text,sub,p.x,5.25,p.z,6.8,1.4,key);for(const dx of [-2.8,2.8])part(p.x+dx,7.7,p.z,.018,3.4,.018,'aluminium');}
- banner('A  展示ホール','EXHIBITION / INDEPENDENT LABELS',19,15,'#92523a');
- banner('B  試聴ステージ','LISTENING / SOUND DECK',56,15,'#235c68');
- banner('MID  中央連絡','A SHORT ←  /  BACKSTAGE →',36,36,'#4c5854');
- banner('音の集まる場所','INDEPENDENT SOUND MARKET  /  TRC INSPIRED',36,53,'#284753');
+ function banner(text,sub,x,z,key,y=5.25){const p=P(x,z);part(p.x,y+.75,p.z,7,.08,.2,'steel');const front=sign(text,sub,p.x,y,p.z,6.8,1.4,key);front.material.side=T.FrontSide;const back=front.clone();back.rotation.y=Math.PI;back.position.z-=.02;world.add(back);}
+ banner('A  展示ホール','INDEPENDENT LABELS / HALL A',27,28,'#92523a',6.5);
+ banner('B  試聴ホール','LISTENING / LIVE SESSION',84,26,'#235c68',5.4);
+ banner('MID  中央連絡','A HALL ←  /  HALL B →',50,52,'#4c5854',3.1);
+ banner('音の集まる場所','INDEPENDENT SOUND MARKET',53,70,'#284753',4.7);
+ banner('TRC  SOUND MARKET','同人音楽即売会 / MAIN ENTRANCE',53,77.3,'#284753',5.1);
+ // The entrance reads as a recessed glazed facade with a broad canopy.
+ const front=P(53.5,77);part(front.x,3.75,front.z+1.4,29.5,.22,3.6,'steel');
+ for(const x of [41,44.5,59,62.5,66]){const p=P(x,77.2);part(p.x,1.8,p.z,2.8,3.1,.06,'glass');for(const dx of [-1.45,1.45])part(p.x+dx,1.8,p.z+.05,.06,3.2,.07,'aluminium');}
+ for(let x=39.5;x<68;x+=1.5){const p=P(x,77.2);part(p.x,5.15,p.z,.045,2.3,.12,'aluminium');}
+ for(const x of [42,47,58,63]){const p=P(x,78);part(p.x,3.62,p.z,3,.035,.2,'light');}
+ const fenceSign=P(50,81.34);sign('SOUND MARKET','A HALL ←  /  ENTRANCE ↑  /  LOADING →',fenceSign.x,1.9,fenceSign.z,9,1.2,'#34594f');
  for(const d of TRC_DOORS)sign(d.id+'  '+d.label,'F  OPEN / CLOSE  ·  SHOOT TO BREAK',d.x,d.y+3.25,d.z+.23,d.width,.55,'#283c43','#f1d6a3',d.axis==='z'?Math.PI/2:0);
- for(const l of TRC_LADDERS)sign(l.id+'  ↑','HEAVEN / SOUND DECK',l.x+.72,1.7,l.z,1.2,.5,'#aa5f3e','#fff0d9',-Math.PI/2);
+ for(const l of TRC_LADDERS)sign(l.id+'  ↑','UPSTAIRS / A HEAVEN',l.x+.72,1.7,l.z,1.2,.5,'#aa5f3e','#fff0d9',-Math.PI/2);
  for(const d of TRC_DUCTS)sign(d.id+'  メンテナンス','CTRL: CROUCH  /  SHIFT: SILENT',d.entry.x,1.73,d.entry.z,1.85,.48,'#345451');
  // CD art is original typography/geometric artwork in a shared atlas.
  const album=texture((c,w,h)=>{const colors=['#b75c42','#276578','#77866b','#d3b77c','#425d80','#a96c70','#515854','#568e8e'];for(let n=0;n<16;n++){const x=n%4*128,y=Math.floor(n/4)*128;c.fillStyle=colors[n%8];c.fillRect(x,y,128,128);c.strokeStyle='#e4d9b8';c.lineWidth=2;for(let i=0;i<5;i++){c.beginPath();c.arc(x+64,y+55,12+i*7,(n%4)*.5,Math.PI*1.5);c.stroke();}c.fillStyle='#f4e7c9';c.font='500 12px sans-serif';c.fillText(['AFTERIMAGE','PORT / 01','夜と音','LOOP NOTES'][n%4],x+8,y+112);}});
@@ -159,36 +196,39 @@ export function createTrcMap(T,scene){
   const w=Math.abs(Math.cos(ry))*2.44+Math.abs(Math.sin(ry))*.92,d=Math.abs(Math.sin(ry))*2.44+Math.abs(Math.cos(ry))*.92;
   physical({minX:p.x-w/2,maxX:p.x+w/2,minZ:p.z-d/2,maxZ:p.z+d/2},0,.85,'table');
  }
- for(const [x,z,ry]of [[22,49,0],[26,49,0],[44,49,0],[48,49,0],[19,14,0],[23,14,0],[11,29,Math.PI/2],[45,16,Math.PI/2],[46,20,Math.PI/2],[57,28,0]])table(x,z,ry);
+ for(const [x,z,ry]of [[41,68,Math.PI/2],[41,71,Math.PI/2],[41,74,Math.PI/2],[60,66,0],[64,66,0],[16,28,0],[20,28,0],[24,28,0],[38.5,32,Math.PI/2],[38.5,35,Math.PI/2],[70.5,27,0],[74.5,27,0],[97.5,42,Math.PI/2],[97.5,38,Math.PI/2]])table(x,z,ry);
  // Stage equipment has shaped cones and frames, rather than featureless cubes.
  const speakerCone=new T.LatheGeometry([new T.Vector2(.035,.07),new T.Vector2(.09,.045),new T.Vector2(.24,-.035),new T.Vector2(.28,0),new T.Vector2(.3,.015)],24);
- for(const x of [46.7,52.3]){const p=P(x,23.7);rounded(p.x,2.05,p.z,.72,1.7,.62,'dark');physical({minX:p.x-.36,maxX:p.x+.36,minZ:p.z-.31,maxZ:p.z+.31},1.2,2.9,'speaker');
+ for(const x of [73,91]){const p=P(x,22.5);rounded(p.x,2.05,p.z,.72,1.7,.62,'dark');physical({minX:p.x-.36,maxX:p.x+.36,minZ:p.z-.31,maxZ:p.z+.31},1.2,2.9,'speaker');
   for(const y of [1.7,2.38]){const m=new T.Matrix4().makeRotationX(Math.PI/2);m.setPosition(p.x,y,p.z+.32);meshData(speakerCone,'steel',m);part(p.x,y,p.z+.39,.07,.07,.07,'dark',0,sphere);}
  }
  speakerCone.dispose();
- const mic=P(49.7,24.3);part(mic.x,1.22,mic.z,.28,.035,.28,'steel',0,cylinder);part(mic.x,1.9,mic.z,.018,1.35,.018,'aluminium',0,cylinder);part(mic.x,2.59,mic.z,.045,.12,.045,'dark',0,cylinder);
+ const mic=P(84,23.5);part(mic.x,1.22,mic.z,.28,.035,.28,'steel',0,cylinder);part(mic.x,1.9,mic.z,.018,1.35,.018,'aluminium',0,cylinder);part(mic.x,2.59,mic.z,.045,.12,.045,'dark',0,cylinder);
  // Acoustic wall panels, framed posters and consistent skirting carry the detail.
- for(const [x,z,ry,text]of [[11,16,Math.PI/2,'音の余白'],[29.8,18,-Math.PI/2,'NEW RELEASES'],[44.2,18,Math.PI/2,'LISTEN HERE'],[67.8,27,-Math.PI/2,'SOUND MARKET']]){const p=P(x,z);sign(text,'ORIGINAL MUSIC / CIRCLE EXHIBITION',p.x,2.7,p.z,2.6,1.9,'#6f8174','#f2e5c7',ry);}
- // Ceiling ribs and suspended lights share one material batch per finish.
- for(let x=-30;x<=30;x+=12){part(x,8.85,0,.25,1.1,59.4,'steel');part(x,9.37,0,.56,.09,59.4,'aluminium');part(x,8.33,0,.56,.09,59.4,'steel');}
- for(let z=-24;z<=24;z+=8)part(0,9.15,z,71.4,.25,.22,'steel');
- for(let x=-24;x<=24;x+=12)for(let z=-20;z<=24;z+=10){if(!TRC_FLOOR.some(r=>contains(r,x,z)))continue;part(x,7.85,z,3,.15,.62,'steel');part(x,7.75,z,2.8,.035,.46,'light');for(const dx of [-1.2,1.2])part(x+dx,8.7,z,.015,1.7,.015,'aluminium');}
- world.add(new T.AmbientLight('#dce9e7',1.05));
- for(const [x,z,color]of [[-16,-9,'#ffdbaf'],[21,-9,'#c3e3ec'],[0,5,'#e6eedc'],[0,23,'#d3e5ee']]){const light=new T.PointLight(color,65,23,2);light.position.set(x,6.5,z);world.add(light);}
- const siteSpec=[{id:'A',name:'A / 展示ホール',r:[23.5,18,4,4],points:[[25,20],[26.5,19],[24.4,21]]},{id:'B',name:'B / 試聴ステージ前',r:[57.5,25,4,3],points:[[59,26.5],[60.4,26],[58.3,27]]}];
- const sites=siteSpec.map(s=>{const r=R(...s.r),p=P(s.r[0]+s.r[2]/2,s.r[1]+s.r[3]/2);for(const [x,z,X,Z]of union([r]).edges){const dx=X-x,dz=Z-z;part((x+X)/2,.009,(z+Z)/2,Math.max(.08,Math.abs(dx)),.018,Math.max(.08,Math.abs(dz)),s.id==='A'?'orange':'blue');}return {id:s.id,name:s.name,...p,radius:3,polygon:rectPolygon(r),plantPositions:s.points.map(([x,z],i)=>({id:s.id+'-'+['open','cover','deep'][i],style:['open','cover','deep'][i],...P(x,z)}))};});
- for(const s of sites)sign(s.id,'PLANT ZONE',s.x,.025,s.z,1.6,1.6,s.id==='A'?'#a65d40':'#286b77').rotation.x=-Math.PI/2;
+ for(const [x,z,ry,text]of [[13.2,37,Math.PI/2,'音の余白'],[39.8,41,-Math.PI/2,'NEW RELEASES'],[68.2,29,Math.PI/2,'LISTEN HERE'],[98.8,35,-Math.PI/2,'SOUND MARKET']]){const p=P(x,z);sign(text,'ORIGINAL MUSIC / CIRCLE EXHIBITION',p.x,2.7,p.z,2.6,1.9,'#6f8174','#f2e5c7',ry);}
+ // Structural ribs terminate at each room, with a distinct light rhythm.
+ for(const room of TRC_ROOMS){
+  if(['chase','prep-link','a-link','b-link','cross'].includes(room.id))continue;
+  const w=room.maxX-room.minX,d=room.maxZ-room.minZ,y=room.ceiling;
+  for(let z=room.minZ+2;z<room.maxZ-1;z+=6){part((room.minX+room.maxX)/2,y-.28,z,w,.35,.18,'steel');
+   for(let x=room.minX+3;x<room.maxX-1;x+=8){part(x,y-.5,z,2.7,.12,.48,'steel');part(x,y-.57,z,2.5,.025,.36,room.id==='b'?'warmLight':'light');}}
+ }
+ world.add(new T.AmbientLight('#dce9e7',.9));
+ for(const [x,z,y,color]of [[27,34,6,'#ffdbaf'],[84,35,5.5,'#c3e3ec'],[53,70,4.7,'#f5dfb9'],[50,53,3.4,'#d5e9e4']]){const p=P(x,z),light=new T.PointLight(color,80,32,2);light.position.set(p.x,y,p.z);world.add(light);}
+ const siteSpec=TRC_SITES;
+ for(const spec of siteSpec){const r=R(...spec.r),{minX:x,maxX:X,minZ:z,maxZ:Z}=r;quad([x,.012,z],[x,.012,Z],[X,.012,Z],[X,.012,z],spec.id==='A'?'siteA':'siteB',[[x,z],[x,Z],[X,Z],[X,z]]);}
+ const sites=siteSpec.map(s=>{const r=R(...s.r),p=P(...s.center);for(const [x,z,X,Z]of union([r]).edges){const dx=X-x,dz=Z-z;part((x+X)/2,.009,(z+Z)/2,Math.max(.08,Math.abs(dx)),.018,Math.max(.08,Math.abs(dz)),s.id==='A'?'orange':'blue');}return {id:s.id,name:s.name,...p,radius:Math.min(s.r[2],s.r[3])/2,polygon:rectPolygon(r),plantPositions:s.points.map(([x,z],i)=>({id:s.id+'-'+['open','cover','deep','entry'][i],style:['open','cover','deep','entry'][i],...P(x,z)}))};});
+ for(const s of sites)sign(s.id,'PLANT ZONE',s.x,.025,s.z,3,3,s.id==='A'?'#a65d40':'#286b77').rotation.x=-Math.PI/2;
  for(const [key,b]of batches){const g=new T.BufferGeometry();for(const name of ['position','normal','uv'])g.setAttribute(name,new T.Float32BufferAttribute(b[name],name==='uv'?2:3));g.computeBoundingSphere();const m=new T.Mesh(g,materials[key]);m.name='TRC / '+key;m.castShadow=true;m.receiveShadow=true;world.add(m);}
- const teamSpawns={attack:[P(36,55),P(33,55),P(39,55),P(30,55),P(42,55)],defend:[P(36,5),P(33,5),P(39,5),P(34.8,8),P(38,8)]};
- const regions=[['a','A 展示ホール',[10,12,20,18]],['b','B 試聴ホール',[44,12,24,18]],['mid','MID 中央連絡',[27,27,18,10]],['long','A ロング',[4,20,8,28]],['short','A ショート',[14,30,6,16]],['back','B 舞台裏',[48,30,6,12]],['b-main','B メイン',[58,28,10,20]],['attack','来場者エントランス',[24,51,24,7]],['defend','搬入サービス廊下',[12,2,49,11]]];
- const callouts=regions.map(([id,name,r])=>({id,name,polygon:rectPolygon(R(...r)),maxY:2.7,label:{...P(r[0]+r[2]/2,r[1]+r[3]/2),text:name.split(' ')[0]}}));
- for(const d of TRC_DECKS)if(d.y>2)callouts.unshift({id:d.id,name:({'a-heaven':'A ヘブン','a-catwalk':'A キャットウォーク','a-shaft':'A ダクト上','bridge':'上層連絡橋','mid-tower':'MID タワー','b-deck':'B 音響デッキ','b-tower':'B タワー'})[d.id],polygon:rectPolygon(d),minY:d.y-.2,maxY:8});
- const landmarks=[{id:'a',name:'A 展示ホール',...P(26,20),yaw:.6},{id:'b',name:'B 試聴ホール',...P(60,27),yaw:.4},{id:'mid',name:'MID 中央連絡',...P(38,35),yaw:0},{id:'heaven',name:'A ヘブン',...P(22,16,3.2),yaw:Math.PI},{id:'tower',name:'B タワー',...P(64,23,3.6),yaw:Math.PI},{id:'mid-tower',name:'MID タワー',...P(39,23,3.2),yaw:Math.PI},{id:'duct-a',name:'U1 ダクト入口',...P(34.9,37.5),yaw:0},{id:'duct-b',name:'U2 ダクト入口',...P(64,33),yaw:-Math.PI/2},{id:'stage',name:'B 試聴ステージ',...P(49,25,1.2),yaw:-Math.PI/2}];
- const map={id:'trc',name:'TRC 同人音楽即売会',shortName:'SOUND MARKET',indoor:true,world,bounds,combatBounds:bounds,colliders,collision:createCollisionIndex(colliders,8),mapShapes,ramps:TRC_STAIRS,sites,teamSpawns,callouts,zones:[],landmarks,
-  spawn:{...teamSpawns.attack[0],yaw:0},enemySpawns:teamSpawns.defend,spawnYaw:{attack:0,defend:Math.PI},buyAreas:{attack:{...P(36,54),radius:7},defend:{...P(36,6),radius:5.5}},
-  lanes:[{id:'long',name:'A ロング',points:[[36,49],[8,49],[8,26],[25,20]].map(p=>P(...p))},{id:'mid',name:'MID / A ショート',points:[[36,49],[36,35],[28,29],[26,20]].map(p=>P(...p))},{id:'b-main',name:'B メイン',points:[[36,49],[64,49],[66,38],[62,29],[60,27]].map(p=>P(...p))}],
-  menuCamera:{position:[-22,2.3,0],target:[-12,2.6,-12]},rangeArea:{spawn:{...P(36,49),yaw:0},targets:[P(33,43),P(37,43),P(38,35.5),P(39,37)]},
-  stats:{mode:'arena',width:72,depth:60,area:4320,sites:2,routes:3,buildings:1,collisionShapes:colliders.length,renderBatches:batches.size},
+ const teamSpawns={attack:[P(52,91),P(49,91),P(55,91),P(46,91),P(58,91)],defend:[P(52,9),P(49,9),P(55,9),P(46,9),P(58,9)]};
+ const callouts=[...TRC_ROOMS.filter(r=>!['chase','prep-link','prep'].includes(r.id)),...TRC_OUTDOORS].map(r=>({id:r.id,name:r.name,polygon:rectPolygon(r),maxY:2.7,label:{x:(r.minX+r.maxX)/2,z:(r.minZ+r.maxZ)/2,text:r.name.split(' ')[0]}}));
+ for(const d of TRC_DECKS)callouts.unshift({id:d.id,name:({'a-heaven':'A ヘブン','a-prep':'上階準備室','a-prep-link':'準備室連絡','b-stage':'B 試聴ステージ'})[d.id],polygon:rectPolygon(d),minY:d.y-.2,maxY:8});
+ const landmarks=[{id:'a',name:'A 展示ホール',...P(27,43),yaw:0},{id:'b',name:'B 試聴ホール',...P(84,43),yaw:0},{id:'mid',name:'MID 中央連絡',...P(50,53),yaw:0},{id:'heaven',name:'A ヘブン',...P(25,24,3.2),yaw:Math.PI},{id:'prep',name:'上階準備室',...P(7,28,3.2),yaw:Math.PI},{id:'duct-a',name:'ダクト入口',...P(5.2,49),yaw:0},{id:'stage',name:'B 試聴ステージ',...P(84,24,1.2),yaw:Math.PI},{id:'plaza',name:'屋外前庭',...P(52,89),yaw:0},{id:'yard',name:'搬入ヤード',...P(90,74),yaw:0}];
+ const map={id:'trc',name:'TRC 同人音楽即売会',shortName:'SOUND MARKET',indoor:false,world,bounds,combatBounds:bounds,colliders,collision:createCollisionIndex(colliders,8),mapShapes,ramps:TRC_STAIRS,sites,teamSpawns,callouts,zones:[],landmarks,
+  spawn:{...teamSpawns.attack[0],yaw:0},enemySpawns:teamSpawns.defend,spawnYaw:{attack:0,defend:Math.PI},buyAreas:{attack:{...P(52,91),radius:8},defend:{...P(52,9),radius:7}},
+  lanes:[{id:'long',name:'A ロング',points:[[52,91],[28,91],[28,81],[13,81],[13,68],[21,68],[21,59],[27,59],[27,43]].map(p=>P(...p))},{id:'mid',name:'正面入口 / MID',points:[[52,91],[40,91],[40,79],[52,79],[52,70],[61,70],[61,60],[50,60],[50,44]].map(p=>P(...p))},{id:'b-main',name:'搬入 / B メイン',points:[[52,91],[87,91],[87,79],[94,79],[94,70],[84,70],[84,59],[96,59],[96,48],[89,48],[89,43]].map(p=>P(...p))}],
+  menuCamera:{position:[-7,2.4,43],target:[-2,3,28]},rangeArea:{spawn:{...P(52,91),yaw:0},targets:[P(38,87),P(64,87),P(69,89),P(36,89)]},
+  stats:{mode:'arena',width:110,depth:140,area:15400,sites:2,routes:3,buildings:1,collisionShapes:colliders.length,renderBatches:batches.size},
   ductAt:trcDuctAt,walkHeights(x,z){
    const out=[];if(TRC_FLOOR.some(r=>contains(r,x,z)))out.push(0);
    if(TRC_STAIRS.some(r=>contains(r,x,z,.4))){let h=0;for(const c of map.collision.query(x,z,.4))if(c.kind==='stairs'&&map.collision.overlaps(c,x,z,.4))h=Math.max(h,c.height);out.push(h);}
