@@ -2161,7 +2161,7 @@ function updateBots(dt){
     if(bot.kit?.character==='car'&&!interactPlant&&!interactDefuse&&elapsed>=(bot.nextSkillAt||0)){
       let cast=null;
       if(bot.kit.ultPoints>=7&&carPitTargets(bot).length>=2)cast=activateAbility(bot,'x');
-      if(!cast&&enemy&&visibleBetween(bot,enemy)){const aim={yaw:Math.atan2(bot.x-enemy.x,bot.z-enemy.z),pitch:Math.atan2((enemy.y||0)+1.3-((bot.y||0)+1.7),Math.hypot(enemy.x-bot.x,enemy.z-bot.z))};cast=activateAbility(bot,'c',{aim});if(!cast&&bot.moving)cast=activateAbility(bot,'e');}
+      if(!cast&&enemy&&visibleBetween(bot,enemy)){const aim={yaw:Math.atan2(bot.x-enemy.x,bot.z-enemy.z),pitch:Math.atan2((enemy.y||0)+1.3-((bot.y||0)+1.7),Math.hypot(enemy.x-bot.x,enemy.z-bot.z))};cast=activateAbility(bot,'c',{aim});}
       if(!cast){const goal=bot.lastSeen||bot.goal;if(goal){const aim={yaw:Math.atan2(bot.x-goal.x,bot.z-goal.z),pitch:0};cast=activateAbility(bot,'q',{aim});}}
       bot.nextSkillAt=elapsed+(cast?1.2:.5);
     }
@@ -2228,6 +2228,11 @@ function updateBots(dt){
       if(aligned&&elapsed>=bot.reactionUntil&&elapsed>=(bot.skillThrowUntil||0)&&bot.fire<=0&&!(bot.aiReload>0)){
         if(bot.aiAmmo<=0){if(ordinarySkills.urchinJammed(bot.id,elapsed))bot.fire=.2;else{bot.aiReload=spec.reload||1.7;bot.fire=bot.aiReload;bot.reloadGoal=role?.urgent?null:reloadCover(bot,enemy);}}
         else{
+          // Gyro needs this tick's actual movement, not the cleared animation
+          // flag above. Spend it only on a grounded, visible-target gun shot.
+          if(bot.kit?.character==='car'&&bot.kit.dash>0&&spec.mag>0&&bot.moving&&actorGrounded(bot)&&!ordinarySkills.carGyro(bot.id,elapsed)&&elapsed>=(bot.nextGyroAt||0)){
+            const gyro=activateAbility(bot,'e');bot.nextGyroAt=elapsed+(gyro?1:.5);
+          }
           if(!ordinarySkills.capMagazine(bot.id,elapsed))bot.aiAmmo--;crownShot(bot);bot.flash=.065;if(spec.arsenal&&elapsed-(bot.lastArsenalShot??-10)>.3)bot.shotSequence=0;bot.lastArsenalShot=elapsed;bot.shotSequence=(bot.shotSequence||0)+1;bot.muzzle.visible=true;
           if(spec.auto){bot.burst=(bot.burst||0)+1;bot.fire=bot.burst<3?spec.interval+.035:cfg.interval*.46+Math.random()*.22;if(bot.burst>=3)bot.burst=0;}
           else bot.fire=Math.max(spec.interval,.19+cfg.interval*.25)+Math.random()*.12;
