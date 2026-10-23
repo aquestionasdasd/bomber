@@ -132,15 +132,15 @@ async function main(){
   console.log('PASS: real updateBots reaction delay, hidden-target loss, no memory shots, and visible-threat urgent retake');
 
   const distracted=actor('red-decoy','red',0,0),hiddenPlayer={...actor('player','blue',0,30),alive:false};
-  const decoys=[{id:'skill-nope-decoy-1',type:'nope-decoy',team:'blue',x:5,y:0,z:0},{id:'skill-nope-decoy-2',type:'nope-decoy',team:'blue',x:-5,y:0,z:0}];
-  const decoyGame=integration({player:hiddenPlayer,bots:[distracted],ordinarySkills:{interceptShield:()=>null,quiet:()=>false,sealUntil:()=>0,blindUntil:()=>0,events:now=>now<6?decoys:[],markers:()=>[]}});
+  const decoys=[{id:'skill-nope-decoy-1',type:'nope-decoy',team:'blue',x:3,y:0,z:5},{id:'skill-nope-decoy-2',type:'nope-decoy',team:'blue',x:-3,y:0,z:5}];
+  const decoyGame=integration({player:hiddenPlayer,bots:[distracted],random:.5,ordinarySkills:{interceptShield:()=>null,quiet:()=>false,sealUntil:()=>0,blindUntil:()=>0,events:now=>now<6?decoys:[],markers:()=>[]}});
   decoyGame.step();const firstDeadline=distracted.decoySeen.get(decoys[0].id);
-  assert.equal(firstDeadline,1.55);assert.equal(distracted.goal.x,5,'The first visible enemy face may draw an investigation');
+  assert.equal(firstDeadline,1.55);assert.equal(distracted.goal.x,3,'The first visible enemy face may draw an investigation');
   decoyGame.sandbox.elapsed=firstDeadline+.001;decoyGame.step();const secondDeadline=distracted.decoySeen.get(decoys[1].id);
-  assert.ok(secondDeadline>firstDeadline);assert.equal(distracted.goal.x,-5,'A distinct unseen face may draw one later investigation');
+  assert.ok(secondDeadline>firstDeadline);assert.equal(distracted.goal.x,-3,'A distinct unseen face may draw one later investigation');
   decoyGame.sandbox.elapsed=secondDeadline+.001;decoyGame.step();
   assert.equal(distracted.decoySeen.get(decoys[0].id),firstDeadline,'Returning to the first ID must not grant another1.5-second distraction');
-  assert.equal(distracted.decoySeen.get(decoys[1].id),secondDeadline);assert.ok(Math.abs(distracted.goal.x-5)>.01&&Math.abs(distracted.goal.x+5)>.01,'After both windows, the bot must return to its objective');
+  assert.equal(distracted.decoySeen.get(decoys[1].id),secondDeadline);assert.ok(Math.abs(distracted.goal.x-3)>.01&&Math.abs(distracted.goal.x+3)>.01,'After both windows, the bot must return to its objective');
   assert.equal(distracted.target,null);assert.equal(decoyGame.shots,0,'A decoy must never create a real actor sighting or hit');
   assert.equal(vm.runInContext('updateBots.tactics.contacts("red",elapsed).length',decoyGame.sandbox),0);
   decoyGame.sandbox.elapsed=6;decoyGame.step();assert.equal(distracted.decoySeen.size,0,'Expired IDs must leave the per-bot bounded memory');

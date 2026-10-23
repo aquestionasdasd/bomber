@@ -175,6 +175,66 @@ async function main() {
     local.clearWalls();
   });
 
+  function prepareDecoyCPU(roll=.5){
+    local.reset();local.sandbox.roll=roll;
+    local.run(`Object.assign(player,{x:12,z:-30});
+      makeBot({x:0,z:0},0,'red',{id:'red-0',team:'red',secondary:'classic'});
+      var cpu=bots[0];cpu.group.rotation.y=Math.PI;cpu.kit=new DuelistKit({character:'frost'});
+      cpu.kit.smoke=cpu.kit.updraft=cpu.kit.dash=cpu.kit.ultPoints=0;
+      cpu.think=cpu.fire=cpu.reactionUntil=0;Math.random=()=>roll;`);
+  }
+  check('visible distant duel can divert one real BOT gunshot to a24m decoy without an invented contact or kill',()=>{
+    prepareDecoyCPU();local.seed('blue',0,-24);local.run('updateBots(.05)');
+    assert.equal(local.run('cpu.target===player'),true);assert.equal(local.run('cpu.shotSequence||0'),0);
+    assert.equal(local.run('cpu.goal.z'),-24);local.run('elapsed+=.5;updateBots(.05)');
+    assert.equal(local.run('allNopeDecoys().length'),0);assert.equal(local.run('cpu.shotSequence'),1);assert.equal(local.run('cpu.aiAmmo'),11);
+    assert.equal(local.run('player.hp'),100);assert.equal(local.run('cpu.record.k||0'),0);assert.equal(local.run('nopePops.length'),1);
+    assert.equal(local.run(`updateBots.tactics.contacts('red',elapsed).every(p=>p.id==='player')`),true);
+  });
+  check('rejected decoy is not rerolled every frame, accepted reaction is finite, and a new ID may fool it later',()=>{
+    prepareDecoyCPU(.99);local.run('player.x=45;player.z=45');local.seed('blue',0,-24);local.run('updateBots(.05)');
+    assert.equal(local.run('cpu.decoySeen.get(allNopeDecoys()[0].id)'),10);
+    local.run('Math.random=()=>0;for(let i=0;i<30;i++){elapsed+=.05;updateBots(.05)}');
+    assert.equal(local.run('cpu.shotSequence||0'),0);assert.equal(local.run('allNopeDecoys().length'),1);
+    local.seed('blue',2,-10);local.run('cpu.group.rotation.y=Math.PI;updateBots(.05);elapsed+=.5;updateBots(.05)');
+    assert.equal(local.run('nopePops.length'),1);assert.equal(local.run('allNopeDecoys().length'),1);
+    local.run('elapsed+=20;updateBots(.05)');assert.equal(local.run('cpu.decoySeen.size'),0);
+  });
+  check('rear, friendly,40m+, wall, smoke and blindness never supply a decoy target',()=>{
+    local.run('var normalDecoyBlindUntil=ordinarySkills.blindUntil');
+    const cases=[
+      {point:['blue',0,5]}, {point:['red',0,-5]}, {point:['blue',0,-41]},
+      {point:['blue',0,-5],extra:()=>local.wall()},
+      {point:['blue',0,-10],extra:()=>local.run('syncSmokes([{id:1,kind:"smoke",x:0,y:1.4,z:-5,radius:3.6,expires:100}])')},
+      {point:['blue',0,-5],extra:()=>local.run('ordinarySkills.blindUntil=()=>100')}
+    ];
+    for(const fixture of cases){prepareDecoyCPU(0);local.run('player.x=45;player.z=45');local.seed(...fixture.point);fixture.extra?.();
+      local.run('updateBots(.05);elapsed+=.5;updateBots(.05)');
+      assert.equal(local.run('cpu.shotSequence||0'),0,JSON.stringify(fixture.point));assert.equal(local.run('nopePops.length'),0);assert.equal(local.run('cpu.decoySeen.size'),0);
+      local.clearWalls();local.run('syncSmokes([]);ordinarySkills.blindUntil=normalDecoyBlindUntil');}
+  });
+  check('close live threat and urgent defuse take priority over a decoy',()=>{
+    prepareDecoyCPU(0);local.run('player.x=1;player.z=-4');local.seed('blue',0,-8);local.run('updateBots(.05)');
+    assert.equal(local.run('cpu.target===player'),true,JSON.stringify(local.run('({target:cpu.target?.id,playerAlive:player.alive,playerHP:player.hp,x:cpu.x,z:cpu.z,blind:ordinarySkills.blindUntil(cpu.id,elapsed),yaw:cpu.group.rotation.y})')));assert.equal(local.run('cpu.decoySeen.size'),0);
+    prepareDecoyCPU(0);local.run(`player.x=45;player.z=45;match.spike={...match.spike,status:'planted',carrier:null,x:0,z:1,site:'A',timer:7};`);
+    local.seed('blue',0,-5);local.run('updateBots(.05)');assert.equal(local.run('cpu.decoySeen.size'),0);assert.ok(local.run('match.spike.defuseProgress>0'));
+  });
+  check('ultimate walking decoy is eligible and a wall appearing during reaction prevents a shot',()=>{
+    prepareDecoyCPU();local.run(`player.x=45;player.z=45;var points=Array.from({length:30},(_,i)=>i?{x:60+i*.1,y:0,z:60,yaw:0}:{x:0,y:0,z:-24,yaw:0,walkLength:3});
+      nopeDecoys.start({id:'wave-owner',team:'blue',x:40,y:0,z:40,hp:100,alive:true},points,elapsed,match.round);updateBots(.05)`);
+    assert.equal(local.run('cpu.goal.z'),-24);local.run('elapsed+=.5;updateBots(.05)');assert.equal(local.run('nopePops.length'),1);assert.equal(local.run('allNopeDecoys().length'),29);
+    prepareDecoyCPU();local.run('player.x=45;player.z=45');local.seed('blue',0,-5);local.run('updateBots(.05)');local.wall();
+    local.run('elapsed+=.5;updateBots(.05)');assert.equal(local.run('cpu.shotSequence||0'),0);assert.equal(local.run('allNopeDecoys().length'),1);local.clearWalls();
+  });
+  check('difficulty changes the single encounter decision and reset clears its local memory',()=>{
+    for(const [level,roll,fooled] of [['easy',.7,true],['normal',.7,false],['hard',.5,false],['hard',.3,true]]){
+      prepareDecoyCPU(roll);local.sandbox.level=level;local.run('difficulty=level;player.x=45;player.z=45');local.seed('blue',0,-5);local.run('updateBots(.05)');
+      assert.equal(local.run('cpu.decoySeen.get(allNopeDecoys()[0].id)>elapsed'),fooled,level);
+      local.run('resetOrdinarySkills()');assert.equal(local.run('cpu.decoySeen.size'),0);
+    }
+    local.run("difficulty='normal'");
+  });
+
   function preparePeer(peer, host) {
     peer.sandbox.isHost = host;
     peer.run(`online={host:isHost,session:{memberId:isHost?'host':'friend',hostId:'host'},
@@ -209,6 +269,19 @@ async function main() {
     const seen = guest.run('nopeSeenPopSequence');
     guest.sandbox.incoming = copy(accepted); guest.run("receiveNetPacket('host',incoming)");
     assert.equal(guest.run('nopeSeenPopSequence'), seen);
+  });
+  check('actual host CPU consumes and flashes once; independent guest restores it without local AI shots or replay',()=>{
+    preparePeer(host,true);preparePeer(guest,false);
+    host.run(`player.x=45;player.z=45;var decoyCPU=bots.find(b=>b.team==='red'&&!b.remoteId);decoyCPU.rangeTarget=false;
+      Object.assign(decoyCPU,{x:0,y:0,z:0,think:0,fire:0});decoyCPU.group.position.set(0,0,0);decoyCPU.group.rotation.y=Math.PI;
+      decoyCPU.record.primary=null;decoyCPU.record.secondary='classic';
+      decoyCPU.kit=new DuelistKit({character:'frost'});decoyCPU.kit.smoke=decoyCPU.kit.updraft=decoyCPU.kit.dash=decoyCPU.kit.ultPoints=0;Math.random=()=>.5;`);
+    host.seed('blue');host.run('updateBots(.05);elapsed+=.5;updateBots(.05);tickOnline(.1)');deliver(host,guest,'host');
+    assert.equal(host.run('nopePops.length'),1);assert.equal(host.run('decoyCPU.aiAmmo'),11);assert.equal(guest.run('allNopeDecoys().length'),0);
+    const seen=guest.run('nopeSeenPopSequence');assert.equal(seen,host.run('nopePops[0][0]'));
+    guest.run('updateBots(.05);receiveNetPacket("host",incoming)');assert.equal(guest.run('nopeSeenPopSequence'),seen);
+    host.sandbox.deadline=host.run('ordinarySkills.blindUntil(decoyCPU.id,elapsed)');guest.sandbox.cpuId=host.run('decoyCPU.id');
+    near(guest.run('ordinarySkills.blindUntil(cpuId,elapsed)'),host.sandbox.deadline,'host flash snapshot');
   });
 
   const actual = harness({ realMap: true }); actual.reset();

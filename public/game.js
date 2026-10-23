@@ -244,7 +244,7 @@ function resetTakeover(){takeoverState=null;takeoverClock=0;stationTakeover.rese
 function resetZoneAbilities(){zoneAbilities.reset();zoneFX.reset();zonePulseAudio.clear();zoneTargetPreview=null;zoneTargetPreviewAt=-Infinity;zoneTargetCharacter=null;if($('status-effects')){$('status-effects').hidden=true;$('status-effects').textContent='';}}
 const stoppedTurfEvents=new Map();
 const stoppedFrostEvents=new Map();
-function resetOrdinarySkills(){capBankPreviewFX.reset();capPreviewUntil=-Infinity;capPreviewPath=null;skillSpectacle.reset();skillFeedback.reset();starHold.reset();onnaraSkillFX.reset();urchinSkillFX.reset();capSkillFX.reset();japanSkillFX.reset();nobiSkillFX.reset();carSkillFX.reset();catReturnSeen.clear();catSkillFX.reset();duckAim=null;duckSkillFX.reset();botHearing.reset();ordinarySkills.reset();ordinaryFX.reset();nopeDecoys.reset();nopeDecoyFX.reset();nopePops.length=0;nopeSeenPopSequence=0;mendSkillFX.reset();iagnuSkillFX.reset();grassSkillFX.reset();emberSkillFX.reset();frostSkillFX.reset();duelistSkillFX.reset();for(const actor of [player,...bots]){actor.nextNobiToolAt=0;actor.duckPadAt=-Infinity;actor.duckPadUntil=0;actor.duckPadRound=0;actor.duckPadTeam=null;actor.duckFlapEvent=null;actor.duckFlapAt=-Infinity;if(!(['play','pause'].includes(mode)&&match?.phase==='post'&&!actor.alive&&actor.carMotion?.round===match.round&&actor.carMotion?.endsAt>elapsed)){actor.carMotion=null;actor.carImpulseUntil=0;actor.carFallUntil=0;actor.carRecoveryUntil=0;}cancelServiceReload(actor);actor.lastHeard=null;actor.netStepClock=0;}stoppedServiceEvents.clear();stoppedTurfEvents.clear();stoppedFrostEvents.clear();ordinaryAudio.clear();ordinaryMarkerAudio.clear();const overlay=$('skill-blind-overlay');if(overlay){overlay.hidden=true;overlay.style.opacity='0';}const nearOverlay=$('skill-nearsight-overlay');if(nearOverlay){nearOverlay.hidden=true;nearOverlay.style.opacity='0';}}
+function resetOrdinarySkills(){capBankPreviewFX.reset();capPreviewUntil=-Infinity;capPreviewPath=null;skillSpectacle.reset();skillFeedback.reset();starHold.reset();onnaraSkillFX.reset();urchinSkillFX.reset();capSkillFX.reset();japanSkillFX.reset();nobiSkillFX.reset();carSkillFX.reset();catReturnSeen.clear();catSkillFX.reset();duckAim=null;duckSkillFX.reset();botHearing.reset();ordinarySkills.reset();ordinaryFX.reset();nopeDecoys.reset();nopeDecoyFX.reset();nopePops.length=0;nopeSeenPopSequence=0;mendSkillFX.reset();iagnuSkillFX.reset();grassSkillFX.reset();emberSkillFX.reset();frostSkillFX.reset();duelistSkillFX.reset();for(const actor of [player,...bots]){actor.nextNobiToolAt=0;actor.decoySeen?.clear();actor.duckPadAt=-Infinity;actor.duckPadUntil=0;actor.duckPadRound=0;actor.duckPadTeam=null;actor.duckFlapEvent=null;actor.duckFlapAt=-Infinity;if(!(['play','pause'].includes(mode)&&match?.phase==='post'&&!actor.alive&&actor.carMotion?.round===match.round&&actor.carMotion?.endsAt>elapsed)){actor.carMotion=null;actor.carImpulseUntil=0;actor.carFallUntil=0;actor.carRecoveryUntil=0;}cancelServiceReload(actor);actor.lastHeard=null;actor.netStepClock=0;}stoppedServiceEvents.clear();stoppedTurfEvents.clear();stoppedFrostEvents.clear();ordinaryAudio.clear();ordinaryMarkerAudio.clear();const overlay=$('skill-blind-overlay');if(overlay){overlay.hidden=true;overlay.style.opacity='0';}const nearOverlay=$('skill-nearsight-overlay');if(nearOverlay){nearOverlay.hidden=true;nearOverlay.style.opacity='0';}}
 function resetTeamAbilities(){teamAbilities.reset();characterFX.reset();resetZoneAbilities();resetOrdinarySkills();}
 function actorGrounded(actor){
   if(!actor?.alive||!Number.isFinite(actor.y)||Number.isFinite(actor.vy)&&Math.abs(actor.vy)>1e-5)return false;
@@ -2367,14 +2367,18 @@ function updateBots(dt){
     // supply a live actor reference or bypass the BOT's visible-target checks.
     const tagContact=!enemy?ordinarySkills.markers(bot.team,elapsed).filter(point=>distance(bot,point)<24).sort((a,b)=>b.detectedAt-a.detectedAt||a.eventId.localeCompare(b.eventId))[0]:null;
     if(tagContact&&!role?.urgent&&ordinarySkills.blindUntil(bot.id,elapsed)<=elapsed)goal=tagContact;
-    // Investigate a nearby audible/visible fake once, without inventing a sighting
-    // of a real actor or overriding the objective during an urgent retake.
+    // Mistake a visible fake for a threat once per ID, including during a
+    // distant duel. Never publish it as a real sighting or abandon urgent work.
     let decoyTarget=null;
-    if(!enemy&&!role?.urgent&&ordinarySkills.blindUntil(bot.id,elapsed)<=elapsed){
-      const events=allNopeDecoys(),activeIds=new Set(events.map(event=>event.id));
-      bot.decoySeen||=new Map();for(const id of bot.decoySeen.keys())if(!activeIds.has(id))bot.decoySeen.delete(id);
-      const decoy=events.find(event=>event.type==='nope-decoy'&&event.team!==bot.team&&distance(bot,event)<18&&visibleBetween(bot,event)&&(!bot.decoySeen.has(event.id)||elapsed<bot.decoySeen.get(event.id)));
-      if(decoy){if(!bot.decoySeen.has(decoy.id))bot.decoySeen.set(decoy.id,elapsed+1.5);goal=decoy;decoyTarget=decoy;}
+    const decoys=allNopeDecoys(),activeDecoyIds=new Set(decoys.map(event=>event.id));
+    bot.decoySeen||=new Map();for(const id of bot.decoySeen.keys())if(!activeDecoyIds.has(id))bot.decoySeen.delete(id);
+    if(!role?.urgent&&(!enemy||enemyDistance>6)&&spec.mag>0&&ordinarySkills.blindUntil(bot.id,elapsed)<=elapsed){
+      const candidates=decoys.filter(event=>event.team!==bot.team&&distance(bot,event)<Math.min(40,enemyDistance*1.25)&&inVisionCone(bot,event,{yaw:bot.group.rotation.y})&&visibleBetween(bot,event)).sort((a,b)=>distance(bot,a)-distance(bot,b));
+      for(const decoy of candidates){
+        if(!bot.decoySeen.has(decoy.id))bot.decoySeen.set(decoy.id,Math.random()<({easy:.75,normal:.6,hard:.4}[difficulty]||.6)?elapsed+1.5:elapsed);
+        if(elapsed>=bot.decoySeen.get(decoy.id))continue;
+        goal=decoy;decoyTarget=decoy;enemy=null;break;
+      }
     }
     // A close threat interrupts starting an interaction; an ongoing plant or urgent retake commits.
     const committedPlant=spike.plantActor===bot.id&&spike.plantProgress>0;
@@ -2602,7 +2606,7 @@ function updateBots(dt){
           }
         }
       }
-    }else if(decoyTarget&&!bot.serviceReload&&elapsed>=(bot.skillThrowUntil||0)){
+    }else if(decoyTarget&&!bot.serviceReload&&elapsed>=(bot.skillThrowUntil||0)&&visibleBetween(bot,decoyTarget)){
       bot.goal={x:decoyTarget.x,z:decoyTarget.z};bot.pathTime=0;
       const aligned=face(bot,decoyTarget,8);
       if(aligned&&elapsed>=bot.decoySeen.get(decoyTarget.id)-1.05&&bot.fire<=0&&!(bot.aiReload>0)){
