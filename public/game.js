@@ -47,6 +47,7 @@ import { createBotTactics, inVisionCone, createBotHearing } from './bot-tactics.
 import { createObjectiveModel } from './objective-model.js';
 import { createDroppedEquipment } from './dropped-equipment.js';
 import { createStationDetonation } from './detonation.js';
+import { createBuildingCollapse } from './building-collapse.js';
 import { createStationTakeover } from './station-takeover.js';
 import { createKeyboardProtection } from './keyboard-protection.js';
 import { getCharacterSkill } from './abilities.js';
@@ -110,6 +111,7 @@ scene.add(sun.target);
 const environment = new THREE.Group();
 scene.add(environment);
 let map = createMap(THREE, environment);
+map.bomberCollapse=createBuildingCollapse(THREE,map);scene.add(map.bomberCollapse.group);
 const arenaCache=new Map([['hashimoto',map]]);
 const textureFiltering = Math.min(8,renderer.capabilities.getMaxAnisotropy());
 environment.traverse(object=>{for(const material of Array.isArray(object.material)?object.material:[object.material])if(material?.map)material.map.anisotropy=textureFiltering;});
@@ -236,7 +238,7 @@ function sound(type,{weapon:id=inventory.active,entity=null,localOnly=false}={})
   const plantedNotice=type==='plant',bomberTick=type==='spike';
   gameAudio.play(type,{volume,weapon:id,pan:plantedNotice?0:pan,distance:plantedNotice?0:type==='explosion'?distance*.2:bomberTick?distance*.35:distance,occluded:plantedNotice||bomberTick?false:occluded});
 }
-function resetDetonation(){detonationState=null;detonationClock=0;stationDetonation.reset();if($('detonation-flash'))$('detonation-flash').style.opacity='0';}
+function resetDetonation(){detonationState=null;detonationClock=0;stationDetonation.reset();map.bomberCollapse?.reset();if($('detonation-flash'))$('detonation-flash').style.opacity='0';}
 function resetTakeover(){takeoverState=null;takeoverClock=0;stationTakeover.reset();}
 function resetZoneAbilities(){zoneAbilities.reset();zoneFX.reset();zonePulseAudio.clear();zoneTargetPreview=null;zoneTargetPreviewAt=-Infinity;zoneTargetCharacter=null;if($('status-effects')){$('status-effects').hidden=true;$('status-effects').textContent='';}}
 const stoppedTurfEvents=new Map();
@@ -511,7 +513,8 @@ function applyNetTakeover(packet,{audible=true}={}){
 function startDetonation(data,{audible=true}={}){
   if(detonationState?.id===data.id)return false;
   detonationState={id:data.id,round:data.round,startedAt:data.startedAt,x:data.x,z:data.z,seed:data.seed};detonationClock=elapsed;
-  stationDetonation.start({x:data.x,z:data.z,time:data.startedAt,seed:data.seed});
+  map.bomberCollapse?.start({x:data.x,z:data.z,time:data.startedAt,seed:data.seed});
+  stationDetonation.start({x:data.x,z:data.z,time:data.startedAt,seed:data.seed,station:map.id==='hirakata'?{x:0,z:0,width:134}:undefined});
   if(audible&&elapsed-data.startedAt>=0&&elapsed-data.startedAt<.25)sound('explosion',{entity:data});
   return true;
 }
@@ -531,6 +534,7 @@ function renderWithDetonation(dt=0){
     if(mode==='result'&&!netHostPaused)detonationClock+=dt;
     detonationClock=Math.max(detonationClock,elapsed);
   }
+  map.bomberCollapse?.update(detonationClock,{reducedMotion:reducedMotion.matches});
   const fx=stationDetonation.update(detonationClock,{reducedMotion:reducedMotion.matches});
   renderCameraPosition.copy(camera.position);renderCameraRotation.copy(camera.rotation);
   const exposure=renderer.toneMappingExposure;
@@ -873,9 +877,9 @@ function requestLock() {
 }
 function selectArena(id){
   id=normalizeMapId(id);if((map.id||'hashimoto')===id){updateMapLabels();return;}
-  map.traffic?.reset();map.destruction?.reset();map.world?.removeFromParent();
+  resetDetonation();map.traffic?.reset();map.destruction?.reset();map.world?.removeFromParent();
   if(!arenaCache.has(id))arenaCache.set(id,createMap(THREE,environment,id));
-  map=arenaCache.get(id);environment.add(map.world);navigation=createNavigation({...map,bounds:map.combatBounds||map.bounds});updateBots.tactics=null;nopeDecoyTownCandidates=null;
+  map=arenaCache.get(id);if(!map.bomberCollapse){map.bomberCollapse=createBuildingCollapse(THREE,map);scene.add(map.bomberCollapse.group);}environment.add(map.world);navigation=createNavigation({...map,bounds:map.combatBounds||map.bounds});updateBots.tactics=null;nopeDecoyTownCandidates=null;
   environment.traverse(object=>{for(const material of Array.isArray(object.material)?object.material:[object.material])if(material?.map)material.map.anisotropy=textureFiltering;});
   map.world.updateMatrixWorld(true);updateMapLabels();
 }
@@ -919,7 +923,7 @@ function busInteract(actor=player){
  }
  return true;
 }
-function busSurfaceVisible(hit){if(hit.object.userData.busGlass||hit.object.userData.busDebrisHidden||hit.object.userData.busBrokenInstances?.has(hit.instanceId))return false;return !hit.object.userData.busDriver||map.traffic?.poses(elapsed).some(p=>p.id===hit.object.userData.busDriver&&p.driverHP>0);}
+function busSurfaceVisible(hit){if(hit.object.userData.bomberHidden||hit.object.userData.bomberBrokenInstances?.has(hit.instanceId)||hit.object.userData.busGlass||hit.object.userData.busDebrisHidden||hit.object.userData.busBrokenInstances?.has(hit.instanceId))return false;return !hit.object.userData.busDriver||map.traffic?.poses(elapsed).some(p=>p.id===hit.object.userData.busDriver&&p.driverHP>0);}
 function shootBusDriver(hit,actor,damage,{visualOnly=false}={}){
  const id=hit?.object.userData.busDriver;if(!id)return false;
  if(!visualOnly){const service=map.traffic?.service,before=service?.poses(elapsed).find(p=>p.id===id)?.driverHP;
@@ -2683,6 +2687,10 @@ function updatePlay(dt){
   }
   updateTeamAbilities();
   updateBots(dt);
+  if(map.bomberCollapse?.active&&!isGuest()&&match.phase==='post')for(const bot of bots){
+    if(!bot.alive||busSeat(bot)||bot.carMotion||bot.trafficLaunch||bot.remoteId&&duckPadAirborne(bot))continue;
+    updateActorVertical(bot,dt,.4);bot.group.position.set(bot.x,bot.y||0,bot.z);
+  }
   updateTraffic(dt);
   updateCarMotions(dt);
   if(player.alive&&busSeat()){map.traffic.service.place(player,elapsed);const p=map.traffic.poses(elapsed).find(p=>p.id===busSeat().busId);if(busDriving())player.yaw=p.yaw+Math.PI;camera.rotation.set(player.pitch,player.yaw,0);gun.visible=!busDriving();}
