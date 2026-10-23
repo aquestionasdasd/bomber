@@ -3,6 +3,7 @@ const faults={early:["now+1e-8<e.triggerAt","false"],repeat:['owned.delete(id);c
 async function main(){
  let code=fs.readFileSync(path.join(__dirname,'public/character-skills.js'),'utf8').replaceAll('\r\n','\n');
  const fault=process.argv.find(v=>v.startsWith('--fault='))?.split('=')[1];if(fault){const pair=faults[fault];assert.ok(pair&&code.includes(pair[0]),'fault anchor');code=code.replace(pair[0],pair[1]);}
+ code=code.replaceAll("'./nope-walk.js'",JSON.stringify(pathToFileURL(path.join(__dirname,'public/nope-walk.js')).href));
  code=code.replaceAll("'./abilities.js'",JSON.stringify(pathToFileURL(path.join(__dirname,'public/abilities.js')).href)).replaceAll("'./rules.js'",JSON.stringify(pathToFileURL(path.join(__dirname,'public/rules.js')).href));
  const {createCharacterSkills}=await import('data:text/javascript;base64,'+Buffer.from(code).toString('base64'));
  const owner={id:'source',team:'blue',x:0,y:0,z:0,hp:100,alive:true},enemy={id:'enemy',team:'red',x:0,y:0,z:-10,hp:100,alive:true},target={x:0,y:1.3,z:-39.9},copy=x=>JSON.parse(JSON.stringify(x));let n=0;

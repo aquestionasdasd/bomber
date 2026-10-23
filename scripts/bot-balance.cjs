@@ -43,6 +43,14 @@ const body = `
  };
  activateAbility=measureActivate(activateAbility);
  activateJapanAbility=measureActivate(activateJapanAbility);
+ const measuredOrdinaryUpdate=ordinarySkills.update;
+ ordinarySkills.update=function(...args){
+   const effects=measuredOrdinaryUpdate(...args);
+   if(bench)for(const effect of effects)if(effect.type==='nearsight'){
+     const owner=bench.actors[effect.sourceId],target=bench.actors[effect.targetId];
+     if(owner&&target){const key=owner.team===target.team?'gloomFriendlyHits':'gloomEnemyHits';owner[key]=(owner[key]||0)+1;}
+   }return effects;
+ };
  const measuredPads=tickDuckPads;
  tickDuckPads=function(){
    const opportunities=[player,...bots].map(a=>({actor:a,before:a.duckPadAt,pad:ordinarySkills.duckPad(ordinaryActorView(a),elapsed,{groundHeight:ordinaryGroundHeight})}));
