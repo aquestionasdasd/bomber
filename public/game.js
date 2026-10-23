@@ -1,3 +1,4 @@
+import { planNopeWalk, nopeWalkPose } from './nope-walk.js';
 import {busPoint} from './bus-service.js';
 import {busHitsBox} from './bus-destruction.js';
 import { createSkillSpectacle, createSkillFeedback, SKILL_LOOKS } from './skill-spectacle.js';
@@ -339,7 +340,8 @@ function ordinaryReachable(event,actor){
   return map.collision.rayClear(event.x,y,event.z,actor.x,eye,actor.z)&&(event.type==='mend-seeds'||!smokeBlocks({x:event.x,y:y-1.45,z:event.z},actor));
 }
 const ordinaryAudioTime=event=>event.type==='echo-tag'?event.startedAt+event.flight:event.triggerAt;
-function allNopeDecoys(){return [...ordinarySkills.events(elapsed).filter(event=>event.type==='nope-decoy'),...nopeDecoys.events(elapsed)];}
+function allNopeDecoys(){return [...ordinarySkills.events(elapsed).filter(event=>event.type==='nope-decoy').map(event=>nopeWalkPose(event,elapsed)),...nopeDecoys.events(elapsed)];}
+function decoyWalkPath(point,yaw){return planNopeWalk(point,yaw,(x,y,z)=>navigation.isWalkable(x,z)&&canStand(x,z,.36,y,1.96)&&Math.abs(getZoneFloor(x,z,y+1.7)-y)<.08&&map.collision.rayClear(x,y+.1,z,x,y+1.96,z));}
 function chooseNopeDecoyPoints(actor){
   const distance=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
   // Cache only existing street floors. Decoys add no solid geometry/support.
@@ -355,7 +357,7 @@ function chooseNopeDecoyPoints(actor){
   const chosen=[],scores=candidates.map(p=>-distance(actor,p));
   for(let i=0;i<30;i++){
     let best=-1;for(let j=0;j<candidates.length;j++)if(scores[j]!==-Infinity&&(best<0||scores[j]>scores[best]))best=j;
-    const point=candidates[best];chosen.push({...point,yaw:Math.atan2(actor.x-point.x,actor.z-point.z)});scores[best]=-Infinity;
+    const point=candidates[best];chosen.push({...point,...decoyWalkPath(point,Math.atan2(actor.x-point.x,actor.z-point.z))});scores[best]=-Infinity;
     for(let j=0;j<candidates.length;j++)if(scores[j]!==-Infinity)scores[j]=i===0?distance(candidates[j],point):Math.min(scores[j],distance(candidates[j],point));
   }
   return chosen;
@@ -492,7 +494,7 @@ function updateTeamAbilities(){
 }
 function startTakeover(data,{audible=true}={}){
   if(takeoverState?.id===data.id)return false;
-  takeoverState={id:data.id,round:data.round,startedAt:data.startedAt,endsAt:data.endsAt};takeoverClock=elapsed;stationTakeover.start(takeoverState);
+  takeoverState={id:data.id,round:data.round,startedAt:data.startedAt,endsAt:data.endsAt};takeoverClock=elapsed;stationTakeover.start({...takeoverState,mapId:map.id});
   if(audible&&elapsed-data.startedAt>=0&&elapsed-data.startedAt<.25)sound('takeover',{localOnly:true});
   return true;
 }
@@ -1367,16 +1369,16 @@ function getRootsTarget(actor,point=null,aim=null){
   }
   return Math.hypot(target.x-actor.x,target.z-actor.z)>=.5?target:null;
 }
-function getZoneTarget(actor,point=null,aim=null){
+function getZoneTarget(actor,point=null,aim=null,maxReach=20-1e-6){
   const input=netInputs.get(actor.remoteId)?.input;
   const yaw=aim?.yaw??(actor===player?player.yaw:Number.isFinite(input?.yaw)?input.yaw:actor.yaw||0);
   const pitch=aim?.pitch??(actor===player?player.pitch:clamp(Number(input?.pitch)||0,-1.35,1.35));
   const eye=(actor.y||0)+1.6,ground=getZoneFloor(actor.x,actor.z,eye);
-  const maxReach=20-1e-6,reach=pitch<-.03?clamp((eye-ground)/-Math.tan(pitch),0,maxReach):maxReach;
+  const reach=pitch<-.03?clamp((eye-ground)/-Math.tan(pitch),0,maxReach):maxReach;
   let dx=point&&Number.isFinite(point.x)?point.x-actor.x:-Math.sin(yaw)*reach;
   let dz=point&&Number.isFinite(point.z)?point.z-actor.z:-Math.cos(yaw)*reach;
   const length=Math.hypot(dx,dz);if(length>maxReach){dx*=maxReach/length;dz*=maxReach/length;}
-  const steps=Math.max(1,Math.ceil(Math.min(length,20)/.25));
+  const steps=Math.max(1,Math.ceil(Math.min(length,maxReach)/.25));
   for(let i=steps;i>=0;i--){
     const x=actor.x+dx*i/steps,z=actor.z+dz*i/steps,y=getZoneFloor(x,z,eye);
     if(canStand(x,z,.12,y)&&map.collision.rayClear(actor.x,eye,actor.z,x,y+.12,z))return{x,y,z};
@@ -1804,7 +1806,7 @@ function getSkillTarget(actor,type,point=null,aim=null){
     if(type==='veil-roots')return getRootsTarget(actor,point,aim);
     return{x:actor.x,y:actor.y+(type==='veil-dust'?VEIL_SKILLS.dustCenterOffset:0),z:actor.z};
   }
-  const target=getZoneTarget(actor,point,aim),limit=type==='nope-decoy'?6:type==='echo-tag'?IAGNU_SKILLS.tagRange:type==='ember-solder'?EMBER_SKILLS.solderRange:type==='frost-stitch'?FROST_SKILLS.stitchRange:type==='frost-mist'?FROST_SKILLS.mistRange:20;
+  const target=getZoneTarget(actor,point,aim,type==='nope-bottle'?NOPE_SKILLS.bottleRange:20-1e-6),limit=type==='nope-bottle'?NOPE_SKILLS.bottleRange:type==='nope-decoy'?6:type==='echo-tag'?IAGNU_SKILLS.tagRange:type==='ember-solder'?EMBER_SKILLS.solderRange:type==='frost-stitch'?FROST_SKILLS.stitchRange:type==='frost-mist'?FROST_SKILLS.mistRange:20;
   let dx=target.x-actor.x,dz=target.z-actor.z,length=Math.hypot(dx,dz);
   if(length>limit){dx*=limit/length;dz*=limit/length;length=limit;}
   const eye=(actor.y||0)+1.7-clamp(actor.crouch||0,0,1)*.55;
@@ -1816,7 +1818,7 @@ function getSkillTarget(actor,type,point=null,aim=null){
     if(!canStand(x,z,.12,floor))continue;
     if(type.startsWith('frost-')&&(ordinaryGroundHeight(x,z,floor)===null||!map.collision.rayClear(actor.x,eye,actor.z,x,floor+.12,z)))continue;
     if(type==='nope-decoy'){
-      if(map.collision.rayClear(actor.x,eye,actor.z,x,y+1.4,z))return{x,y,z};
+      if(map.collision.rayClear(actor.x,eye,actor.z,x,y+1.4,z))return{x,y,z,...decoyWalkPath({x,y,z},Math.atan2(dx,dz))};
       continue;
     }
     const event={type,x,y,z,fromX:actor.x,fromY:eye,fromZ:actor.z,startedAt:elapsed,flight};
@@ -1890,7 +1892,7 @@ function activateAbility(actor,key,{predict=false,zonePoint=null,aim=null}={}){
   if(ordinary){if(!effect.type.startsWith('veil-')&&!['mend-heal','nope-decoy','echo-kerning','ember-shade','ember-service','frost-unravel','duelist-lift','duck-hush'].includes(effect.type))sound('skill-throw',{entity:actor,localOnly:true});}
   else if(effect.type!=='nope')sound({mend:'heal',recon:'recon',veil:'veil',ember:'ember-warning'}[effect.type]||effect.type,{entity:actor});
   if(actor===player&&ordinary)showMessage(definition.name,definition.description,2);
-  if(actor===player){const texts={smoke:['CLOUD VEIL','4.5秒間、視線と射線の判断を遮る煙幕'],updraft:['UPDRAFT','上昇中もナイフは正確に飛びます'],'dash-armed':['TAILWIND READY',`${DUELIST.dashArmDelay}秒後から E でもう一度発動 · ${DUELIST.dashWindow}秒以内`],dash:['TAILWIND',`${DUELIST.signatureKills}キルで再チャージ`],knives:['BLADE STORM','5本 · 撃破すると全回復'],nope:['NOPE TAKEOVER','12秒間、街中に30体の全身デコイ＋駅ロゴ化 · 敵が撃つと閃光'],mend:['RECOVERY WAVE','18m以内・視線の通る味方と自身を最大75HP回復'],recon:['RECON PULSE','30mを3回索敵 · 検知した地点だけをミニマップへ表示'],veil:['BLACKOUT DOME','発動地点に半径9m・12秒の煙幕 · 敵味方双方の視界を遮断'],ember:['FLARE STRIKE','照準の先20m以内 · 1.2秒の予告後に3回爆撃 · 味方は無傷'],frost:['CRYO FIELD','照準の先20m以内 · 10秒の氷結地帯 · 敵の歩く速さを55%に']};const text=texts[effect.type];if(text)showMessage(...text,2);}
+  if(actor===player){const texts={smoke:['CLOUD VEIL','4.5秒間、視線と射線の判断を遮る煙幕'],updraft:['UPDRAFT','上昇中もナイフは正確に飛びます'],'dash-armed':['TAILWIND READY',`${DUELIST.dashArmDelay}秒後から E でもう一度発動 · ${DUELIST.dashWindow}秒以内`],dash:['TAILWIND',`${DUELIST.signatureKills}キルで再チャージ`],knives:['BLADE STORM','5本 · 撃破すると全回復'],nope:['NOPE TAKEOVER','12秒間、街中にライフルを持つ歩行デコイ30体＋駅ロゴ化 · 敵が撃つと閃光'],mend:['RECOVERY WAVE','18m以内・視線の通る味方と自身を最大75HP回復'],recon:['RECON PULSE','30mを3回索敵 · 検知した地点だけをミニマップへ表示'],veil:['BLACKOUT DOME','発動地点に半径9m・12秒の煙幕 · 敵味方双方の視界を遮断'],ember:['FLARE STRIKE','照準の先20m以内 · 1.2秒の予告後に3回爆撃 · 味方は無傷'],frost:['CRYO FIELD','照準の先20m以内 · 10秒の氷結地帯 · 敵の歩く速さを55%に']};const text=texts[effect.type];if(text)showMessage(...text,2);}
   return effect;
 }
 function refillMapPracticeSkills(){
@@ -3115,7 +3117,7 @@ function tickOnline(dt){
     const rules={format:match.format,startingSide:match.startingSide,round:match.round,score:{...match.score},phase:match.phase,phaseTime:match.phaseTime,roundTime:match.roundTime,winner:match.winner,lastRound:match.lastRound?{...match.lastRound}:null,spike:{...match.spike}};
     if(rules.lastRound&&match.phase!=='post')delete rules.lastRound.fullCombo;
     const teamState=teamAbilities.snapshot(),packet={type:'snapshot',mapId:map.id||'hashimoto',seq:++netSequence,time:elapsed,paused:netHostPaused,cues:serializeNetCues(),smokes:serializeSmokes(),drops:serializeDrops(),detonation:detonationState?{...detonationState}:null,takeover:takeoverState?{...takeoverState}:null,zoneAbilities:zoneAbilities.snapshot(),...(map.traffic?{busTransit:map.traffic.service.snapshot([player,...bots].map(a=>a.id)),...(map.destruction?.snapshot()?{busDamage:map.destruction.snapshot()}:{})}:{}),rules,roster:roster.map(r=>({...r,kit:r.kit?.snapshot()})),actors:[player,...bots].map(captureNetActor),acks:Object.fromEntries(netApplied),positionAcks:Object.fromEntries(bots.filter(b=>b.remoteId&&b.netPositionAck).map(b=>[b.remoteId,{...b.netPositionAck}]))};
-    for(const team of ['blue','red']){let state={...packet,teamAbilities:{...teamState,pings:teamState.pings.filter(ping=>ping.observerTeam===team)},ordinarySkills:ordinarySkills.snapshot(team),nopeDecoys:nopeDecoys.snapshot(),nopePops:serializeNopePops()};if(map.traffic||packet.actors.some(a=>a.crouch>0)||[player,...bots].some(carMotionActive)||match.phase==='post'||state.cues.some(c=>c.type==='skill-hit'||c.type==='skill-heal'))state=fitTrafficSnapshot(state);if(state)online.send(state,{team});}
+    for(const team of ['blue','red']){let state={...packet,teamAbilities:{...teamState,pings:teamState.pings.filter(ping=>ping.observerTeam===team)},ordinarySkills:ordinarySkills.snapshot(team),nopeDecoys:nopeDecoys.snapshot(),nopePops:serializeNopePops()};if(state.nopeDecoys||state.ordinarySkills.events.some(e=>e.type==='nope-decoy')||map.traffic||packet.actors.some(a=>a.crouch>0)||[player,...bots].some(carMotionActive)||match.phase==='post'||state.cues.some(c=>c.type==='skill-hit'||c.type==='skill-heal'))state=fitTrafficSnapshot(state);if(state)online.send(state,{team});}
   }else if(netHasSnapshot){
     const seq=++netSequence,input={x:player.x,z:player.z,y:player.y,yaw:player.yaw,pitch:player.pitch,crouch:player.crouch,quiet:keys.has('ShiftLeft')||keys.has('ShiftRight'),interact:mode==='play'&&interactionHeld,...(busDriving()?{bus:busControls(player.id)}:{})};
     netPositionHistory.set(seq,{x:input.x,z:input.z,correctionX:netPositionCorrectionX,correctionZ:netPositionCorrectionZ});while(netPositionHistory.size>128)netPositionHistory.delete(netPositionHistory.keys().next().value);

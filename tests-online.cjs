@@ -362,7 +362,7 @@ async function main() {
       const smokes = Array.from({ length: 20 }, (_, i) => ({ id: i + 1, x: -10.123456789012345 + i, y: 1.7, z: 10.23456789012345 + i, expires: now + 4.5, kind: 'smoke', radius: 3.6 }));
       const drops = Array.from({ length: 32 }, (_, i) => { const actor = actors[i % 10]; return { id: i + 1, weapon: 'phantom', x: actor.x, z: actor.z, yaw: 1.2345678901234567, ammo: 30, reserve: 90 }; });
       const nopeDecoys=createNopeDecoys();
-      assert.equal(nopeDecoys.start(player,Array.from({length:30},(_,i)=>({x:-999.99+i*.01,y:-999.99,z:999.99-i*.01,yaw:3.1415})),now,1),true);
+      assert.equal(nopeDecoys.start(player,Array.from({length:30},(_,i)=>({x:-999.99+i*.01,y:-999.99,z:999.99-i*.01,yaw:3.1415,walkLength:36})),now,1),true);
       const nopeState=nopeDecoys.snapshot();nopeState.id='nope-wave-1-999999999999999';assert.equal(nopeDecoys.restore(nopeState,now,1),true);
       const serializeNopePops=()=>Array.from({length:8},(_,i)=>[Number.MAX_SAFE_INTEGER-7+i,-999.1234567890123,-999.1234567890123,-999.1234567890123,now]);
       const sent = [], sandbox = { map:{id:"hirakata",traffic:{service:{snapshot:()=>[]}}}, fitTrafficSnapshot:(await import(pathToFileURL(path.join(__dirname,"public/traffic-state.js")).href)).fitTrafficSnapshot, player, bots, roster, match, elapsed: now, teamAbilities, zoneAbilities, ordinarySkills, nopeDecoys, serializeNopePops, onlinePlaying: true,
