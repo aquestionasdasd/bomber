@@ -991,6 +991,11 @@ export function createAgentModel(THREE, { bot = null, team = 'red', variant = 0,
       rig.position.y = fall * .03; ring.visible = false; muzzle.visible = false;
       weaponPivot.rotation.z += fall * .9;
     } else { deathTime = 0; rig.rotation.set(0, 0, 0); rig.position.y = 0; ring.visible = true; }
+    // A slide changes the visible whole-body silhouette, including hit faces.
+    // Restore the normal rig every frame so death/next round never keep it low.
+    const sliding = state.sliding === true && state.alive !== false && !dancing && !interacting;
+    rig.scale.y = sliding ? .65 : 1;
+    if (sliding) { rig.rotation.x = -.12; upper.rotation.z = -.09; }
     if (dancing) {
       const beat = danceTime * 5.6, sway = Math.sin(beat), step = Math.cos(beat);
       rig.rotation.set(0, sway * .18, sway * .095);

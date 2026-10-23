@@ -338,6 +338,18 @@ export function createCharacterSkills() {
     }
     return protectedNow ? 1 - (1 - raw) * FROST_SKILLS.unravelSlowFraction : raw;
   }
+  // The existing event clock is authoritative; no new movement packet field.
+  // Ground loss permanently removes the same event, including its slide phase.
+  function frostSlideSpeed(actor, now) {
+    if (!viewTime(now)) return 0;
+    for (const [id,event] of active) {
+      if (event.type !== 'frost-unravel' || event.sourceId !== actor?.id) continue;
+      if (!living(actor) || actor.team !== event.team || actor.grounded !== true) { active.delete(id); continue; }
+      const age=currentTime-event.triggerAt;
+      if (age>=0 && age<FROST_SKILLS.slideDuration-1e-8) return FROST_SKILLS.slideStartSpeed+(FROST_SKILLS.slideEndSpeed-FROST_SKILLS.slideStartSpeed)*age/FROST_SKILLS.slideDuration;
+    }
+    return 0;
+  }
   function speedScale(actor, now, { reachable, groundHeight } = {}) {
     if (!living(actor) || !viewTime(now)) return 1;
     let scale = 1;
@@ -503,5 +515,5 @@ export function createCharacterSkills() {
     if(!e)return 0;const stored=active.get(e.id),step=Math.min(ONNARA_SKILLS.taxPerShot,stored.power),paid=Math.min(credits,step);stored.power-=step;return paid;
   }
   const onnaraEvent=(type,id,now)=>events(now).find(e=>e.type===type&&e.sourceId===id)||null;
-  return {recordConstellation(sourceId,from,to,now){const e=events(now).find(e=>e.type==='onnara-chain'&&e.sourceId===sourceId&&owned.has(e.id));if(!e||!point(from)||!point(to)||Math.hypot(from.x-to.x,from.y-to.y,from.z-to.z)>ONNARA_SKILLS.chainRange+.001)return false;active.get(e.id).link=[from.x,from.y,from.z,to.x,to.y,to.z,now].map(n=>Math.round(n*1000)/1000);active.get(e.id).link[6]=now;return true;},cancelOnnaraEvent(id,sourceId){const e=active.get(id);if(e?.type.startsWith('onnara-')&&e.sourceId===sourceId&&owned.has(id)){active.delete(id);owned.delete(id);return true;}return false;},consumeCrownTax,onnaraTax:(id,now)=>events(now).find(e=>e.type==='onnara-tax'&&e.targetId===id)||null,onnaraEvent,urchinJammed:(id,now)=>capState('urchin-jam',id,now,true),urchinTrident:(id,now)=>capState('urchin-trident',id,now),hasImpairment,cleanse,capLocked:(id,now)=>capState('cap-lock',id,now,true),capBank:(id,now)=>capState('cap-bank',id,now),capMagazine:(id,now)=>capState('cap-magazine',id,now),resetActor,japanReturn:(id,now)=>events(now).some(e=>e.type==='japan-return'&&e.sourceId===id)?JAPAN_SKILLS.returnScale:0,nobiVulnerability,nobiInterval,nobiWork,nobiLegend,carGyro,disperseSmoke,cancelCarEvent,catBookmark,returnToCatBookmark,cancelCatEvent,clockFrozen, sealUntil,quiet,guardLethal,interceptShield,cast, update, events, snapshot, restore, reset, blindUntil, speedScale, markers, movementScale, mitigateSlow, cancelService, consumeDecoy, flashDecoy };
+  return {recordConstellation(sourceId,from,to,now){const e=events(now).find(e=>e.type==='onnara-chain'&&e.sourceId===sourceId&&owned.has(e.id));if(!e||!point(from)||!point(to)||Math.hypot(from.x-to.x,from.y-to.y,from.z-to.z)>ONNARA_SKILLS.chainRange+.001)return false;active.get(e.id).link=[from.x,from.y,from.z,to.x,to.y,to.z,now].map(n=>Math.round(n*1000)/1000);active.get(e.id).link[6]=now;return true;},cancelOnnaraEvent(id,sourceId){const e=active.get(id);if(e?.type.startsWith('onnara-')&&e.sourceId===sourceId&&owned.has(id)){active.delete(id);owned.delete(id);return true;}return false;},consumeCrownTax,onnaraTax:(id,now)=>events(now).find(e=>e.type==='onnara-tax'&&e.targetId===id)||null,onnaraEvent,urchinJammed:(id,now)=>capState('urchin-jam',id,now,true),urchinTrident:(id,now)=>capState('urchin-trident',id,now),hasImpairment,cleanse,capLocked:(id,now)=>capState('cap-lock',id,now,true),capBank:(id,now)=>capState('cap-bank',id,now),capMagazine:(id,now)=>capState('cap-magazine',id,now),resetActor,japanReturn:(id,now)=>events(now).some(e=>e.type==='japan-return'&&e.sourceId===id)?JAPAN_SKILLS.returnScale:0,nobiVulnerability,nobiInterval,nobiWork,nobiLegend,carGyro,disperseSmoke,cancelCarEvent,catBookmark,returnToCatBookmark,cancelCatEvent,clockFrozen, sealUntil,quiet,guardLethal,interceptShield,cast, update, events, snapshot, restore, reset, blindUntil, speedScale, markers, movementScale, mitigateSlow, frostSlideSpeed, cancelService, consumeDecoy, flashDecoy };
 }

@@ -306,6 +306,16 @@ function actorSpeedScale(actor,movementGrounded=actorGrounded(actor)){
   const raw=Math.min(zoneAbilities.speedMultiplier(actor,elapsed),ordinarySkills.speedScale(view,elapsed,{reachable:ordinaryReachable,groundHeight:ordinaryGroundHeight}));
   return ordinarySkills.mitigateSlow(view,raw,elapsed)*actorMovementScale(actor,movementGrounded);
 }
+function frostSlideSpeed(actor,grounded=actorGrounded(actor)){
+  if(match?.phase!=='live'||!actor||actor.kit?.character!=='frost')return 0;
+  // Preserve the guest tombstone before the speed query removes an airborne
+  // event; otherwise the next delayed host snapshot could revive its entry.
+  if(isGuest()&&actor===player&&(!grounded||!actor.alive))for(const event of ordinarySkills.events(elapsed))if(event.type==='frost-unravel'&&event.sourceId===actor.id){
+    stoppedFrostEvents.set(event.id,event.endsAt);while(stoppedFrostEvents.size>20)stoppedFrostEvents.delete(stoppedFrostEvents.keys().next().value);
+  }
+  if(isGuest()&&actor===player&&ordinarySkills.events(elapsed).some(event=>event.type==='frost-unravel'&&event.sourceId===actor.id&&stoppedFrostEvents.has(event.id)))return 0;
+  return ordinarySkills.frostSlideSpeed?.({...ordinaryActorView(actor),grounded},elapsed)||0;
+}
 function emberPulseIndex(age){return age>=3.6?2:age>=2.4?1:age>=1.2?0:-1;}
 function updateCharacterDescription(){
   const definition=CHARACTER_DEFS[selectedCharacter()];
@@ -1834,7 +1844,7 @@ function updateHUD(){
     const duckSeal=ordinarySkills.sealUntil(player.id,elapsed)>elapsed,duckQuiet=ordinarySkills.quiet(player.id,elapsed),duckEgg=ordinarySkills.events(elapsed).find(e=>e.type==='duck-egg'&&e.sourceId===player.id);
     const personal=player.alive?ordinarySkills.events(elapsed).filter(event=>event.sourceId===player.id):[],shade=personal.some(event=>event.type==='ember-shade'),unravel=personal.some(event=>event.type==='frost-unravel')&&actorGrounded(player);
     $('status-effects').hidden=!statuses.length&&!carGyro&&!catBook&&!catClock&&!duckAim&&!duckSeal&&!duckQuiet&&!duckEgg&&!slowed&&!boosted&&!blind&&!shade&&!unravel;
-    $('status-effects').textContent=[...statuses,carGyro?'タイヤジャイロ · 接地中の移動射撃安定':'',catBook?`白いしおり · Cで帰還 ${Math.max(0,Math.ceil(catBook.endsAt-elapsed))}秒`:'',catClock?'白紙の8秒 · 試合時計停止 / 行動は継続':'',duckAim?'狙って左クリックで確定 / 右クリックで取消':'',duckSeal?'羽根の封印 · 新規スキル使用不可':'',duckQuiet?'忍びガモ · 足音・着地音なし':'',duckEgg?`不屈の卵 · 残り${duckEgg.power}回`:'',slowed?`足止め中 · 移動速度 ${Math.round(scale*100)}%`:'',boosted?`${CHARACTER_DEFS[player.kit.character].label} / ${getCharacterSkill(player.kit.character,'e').name} · ${Math.round(scale*100)}%`:'',blind?'FLASH · 視界回復中':'',shade?`遮光チェック · 新しい閃光の時間${Math.round(EMBER_SKILLS.shadeFlashScale*100)}%`:'',unravel?`ほどけるリボン · 減速分を${Math.round((1-FROST_SKILLS.unravelSlowFraction)*100)}%軽減`:''].filter(Boolean).join(' / ');
+    $('status-effects').textContent=[...statuses,carGyro?'タイヤジャイロ · 接地中の移動射撃安定':'',catBook?`白いしおり · Cで帰還 ${Math.max(0,Math.ceil(catBook.endsAt-elapsed))}秒`:'',catClock?'白紙の8秒 · 試合時計停止 / 行動は継続':'',duckAim?'狙って左クリックで確定 / 右クリックで取消':'',duckSeal?'羽根の封印 · 新規スキル使用不可':'',duckQuiet?'忍びガモ · 足音・着地音なし':'',duckEgg?`不屈の卵 · 残り${duckEgg.power}回`:'',slowed?`足止め中 · 移動速度 ${Math.round(scale*100)}%`:'',boosted?`${CHARACTER_DEFS[player.kit.character].label} / ${getCharacterSkill(player.kit.character,'e').name} · ${Math.round(scale*100)}%`:'',blind?'FLASH · 視界回復中':'',shade?`遮光チェック · 新しい閃光の時間${Math.round(EMBER_SKILLS.shadeFlashScale*100)}%`:'',unravel?`${getCharacterSkill('frost','e').name} · ${frostSlideSpeed(player)>0?'滑走中 / ':''}減速分を${Math.round((1-FROST_SKILLS.unravelSlowFraction)*100)}%軽減`:''].filter(Boolean).join(' / ');
   }
   if($('ability-x-name'))$('ability-x-name').textContent=character.ultShortName;
   if($('mobile-ult-name'))$('mobile-ult-name').textContent=character.ultShortName;
@@ -1917,7 +1927,7 @@ function drawMinimap(target,large=false){
 }
 
 function enemyRimFor(bot){const viewerTeam=!player.alive&&spectatedBot?spectatedBot.team:player.team;return mode!=='menu'&&(viewerTeam==='blue'||viewerTeam==='red')&&(bot.team==='blue'||bot.team==='red')&&bot.team!==viewerTeam;}
-function agentEquipment(bot){const weapon=bot.remoteId?bot.netWeapon:bot.netTarget?.weapon||bot.record?.primary||bot.record?.secondary||"classic";return {weapon,character:bot.kit?.character||bot.netTarget?.kit?.character||'duelist',ultimate:bot.kit?.knivesActive&&weapon==="knife",knives:bot.kit?.knives||0,shotSequence:bot.netTarget?.shotSequence??bot.shotSequence??0,enemyRim:enemyRimFor(bot),...roundDanceState(match,bot),...(reducedMotion.matches?{danceTime:0}:{})};}
+function agentEquipment(bot){const weapon=bot.remoteId?bot.netWeapon:bot.netTarget?.weapon||bot.record?.primary||bot.record?.secondary||"classic";return {weapon,character:bot.kit?.character||bot.netTarget?.kit?.character||'duelist',ultimate:bot.kit?.knivesActive&&weapon==="knife",knives:bot.kit?.knives||0,shotSequence:bot.netTarget?.shotSequence??bot.shotSequence??0,enemyRim:enemyRimFor(bot),sliding:frostSlideSpeed(bot)>0&&!!bot.moving,...roundDanceState(match,bot),...(reducedMotion.matches?{danceTime:0}:{})};}
 function updateBots(dt){
   const cfg=levels[difficulty]||levels.normal;
   const actors=[player,...bots];
@@ -1968,7 +1978,7 @@ function updateBots(dt){
     while(bot.path.length&&distance(bot,bot.path[0])<.22)bot.path.shift();
     const point=bot.path[0];if(!point)return false;
     const dx=point.x-bot.x,dz=point.z-bot.z,length=Math.hypot(dx,dz)||1;
-    const speed=(3.35+cfg.speed*.25)*1.15*actorSpeedScale(bot);
+    const speed=(frostSlideSpeed(bot)||(3.35+cfg.speed*.25)*1.15)*actorSpeedScale(bot);
     const step=Math.min(length,speed*dt),oldX=bot.x,oldZ=bot.z;
     if(elapsed<(bot.trafficLaunch?.endsAt||0)||map.traffic&&map.traffic.dangerous(bot.x+dx/length*step,bot.z+dz/length*step,elapsed))return false;
     moveEntity(bot,dx/length*step,dz/length*step,.4);
@@ -2186,7 +2196,8 @@ function updateBots(dt){
     if(bot.kit?.character==='frost'&&!interactPlant&&!interactDefuse&&actorGrounded(bot)&&ordinarySkills.blindUntil(bot.id,elapsed)<=elapsed&&elapsed>=(bot.nextSkillAt||0)){
       const known=enemy||(bot.lastSeen&&elapsed-bot.lastSeen.seenAt<1?bot.lastSeen:null),watch=known||role?.watch||goal;
       const rawSlow=Math.min(zoneAbilities.speedMultiplier(bot,elapsed),ordinarySkills.speedScale(ordinaryActorView(bot),elapsed,{reachable:ordinaryReachable,groundHeight:ordinaryGroundHeight}));let cast=null;
-      if(rawSlow<1&&goal&&distance(bot,goal)>2&&bot.kit.dash>0)cast=activateAbility(bot,'e');
+      const travel=goal&&distance(bot,goal)>5&&(!enemy||role?.urgent||distance(bot,enemy)>25)&&!(bot.aiReload>0);
+      if(bot.kit.dash>0&&goal&&(rawSlow<1&&distance(bot,goal)>2||travel&&navigation.nearest(goal.x,goal.z)&&navigation.path(bot.x,bot.z,goal.x,goal.z).length))cast=activateAbility(bot,'e');
       if(!cast&&known&&bot.kit.updraft>0){
         const dist=distance(bot,known),goalDistance=goal?distance(bot,goal):0;
         // Cover a nearby plant/recovery/defuse location, not every long-range
@@ -2299,6 +2310,7 @@ function updateBots(dt){
       const shared=tactics.contacts(bot.team,elapsed).filter(c=>distance(bot,c)<32).sort((a,b)=>b.seenAt-a.seenAt)[0];
       if(remembered||shared||tagContact||heard||role?.watch)face(bot,remembered||shared||tagContact||heard||role.watch,3.5);
     }
+    bot.crouch=frostSlideSpeed(bot)>0&&bot.moving?1:0;
     if(!bot.planting)match.cancelPlant(bot.id);
     if(!bot.defusing)match.cancelDefuse(bot.id);
     bot.group.position.x=bot.x;bot.group.position.z=bot.z;
@@ -2375,10 +2387,10 @@ function updatePlay(dt){
   const side=controlled?((keys.has('KeyD')?1:0)-(keys.has('KeyA')?1:0)+touchMove.x):0;
   const moveX=-Math.sin(yaw)*forward+Math.cos(yaw)*side,moveZ=-Math.cos(yaw)*forward-Math.sin(yaw)*side;
   const len=Math.hypot(moveX,moveZ);
-  const crouching=controlled&&(keys.has('KeyV')||keys.has('ControlLeft')||keys.has('ControlRight')||keys.has('TouchCrouch'));
+  const slideSpeed=frostSlideSpeed(player),crouching=controlled&&(slideSpeed>0||keys.has('KeyV')||keys.has('ControlLeft')||keys.has('ControlRight')||keys.has('TouchCrouch'));
   player.crouch=THREE.MathUtils.lerp(player.crouch,crouching?1:0,Math.min(1,dt*12));
   const walking=keys.has('ShiftLeft')||keys.has('ShiftRight');
-  const slow=actorSpeedScale(player),speed=(crouching?1.8:(walking?2.8:inventory.active==='knife'?6.3:5.4)*1.15)*(aiming?.78:1)*slow;
+  const slow=actorSpeedScale(player),speed=(slideSpeed|| (crouching?1.8:(walking?2.8:inventory.active==='knife'?6.3:5.4)*1.15))*(aiming?.78:1)*slow;
   const desiredX=moveX/Math.max(1,len)*speed,desiredZ=moveZ/Math.max(1,len)*speed;
   const rate=(len?45:75)*dt;
   player.vx+=clamp(desiredX-player.vx,-rate,rate);player.vz+=clamp(desiredZ-player.vz,-rate,rate);
@@ -2387,11 +2399,12 @@ function updatePlay(dt){
   if(player.alive){
     if(player.dashTimer>0){const step=Math.min(dt,player.dashTimer);moveEntity(player,player.dashVec.x*(12/.18)*step,player.dashVec.z*(12/.18)*step);player.dashTimer-=step;player.vx=0;player.vz=0;}else moveEntity(player,player.vx*dt,player.vz*dt);
     updateActorVertical(player,dt);
-    const running=controlled&&!walking&&!crouching&&player.vy===0&&Math.hypot(player.x-previousX,player.z-previousZ)>dt*2;
+    const running=controlled&&(slideSpeed>0||!walking&&!crouching)&&player.vy===0&&Math.hypot(player.x-previousX,player.z-previousZ)>dt*2;
     stepClock=running?stepClock+dt:0;
     if(stepClock>.35){stepClock=0;sound('step');}
     if(previousVy<-.8&&player.vy===0&&previousY>player.y+.005)sound('land');
   }
+  player.moving=controlled&&Math.hypot(player.x-previousX,player.z-previousZ)>dt*.5;
   scanTime=Math.max(0,scanTime-dt);
   player.recoil=Math.max(0,player.recoil-dt*.065);kick=Math.max(0,kick-dt*.4);
   renderedRecoil=THREE.MathUtils.lerp(renderedRecoil,player.recoil,1-Math.exp(-dt*22));
@@ -2727,7 +2740,7 @@ function updateRemoteActor(actor,dt){
     let dx=input.x-actor.x,dz=input.z-actor.z;
     if(actor.dashTimer>0&&actor.dashVec){const step=Math.min(dt,actor.dashTimer)*12/.18;dx=actor.dashVec.x*step;dz=actor.dashVec.z*step;}
     else if(actor.netDashInputSequence===data.seq||elapsed<Math.max(actor.carImpulseUntil||0,actor.trafficLaunch?.endsAt||0)){dx=0;dz=0;}
-    const distance=Math.hypot(dx,dz),limit=(actor.dashTimer>0?12/.18:(input.quiet===true?2.8:7)*1.15*actorSpeedScale(actor,inputGrounded))*dt;
+    const distance=Math.hypot(dx,dz),limit=(actor.dashTimer>0?12/.18:(frostSlideSpeed(actor,inputGrounded)||(input.quiet===true?2.8:7)*1.15)*actorSpeedScale(actor,inputGrounded))*dt;
     if(distance>limit){dx*=limit/distance;dz*=limit/distance;}
     if(match.phase==='buy'){const area=map.buyAreas[actor.team===match.attackerTeam?'attack':'defend'];if(Math.hypot(actor.x+dx-area.x,actor.z+dz-area.z)>area.radius-.4){dx=0;dz=0;}}
     moveEntity(actor,dx,dz);
@@ -2743,11 +2756,11 @@ function updateRemoteActor(actor,dt){
       actor.vy=inputGrounded?0:(actor.y-previousY)/Math.max(dt,1e-6);
     }
     applyStarHold(actor);
-    actor.crouch=clamp(Number(input.crouch)||0,0,1);
+    actor.crouch=frostSlideSpeed(actor)>0?1:clamp(Number(input.crouch)||0,0,1);
     actorMovementScale(actor);
     actor.netYaw=Number.isFinite(input.yaw)?input.yaw:0;actor.netPitch=clamp(Number(input.pitch)||0,-1.35,1.35);actor.group.rotation.y=actor.netYaw+Math.PI;
   }
-  const remoteRunning=active&&match.phase==='live'&&input.quiet!==true&&actor.crouch<.5&&!wasDashing&&actorGrounded(actor)&&Math.hypot(actor.x-previousX,actor.z-previousZ)>dt*2;
+  const remoteRunning=active&&match.phase==='live'&&(frostSlideSpeed(actor)>0||input.quiet!==true&&actor.crouch<.5)&&!wasDashing&&actorGrounded(actor)&&Math.hypot(actor.x-previousX,actor.z-previousZ)>dt*2;
   actor.netStepClock=remoteRunning?(actor.netStepClock||0)+dt:0;if(actor.netStepClock>.35){actor.netStepClock=0;sound('step',{entity:actor});}
   actor.kit?.tick(elapsed);actor.dashTimer=Math.max(0,(actor.dashTimer||0)-dt);actor.moving=Math.hypot(actor.x-previousX,actor.z-previousZ)>dt*.5;
   const stationary=Math.hypot(actor.x-previousX,actor.z-previousZ)<dt*.25&&Math.abs(actor.y||0)<=.05,held=active&&input.interact===true&&match.phase==='live';

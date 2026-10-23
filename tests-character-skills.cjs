@@ -706,7 +706,7 @@ async function main() {
     assert.equal(elevated.speedScale({ ...enemy, y: 3.2 }, .8, flat(3.2)), .45); assert.equal(elevated.speedScale(enemy, .8, flat(0)), 1, 'An upstairs ring cannot slow the floor below');
     assert.equal(elevated.speedScale({ ...enemy, y: 3.2 }, .8, flat(0)), 1, 'An airborne pose above lower support is not considered on the upper floor');
   });
-  test('FROST unravel leaves only fifteen percent of the already combined slowdown and never creates movement acceleration or changes actor state', () => {
+  test('FROST mitigation leaves fifteen percent of combined slowdown without changing the separate normal movement scale or actor state', () => {
     const owner = actor('doll', 'blue', 2, -5, { grounded: true }), engine = createCharacterSkills(), before = json(owner);
     engine.cast('frost-unravel', owner, target(2, -5), 0, 1);
     for (const [raw, expected] of [[1, 1], [.55, .9325], [.65, .9475], [.75, .9625], [0, .85]]) near(engine.mitigateSlow(owner, raw, .1), expected);

@@ -63,9 +63,9 @@ const suite = `
    setup();local.run("ordinarySkills.cast('frost-mist',{id:'ally-fog',team:'blue',x:0,y:0,z:10,hp:100,alive:true},{x:0,y:1.4,z:-4},elapsed,match.round);updateBots(.1)");assert.equal(local.run('doll.kit.updraft'),1);
    setup();local.run("for(let i=0;i<20;i++)ordinarySkills.cast('car-gyro',{id:'filler-'+i,team:'red',x:10,y:0,z:10,hp:100,alive:true},{x:10,y:0,z:10},elapsed,match.round);updateBots(.1)");assert.equal(local.run('doll.kit.updraft'),1);near(local.run('doll.nextSkillAt'),10.5,'bounded retry');assert.equal(local.run('ordinarySkills.events(elapsed).length'),20);
  });
- check('E still mitigates actual slow and never becomes a normal-speed travel boost',()=>{
+ check('E retains actual slow mitigation and also permits a normal-ground entry',()=>{
    setup();local.run("player.alive=false;doll.kit.updraft=0;doll.kit.dash=1;ordinarySkills.cast('mend-seeds',{id:'seed-enemy',team:'red',x:0,y:0,z:10,hp:100,alive:true},{x:0,y:.12,z:10},elapsed,match.round);elapsed+=1;updateOrdinarySkills();updateBots(.1)");assert.equal(local.run('doll.kit.dash'),0);assert.ok(local.run('actorSpeedScale(doll)>.5'));
-   setup();local.run('player.alive=false;doll.kit.updraft=0;doll.kit.dash=1;updateBots(.1)');assert.equal(local.run('doll.kit.dash'),1);
+   setup();local.run('player.alive=false;doll.kit.updraft=0;doll.kit.dash=1;updateBots(.1)');assert.equal(local.run('doll.kit.dash'),0);assert.ok(local.run('frostSlideSpeed(doll)>7'));
  });
  check('guest never spends BOT stock; round cleanup removes deployed fog',()=>{
    setup();local.run("onlinePlaying=true;online={host:false,session:{memberId:'guest'}};updateBots(.1)");assert.equal(local.run('doll.kit.updraft'),1);

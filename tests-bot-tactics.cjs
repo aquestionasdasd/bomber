@@ -92,7 +92,7 @@ async function main(){
     const math=Object.create(Math);math.random=typeof random==='function'?random:()=>random;
     const sandbox={applyStarHold:()=>false,crownShot:()=>{},activateCapAbility:()=>null,activateJapanAbility:()=>null,nobiBulletDamage:(_s,_t,d)=>d,THREE,WEAPONS,NOPE_SKILLS,IAGNU_SKILLS,VEIL_SKILLS,EMBER_SKILLS,FROST_SKILLS,...areas,createBotTactics,inVisionCone,createBotHearing,map,navigation:createNavigation(map),player,bots,match,elapsed:0,inventory:{active:'classic'},reloading:0,
       levels:{normal:{interval:1.25,aim:.68,speed:2.1}},difficulty:'normal',Math:math,clamp:(v,a,b)=>Math.max(a,Math.min(b,v)),
-      isGuest:()=>false,botHearing:createBotHearing(),ordinarySkills,zoneAbilities:{speedMultiplier:()=>1},actorSpeedScale:()=>1,agentEquipment:()=>({}),selectMendTarget,activePollenFields:()=>[],
+      isGuest:()=>false,botHearing:createBotHearing(),ordinarySkills,zoneAbilities:{speedMultiplier:()=>1},actorSpeedScale:()=>1,frostSlideSpeed:()=>0,agentEquipment:()=>({}),selectMendTarget,activePollenFields:()=>[],
       ordinaryActorView:value=>({...value,grounded:sandbox.actorGrounded(value)}),ordinaryGroundHeight:()=>0,rampFloor:()=>null,
       ordinaryReachable:(event,value)=>map.collision.rayClear(event.x,(event.y||0)+.18,event.z,value.x,(value.y||0)+.18,value.z),
       actorGrounded:actor=>actor.alive&&Math.abs(actor.y||0)<1e-8&&Math.abs(actor.vy||0)<1e-8,
@@ -203,7 +203,7 @@ async function main(){
     if(key==='e')assert.equal(doll.kit.nextSignatureAt,FROST_SKILLS.signatureCooldown+.05);
     const before=game.casts.length;game.step(10);assert.equal(game.casts.length,before,'Stock/cooldown must prevent casting every think tick');
   }
-  const safeDoll=actor('red-doll-safe','red',0,0);safeDoll.kit=new DuelistKit({character:'frost'});const unSlowed=integration({player:noEnemy,bots:[safeDoll]});unSlowed.step();assert.equal(unSlowed.casts.some(cast=>cast.key==='e'),false,'A normal-speed BOT must preserve mitigation instead of treating E as a travel boost');
+  const safeDoll=actor('red-doll-safe','red',0,0);safeDoll.kit=new DuelistKit({character:'frost'});const unSlowed=integration({player:noEnemy,bots:[safeDoll]});unSlowed.step();assert.equal(unSlowed.casts.some(cast=>cast.key==='e'),true,'A real route now permits the authorized short entry slide without requiring enemy slow');
   const airDoll=actor('red-doll-air','red',0,0);airDoll.kit=new DuelistKit({character:'frost'});airDoll.y=1;const airDollGame=integration({player:actor('player','blue',0,10),bots:[airDoll],ordinarySkills:{interceptShield:()=>null,quiet:()=>false,sealUntil:()=>0,blindUntil:()=>0,events:()=>[],markers:()=>[],speedScale:()=>.55}});airDollGame.step();assert.equal(airDollGame.casts.length,0,'An airborne BOT may not spend a ground-only mitigation or plan a ground ring');
   console.log('PASS: real FROST economy buys2rings/1mist for300, BOT offset-ring/wounded-mist/actually-slowed ribbon choices, cooldown and normal/air rejection');
 
