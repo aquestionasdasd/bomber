@@ -6,8 +6,8 @@ async function main(){
  const THREE=await import('./public/vendor/three.module.js'),{createAgentModel}=await import('./public/agent-model.js'),{createCarSkillFX}=await import('./public/car-skill-fx.js');
  const a={id:'car',team:'blue',x:0,y:0,z:0,hp:100,alive:true,grounded:true},copy=x=>JSON.parse(JSON.stringify(x));let groups=0;
  const test=(name,fn)=>{fn();groups++;console.log('PASS: '+name);};
- test('tenth car costs, finite stock,18s CD,7pt and JSON restore preserve existing nine IDs',()=>{
-  assert.equal(CHARACTER_DEFS.car.label,'トミカ');assert.equal(Object.keys(CHARACTER_DEFS).length,14);assert.equal(CAR_SKILLS.bumperDistance,3);
+ test('tenth car costs, finite stock,18s CD,7pt and JSON restore preserve the current15-character roster',()=>{
+  assert.equal(CHARACTER_DEFS.car.label,'トミカ');assert.equal(Object.keys(CHARACTER_DEFS).length,15);assert.equal(CAR_SKILLS.bumperDistance,3);
   const kit=new DuelistKit({character:'car'});let spend=0;for(const k of['c','c','q'])assert.equal(kit.buy(k,n=>(spend+=n,true)),true);assert.equal(spend,300);assert.equal(kit.buy('q',()=>true),false);
   for(const k of['c','q','e'])assert.equal(kit.activate(k,1).type,getCharacterSkill('car',k).type);assert.equal(kit.activate('e',18.99),null);assert.ok(kit.activate('e',19));kit.ultPoints=7;assert.equal(kit.activate('x',20).type,'car-pit');assert.equal(kit.ultPoints,0);assert.equal(kit.knivesActive,false);const restored=new DuelistKit();assert.ok(restored.restore(copy(kit.snapshot())));assert.deepEqual(restored.snapshot(),kit.snapshot());
  });
