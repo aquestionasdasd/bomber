@@ -32,6 +32,6 @@ export function createCatAvatar(THREE,{rig,upper,head,rightArm,leftArm,leftLeg,r
   ellipsoid(frame(leg.shin),'trouser cuff',[0,0,0],[1.02,3,1.02],'shade');
   ellipsoid(frame(leg.boot),'plush shoe',[0,-.055,.04],[.095,.066,.16],'white');
  }
- let disposed=false;function update(){if(disposed)return;for(const[f,s]of frames){s.updateMatrix();f.matrix.copy(s.matrix);f.matrixWorldNeedsUpdate=true;}}
+ let disposed=false;function update(){if(disposed)return;for(const[f,s]of frames){s.updateMatrix();if(s===head){upper.updateMatrix();f.matrix.multiplyMatrices(upper.matrix,s.matrix);}else f.matrix.copy(s.matrix);f.matrixWorldNeedsUpdate=true;}}
  update();return{group,update,setVisible(v){group.visible=!!v;},dispose(){if(disposed)return;disposed=true;group.removeFromParent();for(const g of geometries)g.dispose();for(const m of materials.values())m.dispose();}};
 }

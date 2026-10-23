@@ -37,5 +37,5 @@ export function createJapanAvatar(THREE,{rig,upper,head,rightArm,leftArm,leftLeg
   ball(frame(arm.upperArm),'cork arm',[0,0,0],[1,3,1],'edge');ball(frame(arm.forearm),'white map sleeve',[0,0,0],[1.08,3,1.08],'white');ball(frame(arm.palm),'map glove',[0,0,0],[.067,.045,.08],'cork');
   ball(frame(leg.thigh),'cork leg',[0,0,0],[1,3,1],'edge');ball(frame(leg.shin),'regional greave',[0,0,0],[1.12,3,1.12],'tohoku');ball(frame(leg.boot),'white boot',[0,-.05,.045],[.105,.065,.17],'white');
  }
- let disposed=false;function update(){if(disposed)return;for(const[f,s]of frames){s.updateMatrix();f.matrix.copy(s.matrix);f.matrixWorldNeedsUpdate=true;}}update();return{group,update,setVisible(v){group.visible=!!v;},dispose(){if(disposed)return;disposed=true;group.removeFromParent();gs.forEach(g=>g.dispose());ms.forEach(m=>m.dispose());corkTexture.dispose();}};
+ let disposed=false;function update(){if(disposed)return;for(const[f,s]of frames){s.updateMatrix();if(s===head){upper.updateMatrix();f.matrix.multiplyMatrices(upper.matrix,s.matrix);}else f.matrix.copy(s.matrix);f.matrixWorldNeedsUpdate=true;}}update();return{group,update,setVisible(v){group.visible=!!v;},dispose(){if(disposed)return;disposed=true;group.removeFromParent();gs.forEach(g=>g.dispose());ms.forEach(m=>m.dispose());corkTexture.dispose();}};
 }

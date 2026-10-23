@@ -37,6 +37,6 @@ export function createOnnaraAvatar(T,{rig,upper,head,rightArm,leftArm,leftLeg,ri
   ball(frame(leg.shin),'red greave',[0,0,0],[1.02,3.1,1.02],'red');
   ball(frame(leg.boot),'gold boot',[0,-.05,.05],[.095,.065,.15],'gold');
  }
- let disposed=false;function update(){if(disposed)return;for(const[f,s]of frames){s.updateMatrix();f.matrix.copy(s.matrix);f.matrixWorldNeedsUpdate=true;}}update();
+ let disposed=false;function update(){if(disposed)return;for(const[f,s]of frames){s.updateMatrix();if(s===head){upper.updateMatrix();f.matrix.multiplyMatrices(upper.matrix,s.matrix);}else f.matrix.copy(s.matrix);f.matrixWorldNeedsUpdate=true;}}update();
  return{group,update,setVisible(v){group.visible=!!v;},dispose(){if(disposed)return;disposed=true;group.removeFromParent();geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());}};
 }
