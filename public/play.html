@@ -69,7 +69,7 @@
           <div><kbd>W A S D</kbd><span>移動</span></div><div><kbd>MOUSE</kbd><span>視点</span></div>
           <div><kbd>LMB</kbd><span>射撃</span></div><div><kbd>RMB</kbd><span>ADS / 精密照準</span></div>
           <div><kbd>R / G</kbd><span>装填 / 武器・ボンバーを落とす</span></div><div><kbd>SHIFT / V</kbd><span>歩く / しゃがむ（長押し）</span></div>
-          <div><kbd>1 / 2 / 3</kbd><span>メイン / サブ / ナイフ</span></div><div><kbd>4 / F長押し</kbd><span>ボンバー装備 / 設置・電源オフ</span></div>
+          <div><kbd>1 / 2 / 3</kbd><span>メイン / サブ / ナイフ</span></div><div><kbd>4 長押し</kbd><span>ボンバー装備・設置 / 電源オフ</span></div><div><kbd>F</kbd><span>拾う / 乗車・降車</span></div>
           <div><kbd>B / TAB</kbd><span>購入 / スコアボード</span></div><div><kbd>C / Q</kbd><span id="guide-skill-cq">C：煙幕 / Q：上昇</span></div>
           <div><kbd>E / X</kbd><span id="guide-skill-ex">E：ダッシュ / X：キャラ固有ULT</span></div>
           <div><kbd>SPACE</kbd><span>ジャンプ</span></div><div><kbd>M / ESC</kbd><span>マップ / 一時停止</span></div>
@@ -90,7 +90,7 @@
         <p class="practice-manual">尾野のC「霜のステッチ」は最大16m先へ、内0.9m・外3.8mの円環を8秒展開し、接地した敵の歩く速さを45%にします（2回まで、1回100しばくでコイン）。Q「ドールミスト」は最大18m先へ半径3.5m・9秒の霧（100コイン）。E「ほどけるリボン」は接地中5秒間、減速分を85%軽減し、18秒で再使用。通常の移動速度は増えず、離地・死亡で終了します。</p>
         <p class="practice-manual">尾野のX「クライオフィールド」は、地面に照準を向け、予告リングで指定位置を確認して発動。最大20m先に半径7mの減速場を10秒展開し、0.8秒後から敵の移動速度を55%にします。重複しても減速は強まりません。</p>
         <p class="practice-manual">射撃訓練は60秒。1体ずつ現れる標的を狙い、撃破数・命中率・ヘッド率を磨こう。</p>
-        <p class="practice-manual">設置・電源オフ練習は時間制限なし、BOTなし。Fを4秒長押しで設置、7秒で電源オフ。電源オフは半分の3.5秒まで進めると、中断後もそこから再開できます。MのマップからA・Bサイトを選び、繰り返し練習しよう。</p>
+        <p class="practice-manual">設置・電源オフ練習は時間制限なし、BOTなし。4を4秒長押しで設置、7秒で電源オフ。電源オフは半分の3.5秒まで進めると、中断後もそこから再開できます。MのマップからA・Bサイトを選び、繰り返し練習しよう。</p>
         <details class="match-rules" style="margin-top:16px;font-size:8px;line-height:1.9;color:#8fa8b1"><summary style="cursor:pointer;letter-spacing:1px;color:#b9cbc9">ROUND RULES / 試合ルールを確認</summary><p style="margin-top:9px">STANDARD：13ラウンド先取。12Rで攻守交代。12–12からは2点差がつくまで延長。</p><p>SWIFT：5ラウンド先取。4Rで攻守交代。4–4は次の1ラウンドで決着。</p><p>各ラウンド中の復活なし。ボンバーは設置4秒、爆発まで45秒。電源オフは7秒、半分の3.5秒までの進行を保持。</p></details>
       </details>
     </section>
@@ -142,7 +142,7 @@
     </details>
     <div id="death-card" class="death-card" role="status" aria-live="polite" hidden><span>ELIMINATED</span><strong>倒されました</strong><small>まもなく味方の観戦へ切り替わります</small></div>
     <div id="spectator-hint" class="spectator-hint" hidden>観戦中 — 次のラウンドで復帰します</div>
-    <div id="interaction" class="interaction" hidden><div><kbd>F</kbd><strong id="interaction-title">ボンバーを設置中</strong></div><div class="interaction-track"><i id="interaction-progress"></i></div></div>
+    <div id="interaction" class="interaction" hidden><div><kbd id="interaction-key">4</kbd><strong id="interaction-title">ボンバーを設置中</strong></div><div class="interaction-track"><i id="interaction-progress"></i></div></div>
 
     <div class="hud-bottom">
       <div class="health-block"><span class="health-icon">✚</span><div class="health-value"><strong id="health">100</strong><span>VITAL STATUS</span></div><div class="armor-value"><svg viewBox="0 0 18 21" aria-hidden="true"><path d="m9 1 7 3v6c0 4-7 9-7 9S2 14 2 10V4z"/></svg><strong id="armor">0</strong></div><div class="health-track"><i id="health-bar"></i></div></div>
@@ -169,11 +169,11 @@
         <button id="mobile-crouch" data-action="crouch" type="button" aria-label="しゃがみを切り替える" aria-pressed="false">しゃがむ<small>切り替え</small></button>
       </div>
       <div class="touch-objective" role="group" aria-label="設置・電源オフと購入">
-        <button id="mobile-interact" data-action="interact" type="button" aria-label="長押しで設置・電源オフ"><span id="mobile-interact-label">F</span><small id="mobile-interact-hint">長押し</small></button>
+        <button id="mobile-interact" data-action="interact" type="button" aria-label="長押しで設置・電源オフ"><span id="mobile-interact-label">4</span><small id="mobile-interact-hint">長押し</small></button>
         <button id="mobile-shop" data-action="shop" type="button">B<small>購入</small></button>
       </div>
     </div>
-    <div class="hud-bottom-line"><span>ボンバーディフューザー3Dオンライン</span><span>C / Q / E スキル <i>·</i> X 固有ULT <i>·</i> B 購入 <i>·</i> F 設置 / 電源オフ</span><span>ONLINE / SOLO + BOTS</span></div>
+    <div class="hud-bottom-line"><span>ボンバーディフューザー3Dオンライン</span><span>C / Q / E スキル <i>·</i> X 固有ULT <i>·</i> B 購入 <i>·</i> 4 長押し 設置 / 電源オフ</span><span>ONLINE / SOLO + BOTS</span></div>
   </section>
 
   <section id="online-overlay" class="overlay-screen online-screen" role="dialog" aria-modal="true" aria-labelledby="online-title" hidden>
