@@ -910,11 +910,11 @@ function updateTravelButtons(){
   const trial=document.createElement('button');trial.type='button';trial.textContent='キャラ能力を試す';trial.disabled=!exploring||!!rangeSession;
   trial.addEventListener('click',startCharacterTrial);container.append(trial);
 }
-function canStand(x,z,r=.34,feet=player.y) {
+function canStand(x,z,r=.34,feet=player.y,height=1.7) {
   const b=map.bounds;
   if(x<b.minX+r||x>b.maxX-r||z<b.minZ+r||z>b.maxZ-r)return false;
   // Ground details under 2 cm are harmless; raised solids require feet above their real top.
-  return !map.collision.blocked(x,z,r,feet);
+  return !map.collision.blocked(x,z,r,feet,height);
 }
 function rampFloor(x,z) {
   let floor=null;
@@ -947,14 +947,14 @@ function moveEntity(entity,dx,dz,r=.34) {
         // Only ankle-height ledges can be stepped onto; crates still require jumping.
         for(const c of map.collision.query(x,z,r))if(c.height>feet&&c.height<=entity.y+.22&&map.collision.overlaps(c,x,z,r))feet=c.height;
       }
-      if(canStand(x,z,r,feet)){entity.x=x;entity.z=z;if(followsFloor)entity.y=feet;}
+      if(canStand(x,z,r,feet,1.7-(entity.crouch||0)*.55)){entity.x=x;entity.z=z;if(followsFloor)entity.y=feet;}
     }
     attempt(entity.x+dx/n,entity.z);
     attempt(entity.x,entity.z+dz/n);
   }
 }
 function visibleBetween(a,b) {
-  const eye=entity=>(entity.y||0)+1.45-(entity===player?player.crouch*.5:0);
+  const eye=entity=>(entity.y||0)+1.45-((entity.crouch||0)*.55);
   return !smokeBlocks(a,b)&&map.collision.rayClear(a.x,eye(a),a.z,b.x,eye(b),b.z);
 }
 function safeDropPoint(entity=player){
@@ -1332,7 +1332,7 @@ function drawMinimap(target,large=false){
 }
 
 function enemyRimFor(bot){const viewerTeam=!player.alive&&spectatedBot?spectatedBot.team:player.team;return mode!=='menu'&&(viewerTeam==='blue'||viewerTeam==='red')&&(bot.team==='blue'||bot.team==='red')&&bot.team!==viewerTeam;}
-function agentEquipment(bot){const weapon=bot.remoteId?bot.netWeapon:bot.netTarget?.weapon||bot.record?.primary||bot.record?.secondary||"classic";return {weapon,character:bot.kit?.character||bot.netTarget?.kit?.character||'duelist',ultimate:bot.kit?.knivesActive&&weapon==="knife",knives:bot.kit?.knives||0,shotSequence:bot.netTarget?.shotSequence??bot.shotSequence??0,enemyRim:enemyRimFor(bot)};}
+function agentEquipment(bot){const weapon=bot.remoteId?bot.netWeapon:bot.netTarget?.weapon||bot.record?.primary||bot.record?.secondary||"classic";return {weapon,crouch:bot.crouch||0,character:bot.kit?.character||bot.netTarget?.kit?.character||'duelist',ultimate:bot.kit?.knivesActive&&weapon==="knife",knives:bot.kit?.knives||0,shotSequence:bot.netTarget?.shotSequence??bot.shotSequence??0,enemyRim:enemyRimFor(bot)};}
 function updateBots(dt){
   const cfg=levels[difficulty]||levels.normal;
   const actors=[player,...bots];
@@ -1589,7 +1589,7 @@ function updateBots(dt){
           if(bot.moving)chance*=.72;
           const hit=Math.random()<chance,head=hit&&Math.random()<.065+cfg.aim*.07;
           const from=new THREE.Vector3(bot.x,(bot.y||0)+1.2,bot.z);
-          const to=new THREE.Vector3(enemy.x,(enemy.y||0)+(head?1.62:1.15),enemy.z);
+          const to=new THREE.Vector3(enemy.x,(enemy.y||0)+(head?1.62:1.15)-(enemy.crouch||0)*.55,enemy.z);
           if(!hit){to.x+=(Math.random()-.5)*1.8;to.y+=(Math.random()-.5)*.8;}
           const clearShot=map.collision.rayClear(from.x,from.y,from.z,to.x,to.y,to.z);
           if(!clearShot){
@@ -1664,13 +1664,14 @@ function separateBots(dt){
 function updateActorVertical(actor,dt,radius=.34){
     const verticalSteps=Math.max(1,Math.ceil(dt*120)),verticalDt=dt/verticalSteps;
     for(let i=0;i<verticalSteps;i++){
+      const height=1.7-(actor.crouch||0)*.55;
       const previousFeet=actor.y,nextFeet=previousFeet+actor.vy*verticalDt-7.5*verticalDt*verticalDt;
       actor.vy-=15*verticalDt;let support=0,ceiling=Infinity;
       if(nextFeet>previousFeet){
         for(const c of map.collision.query(actor.x,actor.z,radius)){
           const underside=c.base||0;
-          if(previousFeet+1.7>underside+.00001||nextFeet+1.7<underside)continue;
-          if(map.collision.overlaps(c,actor.x,actor.z,radius))ceiling=Math.min(ceiling,underside-1.7);
+          if(previousFeet+height>underside+.00001||nextFeet+height<underside)continue;
+          if(map.collision.overlaps(c,actor.x,actor.z,radius))ceiling=Math.min(ceiling,underside-height);
         }
       }
       if(actor.vy<=0){
@@ -1703,12 +1704,26 @@ function updatePlay(dt){
   const moveX=-Math.sin(yaw)*forward+Math.cos(yaw)*side,moveZ=-Math.cos(yaw)*forward-Math.sin(yaw)*side;
   const len=Math.hypot(moveX,moveZ);
   const crouching=controlled&&(keys.has('KeyV')||keys.has('ControlLeft')||keys.has('ControlRight')||keys.has('TouchCrouch'));
-  player.crouch=THREE.MathUtils.lerp(player.crouch,crouching?1:0,Math.min(1,dt*12));
+  const nextCrouch=THREE.MathUtils.lerp(player.crouch,crouching?1:0,1-Math.exp(-dt*16));
+  if(nextCrouch>=player.crouch||canStand(player.x,player.z,.34,player.y,1.7-nextCrouch*.55))player.crouch=nextCrouch;
   const walking=keys.has('ShiftLeft')||keys.has('ShiftRight');
-  const slow=actorSpeedScale(player),speed=(crouching?1.8:(walking?2.8:inventory.active==='knife'?6.3:5.4)*1.15)*(aiming?.78:1)*slow;
+  const slow=actorSpeedScale(player),speed=(crouching||player.crouch>.5?1.8:(walking?2.8:inventory.active==='knife'?6.3:5.4)*1.15)*(aiming?.78:1)*slow;
   const desiredX=moveX/Math.max(1,len)*speed,desiredZ=moveZ/Math.max(1,len)*speed;
-  const rate=(len?45:75)*dt;
-  player.vx+=clamp(desiredX-player.vx,-rate,rate);player.vz+=clamp(desiredZ-player.vz,-rate,rate);
+  // Integrate in short steps so braking through zero uses acceleration only
+  // for the remaining time. Reverse input brakes faster than releasing keys.
+  const steps=Math.max(1,Math.ceil(dt*240)),step=dt/steps;
+  for(let i=0;i<steps;i++){
+    const current=Math.hypot(player.vx,player.vz);
+    if(!len){
+      const scale=current?Math.max(0,current-22*step)/current:0;
+      player.vx*=scale;player.vz*=scale;
+    }else{
+      const reverse=player.vx*desiredX+player.vz*desiredZ<0;
+      const dx=desiredX-player.vx,dz=desiredZ-player.vz,distance=Math.hypot(dx,dz);
+      const scale=distance?Math.min(1,(reverse?85:32)*step/distance):0;
+      player.vx+=dx*scale;player.vz+=dz*scale;
+    }
+  }
   const velocity=Math.hypot(player.vx,player.vz);if((slow<1||player.turfMovementEnded)&&velocity>speed){player.vx*=speed/velocity;player.vz*=speed/velocity;}player.turfMovementEnded=false;
   const previousY=player.y,previousVy=player.vy,previousX=player.x,previousZ=player.z;
   if(player.alive){
@@ -1730,7 +1745,7 @@ function updatePlay(dt){
   if(player.alive){camera.position.set(player.x,1.7-player.crouch*.55+player.y,player.z);camera.rotation.set(player.pitch+renderedRecoil,player.yaw,0);}
   else{
     const team=bots.filter(b=>b.alive&&b.team===player.team);const watched=team[spectateIndex%Math.max(1,team.length)];
-    if(watched){spectatedBot=watched;watched.group.visible=false;camera.position.set(watched.x,1.65+(watched.y||0),watched.z);camera.rotation.set(0,watched.group.rotation.y+Math.PI,0);$('spectator-hint').textContent=`${watched.record.name} を観戦中 · クリックで切り替え · 次のラウンドまで復活なし`;}
+    if(watched){spectatedBot=watched;watched.group.visible=false;camera.position.set(watched.x,1.65+(watched.y||0)-(watched.crouch||0)*.55,watched.z);camera.rotation.set(0,watched.group.rotation.y+Math.PI,0);$('spectator-hint').textContent=`${watched.record.name} を観戦中 · クリックで切り替え · 次のラウンドまで復活なし`;}
   }
   const withinSmoke=smokes.find(s=>camera.position.distanceToSquared(s.mesh.position)<s.radius*s.radius),withinField=activeOrdinarySmokeFields().find(s=>(camera.position.x-s.x)**2+(camera.position.y-s.y)**2+(camera.position.z-s.z)**2<s.radius*s.radius),obscured=withinSmoke||withinField;scene.fog.near=obscured?.1:145;scene.fog.far=obscured?2.5:380;scene.fog.color.set(withinSmoke?.kind==='veil'?'#77718f':withinField?.type==='veil-dust'?'#8d7659':withinField?.type==='frost-mist'?'#c3bfdb':withinField?.type==='duelist-comet'?'#abcddd':withinField?'#b6bb72':withinSmoke?'#a9c6d2':'#b7d0dd');
   camera.fov=THREE.MathUtils.lerp(camera.fov,aiming&&controlled?62:76,Math.min(1,dt*12));camera.updateProjectionMatrix();
@@ -1747,7 +1762,7 @@ function updatePlay(dt){
   if(botThinkTick<=0){botThinkTick=.25;const front=new THREE.Vector3();camera.getWorldDirection(front);for(const bot of bots){if(bot.team===player.team||!bot.alive)continue;const offset=new THREE.Vector3(bot.x-player.x,0,bot.z-player.z);if(player.alive&&offset.length()<42&&offset.normalize().dot(front)>.55&&visibleBetween(player,bot))bot.spottedUntil=elapsed+.6;}}
   if(!exploring&&!isGuest()){match.tick(dt,{blueAlive:aliveCount('blue'),redAlive:aliveCount('red'),playerAlive:player.alive});handleMatchEvents();}
   timeLeft=match.phase==='buy'||match.phase==='post'?match.phaseTime:match.spike.status==='planted'?match.spike.timer:match.roundTime;
-  viewmodel.update(dt,{aiming:aiming&&controlled,reloading,reloadDuration:player.serviceReload?EMBER_SKILLS.serviceDuration:weapon().reload,kick,moving:len>0,time:elapsed,crouching:player.crouch,interacting:interactionHeld&&controlled,ultimate:player.kit.knivesActive&&inventory.active==='knife',knives:player.kit.knives,shotSequence});
+  viewmodel.update(dt,{aiming:aiming&&controlled,reloading,reloadDuration:player.serviceReload?EMBER_SKILLS.serviceDuration:weapon().reload,kick,moving:Math.hypot(player.vx,player.vz)>.5,time:elapsed,crouching:player.crouch,interacting:interactionHeld&&controlled,ultimate:player.kit.knivesActive&&inventory.active==='knife',knives:player.kit.knives,shotSequence});
   flash.visible=player.alive&&inventory.active!=='knife'&&elapsed-lastShot<.045;flash.rotation.z=elapsed*40;
   const s=match.spike;spikeModel.position.set(s.x,0,s.z);objectiveModel.update({time:elapsed,...s,practice:!!objectivePractice});
   if(s.status==='planted'&&!objectivePractice){
@@ -1890,7 +1905,7 @@ function receiveNetPacket(from,packet){
 function captureNetActor(actor){
   const local=actor===player,record=local?roster[0]:actor.record;
   return{id:actor.id,team:actor.team,x:actor.x,z:actor.z,y:actor.y||0,yaw:local?player.yaw:actor.remoteId?(actor.netYaw||0):actor.group.rotation.y-Math.PI,
-    hp:actor.hp,armor:actor.armor,alive:actor.alive,moving:local?Math.hypot(player.vx,player.vz)>.5:!!actor.moving,
+    hp:actor.hp,armor:actor.armor,alive:actor.alive,crouch:Math.max(0,Math.min(1,actor.crouch||0)),moving:local?Math.hypot(player.vx,player.vz)>.5:!!actor.moving,
     weapon:local?inventory.active:actor.netWeapon||record?.primary||record?.secondary||'classic',primary:local?inventory.primary:record?.primary,secondary:local?inventory.secondary:record?.secondary,
     ammo:local?player.ammo:actor.remoteId?actor.netAmmo:actor.aiAmmo,reserve:local?player.reserve:actor.remoteId?actor.netReserve:actor.aiReserve,reloading:local?reloading:actor.remoteId?actor.netReload||0:actor.aiReload||0,credits:local?match.credits:record?.credits||0,
     serviceReload:actor.serviceReload?{...actor.serviceReload}:null,
@@ -1912,7 +1927,7 @@ function applyNetSnapshot(packet){
   const stopped=fresh||wasAlive&&!self.alive||previousPhase!==match.phase&&['post','match'].includes(match.phase);
   if(stopped||wasPaused!==Boolean(packet.paused))clearCombatInput();
   if(mode==='shop'&&match.phase!=='buy')resumeGame();
-  if(fresh){lastRoundAudio='';Object.assign(dashFeedback,{round:null,state:null,expires:0,charge:null,signatureAt:0});clearBots();clearDrops();resetDetonation();resetTakeover();resetTeamAbilities();netPositionHistory.clear();netPositionAck=0;netPositionCorrectionX=0;netPositionCorrectionZ=0;player.x=self.x;player.z=self.z;player.y=self.y;player.vy=0;player.yaw=self.yaw;player.pitch=0;player.recoil=0;renderedRecoil=0;player.vx=0;player.vz=0;player.dashTimer=0;player.dashVec=null;player.netPredictDashUntil=0;netRound=match.round;setVisible('round-banner',false);for(const [id,endsAt]of retainedFrostStops)stoppedFrostEvents.set(id,endsAt);}
+  if(fresh){lastRoundAudio='';Object.assign(dashFeedback,{round:null,state:null,expires:0,charge:null,signatureAt:0});clearBots();clearDrops();resetDetonation();resetTakeover();resetTeamAbilities();netPositionHistory.clear();netPositionAck=0;netPositionCorrectionX=0;netPositionCorrectionZ=0;player.x=self.x;player.z=self.z;player.y=self.y;player.vy=0;player.yaw=self.yaw;player.pitch=0;player.recoil=0;renderedRecoil=0;player.vx=0;player.vz=0;player.crouch=0;player.dashTimer=0;player.dashVec=null;player.netPredictDashUntil=0;netRound=match.round;setVisible('round-banner',false);for(const [id,endsAt]of retainedFrostStops)stoppedFrostEvents.set(id,endsAt);}
   else if(!(player.netPredictDashUntil>elapsed)){
     const positionAck=packet.positionAcks?.[online.session.memberId],sent=positionAck&&netPositionHistory.get(positionAck.seq);
     if(sent&&positionAck.seq>netPositionAck&&positionAck.round===match.round&&positionAck.connection===(online.connectionId||'legacy')&&[positionAck.x,positionAck.z].every(Number.isFinite)){
@@ -1922,7 +1937,7 @@ function applyNetSnapshot(packet){
       let dx=positionAck.x-sent.x-(netPositionCorrectionX-sent.correctionX),dz=positionAck.z-sent.z-(netPositionCorrectionZ-sent.correctionZ);
       if(Math.hypot(dx,dz)>1e-5){
         const x=player.x+dx,z=player.z+dz;
-        if(Math.hypot(positionAck.x-sent.x,positionAck.z-sent.z)>2||!canStand(x,z,.34,player.y)||!map.collision.segmentClear(player.x,player.z,x,z,.34,player.y)){dx=self.x-player.x;dz=self.z-player.z;player.y=self.y;}
+        if(Math.hypot(positionAck.x-sent.x,positionAck.z-sent.z)>2||!canStand(x,z,.34,player.y,1.7-player.crouch*.55)||!map.collision.segmentClear(player.x,player.z,x,z,.34,player.y,1.7-player.crouch*.55)){dx=self.x-player.x;dz=self.z-player.z;player.y=self.y;}
         player.x+=dx;player.z+=dz;netPositionCorrectionX+=dx;netPositionCorrectionZ+=dz;
       }
       netPositionAck=positionAck.seq;for(const seq of netPositionHistory.keys())if(seq<=positionAck.seq)netPositionHistory.delete(seq);
@@ -1987,7 +2002,7 @@ function applyNetSnapshot(packet){
     if(state.id===ownId)continue;let actor=bots.find(b=>b.id===state.id);
     if(!actor){makeBot(state,Number(state.id.split('-')[1])||0,state.team,roster.find(r=>r.id===state.id));actor=bots[bots.length-1];actor.id=state.id;actor.x=state.x;actor.z=state.z;actor.y=state.y;}
     if(actor.alive&&!state.alive)actor.death=.85;
-    actor.hp=state.hp;actor.armor=state.armor;actor.alive=state.alive;actor.moving=state.moving;actor.netTarget=state;actor.planting=state.planting;actor.defusing=state.defusing;actor.flash=state.flash?.07:0;actor.shotSequence=state.shotSequence||0;
+    actor.crouch=clamp(Number(state.crouch)||0,0,1);actor.hp=state.hp;actor.armor=state.armor;actor.alive=state.alive;actor.moving=state.moving;actor.netTarget=state;actor.planting=state.planting;actor.defusing=state.defusing;actor.flash=state.flash?.07:0;actor.shotSequence=state.shotSequence||0;
     if(state.kit&&actor.kit)actor.kit.restore(state.kit);
   }
   netHasSnapshot=true;setVisible('loading',false);setVisible('hud',true);setVisible('spectator-hint',!player.alive);buyBarrier.visible=match.phase==='buy';const area=map.buyAreas[ownSide()];if(area){buyBarrier.position.set(area.x,2,area.z);buyBarrier.scale.set(area.radius,1,area.radius);}
@@ -2008,6 +2023,8 @@ function updateRemoteActor(actor,dt){
     const distance=Math.hypot(dx,dz),limit=(actor.dashTimer>0?12/.18:7*1.15*actorSpeedScale(actor,inputGrounded))*dt;
     if(distance>limit){dx*=limit/distance;dz*=limit/distance;}
     if(match.phase==='buy'){const area=map.buyAreas[actor.team===match.attackerTeam?'attack':'defend'];if(Math.hypot(actor.x+dx-area.x,actor.z+dz-area.z)>area.radius-.4){dx=0;dz=0;}}
+    const requestedCrouch=clamp(Number(input.crouch)||0,0,1);
+    if(requestedCrouch>=(actor.crouch||0)||canStand(actor.x,actor.z,.34,actor.y||0,1.7-requestedCrouch*.55))actor.crouch=requestedCrouch;
     moveEntity(actor,dx,dz);
     const blocked=Math.hypot(actor.x-previousX-dx,actor.z-previousZ-dz)>1e-5;
     if(!wasDashing&&actor.netDashInputSequence!==data.seq&&(Math.hypot(input.x-actor.x,input.z-actor.z)<1e-5||blocked||distance>2))actor.netPositionAck={seq:data.seq,connection:data.connection,round:data.round,x:actor.x,z:actor.z};
@@ -2015,12 +2032,11 @@ function updateRemoteActor(actor,dt){
       const floor=inputGrounded?getZoneFloor(actor.x,actor.z,Math.max(actor.y,inputFeet)+.22):null;
       // A capped stair input follows support at the accepted XZ, not the feet
       // height of a point the host has not reached yet.
-      actor.y=floor!==null&&Math.abs(floor-inputFeet)<=.45&&canStand(actor.x,actor.z,.34,floor)?floor:inputFeet;
+      actor.y=floor!==null&&Math.abs(floor-inputFeet)<=.45&&canStand(actor.x,actor.z,.34,floor,1.7-(actor.crouch||0)*.55)?floor:inputFeet;
       // Remote motion is consumed from its accepted pose; a prior lift impulse
       // must not leave a landed actor permanently classified as airborne.
       actor.vy=inputGrounded?0:(actor.y-previousY)/Math.max(dt,1e-6);
     }
-    actor.crouch=clamp(Number(input.crouch)||0,0,1);
     actorMovementScale(actor);
     actor.netYaw=Number.isFinite(input.yaw)?input.yaw:0;actor.netPitch=clamp(Number(input.pitch)||0,-1.35,1.35);actor.group.rotation.y=actor.netYaw+Math.PI;
   }

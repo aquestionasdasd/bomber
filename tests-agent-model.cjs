@@ -8,6 +8,17 @@ async function main() {
   const [THREE, {createAgentModel, createEquipmentSurface, createWeaponModel}, {createViewmodel}, {createDroppedEquipment}] = await Promise.all([
     load('vendor/three.module.js'), load('agent-model.js'), load('viewmodel.js'), load('dropped-equipment.js'),
   ]);
+  for(const character of ['duelist','nope','mend','echo','veil','ember','frost']){
+    const model=createAgentModel(THREE,{bot:{id:'crouch-'+character},character});
+    const position=()=>{model.group.updateMatrixWorld(true);return model.head.getWorldPosition(new THREE.Vector3()).y;};
+    model.update(0,{character,crouch:0});const standing=position();
+    model.update(0,{character,crouch:1});
+    assert.ok(Math.abs(position()-(standing-.55))<1e-6,character+' head lowers when crouched');
+    const ray=new THREE.Raycaster(new THREE.Vector3(0,standing,3),new THREE.Vector3(0,0,-1));
+    assert.equal(ray.intersectObjects(model.meshes).filter(h=>h.object.userData.head).length,0,'Standing head shot misses crouched head');
+    model.update(0,{character,crouch:0});assert.ok(Math.abs(position()-standing)<1e-6,'Release restores head height');
+    model.dispose();
+  }
   const digest = value => createHash('sha256').update(value).digest('hex');
   function resources(root) {
     const geometries = new Set(), materials = new Set(), textures = new Set();

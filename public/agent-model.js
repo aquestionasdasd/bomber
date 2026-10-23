@@ -915,7 +915,8 @@ export function createAgentModel(THREE, { bot = null, team = 'red', variant = 0,
     if (weapon.knife || state.alive === false) flashTimer = 0;
     wasFiring = firing; fireKick *= Math.exp(-dt * 18);
     const gait = time * 10 + variant * 1.7, cycle = Math.sin(gait);
-    const drop = -interactBlend * .19 + Math.cos(gait * 2) * .012 * moveBlend;
+    const crouch = Math.max(0, Math.min(1, Number(state.crouch) || 0));
+    const drop = -crouch * .55 - interactBlend * .19 * (1 - crouch) + Math.cos(gait * 2) * .012 * moveBlend;
     upper.position.y = drop;
     upper.rotation.z = cycle * .016 * moveBlend;
     head.rotation.x = .04 + interactBlend * .27;
