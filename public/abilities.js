@@ -113,7 +113,7 @@ const urchinSkills={
 const capSkills={
  c:{name:'レンズブレイク',shortName:'照準妨害',description:'Cで構え40mの見える敵へ左確定・右取消。8秒、銃弾の照準が拡散しADSも使えない。BOTの射撃にも有効。近距離の胴撃ちや遮蔽で対処でき、弾数・連射・移動・スキルは変えない。',max:2,price:100,type:'cap-lock',icon:'M5 10h26v13H5ZM11 16h5m6 0h4M4 28 32 3'},
  q:{name:'クリアテイク',shortName:'妨害解除',description:'Qで構え24mの見える味方へ左確定・右取消。味方を狙わなければ自身。現在の閃光・対象指定の妨害を解除。回復や将来の耐性はなく、対象なしでは消費しない。',max:1,price:100,type:'cap-clean',icon:'M7 6h22v20H7ZM11 16l5 5 10-12'},
- e:{name:'バンクレンズ',shortName:'跳弾',description:'6秒、銃弾が縦の壁で一度だけ反射し、通常の75%ダメージ。総経路90mまで。二枚目の壁・盾・囮で止まり、自動追尾はない。22秒で再使用。',max:1,price:0,type:'cap-bank',icon:'M4 25 18 11l14 14M4 7h28M18 11v-6'}
+ e:{name:'バンクレンズ',shortName:'跳弾',description:'6秒、銃弾が縦の壁で一度だけ反射し、通常の75%ダメージ。総経路90mまで。照準中央の反射後の経路を本人に点線表示（弾の拡散は別）。二枚目の壁・盾・囮で止まり、自動追尾はない。22秒で再使用。',max:1,price:0,type:'cap-bank',icon:'M4 25 18 11l14 14M4 7h28M18 11v-6'}
 };
 const japanSkills={
  c:{name:'国境線',shortName:'国境線',description:'Cで構え40m先の床へ左確定・右取消。1秒後から14秒、幅10m・高さ2.8mの線を越えた敵へ一度だけ100ダメージ。壁越しは無効。',max:2,price:100,type:'japan-border',icon:'M3 25V5m30 20V5M3 15h30M9 9v12m9-12v12m9-12v12'},

@@ -7,7 +7,8 @@ import { chargeCrownTax, constellationTarget, createStarHold, orbViewYaw } from 
 import { URCHIN_SKILLS } from './abilities.js';
 import { createUrchinSkillFX } from './urchin-skill-fx.js';
 import { CAP_SKILLS } from './abilities.js';
-import { capShotOffset } from './cap-optics.js';
+import { capShotOffset, capBounceFrame } from './cap-optics.js';
+import { traceCapBankPreview, createCapBankPreviewFX } from './cap-bank-preview.js';
 import { createCapSkillFX } from './cap-skill-fx.js';
 import { createJapanSkillFX } from './japan-skill-fx.js';
 import { createNobiSkillFX } from './nobi-skill-fx.js';
@@ -133,6 +134,8 @@ const emberSkillFX=createEmberSkillFX(THREE,camera);scene.add(emberSkillFX.group
 const onnaraSkillFX=createOnnaraSkillFX(THREE);scene.add(onnaraSkillFX.group);const onnaraOrbView=createOrbView(THREE),starHold=createStarHold();
 const urchinSkillFX=createUrchinSkillFX(THREE);scene.add(urchinSkillFX.group);
 const capSkillFX=createCapSkillFX(THREE);scene.add(capSkillFX.group);
+const capBankPreviewFX=createCapBankPreviewFX(THREE);scene.add(capBankPreviewFX.group);
+let capPreviewUntil=-Infinity,capPreviewPath=null;
 const japanSkillFX=createJapanSkillFX(THREE);scene.add(japanSkillFX.group);
 const nobiSkillFX=createNobiSkillFX(THREE);scene.add(nobiSkillFX.group);
 const carSkillFX=createCarSkillFX(THREE);scene.add(carSkillFX.group);const carImpulseSeen=new Set();
@@ -231,7 +234,7 @@ function resetTakeover(){takeoverState=null;takeoverClock=0;stationTakeover.rese
 function resetZoneAbilities(){zoneAbilities.reset();zoneFX.reset();zonePulseAudio.clear();zoneTargetPreview=null;zoneTargetPreviewAt=-Infinity;zoneTargetCharacter=null;if($('status-effects')){$('status-effects').hidden=true;$('status-effects').textContent='';}}
 const stoppedTurfEvents=new Map();
 const stoppedFrostEvents=new Map();
-function resetOrdinarySkills(){skillSpectacle.reset();skillFeedback.reset();starHold.reset();onnaraSkillFX.reset();urchinSkillFX.reset();capSkillFX.reset();japanSkillFX.reset();nobiSkillFX.reset();carImpulseSeen.clear();carSkillFX.reset();catReturnSeen.clear();catSkillFX.reset();duckAim=null;duckSkillFX.reset();botHearing.reset();ordinarySkills.reset();ordinaryFX.reset();nopeDecoys.reset();nopeDecoyFX.reset();nopePops.length=0;nopeSeenPopSequence=0;mendSkillFX.reset();iagnuSkillFX.reset();grassSkillFX.reset();emberSkillFX.reset();frostSkillFX.reset();duelistSkillFX.reset();for(const actor of [player,...bots]){cancelServiceReload(actor);actor.lastHeard=null;actor.netStepClock=0;}stoppedServiceEvents.clear();stoppedTurfEvents.clear();stoppedFrostEvents.clear();ordinaryAudio.clear();ordinaryMarkerAudio.clear();const overlay=$('skill-blind-overlay');if(overlay){overlay.hidden=true;overlay.style.opacity='0';}}
+function resetOrdinarySkills(){capBankPreviewFX.reset();capPreviewUntil=-Infinity;capPreviewPath=null;skillSpectacle.reset();skillFeedback.reset();starHold.reset();onnaraSkillFX.reset();urchinSkillFX.reset();capSkillFX.reset();japanSkillFX.reset();nobiSkillFX.reset();carImpulseSeen.clear();carSkillFX.reset();catReturnSeen.clear();catSkillFX.reset();duckAim=null;duckSkillFX.reset();botHearing.reset();ordinarySkills.reset();ordinaryFX.reset();nopeDecoys.reset();nopeDecoyFX.reset();nopePops.length=0;nopeSeenPopSequence=0;mendSkillFX.reset();iagnuSkillFX.reset();grassSkillFX.reset();emberSkillFX.reset();frostSkillFX.reset();duelistSkillFX.reset();for(const actor of [player,...bots]){cancelServiceReload(actor);actor.lastHeard=null;actor.netStepClock=0;}stoppedServiceEvents.clear();stoppedTurfEvents.clear();stoppedFrostEvents.clear();ordinaryAudio.clear();ordinaryMarkerAudio.clear();const overlay=$('skill-blind-overlay');if(overlay){overlay.hidden=true;overlay.style.opacity='0';}}
 function resetTeamAbilities(){teamAbilities.reset();characterFX.reset();resetZoneAbilities();resetOrdinarySkills();}
 function actorGrounded(actor){
   if(!actor?.alive||!Number.isFinite(actor.y)||Number.isFinite(actor.vy)&&Math.abs(actor.vy)>1e-5)return false;
@@ -431,6 +434,7 @@ function updateOrdinarySkills(){
   }
 }
 function renderOrdinarySkills(){
+  capBankPreviewFX.update(getCapBankPreview());
   const live=match?.phase==='live',viewer=player.alive?player:spectatedBot;
   const spectacleEvents=live?[...ordinarySkills.events(elapsed),...teamAbilities.events(elapsed),...zoneAbilities.events(elapsed)]:[];
   skillFeedback.observe(spectacleEvents,elapsed,player.id);skillFeedback.render(elapsed,{active:live&&mode==='play'&&player.alive,reducedMotion:reducedMotion.matches});
@@ -1491,9 +1495,8 @@ function capDistortAim(actor,aim){
 }
 function capBounceShot(actor,origin,incoming,hit,spec){
  if(!ordinarySkills.capBank(actor.id,elapsed)||!spec.mag||!hit?.face||hit.object.userData.bot||!Number.isFinite(hit.distance)||hit.distance>=CAP_SKILLS.bounceRange-.1)return null;
- const transform=hit.object.matrixWorld.clone();if(hit.object.isInstancedMesh&&Number.isInteger(hit.instanceId)){const instance=new THREE.Matrix4();hit.object.getMatrixAt(hit.instanceId,instance);transform.multiply(instance);}
- const normal=hit.face.normal.clone().applyNormalMatrix(new THREE.Matrix3().getNormalMatrix(transform));if(Math.abs(normal.y)>.3)return null;
- const aim=incoming.clone().normalize().reflect(normal).normalize();if(aim.dot(normal)<0)normal.negate();const from=hit.point.clone().addScaledVector(normal,.025),remaining=CAP_SKILLS.bounceRange-hit.distance;
+ const frame=capBounceFrame(THREE,incoming,hit);if(!frame)return null;
+ const {aim,from,remaining}=frame;
  botsGroup.updateMatrixWorld(true);const ray=new THREE.Raycaster(from,aim,.005,remaining),hits=ray.intersectObjects([environment,botsGroup],true).filter(h=>h.object.userData.bot!==actor&&(!h.object.userData.bot||h.object.userData.bot.alive));
  const next=hits[0];let target=next?.object.userData.bot,point=next?.point,head=!!next?.object.userData.head,nearest=next?.distance??remaining;
  if(player!==actor&&player.alive&&player.team!==actor.team){const c=(player.crouch||0)*.55;for(const[p,h]of[[ray.ray.intersectSphere(new THREE.Sphere(new THREE.Vector3(player.x,player.y+1.62-c,player.z),.19),new THREE.Vector3()),true],[ray.ray.intersectBox(new THREE.Box3(new THREE.Vector3(player.x-.28,player.y+.4,player.z-.28),new THREE.Vector3(player.x+.28,player.y+1.45-c,player.z+.28)),new THREE.Vector3()),false]])if(p&&from.distanceTo(p)<nearest){target=player;point=p;head=h;nearest=from.distanceTo(p);}}
@@ -1502,6 +1505,19 @@ function capBounceShot(actor,origin,incoming,hit,spec){
  const end=point||from.clone().addScaledVector(aim,remaining);tracer(hit.point,end,'#71e3ed',.12);
  if(target?.alive&&target.team!==actor.team&&!isGuest()){let amount=nobiBulletDamage(actor,target,head?spec.head:point.y-(target.y||0)<.7?spec.leg:spec.body,spec.head,true)*CAP_SKILLS.bounceScale;const weaponId=actor===player?inventory.active:actor.remoteId?actor.netWeapon:actor.aiWeapon;if(['phantom','spectre','ghost','classic'].includes(weaponId)&&hit.distance+nearest>15)amount*=hit.distance+nearest>30?.8:.9;damageEntity(target,amount,actor,{firearm:true,chain:false,skill:'cap'});burst(point,'#79e7ee',5);}
  return{targetId:target?.id||null,point:end,head};
+}
+
+function getCapBankPreview(){
+ if(mode!=='play'||match?.phase!=='live'||!player.alive||player.kit.character!=='cap'||!weapon().mag||netHostPaused||ordinarySkills.blindUntil(player.id,elapsed)>elapsed||!ordinarySkills.capBank(player.id,elapsed)){
+  capPreviewUntil=-Infinity;capPreviewPath=null;return null;
+ }
+ if(elapsed<capPreviewUntil)return capPreviewPath;
+ capPreviewUntil=elapsed+.05;
+ const origin=new THREE.Vector3(player.x,(player.y||0)+1.7-player.crouch*.55,player.z),pitch=player.pitch+renderedRecoil;
+ const aim=new THREE.Vector3(-Math.sin(player.yaw)*Math.cos(pitch),Math.sin(pitch),-Math.cos(player.yaw)*Math.cos(pitch));
+ const path=traceCapBankPreview(THREE,environment,origin,aim),eye=p=>({x:p.x,y:p.y-1.45,z:p.z});
+ capPreviewPath=path&&!smokeBlocks(eye(origin),eye(path.start))&&!smokeBlocks(eye(path.start),eye(path.end))?path:null;
+ return capPreviewPath;
 }
 
 function japanMusterTargets(source){
