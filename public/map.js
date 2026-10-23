@@ -2,6 +2,7 @@ import { createCollisionIndex } from './collision.js';
 import { SITE_AREAS } from './site-areas.js';
 import { TACTICAL_BUILDINGS, TACTICAL_PROP_MOVES, createTacticalMetadata } from './tactical-layout.js';
 import {createHirakataMap} from './hirakata-map.js';
+import {addHashimotoSurvey} from './station-survey-details.js';
 
 export const MAP_CATALOG=Object.freeze([{id:'hashimoto',name:'橋本駅'},{id:'hirakata',name:'枚方市駅'}]);
 export function normalizeMapId(id){return id==='hirakata'?'hirakata':'hashimoto';}
@@ -322,7 +323,8 @@ export function createMap(THREE, scene, id='hashimoto') {
   for(const x of [49.1,56.8,64.5,74.7]){solid(x,1.45,-15.9,.72,2.9,.72,M.stone,{kind:'column',minimap:false});box(x,.18,-15.9,.98,.36,.98,M.concrete);}
 
   box(62,3.15,-16.6,28.6,.4,5.2,M.metal);box(62,3.4,-16.6,28.9,.1,5.4,M.teal);box(62,2.87,-14.1,26.8,.08,.15,M.light);
-  label('mewe','ミウィ橋本 / SHOPPING & DINING',62,17.3,-18.31,21.8,4.6,'#f1f0df','#294653');label('mewe','HASHIMOTO',47.51,16.9,-42,17.5,4.5,'#f1f0df','#294653',-Math.PI/2);
+  const meweSign=textMaterial((ctx,w,h)=>{ctx.fillStyle='#eeeae1';ctx.fillRect(0,0,w,h);ctx.textBaseline='middle';ctx.font='700 140px Arial';ctx.textAlign='right';ctx.fillStyle='#a53449';ctx.fillText('me',w/2,106);ctx.textAlign='left';ctx.fillStyle='#493c85';ctx.fillText('we',w/2,106);ctx.textAlign='center';ctx.fillStyle='#344653';ctx.font='32px "Meiryo",sans-serif';ctx.fillText('ミウィ橋本 / SHOPPING & DINING',w/2,210);});
+  plane(62,17.3,-18.31,21.8,4.6,meweSign).name='Survey / Mewe two-color wordmark';plane(47.51,16.9,-42,17.5,4.5,meweSign,0,-Math.PI/2);
   label('CAFE / 02','COFFEE · BAKERY',55.1,2.35,-18.25,6.5,.9,'#e7e8d2','#3f7770');label('DAILY GOODS','LIFE & STYLE',68.1,2.35,-18.25,6.5,.9,'#f1e4d7','#9b515a');banner(47.44,10.5,-49,3.6,7.8,-Math.PI/2);banner(71.5,11.5,-18.25,2.7,7.5);
   // Asymmetric retail islands establish three distinct fighting routes.
   solid(-30,3.3,25,26,6.6,34,brick,{kind:'building'});solid(-29,10.2,24,23.5,7.2,30,M.plaster,{kind:'building'});
@@ -709,6 +711,13 @@ export function createMap(THREE, scene, id='hashimoto') {
     const mesh=new THREE.InstancedMesh(geometry,mat,entries.length);entries.forEach((matrix,index)=>mesh.setMatrixAt(index,matrix));
     mesh.instanceMatrix.needsUpdate=true;mesh.computeBoundingSphere();mesh.castShadow=mat!==wayfinding;mesh.receiveShadow=true;mesh.userData.solid=true;tacticalWorld.add(mesh);
   }
+  // Observed facade/ceiling trim has its own group and batches so the original
+  // walkable station and all existing mesh transforms remain independently auditable.
+  const surveyWorld=new THREE.Group();surveyWorld.name='Station survey / facade details';surveyWorld.userData.stationSurvey=true;world.add(surveyWorld);
+  const surveyBatches=new Map();batchTarget=surveyBatches;
+  const surveyDetails=addHashimotoSurvey({box,label:(...args)=>{const p=label(...args);p.userData.solid=false;p.raycast=()=>{};surveyWorld.add(p);return p;},M});
+  for(const{mat,geometry,entries}of surveyBatches.values()){const mesh=new THREE.InstancedMesh(geometry,mat,entries.length);entries.forEach((matrix,index)=>mesh.setMatrixAt(index,matrix));mesh.instanceMatrix.needsUpdate=true;mesh.computeBoundingSphere();mesh.castShadow=false;mesh.receiveShadow=true;mesh.userData.solid=false;mesh.raycast=()=>{};surveyWorld.add(mesh);}
+  batchTarget=batches;
   // The overhead station slab is still physical above the concourse, but the
   // plan now shows its outline rather than painting the ground passage shut.
   for(let i=0;i<colliders.length;i++){
@@ -721,5 +730,5 @@ export function createMap(THREE, scene, id='hashimoto') {
   world.updateMatrixWorld(true);
   const collision=createCollisionIndex(colliders);
   const rangeArea={spawn:{x:-20.75,z:-25.5,yaw:0},targets:[{x:-25.2,z:-38},{x:-20.75,z:-39},{x:-16.4,z:-40},{x:-23.7,z:-44.5},{x:-17.6,z:-45.5},{x:-25.2,z:-49.5},{x:-20.7,z:-50.5},{x:-16.4,z:-52.2}]};
-  return {world,bounds,colliders,collision,mapShapes,sites,teamSpawns,lanes,landmarks,zones,callouts,ramps,rangeArea,layout,spawn:{x:0,z:65,yaw:0},enemySpawns:teamSpawns.defend,spawnYaw:{attack:0,defend:1.93878},buyAreas:{attack:{x:0,z:65,radius:12},defend:{x:0,z:-72,radius:10}},combatBounds:bounds,menuCamera:{position:[-47,10,-4],target:[-31,6,-37]},origin:{lat:35.5949,lon:139.34497},stats:{mode:'arena',width:164,depth:164,area:26896,buildings:16+TACTICAL_BUILDINGS.length,sites:2,routes:3,collisionShapes:colliders.length,renderBatches:batches.size+tacticalBatches.size}};
+  return {world,bounds,colliders,collision,mapShapes,surveyDetails,sites,teamSpawns,lanes,landmarks,zones,callouts,ramps,rangeArea,layout,spawn:{x:0,z:65,yaw:0},enemySpawns:teamSpawns.defend,spawnYaw:{attack:0,defend:1.93878},buyAreas:{attack:{x:0,z:65,radius:12},defend:{x:0,z:-72,radius:10}},combatBounds:bounds,menuCamera:{position:[-47,10,-4],target:[-31,6,-37]},origin:{lat:35.5949,lon:139.34497},stats:{mode:'arena',width:164,depth:164,area:26896,buildings:16+TACTICAL_BUILDINGS.length,sites:2,routes:3,collisionShapes:colliders.length,renderBatches:batches.size+tacticalBatches.size+surveyBatches.size}};
 }
