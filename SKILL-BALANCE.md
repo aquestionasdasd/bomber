@@ -130,3 +130,14 @@ SCOUT単独の勝利は4対4、FORGE3対3、PUMP5対2であり、全武器で勝
 - 🦆契約7/既存実game18、新pad実savedgame9/3memory故障（低い打上げ、遠隔Y権威漏れ、死亡設置者guard欠落）、通常55/SQLite20（20pad62390B、最大65516/65536B）/知覚8/戦術14行実地4seed/測定7/演出8/録音mock4/本番build5段階を確認。20/60/144Hzで約4m/着地/再利用、実天井、全team、期限、設置者死亡後の他rider落下、nextR、pending拒否とJSONを検査。全main再実行なし。旧seal期待/生成test引用/guest在庫fixture/変異の死亡riderfixtureを修正し権威は緩めない。
 - local所有hidden180は新規初手SOUND OFFfalse/AX0、タイトル新C/QEX説明、C構え左確定、固定床/輪/矢印と移動を確認warn/error0。実browserで正確4mの頂点や全跳躍を計時したとは扱わず、数値物理/権威は独立savedgame根拠。NOPE/hashimoto/standard/attack/normal復元、180閉鎖/8049は保持sessionへ停止入力しlistener0。新publicbrowser/実2タブ/実端末/聴感未確認。ユーザー3/5/8/10/12不操作、foreground/再生なし。
 - 公開/共有の実IDはworkspace cycle85-release.jsonを正本とする。全15人汎用性は未完了。次は残る封印系やニッチ技の使用機会/追撃を一技ずつ比較。跳び床を使うBOTの着地点選択は改善余地があり、見えない敵情報を与えない。CAR75raw24m/Japan人間指定10倍を保持。同じ48round/全mainの無用反復を避ける。
+
+
+## 第87巡 / のびEを実作業開始直前に使用
+
+旧BOTは地点8m以内でEを先に消費し、設置/電源オフを始めるtickではplanting/defusing確定後のため使用不可だった。移動や戦闘用C/Q/Xの待ちとは分け、実際に担当作業を開始する直前だけEを判断する。接地/距離/敵への警戒/役割/作業者1人の条件は既存を保持。近づくだけ/他の担当/作業中にCDが戻っただけでは使わない。20event拒否時は在庫を戻し通常速度で作業し、0.5秒より早く再試行しない。作業開始による既存装填中止を先に行い、次R/menuでretry時計を清掃。人間の6秒/1.5倍/18CD・CQX・地形・音源・通信payloadは不変。
+
+修正前8組16round(seed1–2)の本人E1対0/チーム勝利4対4、7組で全actorと勝敗が一致。最終24組48round(seed3–8)、精鋭5v5・両map攻守・席順・全Vandal50armor満在庫7pt、青本人Eだけ有効無効。本人E4対0、本人設置2対2/電源オフ1対1、本人生存7対8/撃破27対28/与ダメ3035.002142992811対2983.002142992811、チーム勝利13対14。勝率・生存・撃破の改善は確認できていない。有効群の本人実作業進捗15.3秒分へ1.5倍が適用、通常速度換算の追加進捗5.1秒分（中断分も含み、実時計の勝利短縮時間ではない）。全チーム設置16対16/電源オフ8対7は本人貢献と区別する。旧8組と最終24組はseedが異なり直接旧新の因果比較ではない。小標本/経済偏り/発動後PRNG分岐、人間勝率の保証なし。raw/sourceSHA/実updatePlay一frame一回をworkspace cycle87-nobi-before/final.jsonとbalance-summary.jsonへ保存。
+
+専用実savedgame8群で設置2.7秒/電源オフ4.7秒（0.1s刻み）・通常4/7秒との差、残り5秒の電源オフ成功、近い脅威/空中/他作業者/接近だけ/作業中再使用拒否/20event rollback/再試行/死亡/次R/remoteを確認。4memory故障検出。測定pipeline8群と5memory故障検出は本人の実進捗/完了actorを計数し拒否/重複/過剰dtを加算しない。通常技55/のび契約6+独立JSON13/知覚8/戦術14行4seed/SQLite20/バスqueue4+破壊game5/録音mock4と本番buildを関連検査。全mainは再実行せず、最終公開/共有/試験成否はworkspace cycle87-release.jsonとcycle87-test-report.jsonを正本にする。
+
+今回はBOT判断のみのためbrowser/tab/server起動なし、既存ユーザータブ/OS/他アプリ不操作、実音/試聴なし。新実2タブ/実端末/聴感は未確認。全15人の汎用性調整は未完了。次は弱い否定系や使い所が限定される技を一技ずつ比較し、能力不足とBOT未使用を区別。第86バスqueue/82破壊、CAR75raw24m/Japan人間指定10倍は保持。
