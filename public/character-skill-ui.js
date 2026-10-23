@@ -1,4 +1,4 @@
-import { CHARACTER_DEFS, DUELIST, normalizeCharacter, getCharacterSkill, getSkillState } from './abilities.js';
+import { CHARACTER_DEFS, DUELIST, normalizeCharacter, getCharacterSkill, getCharacterUltimate, getSkillState } from './abilities.js';
 
 const KEYS = ['c', 'q', 'e'];
 const MOBILE = { c: 'mobile-smoke', q: 'mobile-dash', e: 'mobile-scan' };
@@ -25,9 +25,13 @@ export function createCharacterSkillUI({ document: doc = globalThis.document } =
         text(`${prefix}-${skill.key}-meta`, cost(skill));
       }
     }
+    const ultimate=getCharacterUltimate(id);
+    for(const prefix of ['character-skill','online-character-skill','mobile-character-skill']){
+      text(`${prefix}-x-name`,ultimate.name);text(`${prefix}-x-description`,ultimate.description);text(`${prefix}-x-meta`,`${ultimate.points} ULTポイント`);
+    }
     text('guide-skill-cq', `C：${skills[0].shortName} / Q：${skills[1].shortName}`);
-    text('guide-skill-ex', `E：${skills[2].shortName} / X：キャラ固有ULT`);
-    text('mobile-skill-summary', `C：${skills[0].name}、Q：${skills[1].name}、E：${skills[2].name}。X：キャラ固有アルティメット。`);
+    text('guide-skill-ex', `E：${skills[2].shortName} / X：${ultimate.name}`);
+    text('mobile-skill-summary', `C：${skills[0].name}、Q：${skills[1].name}、E：${skills[2].name}。X：${ultimate.name}。${ultimate.description}`);
   }
 
   function updateHUD(kit, now, { alive = true } = {}) {

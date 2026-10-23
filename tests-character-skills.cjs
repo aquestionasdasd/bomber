@@ -23,7 +23,7 @@ async function main() {
     assert.equal(skills.cast('nope-decoy', owner, target(0, -6.001), 5, 1), null);
     const decoy = skills.cast('nope-decoy', owner, target(0, -6), 5, 1); assert.ok(decoy); assert.notEqual(decoy.id, bottle.id);
     assert.equal(decoy.endsAt, 17); assert.equal(decoy.flight, 0); assert.equal(decoy.radius, 0);
-    for (const bad of [{ ...owner, alive: false }, { ...owner, hp: 0 }, { ...owner, hp: 101 }, { ...owner, hp: '100' },
+    for (const bad of [{ ...owner, alive: false }, { ...owner, hp: 0 }, { ...owner, hp: 1000.01 }, { ...owner, hp: '100' },
       { ...owner, team: 'enemy' }, { ...owner, id: '' }, { ...owner, id: 'x'.repeat(65) }, { ...owner, x: NaN }, { ...owner, y: Infinity }]) {
       assert.equal(skills.cast('nope-bottle', bad, target(), 5, 1), null);
     }
@@ -182,7 +182,7 @@ async function main() {
       assert.equal(selectMendTarget(owner, allies, reach), null);
       const self = { ...owner, hp: 40 }; assert.equal(selectMendTarget(self, allies, reach).id, 'caster', 'Self healing requires no wall query');
     }
-    for (const bad of [{ ...owner, alive: false }, { ...owner, hp: 0 }, { ...owner, hp: 101 }, { ...owner, x: NaN }, { ...owner, id: '' }]) assert.equal(selectMendTarget(bad, allies, () => true), null);
+    for (const bad of [{ ...owner, alive: false }, { ...owner, hp: 0 }, { ...owner, hp: 1000.01 }, { ...owner, x: NaN }, { ...owner, id: '' }]) assert.equal(selectMendTarget(bad, allies, () => true), null);
   });
 
   test('MEND no-target precheck preserves the free signature, while a valid cast consumes exactly one eighteen-second charge', () => {

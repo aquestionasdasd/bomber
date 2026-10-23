@@ -1,5 +1,18 @@
 import { createWeaponModel, createEquipmentSurface, createKnifeFan } from './agent-model.js';
 
+// Only the hands change; gun finishes, sleeves, animation and grip stay owned
+// by this viewmodel. Palettes follow the existing reference avatars.
+export const CHARACTER_HANDS = Object.freeze({
+  duelist:['#e1e8e6','#a7bec4'], nope:['#fa159f','#fb68b7'],
+  mend:['#d3d8bd','#8fbaa4'], echo:['#b6a16e','#e7d89b'],
+  veil:['#557b33','#9b713b'], ember:['#e9c4a0','#be936f'],
+  frost:['#eee8e2','#a6cddd'], duck:['#477f28','#f9d25c'],
+  cat:['#fff5ec','#e8c4bf'], car:['#e9ece8','#292f33'],
+  nobi:['#f0c49b','#dba87d'], japan:['#b99b6e','#e8ca91'],
+  cap:['#f1b27a','#d79362'], urchin:['#a9f1e4','#70cabe'],
+  onnara:['#ffdbba','#ffe073'],
+});
+
 // Camera-space equipment; proportions and finishes match the world agents.
 export function createViewmodel(THREE, camera) {
   const group = new THREE.Group(); group.name = 'First-person equipment';
@@ -17,6 +30,15 @@ export function createViewmodel(THREE, camera) {
     skin: material('#c6a58e', .88), black: material('#2e3b40', .94),
     brass: material('#b49d67', .40, .42, .12),
   };
+  M.glove.name='Character hands / main';M.pad.name='Character hands / detail';
+  let handCharacter=null;
+  function setCharacter(id){
+    const next=Object.hasOwn(CHARACTER_HANDS,id)?id:'duelist';
+    if(next===handCharacter)return;handCharacter=next;
+    const colors=CHARACTER_HANDS[next];
+    for(const [mat,color]of [[M.glove,colors[0]],[M.pad,colors[1]]]){mat.color.set(color);mat.emissive.set(color);}
+    group.userData.handCharacter=next;
+  }
   const clothSurface = createEquipmentSurface(THREE, true);
   for (const mat of [M.sleeve, M.seam, M.glove, M.pad]) {
     mat.roughnessMap = clothSurface; mat.bumpMap = clothSurface; mat.bumpScale = .0010;
@@ -261,6 +283,7 @@ export function createViewmodel(THREE, camera) {
   }
   function update(dt, state = {}) {
     if (disposed) return;
+    if(state.character!==undefined)setCharacter(state.character);
     dt = Math.min(.1, Math.max(0, Number(dt) || 0));
     const model = models.get(current), weapon = model.weapon, time = Number(state.time) || 0;
     const smoothing = 1 - Math.exp(-dt * 17);
@@ -269,7 +292,9 @@ export function createViewmodel(THREE, camera) {
     throwClock = thrown ? .20 : Math.max(0, throwClock - dt);
     const bladeStorm = Boolean(model.fan && (state.ultimate || model.fan.group.userData.throwing));
     const throwFlick = Math.sin(Math.min(1, throwClock / .20) * Math.PI);
-    weapon.group.visible = !bladeStorm;
+    // Also hide the solid equipment while looking through the optical overlay.
+    // This guard survives an equip/snapshot arriving between gameplay frames.
+    weapon.group.visible = !bladeStorm && !state.scoped;
     if (model.openRight) {
       model.openRight.visible = bladeStorm; model.right.closedHand.visible = !bladeStorm;
       model.right.hand = bladeStorm ? model.openRight : model.right.closedHand;
@@ -342,5 +367,5 @@ export function createViewmodel(THREE, camera) {
     clothSurface.dispose();
   }
   setWeapon('vandal'); group.visible = false;
-  return { group, muzzle, flash, setWeapon, update, dispose };
+  return { group, muzzle, flash, setWeapon, setCharacter, update, dispose };
 }

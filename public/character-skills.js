@@ -67,7 +67,7 @@ const coordinate = value => Number.isFinite(value) && Math.abs(value) <= 1000;
 const clock = value => Number.isFinite(value) && value >= 0;
 const roundNumber = value => Number.isSafeInteger(value) && value > 0;
 const position = value => value && coordinate(value.x) && coordinate(value.z) && (value.y === undefined || coordinate(value.y));
-const living = value => position(value) && identifier(value.id) && team(value.team) && value.alive === true && Number.isFinite(value.hp) && value.hp > 0 && value.hp <= 100;
+const living = value => position(value) && identifier(value.id) && team(value.team) && value.alive === true && Number.isFinite(value.hp) && value.hp > 0 && value.hp <= 1000;
 const point = value => position(value) && coordinate(value.y);
 const copy = value => ({ ...value, ...(value.link ? {link:[...value.link]} : {}) });
 const close = (a, b) => Math.abs(a - b) < 1e-7;

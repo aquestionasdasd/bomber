@@ -50,6 +50,7 @@
         <div class="skill-detail"><kbd>C</kbd><div><strong id="mobile-character-skill-c-name">煙幕</strong><p id="mobile-character-skill-c-description">視線を遮る煙を展開</p><small id="mobile-character-skill-c-meta">最大2回 · SC 200/回</small></div></div>
         <div class="skill-detail"><kbd>Q</kbd><div><strong id="mobile-character-skill-q-name">上昇</strong><p id="mobile-character-skill-q-description">上空へ跳び上がる</p><small id="mobile-character-skill-q-meta">最大1回 · SC 150/回</small></div></div>
         <div class="skill-detail"><kbd>E</kbd><div><strong id="mobile-character-skill-e-name">ダッシュ</strong><p id="mobile-character-skill-e-description">構えてから再入力で高速移動</p><small id="mobile-character-skill-e-meta">最大1回 · 無料</small></div></div>
+        <div class="skill-detail skill-ultimate"><kbd>X</kbd><div><strong id="mobile-character-skill-x-name">ブレードストーム</strong><p id="mobile-character-skill-x-description">ナイフ5本・撃破で補充。</p><small id="mobile-character-skill-x-meta">7 ULTポイント</small></div></div>
       </div></details>
       <div class="rules-summary"><span>5 vs 5 <i>プレイヤー＋味方4体 / 敵5体</i></span><span id="format-summary">13先取 <i>12Rで攻守交代</i></span><span>100秒 <i>設置4秒 / 電源オフ7秒</i></span></div>
       <button id="start" class="primary-button deploy-button" type="button"><span class="button-index">01</span><span id="start-title">出撃する<small id="start-subtitle">DEPLOY TO HASHIMOTO</small></span><svg viewBox="0 0 32 24" aria-hidden="true"><path d="M1 12h27M18 2l10 10-10 10"/></svg></button>
@@ -98,10 +99,11 @@
       <button id="victory-dance-preview" type="button">勝利ダンスを見る ✦</button>
       <div id="character-preview-stage" class="character-preview-stage"><canvas id="character-preview-canvas" width="360" height="420" role="img" aria-label="選択中のキャラクターの3Dモデル"></canvas></div>
       <div class="character-preview-caption"><h2 id="character-preview-name">ちぬつてのとのへめほ</h2><p id="character-preview-role">突入 / ブレードストーム</p><span id="character-preview-note">選択するとモデルが切り替わります</span></div>
-      <section id="character-skills" class="character-skills" aria-label="選択中の通常スキル">
+      <section id="character-skills" class="character-skills" aria-label="選択中のスキルとアルティメット">
         <div class="skill-detail"><kbd>C</kbd><div><strong id="character-skill-c-name">煙幕</strong><p id="character-skill-c-description">視線を遮る煙を展開</p><small id="character-skill-c-meta">最大2回 · SC 200/回</small></div></div>
         <div class="skill-detail"><kbd>Q</kbd><div><strong id="character-skill-q-name">上昇</strong><p id="character-skill-q-description">上空へ跳び上がる</p><small id="character-skill-q-meta">最大1回 · SC 150/回</small></div></div>
         <div class="skill-detail"><kbd>E</kbd><div><strong id="character-skill-e-name">ダッシュ</strong><p id="character-skill-e-description">構えてから再入力で高速移動</p><small id="character-skill-e-meta">最大1回 · 無料</small></div></div>
+        <div class="skill-detail skill-ultimate"><kbd>X</kbd><div><strong id="character-skill-x-name">ブレードストーム</strong><p id="character-skill-x-description">ナイフ5本・撃破で補充。</p><small id="character-skill-x-meta">7 ULTポイント</small></div></div>
       </section>
       <div class="character-preview-map"><span id="character-preview-map">橋本駅前</span><span>02 SITES / 03 ROUTES</span></div>
     </aside>
@@ -192,10 +194,11 @@
             <button id="online-start" class="primary-button online-start-button" type="button"><span>試合を開始<small>START MATCH</small></span><span class="arrow">→</span></button>
             <p class="online-ready-note">全員の準備ができたら、部屋を作った人が試合を開始します。</p>
           </section>
-          <section id="online-character-skills" class="character-skills online-character-skills" aria-label="選択中の通常スキル"><header><span>選択中のスキル</span><strong id="online-skill-character">ちぬつてのとのへめほ</strong></header>
+          <section id="online-character-skills" class="character-skills online-character-skills" aria-label="選択中のスキルとアルティメット"><header><span>選択中のスキル</span><strong id="online-skill-character">ちぬつてのとのへめほ</strong></header>
             <div class="skill-detail"><kbd>C</kbd><div><strong id="online-character-skill-c-name">煙幕</strong><p id="online-character-skill-c-description">視線を遮る煙を展開</p><small id="online-character-skill-c-meta">最大2回 · SC 200/回</small></div></div>
             <div class="skill-detail"><kbd>Q</kbd><div><strong id="online-character-skill-q-name">上昇</strong><p id="online-character-skill-q-description">上空へ跳び上がる</p><small id="online-character-skill-q-meta">最大1回 · SC 150/回</small></div></div>
             <div class="skill-detail"><kbd>E</kbd><div><strong id="online-character-skill-e-name">ダッシュ</strong><p id="online-character-skill-e-description">構えてから再入力で高速移動</p><small id="online-character-skill-e-meta">最大1回 · 無料</small></div></div>
+        <div class="skill-detail skill-ultimate"><kbd>X</kbd><div><strong id="online-character-skill-x-name">ブレードストーム</strong><p id="online-character-skill-x-description">ナイフ5本・撃破で補充。</p><small id="online-character-skill-x-meta">7 ULTポイント</small></div></div>
           </section>
         </div>
         <footer class="online-lobby-footer"><p id="online-status" role="status" aria-live="polite">友達の参加を待っています。</p><button id="online-leave" class="text-button" type="button">部屋を退出する <span>↗</span></button></footer>

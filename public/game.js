@@ -407,7 +407,7 @@ function updateOrdinarySkills(){
     for(const effect of ordinarySkills.update(views,elapsed,match.round,{reachable:ordinaryReachable,groundHeight:ordinaryGroundHeight})){
       const target=actors.find(actor=>actor.id===effect.targetId),source=actors.find(actor=>actor.id===effect.sourceId);
       if(effect.type==='damage'&&target&&source)damageEntity(target,effect.amount,source,{skill:source.kit?.character});
-      if(effect.type==='heal'&&target?.alive&&source?.alive&&target.team===source.team){const before=target.hp;target.hp=Math.min(100,target.hp+effect.amount);if(target.hp>before)skillImpact(target,source,'mend','heal');}
+      if(effect.type==='heal'&&target?.alive&&source?.alive&&target.team===source.team){const before=target.hp;target.hp=Math.max(before,Math.min(100,target.hp+effect.amount));if(target.hp>before)skillImpact(target,source,'mend','heal');}
       if(effect.type==='blind'&&target?.target)target.target=null;
     }
   }
@@ -531,6 +531,9 @@ function renderWithDetonation(dt=0){
       renderer.toneMappingExposure=exposure+clamp(fx.flash,0,1)*.8;
     }
     if($('detonation-flash'))$('detonation-flash').style.opacity=String(clamp(fx.flash,0,1)*.32);
+    // Last render gate also covers an asynchronous guest snapshot/equip and pause.
+    const scopeActive=aiming&&player.alive&&weapon().scope&&!reloading&&!player.serviceReload&&!interactionHeld&&!busSeat()&&['play','pause'].includes(mode);
+    if(scopeActive)gun.visible=false;
     renderer.render(scene,camera);
     renderOnnaraOrb();
   }finally{camera.position.copy(renderCameraPosition);camera.rotation.copy(renderCameraRotation);renderer.toneMappingExposure=exposure;}
@@ -876,7 +879,11 @@ function busInteract(actor=player){
 function busSurfaceVisible(hit){return !hit.object.userData.busDriver||map.traffic?.poses(elapsed).some(p=>p.id===hit.object.userData.busDriver&&p.driverHP>0);}
 function shootBusDriver(hit,actor,damage,{visualOnly=false}={}){
  const id=hit?.object.userData.busDriver;if(!id)return false;
- if(!visualOnly&&map.traffic?.service.damageDriver(id,actor.id,damage,elapsed)){if(actor===player){hitFlash=.14;sound('hit');}map.busModels?.update(elapsed);}
+ if(!visualOnly){const service=map.traffic?.service,before=service?.poses(elapsed).find(p=>p.id===id)?.driverHP;
+  if(service?.damageDriver(id,actor.id,damage,elapsed)){const after=service.poses(elapsed).find(p=>p.id===id)?.driverHP;
+   if(before>0&&after===0)actor.kit?.awardPoint();
+   if(actor===player){hitFlash=.14;sound('hit');}map.busModels?.update(elapsed);}
+ }
  burst(hit.point,'#e9c586',3);return true;
 }
 function resetTraffic(){map.traffic?.reset();for(const actor of [player,...bots]){actor.trafficLaunch=null;delete actor.busFrameYaw;}}
@@ -1571,7 +1578,7 @@ function japanMusterTargets(source){
 }
 function japanRevive(actor,point){
  cancelServiceReload(actor);ordinarySkills.resetActor(actor.id);match.cancelPlant(actor.id);match.cancelDefuse(actor.id);
- Object.assign(actor,point,{hp:100,armor:0,alive:true,vy:0,vx:0,vz:0,death:0,crouch:0,planting:false,defusing:false,dashTimer:0,dashVec:null,path:[],target:null,lastSeen:null,lastHeard:null,fire:.7});
+ Object.assign(actor,point,{hp:JAPAN_SKILLS.musterHP,armor:0,alive:true,vy:0,vx:0,vz:0,death:0,crouch:0,planting:false,defusing:false,dashTimer:0,dashVec:null,path:[],target:null,lastSeen:null,lastHeard:null,fire:.7});
  actor.kit.resetRound();actor.kit.smoke=0;actor.kit.updraft=0;actor.kit.dash=0;actor.kit.nextSignatureAt=elapsed+signatureCooldown(actor.kit.character);actor.kit.armReadyAt=null;actor.kit.armExpiresAt=null;
  const record=recordOf(actor);if(record){record.primary=null;record.secondary='classic';record.armor=0;}
  if(actor===player){inventory={primary:null,secondary:'classic',active:'classic'};ammoStore={};roundPurchases={};equip('classic',true);player.ammo=WEAPONS.classic.mag;player.reserve=WEAPONS.classic.reserve;reloading=0;clearCombatInput();gun.visible=true;spectatedBot=null;setVisible('spectator-hint',false);showMessage('総動員','開始地点へ復帰しました',3);}
@@ -1585,7 +1592,7 @@ function activateJapanAbility(actor,key,{predict=false,aim=null}={}){
  const revive=key==='x'?japanMusterTargets(actor):[];if(key==='x'&&!revive.length)return;
  const before=actor.kit.snapshot(),effect=actor.kit.activate(key,elapsed);if(!effect)return;
  if(!predict){const event=ordinarySkills.cast(effect,ordinaryActorView(actor),target,elapsed,match.round);if(!event){actor.kit.restore(before);return;}
-  if(key==='q'){const amount=Math.min(JAPAN_SKILLS.levyAmount,target.enemy.armor,JAPAN_SKILLS.armorCap-(actor.armor||0));target.enemy.armor-=amount;actor.armor=(actor.armor||0)+amount;}
+  if(key==='q'){const amount=Math.min(JAPAN_SKILLS.levyAmount,target.enemy.armor,(JAPAN_SKILLS.armorCap-(actor.armor||0))/JAPAN_SKILLS.levyScale);target.enemy.armor-=amount;actor.armor=(actor.armor||0)+amount*JAPAN_SKILLS.levyScale;}
   if(key==='x')for(const entry of revive)japanRevive(entry.actor,entry.point);
  }
  if(actor===player)showMessage(key==='x'?'総動員':getCharacterSkill('japan',key).name,key==='x'?(predict?'味方の復帰を要請しました':'倒れた味方を開始地点へ呼び戻しました'):getCharacterSkill('japan',key).description,3);return effect;
@@ -1939,7 +1946,7 @@ function updateHUD(){
     if(ordinarySkills.capLocked(player.id,elapsed))statuses.push('レンズブレイク · 銃弾が拡散 / ADS不可');
     if(ordinarySkills.capBank(player.id,elapsed))statuses.push('バンクレンズ · 1回跳弾');
     if(ordinarySkills.capMagazine(player.id,elapsed))statuses.push('エンドレスマガジン · 銃弾消費なし');
-    if(ordinarySkills.japanReturn(player.id,elapsed)>0)statuses.push('弾丸返送 · 被銃撃の65%を返す');
+    if(ordinarySkills.japanReturn(player.id,elapsed)>0)statuses.push('弾丸返送 · 被銃撃の650%を返す');
     if(ordinarySkills.nobiVulnerability(player.id,elapsed)>1)statuses.push('鈴の弱点 · 被銃撃135%');
     if(ordinarySkills.nobiInterval(player.id,elapsed)>1)statuses.push('ひげブレーキ · 銃の射撃間隔160%');
     if(ordinarySkills.nobiWork(player.id,elapsed)>1)statuses.push('ポケット工具 · 設置・電源オフ150%');
@@ -1958,7 +1965,7 @@ function updateHUD(){
   $('ability-x')?.classList.toggle('cooldown',!player.alive||!(k.ultPoints>=7||k.knivesActive));
   setVisible('online-session-status',onlinePlaying);if($('online-session-status')&&onlinePlaying)$('online-session-status').textContent=netHostPaused?'ホストが戻るまで試合を一時停止':`ONLINE · ${online.room.code}`;
   setVisible('restart',!onlinePlaying);if($('pause-note'))$('pause-note').textContent=onlinePlaying?'この画面を開いている間も試合は進みます。':'準備ができたら、作戦を再開しよう。';
-  if($('health-bar'))$('health-bar').style.width=`${player.hp}%`;
+  if($('health-bar'))$('health-bar').style.width=`${Math.min(100,player.hp)}%`;
   const zone=resolveMapCallout(map,!player.alive&&spectatedBot?spectatedBot:player);
   $('zone').textContent=zone?.name||'NORTH PLAZA / 北口広場';
   if(exploring){
@@ -2269,7 +2276,7 @@ function updateBots(dt){
       bot.nextSkillAt=elapsed+1;
     }
     if(bot.kit?.character==='japan'&&!interactPlant&&!interactDefuse&&elapsed>=(bot.nextSkillAt||0)){
-      let cast=activateJapanAbility(bot,'x');if(!cast&&enemy&&visibleBetween(bot,enemy)){const aim={yaw:Math.atan2(bot.x-enemy.x,bot.z-enemy.z),pitch:Math.atan2((enemy.y||0)+1.3-((bot.y||0)+1.7),Math.hypot(enemy.x-bot.x,enemy.z-bot.z))};if(bot.armor<50&&enemy.armor>0)cast=activateJapanAbility(bot,'q',{aim});if(!cast)cast=activateJapanAbility(bot,'e');if(!cast)cast=activateJapanAbility(bot,'c',{aim:{...aim,pitch:-.12}});}if(cast)bot.nextSkillAt=elapsed+1;
+      let cast=activateJapanAbility(bot,'x');if(!cast&&enemy&&visibleBetween(bot,enemy)){const aim={yaw:Math.atan2(bot.x-enemy.x,bot.z-enemy.z),pitch:Math.atan2((enemy.y||0)+1.3-((bot.y||0)+1.7),Math.hypot(enemy.x-bot.x,enemy.z-bot.z))};if(bot.armor<JAPAN_SKILLS.armorCap&&enemy.armor>0)cast=activateJapanAbility(bot,'q',{aim});if(!cast)cast=activateJapanAbility(bot,'e');if(!cast)cast=activateJapanAbility(bot,'c',{aim:{...aim,pitch:-.12}});}if(cast)bot.nextSkillAt=elapsed+1;
     }
     if(bot.kit?.character==='nobi'&&!interactPlant&&!interactDefuse&&elapsed>=(bot.nextSkillAt||0)){
       let cast=null;if(enemy&&visibleBetween(bot,enemy)){const aim={yaw:Math.atan2(bot.x-enemy.x,bot.z-enemy.z),pitch:Math.atan2((enemy.y||0)+1.3-((bot.y||0)+1.7),Math.hypot(enemy.x-bot.x,enemy.z-bot.z))};if(bot.kit.ultPoints>=7)cast=activateAbility(bot,'x');if(!cast&&ordinarySkills.nobiVulnerability(enemy.id,elapsed)===1)cast=activateAbility(bot,'c',{aim});if(!cast&&ordinarySkills.nobiInterval(enemy.id,elapsed)===1)cast=activateAbility(bot,'q',{aim});}
@@ -2557,7 +2564,7 @@ function updatePlay(dt){
   if(botThinkTick<=0){botThinkTick=.25;const front=new THREE.Vector3();camera.getWorldDirection(front);for(const bot of bots){if(bot.team===player.team||!bot.alive)continue;const offset=new THREE.Vector3(bot.x-player.x,0,bot.z-player.z);if(player.alive&&offset.length()<42&&offset.normalize().dot(front)>.55&&visibleBetween(player,bot))bot.spottedUntil=elapsed+.6;}}
   if(!exploring&&!isGuest()){match.tick(dt,{clockPaused:match.phase==='live'&&ordinarySkills.clockFrozen(elapsed),blueAlive:aliveCount('blue'),redAlive:aliveCount('red'),playerAlive:player.alive});handleMatchEvents();}
   timeLeft=match.phase==='buy'||match.phase==='post'?match.phaseTime:match.spike.status==='planted'?match.spike.timer:match.roundTime;
-  viewmodel.update(dt,{aiming:aiming&&controlled,reloading,reloadDuration:player.serviceReload?EMBER_SKILLS.serviceDuration:weapon().reload,kick,moving:len>0,time:elapsed,crouching:player.crouch,interacting:interactionHeld&&controlled,ultimate:player.kit.knivesActive&&inventory.active==='knife',knives:player.kit.knives,shotSequence});
+  viewmodel.update(dt,{character:player.kit.character,scoped,aiming:aiming&&controlled,reloading,reloadDuration:player.serviceReload?EMBER_SKILLS.serviceDuration:weapon().reload,kick,moving:len>0,time:elapsed,crouching:player.crouch,interacting:interactionHeld&&controlled,ultimate:player.kit.knivesActive&&inventory.active==='knife',knives:player.kit.knives,shotSequence});
   flash.visible=player.alive&&inventory.active!=='knife'&&elapsed-lastShot<.045;flash.rotation.z=elapsed*40;
   const s=match.spike;spikeModel.position.set(s.x,0,s.z);objectiveModel.update({time:elapsed,...s,practice:!!objectivePractice});
   if(s.status==='planted'&&!objectivePractice){
