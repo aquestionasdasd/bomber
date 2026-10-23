@@ -158,6 +158,74 @@ async function main() {
       player.y=0;player.team=match.defenderTeam;Object.assign(match.spike,{status:'planted',x:player.x,z:player.z,defuseProgress:0,defuseActor:null,checkpoint:0});if(trcInteract())throw Error('door stole defuse key');updateInteraction(7,true);if(match.spike.status==='planted')throw Error('door prevented defuse');
     }`);
   });
+  function detonateTrc(){local.run(`Object.assign(match.spike,{status:'planted',x:map.sites[0].x,z:map.sites[0].z,timer:.01});match.tick(.02,{blueAlive:1,redAlive:1,playerAlive:true});handleMatchEvents();`);}
+  check('TRC collapse preserves visible ground, releases climbers and removes upper support, routes and door interactions together',()=>{
+    setup();local.run(`
+      var intact={colliders:map.colliders.length,shapes:map.mapShapes.length,ramps:map.ramps.length};
+      var floorPoints=[map.spawn,...map.sites,tp(53,74)];
+      var groundVisible=()=>floorPoints.every(p=>new THREE.Raycaster(new THREE.Vector3(p.x,.3,p.z),new THREE.Vector3(0,-1,0),0,.4).intersectObject(map.world,true).some(h=>h.object.visible&&busSurfaceVisible(h)));
+      environment.updateMatrixWorld(true);if(!groundVisible())throw Error('initial visible floor');
+      map.traversal.damage('D1',200);
+      map.traversal.restore(map.traversal.snapshot().map(([id,hp,open])=>[id,hp,id==='D2'||open]));
+      var doorsBefore=JSON.stringify(map.traversal.snapshot());
+      var ladder=map.traversal.ladders[0];Object.assign(player,{x:ladder.x,y:1.6,z:ladder.z,vy:0,trcLadder:ladder.id});
+      makeBot(ladder,0,'red',{id:'red-0',team:'red',primary:null,secondary:'classic',armor:0,credits:800,kit:new DuelistKit({character:'nope'})});
+      Object.assign(bots[0],{x:ladder.x,y:2,z:ladder.z,vy:0,trcLadder:ladder.id});
+    `);
+    detonateTrc();local.run(`
+      if(!map.bomberCollapse.active||map.colliders.length||map.ramps.length||map.mapShapes.length)throw Error('incomplete collapse');
+      environment.updateMatrixWorld(true);if(!groundVisible())throw Error('ground vanished');
+      if(player.trcLadder||bots[0].trcLadder)throw Error('floating climber');
+      var collapseHeaven=map.landmarks.find(p=>p.id==='heaven');
+      if(getZoneFloor(collapseHeaven.x,collapseHeaven.z,3.3)!==0||navigation.isWalkable(collapseHeaven.x,collapseHeaven.z,3.2))throw Error('ghost upper floor');
+      var route=navigation.path(map.spawn.x,map.spawn.z,collapseHeaven.x,collapseHeaven.z,0,3.2);
+      if(!route.length||route.some(p=>p.ladder||p.y!==0))throw Error('ghost ladder route');
+      if(map.ductAt(duct.entry.x,duct.entry.z-2,0))throw Error('ghost metal duct');
+      map.traversal.restore(JSON.parse(doorsBefore));map.traversal.restore(JSON.parse(doorsBefore));
+      var leaves=[];map.world.traverse(o=>{if(o.userData.trcDoor)leaves.push(o);});
+      if(leaves.some(o=>o.visible)||map.traversal.doors.some(d=>!d.collider.disabled))throw Error('door snapshot resurrected architecture');
+      if(map.traversal.nearby(player)||map.traversal.interact(player,{kind:'ladder',id:ladder.id},elapsed))throw Error('ghost interaction');
+      if(map.traversal.damage('D2',200)!==null||JSON.stringify(map.traversal.snapshot())!==doorsBefore)throw Error('damaged vanished door');
+      for(var i=0;i<120;i++)updatePlay(1/60);
+      if(player.y!==0||bots[0].y!==0||player.hp!==100)throw Error('climbers failed to fall safely');
+      resetDetonation();environment.updateMatrixWorld(true);
+      if(map.colliders.length!==intact.colliders||map.ramps.length!==intact.ramps||map.mapShapes.length!==intact.shapes)throw Error('incomplete demo restoration');
+      if(JSON.stringify(map.traversal.snapshot())!==doorsBefore||leaves[0].visible||!leaves[1].visible)throw Error('demo repaired broken door');
+      if(!navigation.isWalkable(collapseHeaven.x,collapseHeaven.z,3.2)||!actorGrounded({...player,...collapseHeaven}))throw Error('upper floor not restored');
+    `);
+    detonateTrc();local.run(`spawnRound();if(map.traversal.doors.some(d=>d.hp!==180||d.open||d.collider.disabled))throw Error('next-round door state');if(map.ramps.length!==intact.ramps)throw Error('next-round stairs');`);
+    detonateTrc();local.run(`selectArena('hashimoto');if(arenaCache.get('trc').bomberCollapse.active||arenaCache.get('trc').ramps.length!==intact.ramps)throw Error('map-change cleanup');selectArena('trc');`);
+  });
+  check('TRC host/guest collapse snapshots keep doors hidden, retain independent stairs and restore the next round',()=>{
+    setup();local.run(`
+      makeBot(map.teamSpawns.defend[0],0,'red',{id:'red-0',team:'red',primary:null,secondary:'classic',armor:0,credits:800,kit:new DuelistKit({character:'nope'})});
+      var remote=bots[0];remote.remoteId='guest';roster=[roster[0],remote.record];
+      onlinePlaying=true;online={host:true,room:{code:'TRCCLAPS'},session:{memberId:'host',hostId:'host'},send:p=>{captured=JSON.parse(JSON.stringify(p))}};
+      netParticipants.set('guest','red-0');map.traversal.damage('D1',200);
+    `);
+    detonateTrc();local.run('netClock=0;tickOnline(.1)');
+    const packet=copy(local.run('captured'));
+    assert.ok(Buffer.byteLength(JSON.stringify(packet))<65536);
+    // Create the second map while the first is collapsed: shared layout data
+    // must not lose its stairs when a live map clears its support array.
+    const guest=harness({realMap:true});guest.reset();guest.run(`selectArena('trc');onlinePlaying=true;online={host:false,room:{code:'TRCCLAPS'},session:{memberId:'guest',hostId:'host'},send:()=>{}};netParticipants.set('guest','red-0');`);
+    assert.equal(guest.run('map.ramps.length'),2);
+    guest.sandbox.transfer=copy(packet);guest.run(`receiveNetPacket('host',transfer);var sequence=netLastSnapshot;`);
+    assert.equal(guest.run('map.bomberCollapse.active'),true);
+    assert.equal(guest.run('map.colliders.length'),0);
+    guest.run(`receiveNetPacket('host',transfer)`);
+    guest.sandbox.transfer={...copy(packet),seq:packet.seq+1,time:packet.time+1};
+    guest.run(`receiveNetPacket('host',transfer);var leaves=[];map.world.traverse(o=>{if(o.userData.trcDoor)leaves.push(o);});`);
+    assert.equal(guest.run('leaves.some(o=>o.visible)'),false);
+    assert.equal(guest.run('map.traversal.doors[0].hp'),0);
+    local.run(`match.round++;match.phase='buy';match.resetSpike();spawnRound();netClock=0;tickOnline(.1)`);
+    guest.sandbox.transfer=copy(local.run('captured'));guest.sandbox.transfer.seq+=10;
+    guest.run(`receiveNetPacket('host',transfer)`);
+    assert.equal(guest.run('map.bomberCollapse.active'),false);
+    assert.equal(guest.run('map.colliders.length'),local.run('map.colliders.length'));
+    assert.equal(guest.run('map.ramps.length'),2);
+    assert.equal(guest.run('map.traversal.doors.every(d=>d.hp===180&&!d.open&&!d.collider.disabled)&&leaves.every(o=>o.visible)'),true);
+  });
   check('a full ten-actor round runs the real movement, tactics, weapons and objective loop',()=>{
     setup();local.run(`online=null;onlinePlaying=false;mode='menu';$('map-select').value='trc';$('match-format').value='standard';startGame();startRound();if(bots.length!==9)throw Error('roster');for(let i=0;i<900;i++){updatePlay(.05);for(const a of [player,...bots])if(![a.x,a.y,a.z,a.hp].every(Number.isFinite)||a.y<-.01||a.y>9.6)throw Error('invalid actor');}if(!match||!['live','post','buy','match'].includes(match.phase))throw Error('round stopped');`);
   });

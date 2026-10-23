@@ -28,7 +28,10 @@ export function createTrcMap(T,scene){
  const matrix=new T.Matrix4(),rotation=new T.Quaternion(),position=new T.Vector3(),scale=new T.Vector3();
  function meshData(geo,key,matrix=null){
   const g=geo.index?geo.toNonIndexed():geo.clone();if(matrix)g.applyMatrix4(matrix);
-  const bucket=batches.get(key)||{position:[],normal:[],uv:[]};batches.set(key,bucket);
+  // Keep ground surfaces separate from tall objects using the same material,
+  // so architectural collapse cannot also remove the paving or planting floor.
+  g.computeBoundingBox();const batchKey=key+(g.boundingBox.max.y<=.35?' / ground':'');
+  const bucket=batches.get(batchKey)||{position:[],normal:[],uv:[],material:key};batches.set(batchKey,bucket);
   for(const name of ['position','normal','uv']){const a=g.getAttribute(name);if(a)for(const v of a.array)bucket[name].push(v);else for(let i=0;i<g.getAttribute('position').count*(name==='uv'?2:3);i++)bucket[name].push(0);}
   g.dispose();
  }
@@ -219,17 +222,18 @@ export function createTrcMap(T,scene){
  for(const spec of siteSpec){const r=R(...spec.r),{minX:x,maxX:X,minZ:z,maxZ:Z}=r;quad([x,.012,z],[x,.012,Z],[X,.012,Z],[X,.012,z],spec.id==='A'?'siteA':'siteB',[[x,z],[x,Z],[X,Z],[X,z]]);}
  const sites=siteSpec.map(s=>{const r=R(...s.r),p=P(...s.center);for(const [x,z,X,Z]of union([r]).edges){const dx=X-x,dz=Z-z;part((x+X)/2,.009,(z+Z)/2,Math.max(.08,Math.abs(dx)),.018,Math.max(.08,Math.abs(dz)),s.id==='A'?'orange':'blue');}return {id:s.id,name:s.name,...p,radius:Math.min(s.r[2],s.r[3])/2,polygon:rectPolygon(r),plantPositions:s.points.map(([x,z],i)=>({id:s.id+'-'+['open','cover','deep','entry'][i],style:['open','cover','deep','entry'][i],...P(x,z)}))};});
  for(const s of sites)sign(s.id,'PLANT ZONE',s.x,.025,s.z,3,3,s.id==='A'?'#a65d40':'#286b77').rotation.x=-Math.PI/2;
- for(const [key,b]of batches){const g=new T.BufferGeometry();for(const name of ['position','normal','uv'])g.setAttribute(name,new T.Float32BufferAttribute(b[name],name==='uv'?2:3));g.computeBoundingSphere();const m=new T.Mesh(g,materials[key]);m.name='TRC / '+key;m.castShadow=true;m.receiveShadow=true;world.add(m);}
+ for(const [key,b]of batches){const g=new T.BufferGeometry();for(const name of ['position','normal','uv'])g.setAttribute(name,new T.Float32BufferAttribute(b[name],name==='uv'?2:3));g.computeBoundingSphere();const m=new T.Mesh(g,materials[b.material]);m.name='TRC / '+key;m.castShadow=true;m.receiveShadow=true;world.add(m);}
  const teamSpawns={attack:[P(52,91),P(49,91),P(55,91),P(46,91),P(58,91)],defend:[P(52,9),P(49,9),P(55,9),P(46,9),P(58,9)]};
  const callouts=[...TRC_ROOMS.filter(r=>!['chase','prep-link','prep'].includes(r.id)),...TRC_OUTDOORS].map(r=>({id:r.id,name:r.name,polygon:rectPolygon(r),maxY:2.7,label:{x:(r.minX+r.maxX)/2,z:(r.minZ+r.maxZ)/2,text:r.name.split(' ')[0]}}));
  for(const d of TRC_DECKS)callouts.unshift({id:d.id,name:({'a-heaven':'A ヘブン','a-prep':'上階準備室','a-prep-link':'準備室連絡','b-stage':'B 試聴ステージ'})[d.id],polygon:rectPolygon(d),minY:d.y-.2,maxY:8});
  const landmarks=[{id:'a',name:'A 展示ホール',...P(27,43),yaw:0},{id:'b',name:'B 試聴ホール',...P(84,43),yaw:0},{id:'mid',name:'MID 中央連絡',...P(50,53),yaw:0},{id:'heaven',name:'A ヘブン',...P(25,24,3.2),yaw:Math.PI},{id:'prep',name:'上階準備室',...P(7,28,3.2),yaw:Math.PI},{id:'duct-a',name:'ダクト入口',...P(5.2,49),yaw:0},{id:'stage',name:'B 試聴ステージ',...P(84,24,1.2),yaw:Math.PI},{id:'plaza',name:'屋外前庭',...P(52,89),yaw:0},{id:'yard',name:'搬入ヤード',...P(90,74),yaw:0}];
- const map={id:'trc',name:'TRC 同人音楽即売会',shortName:'SOUND MARKET',indoor:false,world,bounds,combatBounds:bounds,colliders,collision:createCollisionIndex(colliders,8),mapShapes,ramps:TRC_STAIRS,sites,teamSpawns,callouts,zones:[],landmarks,
+ const map={id:'trc',name:'TRC 同人音楽即売会',shortName:'SOUND MARKET',indoor:false,world,bounds,combatBounds:bounds,colliders,collision:createCollisionIndex(colliders,8),mapShapes,ramps:[...TRC_STAIRS],sites,teamSpawns,callouts,zones:[],landmarks,
   spawn:{...teamSpawns.attack[0],yaw:0},enemySpawns:teamSpawns.defend,spawnYaw:{attack:0,defend:Math.PI},buyAreas:{attack:{...P(52,91),radius:8},defend:{...P(52,9),radius:7}},
   lanes:[{id:'long',name:'A ロング',points:[[52,91],[28,91],[28,81],[13,81],[13,68],[21,68],[21,59],[27,59],[27,43]].map(p=>P(...p))},{id:'mid',name:'正面入口 / MID',points:[[52,91],[40,91],[40,79],[52,79],[52,70],[61,70],[61,60],[50,60],[50,44]].map(p=>P(...p))},{id:'b-main',name:'搬入 / B メイン',points:[[52,91],[87,91],[87,79],[94,79],[94,70],[84,70],[84,59],[96,59],[96,48],[89,48],[89,43]].map(p=>P(...p))}],
   menuCamera:{position:[-7,2.4,43],target:[-2,3,28]},rangeArea:{spawn:{...P(52,91),yaw:0},targets:[P(38,87),P(64,87),P(69,89),P(36,89)]},
   stats:{mode:'arena',width:110,depth:140,area:15400,sites:2,routes:3,buildings:1,collisionShapes:colliders.length,renderBatches:batches.size},
-  ductAt:trcDuctAt,walkHeights(x,z){
+  ductAt(x,z,y){return !world.userData.bomberCollapsed&&trcDuctAt(x,z,y);},walkHeights(x,z){
+   if(world.userData.bomberCollapsed)return [0];
    const out=[];if(TRC_FLOOR.some(r=>contains(r,x,z)))out.push(0);
    if(TRC_STAIRS.some(r=>contains(r,x,z,.4))){let h=0;for(const c of map.collision.query(x,z,.4))if(c.kind==='stairs'&&map.collision.overlaps(c,x,z,.4))h=Math.max(h,c.height);out.push(h);}
    for(const d of TRC_DECKS)if(contains(d,x,z)&&!trcDeckCut(x,z,d.y))out.push(d.y);

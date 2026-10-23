@@ -5,10 +5,11 @@ export const TRC_CLIMB_SPEED=1.45;
 export function createTrcTraversal(map,{doorMeshes=new Map()}={}){
  const doors=TRC_DOORS.map(d=>({...d,hp:TRC_DOOR_HP,open:false,lastUse:-Infinity,collider:map.colliders.find(c=>c.doorId===d.id)}));
  const valid=s=>Array.isArray(s)&&s.length===doors.length&&s.every((v,i)=>Array.isArray(v)&&v.length===3&&v[0]===doors[i].id&&Number.isInteger(v[1])&&v[1]>=0&&v[1]<=TRC_DOOR_HP&&typeof v[2]==='boolean'&&(v[1]>0||v[2]));
- function sync(d){d.collider.disabled=d.open||d.hp<=0;const v=doorMeshes.get(d.id);if(v){v.leaf.visible=d.hp>0;v.leaf.userData.trcBroken=d.hp<=0;}map.collision.invalidate();}
+ const collapsed=()=>!!map.world.userData.bomberCollapsed;
+ function sync(d){d.collider.disabled=collapsed()||d.open||d.hp<=0;const v=doorMeshes.get(d.id);if(v){v.leaf.visible=!collapsed()&&d.hp>0;v.leaf.userData.trcBroken=d.hp<=0;}map.collision.invalidate();}
  function distanceToDoor(a,d){const c=d.collider;return Math.hypot(a.x-Math.max(c.minX,Math.min(c.maxX,a.x)),a.z-Math.max(c.minZ,Math.min(c.maxZ,a.z)));}
  function nearby(actor){
-  if(!actor?.alive)return null;
+  if(!actor?.alive||collapsed())return null;
   if(actor.trcLadder)return {kind:'ladder',id:actor.trcLadder,label:'はしご · W↑ / S↓ / Spaceで離す'};
   const y=actor.y||0;
   for(const l of TRC_LADDERS){const top=Math.abs(y-l.height)<.4&&Math.hypot(actor.x-l.exit.x,actor.z-l.exit.z)<1.7,bottom=y<.25&&Math.hypot(actor.x-l.x,actor.z-l.z)<1.55;
@@ -27,9 +28,9 @@ export function createTrcTraversal(map,{doorMeshes=new Map()}={}){
   if(d.open&&actors.some(a=>a.alive&&(a.y||0)<d.y+2.9&&(a.y||0)+1.7>d.y&&map.collision.overlaps(d.collider,a.x,a.z,.48)))return null;
   d.open=!d.open;d.lastUse=now;sync(d);return d.open?'door-open':'door-close';
  }
- function damage(id,amount){const d=doors.find(d=>d.id===id);if(!d||d.open||d.hp<=0||!Number.isFinite(amount)||amount<=0)return null;d.hp=Math.max(0,d.hp-Math.max(1,Math.round(Math.min(amount,300))));if(!d.hp)d.open=true;sync(d);return d.hp?'door-hit':'door-break';}
+ function damage(id,amount){const d=doors.find(d=>d.id===id);if(collapsed()||!d||d.open||d.hp<=0||!Number.isFinite(amount)||amount<=0)return null;d.hp=Math.max(0,d.hp-Math.max(1,Math.round(Math.min(amount,300))));if(!d.hp)d.open=true;sync(d);return d.hp?'door-hit':'door-break';}
  function climb(actor,axis,dt,quiet=false){
-  const l=TRC_LADDERS.find(l=>l.id===actor.trcLadder);if(!l||!actor.alive){actor.trcLadder=null;return false;}
+  const l=TRC_LADDERS.find(l=>l.id===actor.trcLadder);if(collapsed()||!l||!actor.alive){actor.trcLadder=null;return false;}
   if(!Number.isFinite(axis)||!Number.isFinite(dt)||dt<=0)return true;
   const previous=actor.y,y=Math.max(0,Math.min(l.height,previous+Math.max(-1,Math.min(1,axis))*TRC_CLIMB_SPEED*(quiet?.6:1)*Math.min(dt,.1)));
   if(!map.collision.blocked(l.x,l.z,.34,y,1.15)){actor.x=l.x;actor.z=l.z;actor.y=y;actor.vy=0;actor.crouch=1;actor.vx=actor.vz=0;}
@@ -46,5 +47,5 @@ export function createTrcTraversal(map,{doorMeshes=new Map()}={}){
   defendA:[P(32,12),P(32,22,3.2),P(25,24,3.2)],
   defendB:[P(81,29),P(81,24,1.2),P(84,24,1.2)]
  };
- return {doors,ladders:TRC_LADDERS,routes,nearby,interact,damage,climb,reset,restore,valid,update,snapshot:()=>doors.map(d=>[d.id,d.hp,d.open])};
+ return {doors,ladders:TRC_LADDERS,routes,nearby,interact,damage,climb,reset,restore,valid,update,reconcile(){for(const d of doors)sync(d);},snapshot:()=>doors.map(d=>[d.id,d.hp,d.open])};
 }

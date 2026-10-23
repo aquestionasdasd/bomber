@@ -1,8 +1,8 @@
-// Cinematic, non-colliding destruction. The map is never moved or modified.
+// Cosmetic blast/fire; actual architectural removal is owned by building-collapse.js.
 // Coordinates follow the station facade in map.js: x -60.75..20.75, z -33.
 export function createStationDetonation(THREE){
   const DURATION=6,FIRE_COUNT=32,SMOKE_COUNT=32,DEBRIS_COUNT=48,SPARK_COUNT=144;
-  const STATION={x:-20.75,z:-32},group=new THREE.Group();group.name='HASHIMOTO / station chain detonation';group.visible=false;
+  const STATION={x:-20.75,z:-32,width:79},group=new THREE.Group();group.name='HASHIMOTO / station chain detonation';group.visible=false;
   const geometries=new Set(),materials=new Set(),textures=new Set(),instanced=[];
   const keepGeometry=g=>(geometries.add(g),g),keepMaterial=m=>(materials.add(m),m),keepTexture=t=>(textures.add(t),t);
   let started=false,disposed=false,startTime=0,originX=0,originZ=0;
@@ -78,12 +78,13 @@ export function createStationDetonation(THREE){
   const waveGeometry=keepGeometry(new THREE.RingGeometry(.966,1,96));
   const waves=Array.from({length:2},(_,i)=>{const material=keepMaterial(new THREE.MeshBasicMaterial({color:i?'#efbd80':'#ffdfa2',transparent:true,opacity:0,depthWrite:false,side:THREE.DoubleSide,blending:THREE.AdditiveBlending,toneMapped:false}));material.forceSinglePass=true;const mesh=cosmetic(new THREE.Mesh(waveGeometry,material));mesh.rotation.x=-Math.PI/2;mesh.visible=false;mesh.name=i?'Station-wide pressure front':'Initial ground pressure front';group.add(mesh);return mesh;});
   const fireData=Array.from({length:FIRE_COUNT},()=>({})),smokeData=Array.from({length:SMOKE_COUNT},()=>({})),debrisData=Array.from({length:DEBRIS_COUNT},()=>({})),sparkData=Array.from({length:SPARK_COUNT},()=>({}));
-  function start({x=0,z=0,time=0,seed=1}={}){
+  function start({x=0,z=0,time=0,seed=1,station}={}){
+    Object.assign(STATION,station&&[station.x,station.z,station.width].every(Number.isFinite)&&station.width>0?station:{x:-20.75,z:-32,width:79});
     if(disposed)return;originX=finite(x);originZ=finite(z);startTime=finite(time);seed=finite(seed,1)>>>0;
     let state=seed;const random=()=>{state=(Math.imul(state,1664525)+1013904223)>>>0;return state/4294967296;};
     for(let i=0;i<FIRE_COUNT;i++){
       const p=fireData[i],hero=i>0&&i<8,chain=i>=8&&i<24,column=i>=24;
-      p.x=i===0?originX:hero?STATION.x+(random()-.5)*20:chain?-58.5+(i-8)*5:STATION.x+(random()-.5)*69;
+      p.x=i===0?originX:hero?STATION.x+(random()-.5)*20:chain?STATION.x-STATION.width/2+1.75+(i-8)*STATION.width/15.8:STATION.x+(random()-.5)*69;
       p.z=i===0?originZ:STATION.z+1.6+(random()-.5)*4;p.y=i===0?1.5:hero?10+random()*6:2+random()*6;
       p.birth=i===0?0:hero?.12+random()*.35:chain?.1+Math.abs(p.x-originX)*.006+random()*.12:.32+random()*.65;
       p.life=i===0?1.6:hero?2.55+random()*.3:1.9+random()*.55;p.size=i===1?56:i===0?29:hero?36+random()*15:column?18+random()*8:13+random()*10;
@@ -91,13 +92,13 @@ export function createStationDetonation(THREE){
       p.dx=(random()-.5)*5;p.dz=(random()-.5)*3;p.angle=(random()-.5)*Math.PI*2;p.spin=(random()-.5)*.25;
     }
     for(let i=0;i<SMOKE_COUNT;i++){
-      const p=smokeData[i],central=i<10;p.x=central?STATION.x+(random()-.5)*27:-59+random()*79;p.z=STATION.z+2+(random()-.5)*12;
+      const p=smokeData[i],central=i<10;p.x=central?STATION.x+(random()-.5)*27:STATION.x-STATION.width/2+1.25+random()*STATION.width;p.z=STATION.z+2+(random()-.5)*12;
       p.y=central?15+random()*10:6+random()*14;p.birth=.45+random()*1.2;p.life=DURATION-p.birth;
       p.size=central?28+random()*16:15+random()*20;p.rise=18+random()*23;p.dx=3+random()*12;p.dz=-2+random()*9;p.angle=random()*6.28;p.spin=(random()-.5)*.2;
     }
     for(let i=0;i<DEBRIS_COUNT;i++){
       const p=debrisData[i],a=random()*Math.PI*2,speed=8+random()*22;
-      p.x=-59+random()*79;p.z=STATION.z+(random()-.5)*3;p.y=3+random()*10;p.birth=.12+Math.abs(p.x-originX)*.005+random()*.35;
+      p.x=STATION.x-STATION.width/2+1.25+random()*STATION.width;p.z=STATION.z+(random()-.5)*3;p.y=3+random()*10;p.birth=.12+Math.abs(p.x-originX)*.005+random()*.35;
       p.vx=Math.sin(a)*speed;p.vz=Math.cos(a)*speed;p.vy=12+random()*20;
       p.w=i<12?1.7+random()*2.2:.3+random()*1.1;p.h=.12+random()*.28;p.d=i<12?1.5+random()*2.6:.4+random()*1.4;
       p.rx=random()*6.28;p.ry=random()*6.28;p.rz=random()*6.28;p.spin=(random()-.5)*5;
@@ -107,7 +108,7 @@ export function createStationDetonation(THREE){
     if(debris.instanceColor)debris.instanceColor.needsUpdate=true;
     for(let i=0;i<SPARK_COUNT;i++){
       const p=sparkData[i],a=random()*Math.PI*2,speed=9+random()*27,station=i%3!==0;
-      p.x=station?-57+random()*75:originX;p.z=station?STATION.z+3:originZ;p.y=station?2+random()*9:1;
+      p.x=station?STATION.x-STATION.width/2+3.25+random()*(STATION.width-4):originX;p.z=station?STATION.z+3:originZ;p.y=station?2+random()*9:1;
       p.birth=station?.18+random()*.8:random()*.1;p.life=.65+random()*1.5;p.vx=Math.sin(a)*speed;p.vz=Math.cos(a)*speed;p.vy=7+random()*27;
     }
     started=true;group.visible=false;group.userData.event={x:originX,z:originZ,time:startTime,seed,station:{...STATION}};
