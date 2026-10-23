@@ -38,7 +38,9 @@ const body = `
    if(bench&&actor?.id===bench.focalId&&bench.disabled.includes(key))return;
    measuredDepth++;let effect;
    try{effect=fn(actor,key,options);}finally{measuredDepth--;}
-   if(effect&&bench&&measuredDepth===0){const stat=bench.actors[actor.id];if(stat)stat.casts[key]=(stat.casts[key]||0)+1;}
+   if(effect&&bench&&measuredDepth===0){const stat=bench.actors[actor.id];if(stat){stat.casts[key]=(stat.casts[key]||0)+1;
+     if(actor.kit?.character==='cat'&&key==='x')(stat.clockCasts||=[]).push({at:elapsed,team:actor.team,attackerTeam:match.attackerTeam,status:match.spike.status,roundTime:match.roundTime,bomberTime:match.spike.timer});
+   }}
    return effect;
  };
  activateAbility=measureActivate(activateAbility);

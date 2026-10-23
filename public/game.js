@@ -801,6 +801,14 @@ function updateScoreboard(){
 }
 function aliveCount(team){return bots.filter(b=>b.alive&&b.team===team).length+(team===player.team&&player.alive?1:0);}
 function recordOf(entity){return entity.id==='player'?roster[0]:entity.record;}
+function catBotClockUseful(actor){
+  const spike=match?.spike;
+  if(!actor?.alive||match?.phase!=='live'||!spike)return false;
+  // Freeze only the objective deadline our side is racing, never the one
+  // already counting down to our victory. These are public objective clocks.
+  if(actor.team===match.attackerTeam)return ['carried','dropped'].includes(spike.status)&&match.roundTime>0&&match.roundTime<20;
+  return actor.team===match.defenderTeam&&spike.status==='planted'&&spike.timer>0&&spike.timer<=12;
+}
 function damageEntity(entity,amount,killer,{firearm=false,returned=false,chain=true,skill=null,vehicle=false}={}){
   if(isGuest())return;
   if(!entity.alive||match?.phase!=='live'||(killer&&entity.team===killer.team&&!vehicle))return;
@@ -2517,7 +2525,7 @@ function updateBots(dt){
     }
     if(bot.kit?.character==='cat'&&!interactPlant&&!interactDefuse&&elapsed>=(bot.nextSkillAt||0)){
       let cast=null;const bookmark=ordinarySkills.catBookmark(bot.id,elapsed);
-      if(bot.kit.ultPoints>=7&&(match.spike.status==='planted'||match.roundTime<20)&&!ordinarySkills.clockFrozen(elapsed))cast=activateAbility(bot,'x');
+      if(bot.kit.ultPoints>=7&&catBotClockUseful(bot)&&!ordinarySkills.clockFrozen(elapsed))cast=activateAbility(bot,'x');
       if(!cast&&bookmark&&bot.hp<45)cast=activateAbility(bot,'c');
       if(!cast&&enemy&&visibleBetween(bot,enemy)){const aim={yaw:Math.atan2(-(enemy.x-bot.x),-(enemy.z-bot.z)),pitch:Math.atan2((enemy.y||0)+1.3-((bot.y||0)+1.7),Math.hypot(enemy.x-bot.x,enemy.z-bot.z))};cast=activateAbility(bot,'q',{aim});if(!cast&&!bookmark&&bot.hp>60)cast=activateAbility(bot,'c');}
       if(!cast&&!enemy){const drop=droppedWeapons.find(d=>Math.hypot(d.x-bot.x,d.z-bot.z)<CAT_SKILLS.fetchRange);if(drop){const distance=Math.hypot(drop.x-bot.x,drop.z-bot.z),aim={yaw:Math.atan2(-(drop.x-bot.x),-(drop.z-bot.z)),pitch:Math.atan2(.2-((bot.y||0)+1.7),distance)};cast=activateAbility(bot,'e',{aim});}}

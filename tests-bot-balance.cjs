@@ -55,6 +55,19 @@ const suite=String.raw`
    h.run("match.interactPlant(10,{actorId:'player',team:match.attackerTeam,site:'A',x:0,z:0,stationary:true});match.interactPlant(10,{actorId:'player',team:match.attackerTeam,site:'A',x:0,z:0,stationary:true});match.drainEvents();match.drainEvents()");
    near(h.run('bench.actors.player.workProgress'),4,'clamped objective progress');near(h.run('bench.actors.player.toolSavedSeconds'),4/3,'no overcount');assert.equal(h.run('bench.actors.player.plants'),1);
  });
+ check('clock cast context records only actual accepted CAT X and respects focal ablation',()=>{
+   setup();h.run("player.kit=new DuelistKit({character:'cat'});player.kit.ultPoints=7;match.spike.status='dropped';match.roundTime=4");
+   assert.ok(h.run("activateAbility(player,'x')"));
+   assert.equal(h.run('bench.actors.player.casts.x'),1);
+   const context=JSON.parse(h.run('JSON.stringify(bench.actors.player.clockCasts)'));
+   assert.equal(context.length,1);assert.equal(context[0].at,h.run('elapsed'));
+   assert.equal(context[0].team,h.run('player.team'));assert.equal(context[0].attackerTeam,h.run('match.attackerTeam'));
+   assert.equal(context[0].status,'dropped');assert.equal(context[0].roundTime,4);assert.equal(context[0].bomberTime,h.run('match.spike.timer'));
+   h.run("activateAbility(player,'x')");assert.equal(h.run('bench.actors.player.clockCasts.length'),1);
+   setup();h.run("player.kit=new DuelistKit({character:'cat'});player.kit.ultPoints=7;bench.disabled='x'");
+   assert.equal(h.run("activateAbility(player,'x')"),undefined);
+   assert.equal(h.run('bench.actors.player.clockCasts'),undefined);assert.equal(h.run('player.kit.ultPoints'),7);
+ });
  console.log('PASS: '+groups+' measurement pipeline/clock/contact/ablation/collision/accounting/objective groups; audio inert');
 }
 main().catch(e=>{console.error(e);process.exitCode=1;});
