@@ -21,6 +21,7 @@ async function main(){
   const invalid=JSON.parse(JSON.stringify(state));invalid.events[0].targetId=actor.id;assert.equal(guest.restore(invalid,1,1),false);invalid.events[0].targetId='enemy';invalid.events[0].fakePower=99;assert.equal(guest.restore(invalid,1,1),false);
   host.update([actor,{...enemy,alive:false,hp:0}],2,1);assert.equal(host.sealUntil('enemy',2),0);assert.equal(guest.sealUntil('enemy',5),0);
  });
+ test('five second hush cannot reappear through an old read while ten second flight event remains',()=>{const host=createCharacterSkills();host.cast('duck-hush',actor,actor,1,1);assert.equal(host.snapshot().events[0].endsAt,11);assert.equal(host.quiet('duck',5.99),true);assert.equal(host.quiet('duck',6),false);assert.equal(host.quiet('duck',1),false);assert.equal(host.events(6).length,1);assert.equal(host.events(11).length,0);});
  test('shield blocks nearest plane from either side, clips bounds and consumes finite HP only on owner',()=>{
   const host=createCharacterSkills();assert.ok(host.cast('duck-shield',actor,{x:0,y:0,z:-5,yaw:0},1,1));
   host.update([actor,enemy],1,1);

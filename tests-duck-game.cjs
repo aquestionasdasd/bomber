@@ -95,7 +95,7 @@ async function main() {
     }
     const clearWalls = () => run('environment.clear();map.colliders.length=0;map.collision=createCollisionIndex(map.colliders)');
     sandbox.createCollisionIndex = createCollisionIndex;
-    return { sandbox, run, seed, wall, clearWalls, reset, elements };
+    return { sandbox, run, seed, wall, clearWalls, reset, elements, listeners };
   }
 
   const local=harness();
@@ -109,6 +109,45 @@ async function main() {
   check('independent JSON guest restores host effect; full queue rollback and reset cleanup',()=>{setup();const host=harness(),guest=harness();host.reset();guest.reset();host.run(`player.kit=new DuelistKit({character:'duck'});player.kit.updraft=1;match.phase='live';activateAbility(player,'q',{aim:{yaw:0,pitch:-.4}})`);const state=copy(host.run('ordinarySkills.snapshot()'));assert.equal(state.events[0].type,'duck-shield');guest.sandbox.transfer=copy(state);assert.equal(guest.run('ordinarySkills.restore(transfer,elapsed,match.round)'),true);assert.equal(guest.run(`ordinarySkills.interceptShield({x:0,y:1,z:0},{x:0,y:0,z:-1},20,40,elapsed,match.round)?.power`),180);local.run(`for(let i=0;i<20;i++)ordinarySkills.cast('duck-seal',{...ordinaryActorView(player),id:'d'+i},{x:0,y:1.3,z:-10,targetId:'enemy'},elapsed,match.round);var before=player.kit.snapshot();activateAbility(player,'q',{aim:{yaw:0,pitch:-.4}})`);assert.deepEqual(copy(local.run('player.kit.snapshot()')),copy(local.run('before')));local.run('resetOrdinarySkills()');assert.equal(local.run('ordinarySkills.events(elapsed).length'),0);});
   check('flat floor horizontal Q remains inside the exact 3D range and survives real support validation',()=>{setup();assert.equal(local.run(`activateAbility(player,'q',{aim:{yaw:0,pitch:0}})?.type`),'duck-shield');assert.equal(local.run('player.kit.updraft'),0);});
   check('guest prediction spends stocks only, never creates seal/shield/hush/egg or lethal protection',()=>{for(const key of ['c','q','e','x']){setup();assert.ok(local.run(`activateAbility(player,'${key}',{predict:true,aim:{yaw:0,pitch:-.05}})`));assert.equal(local.run('ordinarySkills.events(elapsed).length'),0);assert.equal(local.run(`ordinarySkills.guardLethal(player.id,elapsed,match.round)`),false);assert.equal(local.run(`ordinarySkills.quiet(player.id,elapsed)`),false);}});
+
+  check('E gives ten seconds of manual flaps, five seconds of hush and unchanged twenty second cooldown',()=>{
+    setup();local.run(`activateAbility(player,'e');jump()`);assert.equal(local.run('player.vy'),5.8);local.run(`player.vy=-2;elapsed+=.1;jump()`);assert.equal(local.run('player.vy'),-2);local.run(`elapsed+=.1;jump()`);assert.equal(local.run('player.vy'),5.8);
+    local.run(`elapsed=15.1;player.y=2;player.vy=-1;jump();updateHUD()`);assert.equal(local.run('player.vy'),5.8);assert.equal(local.run('ordinarySkills.quiet(player.id,elapsed)'),false);assert.match(local.elements.get('status-effects').textContent,/羽ばたき 5秒/);
+    local.run(`elapsed=20;player.vy=-1;jump()`);assert.equal(local.run('player.vy'),-1);assert.equal(local.run('duckFlight(player)'),null);assert.equal(local.run('player.kit.dash'),0);
+  });
+  check('repeated real gravity integration flies up to eight metres; release and expiry fall normally',()=>{
+    setup();local.run(`activateAbility(player,'e');var maxFlightY=0;for(let i=0;i<420;i++){elapsed+=1/60;if(i%12===0)jump();updateActorVertical(player,1/60);maxFlightY=Math.max(maxFlightY,player.y);}`);
+    assert.ok(local.run('maxFlightY')>7.8);assert.ok(local.run('maxFlightY')<=8.000001);
+    local.run(`elapsed=20.01;for(let i=0;i<180;i++){elapsed+=1/60;updateActorVertical(player,1/60);}`);assert.equal(local.run('player.y'),0);assert.equal(local.run('player.vy'),0);
+    setup();local.run(`player.y=3.2;activateAbility(player,'e');for(let i=0;i<420;i++){elapsed+=1/60;if(i%12===0)jump();updateActorVertical(player,1/60);}`);assert.ok(local.run('player.y')<=11);
+  });
+  check('flaps collide with real ceilings and horizontal walls; ordinary jump remains 6.552',()=>{
+    setup();local.run(`map.colliders.push({minX:-3,maxX:3,minZ:-3,maxZ:3,base:3,height:3.4});map.collision=createCollisionIndex(map.colliders);activateAbility(player,'e');var maxCeilingY=0;for(let i=0;i<120;i++){elapsed+=1/60;if(i%12===0)jump();updateActorVertical(player,1/60);maxCeilingY=Math.max(maxCeilingY,player.y);}`);assert.ok(local.run('maxCeilingY')<=1.300001);local.clearWalls();
+    setup();local.wall({z:-1,width:10,height:12});local.run(`activateAbility(player,'e');jump();for(let i=0;i<30;i++){elapsed+=1/60;updateActorVertical(player,1/60);moveEntity(player,0,-.2);}`);assert.ok(local.run('player.z')>-.9);local.clearWalls();setup();local.run('jump()');assert.equal(local.run('player.vy'),6.552);
+  });
+  check('no flight before host ACK, while paused/dead/interacting or after phase/team change and reset',()=>{
+    for(const state of ['pending','pause','dead','interact','post','team']){setup();if(state==='pending')local.run(`activateAbility(player,'e',{predict:true})`);else local.run(`activateAbility(player,'e')`);local.run(`player.y=2;player.vy=-1`);if(state==='pause')local.run('netHostPaused=true');if(state==='dead')local.run('player.alive=false');if(state==='interact')local.run('interactionHeld=true');if(state==='post')local.run(`match.phase='post'`);if(state==='team')local.run(`player.team='red'`);local.run('jump()');assert.equal(local.run('player.vy'),-1,state);}
+    setup();local.run(`activateAbility(player,'e');jump();resetOrdinarySkills();player.y=2;player.vy=-1;jump()`);assert.equal(local.run('player.vy'),-1);assert.equal(local.run('player.duckFlapEvent'),null);
+  });
+  check('separate JSON worlds restore only remaining flight time; duplicate snapshots do not extend duration',()=>{
+    const host=harness(),guest=harness();host.reset();guest.reset();host.run(`player.kit=new DuelistKit({character:'duck'});match.phase='live';activateAbility(player,'e')`);const state=copy(host.run('ordinarySkills.snapshot()'));guest.sandbox.transfer=state;guest.run(`player.kit=new DuelistKit({character:'duck'});match.phase='live';elapsed=17;ordinarySkills.restore(transfer,elapsed,match.round);player.y=1;player.vy=-1;jump()`);assert.equal(guest.run('player.vy'),5.8);assert.equal(guest.run('duckFlight(player).endsAt'),20);guest.run(`ordinarySkills.restore(transfer,elapsed,match.round);elapsed=20;player.vy=-1;jump()`);assert.equal(guest.run('player.vy'),-1);guest.run(`ordinarySkills.update([],elapsed,match.round+1)`);assert.equal(guest.run('ordinarySkills.events(elapsed).length'),0);
+  });
+  check('host caps existing remote pose ascent/height and clips overhead support without new network fields',()=>{
+    setup();local.run(`enemy.kit=new DuelistKit({character:'duck'});enemy.remoteId='guest';enemy.netWeapon='classic';enemy.netAmmo=12;enemy.netReserve=36;enemy.netReload=0;onlinePlaying=true;online={host:true,session:{memberId:'host'}};netParticipants.set('guest',enemy.id);activateAbility(enemy,'e');var packet={type:'input',seq:1,connection:'duck-flight',round:match.round,input:{x:enemy.x,z:enemy.z,y:11,yaw:Math.PI,pitch:0},actions:[]};receiveNetPacket('guest',packet);updateRemoteActor(enemy,.1)`);assert.ok(local.run('enemy.y')<=.580001);assert.ok(local.run('enemy.y')>.5);
+    local.run(`for(let i=0;i<30;i++){elapsed+=.1;packet.seq++;receiveNetPacket('guest',packet);updateRemoteActor(enemy,.1)}`);assert.ok(local.run('enemy.y')<=8.000001);
+    local.run(`enemy.y=0;map.colliders.push({minX:-3,maxX:3,minZ:-13,maxZ:-7,base:2.5,height:3});map.collision=createCollisionIndex(map.colliders);for(let i=0;i<8;i++){elapsed+=.1;packet.seq++;receiveNetPacket('guest',packet);updateRemoteActor(enemy,.1)}`);assert.ok(local.run('enemy.y')<=.800001);local.clearWalls();
+  });
+  check('flight wing visual animates without allocating each frame and resets',()=>{
+    setup();local.run(`activateAbility(player,'e');duckSkillFX.update(ordinarySkills.events(elapsed),elapsed,{actors:[player]});var wing=duckSkillFX.group.children.flatMap(c=>c.children).find(c=>c.name==='Duck flight wing');var initialWing=wing.rotation.z;elapsed+=.1;duckSkillFX.update(ordinarySkills.events(elapsed),elapsed,{actors:[player]})`);assert.notEqual(local.run('wing.rotation.z'),local.run('initialWing'));local.run(`duckSkillFX.reset()`);assert.equal(local.run('duckSkillFX.group.children.length'),1);
+  });
+
+  check('BOT flaps with an actual visible enemy; hidden enemy and active reload never request flaps',()=>{
+    for(const condition of ['visible','wall','reload']){setup();local.run(`enemy.kit=new DuelistKit({character:'duck'});enemy.group.rotation.y=0;enemy.target=player;enemy.reactionUntil=0;enemy.nextSkillAt=999;enemy.aiWeapon='classic';enemy.aiAmmo=12;enemy.aiReserve=36;enemy.aiReload=0;activateAbility(enemy,'e')`);if(condition==='wall')local.wall({z:-5,width:20,height:12});if(condition==='reload')local.run('enemy.aiReload=2');local.run('updateBots(.016)');assert.equal(local.run('!!enemy.duckFlapEvent'),condition==='visible',condition);local.clearWalls();}
+  });
+  check('full event pool refuses E and rolls back stock; repeated keydown never auto-flaps',()=>{
+    setup();local.run(`for(let i=0;i<20;i++)ordinarySkills.cast('duck-seal',{...ordinaryActorView(player),id:'d'+i},{x:0,y:1.3,z:-10,targetId:'enemy'},elapsed,match.round);var before=player.kit.snapshot();activateAbility(player,'e')`);assert.deepEqual(copy(local.run('player.kit.snapshot()')),copy(local.run('before')));assert.equal(local.run('duckFlight(player)'),null);
+    setup();local.run(`activateAbility(player,'e');player.y=1;player.vy=-1`);for(const fn of local.listeners.get('keydown')||[])fn({code:'Space',repeat:true,target:{tagName:'BODY'},preventDefault(){},stopPropagation(){}});assert.equal(local.run('player.vy'),-1);
+  });
   console.log(`PASS: ${groups} actual-game duck groups; AudioContext never created`);
 }
 main().catch(error=>{console.error(error);process.exitCode=1;});
