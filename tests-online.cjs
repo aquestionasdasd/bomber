@@ -376,7 +376,7 @@ async function main() {
       const capture = source.slice(source.indexOf('function captureNetActor('), source.indexOf('function applyNetSnapshot('));
       const tick = source.slice(source.indexOf('function tickOnline('), source.indexOf("$('online-open')"));
       assert.ok(capture.length > 500 && tick.length > 500, 'Exercise the saved game serializers');
-      vm.createContext(sandbox); vm.runInContext(`${capture}\n${tick}\ntickOnline(.1)`, sandbox);
+      vm.createContext(sandbox); vm.runInContext(`${source.slice(source.indexOf('function carMotionActive('),source.indexOf('function beginCarMotion('))}\n${capture}\n${tick}\ntickOnline(.1)`, sandbox);
       assert.deepEqual(sent.map(entry => entry.team), ['blue', 'red'], 'The actual host serializer must make two private team packets');
       assert.equal(sent[0].packet.seq, sent[1].packet.seq, 'A team split is one logical host frame');
       assert.equal(sent[0].packet.ordinarySkills.markers.length, 0); assert.equal(sent[0].packet.teamAbilities.pings.length, 0);
@@ -412,6 +412,10 @@ async function main() {
         for(let i=0;i<20;i++)assert.ok(pool.cast(type,player,{x:player.x,y:0,z:player.z-3,targetId:'s'.repeat(64),yaw:1.2345678901234567},now,1));
         worst.ordinarySkills.events=pool.snapshot().events.map((e,i)=>({...e,id:`skill-${type}-${999999999999980+i}`}));
         assert.ok(createCharacterSkills().restore(worst.ordinarySkills,now,1));
+        if(type==='car-bumper'){
+          const ram=JSON.parse(JSON.stringify(worst));for(const a of ram.actors)a.carMove=['skill-car-bumper-999999999999999',2,now+.987654321,16.970562748,16.970562748,5.87654321];
+          const fitRam=(await import(pathToFileURL(path.join(__dirname,'public/traffic-state.js')).href)).fitTrafficSnapshot,bounded=fitRam(ram);assert.ok(bounded);assert.deepEqual(bounded.actors,ram.actors);assert.deepEqual(bounded.ordinarySkills,ram.ordinarySkills);assert.ok(Buffer.byteLength(JSON.stringify(bounded))<=65536);assert.equal((await send(host,'team:red','game',bounded)).status,201);console.log(`CAR10 MOTION CAPACITY: ${Buffer.byteLength(JSON.stringify(bounded))}B /65536B`);clock+=200;
+        }
         const size=Buffer.byteLength(JSON.stringify(worst),'utf8');assert.ok(size<=65536,`${type} full snapshot ${size}B`);
         assert.equal((await send(host,'team:red','game',worst)).status,201);console.log(`DUCK SNAPSHOT CAPACITY: ${type} ${size}B / 65536B`);
       }
