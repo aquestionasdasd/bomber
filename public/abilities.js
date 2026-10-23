@@ -16,7 +16,7 @@ export const CHARACTER_DEFS = Object.freeze({
   ember: Object.freeze({ id: 'ember', label: 'はんだごて握り太郎', role: '攻撃', ultName: 'フレアストライク', ultShortName: '爆撃', ultimatePoints: 7,
     description: 'C：小さく弾けるはんだ玉 / Q：新しい閃光を軽減する遮光眼鏡 / E：予備弾で素早く整備。X：半径6m・30ダメージ×3回の爆撃（7pt）。', color: '#eaa36f', ultIcon: 'M18 2v5m0 16v5M2 15h5m22 0h5M8 5l4 4m12 12 4 4M28 5l-4 4M12 21l-4 4M18 8l3 5 5 2-5 2-3 5-3-5-5-2 5-2Z' }),
   frost: Object.freeze({ id: 'frost', label: '尾野', role: '守備', ultName: 'クライオフィールド', ultShortName: '足止め', ultimatePoints: 7,
-    description: 'C：円環の霜のステッチ / Q：遠くのドールミスト / E：接地中の減速を軽減。X：最大20m先に半径7mの減速場を10秒展開（7pt）。', color: '#96dce5', ultIcon: 'M18 2v26M6 8l24 14M6 22 30 8M14 5l4 4 4-4M14 25l4-4 4 4M6 13l6-1-1-6M30 17l-6 1 1 6M6 17l6 1-1 6M30 13l-6-1 1-6' }),
+    description: 'C：円環の霜のステッチ / Q：遠くのドールミスト / E：低い姿勢で滑り込み、減速にも耐える。X：最大20m先に半径7mの減速場を10秒展開（7pt）。', color: '#96dce5', ultIcon: 'M18 2v26M6 8l24 14M6 22 30 8M14 5l4 4 4-4M14 25l4-4 4 4M6 13l6-1-1-6M30 17l-6 1 1 6M6 17l6 1-1 6M30 13l-6-1 1-6' }),
   duck: Object.freeze({ id:'duck', label:'🦆', role:'防護・封印', ultName:'不屈の卵', ultShortName:'卵', ultimatePoints:7,
     description:'C：狙った敵の新しいスキルを封印 / Q：弾だけを止める羽盾 / E：足音と着地音を消す。X：8秒、致死攻撃を2回までHP1で耐える（7pt）。', color:'#77b34c', ultIcon:'M18 2C9 2 5 16 5 21a13 9 0 0 0 26 0C31 16 27 2 18 2Zm-2 10 5 5-5 4 4 5' }),
   cat: Object.freeze({id:'cat',label:'猫の画像',role:'回収・時制',ultName:'白紙の8秒',ultShortName:'時止め',ultimatePoints:7,description:'C：保存地点へ帰還 / Q：敵の装填弾を5発抜く / E：落ちた銃を遠隔回収。X：8秒、ラウンドとボンバーの時計を止める。行動と電源オフは進む（7pt）。',color:'#eee8dd',ultIcon:'M18 3a12 12 0 1 0 0 24 12 12 0 0 0 0-24ZM14 9v12m8-12v12'}),
@@ -49,7 +49,7 @@ export const EMBER_SKILLS = Object.freeze({ solderRange: 18, solderFlight: .45, 
 export const FROST_SKILLS = Object.freeze({ stitchRange: 16, stitchFlight: .55, stitchArmDelay: .25, stitchDuration: 8,
   stitchRadius: 3.8, stitchInnerRadius: .9, stitchSpeedScale: .45, stitchGroundOffset: .12, stitchHeightTolerance: .45,
   mistRange: 18, mistFlight: .5, mistDuration: 9, mistRadius: 3.5, mistCenterOffset: 1.4,
-  unravelDuration: 5, unravelSlowFraction: .15, signatureCooldown: 18 });
+  unravelDuration: 5, unravelSlowFraction: .15, slideDuration: .9, slideStartSpeed: 12, slideEndSpeed: 7, signatureCooldown: 18 });
 export const JAPAN_SKILLS=Object.freeze({borderRange:40,borderWidth:10,borderHeight:2.8,borderArm:1,borderDuration:14,borderDamage:100,levyRange:40,levyAmount:50,armorCap:50,returnDuration:5,returnScale:.65,signatureCooldown:20,musterDuration:1});
 export const NOBI_SKILLS=Object.freeze({tagRange:35,tagDuration:6,vulnerability:1.35,brakeRange:40,brakeDuration:5,fireIntervalScale:1.6,toolDuration:6,toolScale:1.5,signatureCooldown:18,legendDuration:8});
 export const CAR_SKILLS=Object.freeze({bumperRange:35,bumperDistance:3,washRange:40,gyroDuration:4,signatureCooldown:18,pitRange:24});
@@ -98,7 +98,7 @@ const emberSkills = {
 const frostSkills = {
   c: { name: '霜のステッチ', shortName: '霜の環', description: `最大${FROST_SKILLS.stitchRange}mへ投げ、着地${FROST_SKILLS.stitchArmDelay}秒後から${FROST_SKILLS.stitchDuration}秒、半径${FROST_SKILLS.stitchInnerRadius}〜${FROST_SKILLS.stitchRadius}mの円環だけで接地した敵の歩く速さを${FROST_SKILLS.stitchSpeedScale*100}%にする。中央は通常速度。`, max: 2, price: DUELIST.smokePrice, type: 'frost-stitch', icon: 'M18 3a12 12 0 1 0 0 24 12 12 0 0 0 0-24ZM18 9a6 6 0 1 0 0 12 6 6 0 0 0 0-12ZM18 1v4m0 20v4M3 15h4m22 0h4M7 4l3 3m16 16 3 3M29 4l-3 3M10 23l-3 3' },
   q: { name: 'ドールミスト', shortName: '人形の霧', description: `最大${FROST_SKILLS.mistRange}mへ投げ、着地から${FROST_SKILLS.mistDuration}秒、半径${FROST_SKILLS.mistRadius}mの淡い霧で敵味方双方の視界を遮る。`, max: 1, price: DUELIST.updraftPrice, type: 'frost-mist', icon: 'M7 24a7 7 0 0 1 1-14 10 10 0 0 1 18 1 7 7 0 0 1 1 14H7M9 28h18M13 14l5 5 5-5m-5-5v14' },
-  e: { name: 'ほどけるリボン', shortName: '減速軽減', description: `接地中に使用。${FROST_SKILLS.unravelDuration}秒間、地表の減速分を${FROST_SKILLS.unravelSlowFraction*100}%にする。通常速度は上がらず、離地・死亡で終了。${FROST_SKILLS.signatureCooldown}秒で再使用。`, max: 1, price: 0, type: 'frost-unravel', icon: 'M18 15C9 1 1 7 7 15c4 4 8 2 11 0Zm0 0C27 1 35 7 29 15c-4 4-8 2-11 0Zm-2 2-5 11 7-3m2-8 5 11 3-6M5 22l-3 5m29-5 3 5' },
+  e: { name: 'リボンスライド', shortName: '滑走', description: `接地中に使用。移動入力で${FROST_SKILLS.slideDuration}秒の低姿勢スライド（${FROST_SKILLS.slideStartSpeed}→${FROST_SKILLS.slideEndSpeed}m/秒）。足音あり。${FROST_SKILLS.unravelDuration}秒間は地表の減速分を${FROST_SKILLS.unravelSlowFraction*100}%へ軽減。壁を抜けず、離地・死亡で終了。${FROST_SKILLS.signatureCooldown}秒で再使用。`, max: 1, price: 0, type: 'frost-unravel', icon: 'M18 15C9 1 1 7 7 15c4 4 8 2 11 0Zm0 0C27 1 35 7 29 15c-4 4-8 2-11 0Zm-2 2-5 11 7-3m2-8 5 11 3-6M5 22l-3 5m29-5 3 5' },
 };
 const carSkills={
  c:{name:'バンパーウェーブ',shortName:'押し出し',description:'Cで構え、35mの見える接地敵へ左確定・右取消。実床に沿って最大3m押し出す。壁・段差・足場の端・他の人で止まり、ダメージはない。',max:2,price:100,type:'car-bumper',icon:'M4 11h18v10H4ZM25 8l8 8-8 8M8 24v3m10-3v3'},

@@ -100,6 +100,15 @@ export function createFrostSkillFX(THREE,camera){
         const progress=clamp(age/FROST_SKILLS.unravelDuration),fade=clamp((event.endsAt-now)/.2),yaw=Number.isFinite(source.yaw)?source.yaw:source.remoteId&&Number.isFinite(source.netYaw)?source.netYaw:Number.isFinite(source.group?.rotation?.y)?source.group.rotation.y-Math.PI:0;
         write(knots,source.x,(source.y??0)+.12,source.z,.55*fade,.55*fade,.55*fade,-Math.PI/2,yaw,0);
         for(let i=0;i<6;i++){const side=i%2?1:-1,a=yaw+side*(.4+i*.12),r=.21+(reducedMotion?.04:progress*.11)+(i%3)*.025;write(ribbons,source.x+Math.cos(a)*r,(source.y??0)+.085,source.z+Math.sin(a)*r,(.11+i*.012)*fade,.009,.018,0,-a,side*.05,i%2?0xc3c8e5:0x616d98);}
+        // Short, discontinuous ground ribbons identify the entry phase without
+        // adding colliders, resources, or a trail that reveals old positions.
+        if(after>=0&&after<FROST_SKILLS.slideDuration&&source.moving===true){
+          for(let i=0;i<8;i++){const back=.15+i*.13,side=i%2?.27:-.27;
+            const x=source.x+Math.sin(yaw)*back+Math.cos(yaw)*side,z=source.z+Math.cos(yaw)*back-Math.sin(yaw)*side;
+            const y=floor(x,z,source.y??0);if(y===null)continue;
+            write(ribbons,x,y+.07,z,.035,.015,reducedMotion?.12:.22,0,yaw,0,i%2?0xf0efff:0x96bde7);
+          }
+        }
         rendered++;continue;
       }
       if(age<event.flight){const point=skillProjectilePosition(event,now);if(!point||![point.x,point.y,point.z].every(coordinate))continue;write(knots,point.x,point.y,point.z,.7,.7,.7,reducedMotion?0:age*2,age*2,0);rendered++;continue;}
