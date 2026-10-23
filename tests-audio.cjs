@@ -82,15 +82,19 @@ async function main(){
 
   global.window={AudioContext:Context};const cold=createGameAudio();const prior=Context.current;cold.play('kill');assert.equal(Context.current,prior);cold.init();const c=Context.current;
   for(const type of [...types,'unknown','constructor','toString','__proto__'])cold.play(type);assert.equal(c.sources.length,0);assert.equal(c.nodes.length,0,'Not-ready non-gun effects allocate no nodes and never synthesize');
-  const baseline={cold:'c5bf5d4937f95253795c9701ae435951585f325a96aa6200599001fa832f7d2b',ready:'490a62624113d54c5c0f06a80605311883576e8b530f83c44a67b0cb5990dc65',failed:'c5bf5d4937f95253795c9701ae435951585f325a96aa6200599001fa832f7d2b'};
-  for(const mode of ['cold','ready','failed']){assert.equal(await protectedTrace(createGameAudio,mode),baseline[mode]);assert.equal(await protectedTrace(createGameAudio,mode,true),baseline[mode]);}
-  console.log('PASS: exact original70 protected gun/enemy/step/landing voice traces in cold/ready/failed modes');
+  // Replacement is intentional; interleaving skills must not change gun/footstep variation.
+  for(const mode of ['cold','ready','failed'])assert.equal(await protectedTrace(createGameAudio,mode),await protectedTrace(createGameAudio,mode,true));
+  const adopted=['soundeffect-lab-manifest.json','extra-sources-manifest.json'].flatMap(file=>JSON.parse(fs.readFileSync(path.join(__dirname,'public/audio',file),'utf8')));
+  for(const entry of adopted){const bytes=fs.readFileSync(path.join(__dirname,'public/audio',entry.file));assert.equal(sha(bytes),entry.sha256);assert.equal(bytes.length,entry.bytes);}
+  assert.ok([...files].every(file=>[...adopted,...manifests].some(entry=>entry.file===file)),'Every active cue has documented provenance');
+  assert.deepEqual(SAMPLE_CUES.jump.map(cue=>cue.file),['lab-cloth.ogg']);assert.ok(SAMPLE_CUES.jump[0].length<=.2);
+  console.log('PASS: replacement asset hashes/provenance; soft jump; isolated footstep variation');
 
   let release;const gate=new Promise(r=>release=r),requests=[];
   class Mapped extends Context{decodeAudioData(bytes){return Promise.resolve(decodedSample(Buffer.from(bytes).toString()));}}
   global.window={AudioContext:Mapped,fetch:async(url,options)=>{assert.equal(options.credentials,'same-origin');assert.equal(options.cache,'force-cache');const file=path.basename(new URL(url).pathname);requests.push(file);await gate;return{ok:true,arrayBuffer:async()=>Uint8Array.from(Buffer.from(file)).buffer};}};
   const audio=createGameAudio();audio.init();audio.init();await settle();const ctx=Context.current;
-  const expectedFiles=new Set([...files,'footstep_concrete_000.ogg','footstep_concrete_001.ogg','impactSoft_heavy_000.ogg']);assert.equal(requests.length,expectedFiles.size);assert.equal(new Set(requests).size,requests.length);
+  const expectedFiles=new Set([...files,'lab-walk-asphalt1.ogg','lab-walk-asphalt2.ogg','lab-landing1.ogg']);assert.equal(requests.length,expectedFiles.size);assert.equal(new Set(requests).size,requests.length);
   for(const type of types)audio.play(type);assert.equal(ctx.sources.length,0);release();await settle();assert.equal(ctx.sources.length,0,'Loading never queues cues for later playback');
   const decodedHashes=new Map(requests.map(file=>{const d=decodedSample(file),mono=new Float32Array(d.length);for(let channel=0;channel<2;channel++){const data=d.getChannelData(channel);for(let i=0;i<mono.length;i++)mono[i]+=data[i]/2;}let peak=0;for(const n of mono)peak=Math.max(peak,Math.abs(n));if(peak>.85)for(let i=0;i<mono.length;i++)mono[i]*=.85/peak;return[sha(Buffer.from(mono.buffer)),file];}));
   let stepIndex=0;
@@ -102,18 +106,23 @@ async function main(){
    for(let i=0;i<layers.length;i++){const source=layers[i],spec=recipe[i],filter=source.connections[0],amp=filter.connections[0];assert.equal(filter.frequency.value,1600);assert.equal(source.started,ctx.currentTime+spec.delay);assert.equal(source.playbackRate.value,spec.rate);assert.equal(source.duration,Math.min(2/spec.rate,spec.length)*spec.rate);assert.equal(source.buffer.numberOfChannels,1);assert.ok(source.buffer.getChannelData(0).every(n=>Number.isFinite(n)&&Math.abs(n)<=.850001));peakBound+=.85*amp.gain.events[0];}
    assert.ok(peakBound<=.650001,type+' headroom '+peakBound);
    const longest=layers.reduce((a,b)=>a.started+a.duration/a.playbackRate.value>b.started+b.duration/b.playbackRate.value?a:b);for(const source of layers)if(source!==longest)source.end();assert.ok(nodes.every(n=>n.disconnects===0));longest.end();assert.ok(nodes.every(n=>n.disconnects===1));longest.end();
-   const at=ctx.sources.length;audio.play('step');const step=ctx.sources[at];assert.equal(decodedHashes.get(bufferHash(step.buffer)),stepIndex++%2?'footstep_concrete_001.ogg':'footstep_concrete_000.ogg');step.end();
+   const at=ctx.sources.length;audio.play('step');const step=ctx.sources[at];assert.equal(decodedHashes.get(bufferHash(step.buffer)),stepIndex++%2?'lab-walk-asphalt2.ogg':'lab-walk-asphalt1.ogg');step.end();
+  }
+  for(const weapon of ['classic','ghost','spectre','phantom','vandal','knife','pump','drum','scout','atlas','forge','invalid'])for(const type of ['shot','enemy']){
+   const before=ctx.sources.length;audio.play(type,{weapon});const sources=ctx.sources.slice(before);
+   assert.deepEqual(sources.map(source=>decodedHashes.get(bufferHash(source.buffer))),SAMPLE_CUES['weapon-'+(weapon==='invalid'?'classic':weapon)].map(cue=>cue.file));
+   for(const source of sources)source.end();
   }
   assert.ok(ctx.nodes.every(n=>n.disconnects===1));const at=ctx.sources.length;for(let i=0;i<60;i++)audio.play('takeover');assert.equal(ctx.sources.length-at,144);const cap=ctx.nodes.length;audio.play('buy');assert.equal(ctx.nodes.length,cap);for(const source of ctx.sources)source.end();audio.play('buy');assert.equal(ctx.sources.length,at+146);for(const source of ctx.sources)source.end();
   const no=ctx.nodes.length;audio.play('kill',{volume:0});ctx.state='suspended';audio.play('kill');assert.equal(ctx.nodes.length,no);assert.equal(requests.length,expectedFiles.size);
-  console.log(`PASS:all${types.length} non-gun cues sample-only/<=3 layers;mono peak/gain/position/occlusion/fades;48voices;cleanup/mute;footstep phase unchanged`);
+  console.log(`PASS:all${types.length} cues sample-only/<=3 layers;mono peak/gain/position/occlusion/fades;48voices;cleanup/mute;footstep phase unchanged`);
 
   for(const failure of ['fetch','http','decode','nonfinite','duration','channels']){
    class Failed extends Context{decodeAudioData(){if(failure==='decode')throw Error('codec');const d=decodedSample('bad');if(failure==='nonfinite')d.getChannelData(0)[0]=NaN;if(failure==='duration')d.duration=13;if(failure==='channels')d.numberOfChannels=9;return Promise.resolve(d);}}
    global.window={AudioContext:Failed,fetch:async()=>{if(failure==='fetch')throw Error('offline');return{ok:failure!=='http',arrayBuffer:async()=>new ArrayBuffer(4)};}};const bad=createGameAudio();bad.init();await settle();const cx=Context.current;for(const type of types)bad.play(type);assert.equal(cx.nodes.length,0,failure+' never reverts to beeps/noise');
   }
   // Partial decoding retains only ready layers and never synthesizes a missing layer.
-  global.window={AudioContext:Mapped,fetch:async url=>{const f=path.basename(new URL(url).pathname);return{ok:f==='rpg-cloth1.ogg',arrayBuffer:async()=>Uint8Array.from(Buffer.from(f)).buffer};}};const partial=createGameAudio();partial.init();await settle();const pc=Context.current;partial.play('skill-throw');assert.equal(pc.sources.length,1);assert.equal(pc.sources[0].kind,'buffer');pc.sources[0].end();assert.ok(pc.nodes.every(n=>n.disconnects===1));
+  global.window={AudioContext:Mapped,fetch:async url=>{const f=path.basename(new URL(url).pathname);return{ok:f==='lab-cloth.ogg',arrayBuffer:async()=>Uint8Array.from(Buffer.from(f)).buffer};}};const partial=createGameAudio();partial.init();await settle();const pc=Context.current;partial.play('skill-throw');assert.equal(pc.sources.length,1);assert.equal(pc.sources[0].kind,'buffer');pc.sources[0].end();assert.ok(pc.nodes.every(n=>n.disconnects===1));
   assert.equal(network,0);console.log('PASS:fetch/HTTP/codec/NaN/duration/channel failures silent;partial decode safe;no late replay/no global network');
  }finally{if(originalWindow===undefined)delete global.window;else global.window=originalWindow;if(originalFetch===undefined)delete global.fetch;else global.fetch=originalFetch;}
 }

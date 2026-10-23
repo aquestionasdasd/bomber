@@ -15,7 +15,7 @@ export function inVisionCone(observer,target,{yaw=observer.yaw||0,range=240,angl
 export function createBotHearing(){
   const pulses=[];let sequence=0;
   function emit(actor,kind,now){
-    const radius={step:19,land:15,shot:65}[kind];
+    const radius={step:19,land:15,shot:65,'duct-step':18,'door-open':22,'door-close':22,'door-hit':20,'door-break':32}[kind];
     if(!Number.isFinite(radius)||!actor?.alive||!['blue','red'].includes(actor.team)||![actor.x,actor.z,now].every(Number.isFinite))return;
     pulses.push({x:actor.x,y:actor.y||0,z:actor.z,team:actor.team,at:now,radius,sequence:++sequence});
     if(pulses.length>64)pulses.splice(0,pulses.length-64);
