@@ -2,7 +2,7 @@ import {busCabinRayClear} from './bus-cabin.js';
 import {createBusService,BUS_SERVICE,busPoint} from './bus-service.js';
 // Deterministic environmental traffic. The host alone calls impacts(); rendering
 // uses the same clock on guests. No audio and no actor/room references here.
-export const BUS_SPEC=Object.freeze({speed:11.2,width:2.5,length:10.6,height:3.25,damage:100,cooldown:1.25,launchSeconds:.8});
+export const BUS_SPEC=Object.freeze({speed:11.2,width:2.5,length:10.6,height:3.25,damage:150,cooldown:1.25,launchSeconds:.8});
 export function ovalRoute(cx,cz,rx,rz,count=80){return Array.from({length:count},(_,i)=>{const a=i*Math.PI*2/count;return{x:cx+Math.cos(a)*rx,z:cz+Math.sin(a)*rz};});}
 export const HIRAKATA_BUS_ROUTES=Object.freeze([
  {id:'south-1',points:ovalRoute(0,49,49,17),offset:0},
@@ -22,10 +22,11 @@ export function createTrafficClock(routes=HIRAKATA_BUS_ROUTES){
  const service=createBusService(schedule),poses=time=>service.poses(time);
  function stops(time){return ['south','north'].map(prefix=>{const related=poses(time).filter(p=>p.id.startsWith(prefix)),p=routePose(tracks.find(r=>r.id.startsWith(prefix)),tracks.find(r=>r.id.startsWith(prefix)).stopDistance),available=related.filter(p=>!poses(time).find(v=>v.id===p.id)?.diverted);return{...p,id:prefix,eta:available.length?Math.min(...available.map(p=>p.eta)):null,door:available.some(p=>p.door)};});}
  const cooldown=new Map(),previous=new Map();let last=null,sequence=0;
- function reset(time=null){cooldown.clear();previous.clear();last=time;sequence=0;service.reset();}
+ function reset(time=null,options){cooldown.clear();previous.clear();last=time;sequence=0;service.reset(options);}
  function impacts(actors,time,{enabled=true}={}){
   if(!Number.isFinite(time)||time<0)return[];
-  if(last!==null&&time<last){reset(time);return[];}
+  // A clock correction invalidates swept contacts, never host-owned vehicles.
+  if(last!==null&&time<last){cooldown.clear();previous.clear();last=time;sequence=0;return[];}
   const start=last===null?time:Math.max(last,time-.25),dt=time-start,result=[];
   for(const[id,end]of cooldown)if(end<=time)cooldown.delete(id);
   if(enabled){const count=Math.max(1,Math.ceil(dt/.025));

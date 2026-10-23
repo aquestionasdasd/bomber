@@ -25,7 +25,10 @@ export function createBoardableBusModels(T,parent,clock){
   for(const b of batches.values()){const mesh=new T.InstancedMesh(b.g,b.m,b.matrices.length);b.matrices.forEach((m,i)=>mesh.setMatrixAt(i,m));mesh.instanceMatrix.needsUpdate=true;mesh.castShadow=mesh.receiveShadow=true;mesh.userData.solid=true;if(b.m===materials.glass)mesh.userData.busGlass=true;root.add(mesh);}}
  for(const stop of clock.stops(0)){const at=busPoint(stop,-3.4,3.8),root=new T.Group();root.position.set(at.x,0,at.z);root.rotation.y=stop.yaw;parent.add(root);root.name='バス到着案内 / '+stop.id;
   part(root,box,'metal',0,1.25,0,.12,2.5,.12);part(root,box,'black',0,2.42,0,2.6,1,.16);const p=panel(root,0,2.42,.09,2.48,.88);boards.push({...p,root,id:stop.id});}
- function update(time){for(const p of clock.poses(time)){const root=models.get(p.id);root.position.set(p.x,0,p.z);root.rotation.y=p.yaw;drivers.get(p.id).visible=p.driverHP>0;
+ function update(time){const poses=clock.poses(time),active=new Set(poses.map(p=>p.id));
+  // Detach retired bodies: invisible children would still intercept raycasts.
+  for(const[id,root]of models)if(!active.has(id))root.removeFromParent();
+  for(const p of poses){const root=models.get(p.id);if(root.parent!==parent)parent.add(root);root.position.set(p.x,0,p.z);root.rotation.y=p.yaw;drivers.get(p.id).visible=p.driverHP>0;
    for(const d of doors.get(p.id))d.rotation.y=p.door?-1.45:0;
    const dash=dashboards.get(p.id),stamp=Math.ceil(p.fuel);if(dash.stamp!==stamp){dash.stamp=stamp;print(dash,'FUEL',p.owner?String(stamp).padStart(2,'0'):'—');}}
   for(const stop of clock.stops(time)){const b=boards.find(b=>b.id===stop.id),stamp=stop.door?'停車中':stop.eta===null?'回送':`${Math.ceil(stop.eta)} 秒`;if(b.stamp!==stamp){b.stamp=stamp;print(b,`${stop.id==='south'?'南口':'北口'}  バスのりば`,stamp);}}}

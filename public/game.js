@@ -473,7 +473,8 @@ function renderOrdinarySkills(){
   if(nearOverlay){nearOverlay.hidden=!(nearRemaining>0&&mode==='play');nearOverlay.style.opacity=String(Math.min(1,nearRemaining/.25));}
   const remaining=live&&viewer?.alive?Math.max(0,ordinarySkills.blindUntil(viewer.id,elapsed)-elapsed):0,overlay=$('skill-blind-overlay');
   if(overlay){overlay.hidden=!(remaining>0&&mode==='play');overlay.style.opacity=String(clamp(remaining/.35,0,.94));}
-  if(['play','pause','shop','map','score'].includes(mode))gun.visible=player.alive&&!busDriving()&&inventory.active!=='spike'&&!ordinaryFX.throwing(elapsed)&&!mendSkillFX.throwing(elapsed)&&!iagnuSkillFX.throwing(elapsed)&&!grassSkillFX.throwing(elapsed)&&!emberSkillFX.throwing(elapsed)&&!frostSkillFX.throwing(elapsed)&&!duelistSkillFX.throwing(elapsed);
+  // Resolve the viewed equipment again after FX and asynchronous snapshots.
+  updateFirstPersonEquipment(0);
 }
 function updateTeamAbilities(){
   if(!match)return;
@@ -598,6 +599,34 @@ function updateAbilityFeedback(){
 
 const viewmodel=createViewmodel(THREE,camera);
 const gun=viewmodel.group,flash=viewmodel.flash;
+let equipmentActor=null;
+function firstPersonActor(){
+  if(!['play','pause','shop','map','score'].includes(mode)||isGuest()&&!netHasSnapshot)return null;
+  if(player.alive)return player;
+  return !deathView.holding&&spectatedBot?.alive&&spectatedBot.team===player.team?spectatedBot:null;
+}
+function firstPersonWeapon(actor){
+  const id=actor===player?inventory.active:actor.netTarget?.weapon||(actor.remoteId?actor.netWeapon:actor.aiWeapon)||actor.record?.primary||actor.record?.secondary||'classic';
+  return id==='spike'||Object.hasOwn(WEAPONS,id)?id:'classic';
+}
+function updateFirstPersonEquipment(dt){
+  const actor=firstPersonActor();
+  if(!actor){gun.visible=false;flash.visible=false;equipmentActor=null;return;}
+  const local=actor===player,id=firstPersonWeapon(actor),spec=WEAPONS[id]||WEAPONS.knife,state=local?null:actor.netTarget;
+  const reload=local?reloading:state?.reloading??(actor.remoteId?actor.netReload:actor.aiReload)??0;
+  const interacting=local?interactionHeld&&mode==='play':!!(actor.planting||actor.defusing||state?.planting||state?.defusing);
+  const scoped=!!(local&&aiming&&spec.scope&&!reload&&!actor.serviceReload&&!interactionHeld&&!busSeat(actor)&&['play','pause'].includes(mode));
+  const throwing=local?(ordinaryFX.throwing(elapsed)||mendSkillFX.throwing(elapsed)||iagnuSkillFX.throwing(elapsed)||grassSkillFX.throwing(elapsed)||emberSkillFX.throwing(elapsed)||frostSkillFX.throwing(elapsed)||duelistSkillFX.throwing(elapsed)):elapsed<(actor.skillThrowUntil||0);
+  gun.visible=id!=='spike'&&!busDriving(actor)&&!scoped&&!throwing;
+  viewmodel.setWeapon(id==='spike'?'knife':id,actor!==equipmentActor);equipmentActor=actor;
+  viewmodel.update(dt,{character:actor.kit?.character||state?.kit?.character,scoped,
+    aiming:local&&aiming&&mode==='play'&&!netHostPaused,reloading:reload,
+    reloadDuration:actor.serviceReload||state?.serviceReload?EMBER_SKILLS.serviceDuration:spec.reload,
+    kick:local?kick:actor.flash>0?.035:0,moving:local?Math.hypot(actor.vx,actor.vz)>.5:!!actor.moving,
+    time:elapsed,crouching:actor.crouch,interacting,ultimate:actor.kit?.knivesActive&&id==='knife',
+    knives:actor.kit?.knives,shotSequence:local?shotSequence:actor.shotSequence||state?.shotSequence||0,spectating:!local});
+  flash.visible=gun.visible&&id!=='knife'&&!reload&&!interacting&&(local?elapsed-lastShot<.045:actor.flash>0);flash.rotation.z=elapsed*40;
+}
 const gunDark=new THREE.MeshStandardMaterial({color:'#26363d',roughness:.5,metalness:.5});
 
 const buyBarrier=new THREE.Mesh(new THREE.CylinderGeometry(1,1,4,80,1,true),new THREE.MeshBasicMaterial({color:'#8ad8ed',transparent:true,opacity:.16,side:THREE.DoubleSide,depthWrite:false}));
@@ -840,7 +869,7 @@ function clearBots() {
 function spawnRound(reset=false) {
   player.trcStepClock=0;
   deathView.reset();syncDeathUI();
-  resetTraffic();
+  resetTraffic(true);
   victoryMusic.stop();lastRoundAudio='';
   fullComboTracker.reset();delete $('round-banner').dataset.roundResult;
   clearCombatInput();
@@ -974,7 +1003,7 @@ function shootBusDriver(hit,actor,damage,{visualOnly=false}={}){
  }
  burst(hit.point,'#e9c586',3);return true;
 }
-function resetTraffic(){busBreakAudioAt.clear();map.traversal?.reset();player.trcLadder=null;map.traffic?.reset();map.destruction?.reset();for(const actor of [player,...bots]){actor.trafficLaunch=null;delete actor.busFrameYaw;}}
+function resetTraffic(preserveHijacked=false){busBreakAudioAt.clear();map.traversal?.reset();player.trcLadder=null;map.traffic?.reset(null,{preserveHijacked});map.busModels?.update(elapsed);map.destruction?.reset();for(const actor of [player,...bots]){actor.trafficLaunch=null;delete actor.busFrameYaw;}}
 function updateTraffic(dt){
   if(!map.traffic)return;
   const actors=[player,...bots];
@@ -987,7 +1016,7 @@ function updateTraffic(dt){
       const actor=actors.find(a=>a.id===hit.actorId);actor.carMotion=null;actor.carImpulseUntil=0;actor.carFallUntil=0;actor.trafficLaunch={seq:hit.sequence,endsAt:hit.endsAt,vx:hit.vx,vz:hit.vz,vy:hit.vy};actor.vy=hit.vy;actor.dashTimer=0;actor.vx=0;actor.vz=0;actor.path=[];actor.planAt=0;
       sound('vehicle-hit',{entity:actor});
       cancelServiceReload(actor);match.cancelPlant(actor.id);match.cancelDefuse(actor.id);damageEntity(actor,hit.damage,actors.find(a=>a.id===hit.owner)||null,{vehicle:true});
-      if(actor===player){damageFlash=.55;showMessage('京阪バスと接触','100ダメージ · 車道から離れてください',3);}
+      if(actor===player){damageFlash=.55;showMessage('京阪バスと接触',`${hit.damage}ダメージ · 車道から離れてください`,3);}
     }
   }
   for(const actor of actors){const hit=actor.trafficLaunch;if(!hit)continue;
@@ -2122,7 +2151,7 @@ function updateHUD(){
   if(exploring){
     $('timer').textContent='∞';$('round-label').textContent=(map.shortName||'HASHIMOTO')+' / MAP PRACTICE';$('side-label').textContent='マップ練習';
     $('phase-label').textContent='2 SITES / 3 LANES';$('objective-label').textContent=!rangeSession&&!objectivePractice?'C/Q/E/X 無限 · M：ルート確認・地点移動 · B：武器選択':'M：ルート確認・地点移動 · WASD：移動 · B：武器選択';
-    $('spike-state').textContent=map.id==='trc'?'屋外前庭 / A ロング / MID / 搬入 B メイン':map.id==='hirakata'?'南北自由通路 / バス車道に注意 / 接触100ダメージ':'バス通り / 中央連絡路 / ミウィ通り';$('zone').textContent=zone?.name||((map.name||'橋本駅')+'前');
+    $('spike-state').textContent=map.id==='trc'?'屋外前庭 / A ロング / MID / 搬入 B メイン':map.id==='hirakata'?'南北自由通路 / バス車道に注意 / 接触150ダメージ':'バス通り / 中央連絡路 / ミウィ通り';$('zone').textContent=zone?.name||((map.name||'橋本駅')+'前');
   }
   if($('ally-label'))$('ally-label').textContent=rangeSession?'SCORE':'YOUR TEAM';
   if($('enemy-label'))$('enemy-label').textContent=rangeSession?'HEADSHOT':'ENEMY TEAM';
@@ -2788,8 +2817,7 @@ function updatePlay(dt){
   if(botThinkTick<=0){botThinkTick=.25;const front=new THREE.Vector3();camera.getWorldDirection(front);for(const bot of bots){if(bot.team===player.team||!bot.alive)continue;const offset=new THREE.Vector3(bot.x-player.x,0,bot.z-player.z);if(player.alive&&offset.length()<42&&offset.normalize().dot(front)>.55&&visibleBetween(player,bot))bot.spottedUntil=elapsed+.6;}}
   if(!exploring&&!isGuest()){match.tick(dt,{clockPaused:match.phase==='live'&&ordinarySkills.clockFrozen(elapsed),blueAlive:aliveCount('blue'),redAlive:aliveCount('red'),playerAlive:player.alive});handleMatchEvents();}
   timeLeft=match.phase==='buy'||match.phase==='post'?match.phaseTime:match.spike.status==='planted'?match.spike.timer:match.roundTime;
-  viewmodel.update(dt,{character:player.kit.character,scoped,aiming:aiming&&controlled,reloading,reloadDuration:player.serviceReload?EMBER_SKILLS.serviceDuration:weapon().reload,kick,moving:Math.hypot(player.vx,player.vz)>.5,time:elapsed,crouching:player.crouch,interacting:interactionHeld&&controlled,ultimate:player.kit.knivesActive&&inventory.active==='knife',knives:player.kit.knives,shotSequence});
-  flash.visible=player.alive&&inventory.active!=='knife'&&elapsed-lastShot<.045;flash.rotation.z=elapsed*40;
+  updateFirstPersonEquipment(dt);
   const s=match.spike;spikeModel.position.set(s.x,0,s.z);objectiveModel.update({time:elapsed,...s,practice:!!objectivePractice});
   if(s.status==='planted'&&!objectivePractice){
     const interval=s.timer<5?.15:s.timer<10?.3:s.timer<20?.6:1;
@@ -3003,6 +3031,7 @@ function applyNetSnapshot(packet){
   netActionSequence=Math.max(netActionSequence,ack,...netActions.map(a=>a.seq));
   applyNetCues(packet,fresh,ownId);
   Object.assign(match,packet.rules);match.events=[];match.credits=self.credits;elapsed=packet.time;roster=packet.roster;
+  map.busModels?.update(elapsed);
   if(match.phase==='buy'){if(packet.damageReport!==undefined)roundDamage.restore(packet.damageReport,roster,match.round,self.team);else roundDamage.reset();}
 if(map.destruction){if(fresh||!packet.busDamage)map.destruction.reset();map.destruction.restore(packet.busDamage??'',elapsed,{effects:!fresh&&match.phase==='live',impacts:map.traffic?.poses(elapsed)||[],contacts:Array.isArray(packet.cues)?packet.cues.filter(c=>validBusBreakCue(c,packet)):[]});map.destruction.update(elapsed);}
   const stopped=fresh||wasAlive&&!self.alive||previousPhase!==match.phase&&['post','match'].includes(match.phase);

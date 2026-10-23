@@ -265,21 +265,24 @@ export function createViewmodel(THREE, camera) {
       part.hand.rotation.x += grasp * .12;
     }
   }
-  function setWeapon(id) {
-    const next = models.has(id) ? id : 'classic'; if (next === current) return;
-    if (current) equipBlend = 1;
+  function setWeapon(id, reset = false) {
+    const next = models.has(id) ? id : 'classic'; if (next === current && !reset) return;
+    if (current) equipBlend = reset ? 0 : 1;
+    if (reset) aimBlend = 0;
     if (current) models.get(current).fan?.update(0, { active: false, count: 5 });
     current = next; previousKick = 0; boltKick = 0; slash = 0; throwClock = 0; wasReloading = false; reloadClock = 0;
     for (const [name, model] of models) model.parent.visible = name === current;
     const model = models.get(current); model.weapon.muzzle.add(muzzle); muzzle.position.set(0, 0, 0); flash.visible = false;
     for (const item of casings) { item.life = 0; item.object.visible = false; }
   }
-  function eject(model) {
+  function eject(model, seed = null) {
+    // Spectator-only casing motion must not consume the host's combat RNG.
+    const random = seed === null ? Math.random : () => { seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296; };
     const item = casings[caseIndex++ % casings.length];
     model.weapon.bolt.getWorldPosition(caseOrigin); group.worldToLocal(caseOrigin);
     item.object.position.copy(caseOrigin); item.object.position.x += .045;
-    item.velocity.set(.43 + Math.random() * .12, .18 + Math.random() * .06, .10);
-    item.life = .42; item.spin = (Math.random() + .5) * 13; item.object.visible = true;
+    item.velocity.set(.43 + random() * .12, .18 + random() * .06, .10);
+    item.life = .42; item.spin = (random() + .5) * 13; item.object.visible = true;
   }
   function update(dt, state = {}) {
     if (disposed) return;
@@ -314,7 +317,7 @@ export function createViewmodel(THREE, camera) {
     const sway = Math.sin(time * 4.75) * .0035 * movement * (1 - aimBlend * .88);
     const kick = Math.max(0, Number(state.kick) || 0);
     const shot = kick > previousKick + .003 && !isReloading && !state.interacting;
-    if (shot && !bladeStorm) { boltKick = 1; if (weapon.knife) slash = 1; else eject(model); }
+    if (shot && !bladeStorm) { boltKick = 1; if (weapon.knife) slash = 1; else eject(model, state.spectating ? (Number(state.shotSequence)||0)>>>0 : null); }
     previousKick = kick; boltKick *= Math.exp(-dt * 24); slash = Math.max(0, slash - dt * 5);
     const reloadWave = isReloading ? Math.sin(progress * Math.PI) : 0;
     const framing = bladeStorm ? bladeFraming : model.framing;
