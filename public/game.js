@@ -191,7 +191,6 @@ let skillPurchaseLedger=new WeakMap(),bomberNoticeKey='',bomberNoticeUntil=0;
 let roster = [];
 let redLossStreak=0,spectateIndex=0,spectatedBot=null,interactionHeld=false,shotSequence=0,stepClock=0;
 let targetSite='A',lastSpikeBeep=0,botThinkTick=0;
-const originalNames=['YOU',CHARACTER_DEFS.ember.label,'NOVA','ATLAS',CHARACTER_DEFS.echo.label,'VIPER UNIT','ONYX','CIPHER UNIT','BLAZE','ORBIT'];
 const sideNames={attack:'ATTACKERS / 攻撃',defend:'DEFENDERS / 防衛'};
 let mode = 'menu', pausedFrom = 'play', locked = false, firing = false, aiming = false;
 let elapsed = 0, timeLeft = 150, round = 1, totalKills = 0, shots = 0, hits = 0, reloading = 0;
@@ -803,7 +802,7 @@ function damageEntity(entity,amount,killer,{firearm=false,returned=false,chain=t
   entity.alive=false;entity.trcLadder=null;cancelServiceReload(entity);entity.kit?.awardPoint();const record=recordOf(entity);if(record)record.d++;
   match.dropSpike(entity.id,entity.x,entity.z);match.cancelPlant(entity.id);match.cancelDefuse(entity.id);
   const item=entity===player?inventory.primary:record?.primary;dropItem(item,entity);
-  if(creditedKiller){killer.kit?.awardKill();const k=recordOf(killer);if(k)k.k++;if(killer===player){totalKills++;match.awardKill();sound('kill');}else if(k)k.credits=Math.min(9000,k.credits+200);feed(`${k?.name||'SENTINEL'}  ⌁  ${record?.name||'YOU'}`);}
+  if(creditedKiller){killer.kit?.awardKill();const k=recordOf(killer);if(k)k.k++;if(killer===player){totalKills++;match.awardKill();sound('kill');}else if(k)k.credits=Math.min(9000,k.credits+200);feed(`${k?.name||CHARACTER_DEFS[killer.kit?.character||'duelist'].label}  ⌁  ${record?.name||(entity===player?'YOU':CHARACTER_DEFS[entity.kit?.character||'duelist'].label)}`);}
   if(entity===player)beginDeathView();
   else{entity.death=.85;entity.defusing=false;entity.planting=false;}
 }
@@ -854,6 +853,7 @@ function makeBot(spawn,index,team='red',record=null) {
   const savedKit=record?.kit;
   bot.kit=typeof savedKit?.restore==='function'?savedKit:new DuelistKit({character:savedKit?.character||characterIds[index%characterIds.length]});
   if(savedKit&&typeof savedKit.restore!=='function')bot.kit.restore(savedKit);
+  if(record&&(!record.memberId||record.netFallback)&&record.id!=='range-target')record.name=CHARACTER_DEFS[bot.kit.character].label;
   const visual=createAgentModel(THREE,{bot,team,variant:index,character:bot.kit.character});
   Object.assign(bot,{visual,group:visual.group,meshes:visual.meshes,muzzle:visual.muzzle});
   const side=team===match?.attackerTeam?'attack':'defend';
@@ -1051,7 +1051,7 @@ function startGame() {
   match=new MatchRules({format:exploring?'standard':selectedFormat,startingSide:objectivePractice?(selectedFormat==='plant'?'attack':'defend'):$('starting-side')?.value||'attack'});
   if($('economy-note'))$('economy-note').textContent=match.format==='swift'?'SWIFT · ROUND GRANTS SC 2,400 / 4,250  +  ELIMINATION SC 200':'WIN SC 3,000  +  ELIMINATION SC 200';
   inventory={primary:null,secondary:'classic',active:'classic'};player.armor=0;player.alive=true;
-  roster=[{id:'player',team:'blue',name:'YOU',k:0,d:0,a:0,credits:800},...Array.from({length:9},(_,i)=>({id:i<4?`blue-${i+1}`:`red-${i-4}`,team:i<4?'blue':'red',name:originalNames[i+1],k:0,d:0,a:0,credits:800,primary:null,secondary:'classic',armor:0,survived:false}))];
+  roster=[{id:'player',team:'blue',name:'YOU',k:0,d:0,a:0,credits:800},...Array.from({length:9},(_,i)=>({id:i<4?`blue-${i+1}`:`red-${i-4}`,team:i<4?'blue':'red',name:'',k:0,d:0,a:0,credits:800,primary:null,secondary:'classic',armor:0,survived:false}))];
   if(exploring)roster=roster.slice(0,1);
   if(onlinePlaying){
     const blue=online.room.members.filter(m=>m.team==='blue'),red=online.room.members.filter(m=>m.team==='red');
@@ -2924,10 +2924,11 @@ function updateRoom(room){
   if(onlinePlaying&&online.host)for(const [memberId,entityId] of netParticipants){
     if(memberId===room.hostId)continue;
     const member=room.members.find(m=>m.id===memberId),actor=bots.find(b=>b.id===entityId);
-    if(!member){if(actor){match.cancelPlant(actor.id);match.cancelDefuse(actor.id);actor.planting=false;actor.defusing=false;transferEmberControl(actor,false);map.traffic?.service.exit(actor,elapsed,busCanExit);actor.remoteId=null;actor.record.memberId=null;actor.record.netFallback=false;actor.record.name=`${actor.record.name} / BOT`;}netParticipants.delete(memberId);}
+    if(!member){if(actor){match.cancelPlant(actor.id);match.cancelDefuse(actor.id);actor.planting=false;actor.defusing=false;transferEmberControl(actor,false);map.traffic?.service.exit(actor,elapsed,busCanExit);actor.remoteId=null;actor.record.memberId=null;actor.record.netFallback=false;actor.record.name=CHARACTER_DEFS[actor.kit.character].label;}netParticipants.delete(memberId);}
     else if(actor){
       const fallback=member.connected===false&&Date.now()-(netInputs.get(memberId)?.receivedAt||0)>=20000;
       actor.record.netFallback=fallback;
+      actor.record.name=fallback?CHARACTER_DEFS[actor.kit.character].label:member.name;
       if(fallback){if(actor.remoteId){match.cancelPlant(actor.id);match.cancelDefuse(actor.id);transferEmberControl(actor,false);map.traffic?.service.exit(actor,elapsed,busCanExit);actor.remoteId=null;actor.planting=false;actor.defusing=false;}}
       else if(actor.remoteId!==memberId){transferEmberControl(actor,true);actor.remoteId=memberId;actor.netYaw=actor.group.rotation.y-Math.PI;actor.lastNetInput=elapsed;}
     }
