@@ -76,6 +76,10 @@ async function main(){
   for(const file of files)signature(fs.readFileSync(path.join(__dirname,'public/audio',file)),file);
   for(const pack of ['rpg-audio','impact-sounds','music-jingles']){const license=fs.readFileSync(path.join(__dirname,'public/audio/LICENSE-'+pack+'.txt'),'utf8');assert.match(license,/CC0/);assert.match(license,/commercial/i);}
   assert.equal(sha(fs.readFileSync(path.join(__dirname,'public/audio/footstep_concrete_000.ogg'))),'d7267e183067757c92c169de2a379abea592cfca6b39bb2e8feea15221ad79fe');assert.equal(sha(fs.readFileSync(path.join(__dirname,'public/audio/footstep_concrete_001.ogg'))),'507a75eb19b897087855a3be3cf11a12d7fa37d143ad535eeebe0b8031c7325d');
+  const adopted=['soundeffect-lab-manifest.json','extra-sources-manifest.json'].flatMap(file=>JSON.parse(fs.readFileSync(path.join(__dirname,'public/audio',file),'utf8')));
+  for(const entry of adopted){const bytes=fs.readFileSync(path.join(__dirname,'public/audio',entry.file));assert.equal(sha(bytes),entry.sha256);assert.equal(bytes.length,entry.bytes);}
+  assert.ok([...files].every(file=>[...adopted,...manifests].some(entry=>entry.file===file)),'Every active cue has documented provenance');
+  assert.deepEqual(SAMPLE_CUES.jump.map(cue=>cue.file),['lab-cloth.ogg']);assert.ok(SAMPLE_CUES.jump[0].length<=.2);
   assert.ok(types.length>=70);assert.ok(![...files].some(f=>f.startsWith('interface-')||f.includes('forceField')||f.includes('doorClose_001')));
   assert.equal(manifests.filter(e=>e.adopted_cycle===102).length,1);assert.equal(SAMPLE_CUES['bus-break'][0].file,'bus-wall-break-user.mp3');assert.equal(SAMPLE_CUES['bus-break'][0].rate,1);
   assert.equal(manifests.filter(e=>e.adopted_cycle===99).length,1);assert.equal(SAMPLE_CUES['vehicle-hit'].length,1);assert.equal(SAMPLE_CUES['vehicle-hit'][0].file,'vehicle-impact-user.mp3');assert.equal(SAMPLE_CUES['vehicle-hit'][0].rate,1);assert.equal(manifests.find(e=>e.adopted_cycle===99).sha256,'ae00f7eee68c22f65d1800f52b545ec73930b30f4253d4b54bc877fa3b21cc01');
@@ -114,7 +118,7 @@ async function main(){
    global.window={AudioContext:Failed,fetch:async()=>{if(failure==='fetch')throw Error('offline');return{ok:failure!=='http',arrayBuffer:async()=>new ArrayBuffer(4)};}};const bad=createGameAudio();bad.init();await settle();const cx=Context.current;for(const type of types)bad.play(type);assert.equal(cx.nodes.length,0,failure+' never reverts to beeps/noise');
   }
   // Partial decoding retains only ready layers and never synthesizes a missing layer.
-  global.window={AudioContext:Mapped,fetch:async url=>{const f=path.basename(new URL(url).pathname);return{ok:f==='rpg-cloth1.ogg',arrayBuffer:async()=>Uint8Array.from(Buffer.from(f)).buffer};}};const partial=createGameAudio();partial.init();await settle();const pc=Context.current;partial.play('skill-throw');assert.equal(pc.sources.length,1);assert.equal(pc.sources[0].kind,'buffer');pc.sources[0].end();assert.ok(pc.nodes.every(n=>n.disconnects===1));
+  global.window={AudioContext:Mapped,fetch:async url=>{const f=path.basename(new URL(url).pathname);return{ok:f==='lab-cloth.ogg',arrayBuffer:async()=>Uint8Array.from(Buffer.from(f)).buffer};}};const partial=createGameAudio();partial.init();await settle();const pc=Context.current;partial.play('skill-throw');assert.equal(pc.sources.length,1);assert.equal(pc.sources[0].kind,'buffer');pc.sources[0].end();assert.ok(pc.nodes.every(n=>n.disconnects===1));
   assert.equal(network,0);console.log('PASS:fetch/HTTP/codec/NaN/duration/channel failures silent;partial decode safe;no late replay/no global network');
  }finally{if(originalWindow===undefined)delete global.window;else global.window=originalWindow;if(originalFetch===undefined)delete global.fetch;else global.fetch=originalFetch;}
 }

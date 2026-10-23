@@ -158,3 +158,5 @@
 @media(max-height:650px),(max-width:600px){.victory-dance{right:12px;bottom:100px;width:135px;height:210px}.victory-dance-heading{font-size:8px;padding:10px 8px 0}#victory-dance-canvas{height:180px}}
 
 #onnara-orb-label{position:fixed;right:18px;top:50px;width:min(288px,32vw);padding:5px 8px;border:1px solid #e5b64e;background:#251b0fee;color:#ffe19a;text-align:center;font:600 12px system-ui;z-index:19;pointer-events:none}#onnara-orb-label[hidden]{display:none}
+
+.audio-credit{white-space:normal;max-width:34vw}

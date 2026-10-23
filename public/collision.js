@@ -85,7 +85,7 @@ export function createCollisionIndex(colliders, cellSize = 20) {
     }
     return [...result];
   }
-  const blocksAtHeight = (c, feet, height) => c.height > feet + EPS && (c.base || 0) < feet + height - EPS;
+  const blocksAtHeight = (c, feet, height) => !c.disabled && c.height > feet + EPS && (c.base || 0) < feet + height - EPS;
   function blocked(x, z, r = .34, feet = 0, height = 1.7) {
     if (![x, z, r, feet, height].every(Number.isFinite) || r < 0 || height <= 0) return true;
     return query(x, z, r).some(c => blocksAtHeight(c, feet, height) && overlaps(c, x, z, r));
@@ -131,6 +131,7 @@ export function createCollisionIndex(colliders, cellSize = 20) {
     if (![ax, ay, az, bx, by, bz].every(Number.isFinite)) return false;
     const dx=bx-ax,dy=by-ay,dz=bz-az;
     for(const c of segmentCandidates(ax,az,bx,bz,0)){
+      if(c.disabled)continue;
       let low=0,high=1;
       for(const [start,delta,min,max] of [[ax,dx,c.minX,c.maxX],[ay,dy,c.base||0,c.height],[az,dz,c.minZ,c.maxZ]]){
         if(Math.abs(delta)<1e-12){if(start<min||start>max){low=1;high=0;break;}}

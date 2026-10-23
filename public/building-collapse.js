@@ -37,7 +37,7 @@ export function createBuildingCollapse(T,map){
       if(node.isInstancedMesh){const hidden=node.userData.bomberBrokenInstances??=new Set();for(const i of indices){node.setMatrixAt(i,zero);hidden.add(i);}node.instanceMatrix.needsUpdate=true;node.boundingBox=null;node.boundingSphere=null;}
       else{node.visible=false;node.userData.bomberHidden=true;}
     }
-    map.colliders.length=0;if(map.mapShapes)map.mapShapes.length=0;if(map.ramps)map.ramps.length=0;map.collision.invalidate();
+    map.colliders.length=0;if(map.mapShapes)map.mapShapes.length=0;if(map.ramps)map.ramps.length=0;map.traversal?.reconcile();map.collision.invalidate();
   }
   function start({x=0,z=0,time=0,seed=1}={}){
     if(disposed)return false;
@@ -81,7 +81,7 @@ export function createBuildingCollapse(T,map){
       }
       map.colliders.splice(0,map.colliders.length,...original.colliders);map.mapShapes?.splice(0,map.mapShapes.length,...original.shapes);map.ramps?.splice(0,map.ramps.length,...original.ramps);
       // Reapply the independent bus damage state after restoring static geometry.
-      map.destruction?.reconcile();map.collision.invalidate();
+      map.destruction?.reconcile();map.traversal?.reconcile();map.collision.invalidate();
     }
     active=false;particles.length=0;clouds.length=0;group.visible=false;chunks.count=0;dust.count=0;delete group.userData.event;
   }

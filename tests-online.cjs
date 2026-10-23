@@ -76,6 +76,12 @@ async function main() {
   async function test(name, fn) { await fn(); passed++; console.log(`PASS: ${name}`); }
 
   try {
+    await test('TRC can be selected, joined and started as an authoritative ten-seat room',async()=>{
+      const created=await api('',{method:'POST',body:{name:'TRC HOST',mapId:'trc',format:'swift'}});
+      assert.equal(created.status,201);const host=created.value,guest=await join(host);
+      assert.equal(guest.settings.mapId,'trc');assert.equal(guest.settings.maxPlayers,10);
+      const playing=await start(host,guest);assert.equal(playing.settings.mapId,'trc');assert.equal(playing.status,'playing');
+    });
     await test('lobby map and format are host-owned, persisted before start, and visible to joins/polls/resume',async()=>{
       const created=await api('',{method:'POST',body:{name:'MAP HOST',mapId:'hirakata',format:'standard'}});
       assert.equal(created.status,201);const host=created.value,guest=await join(host);
@@ -467,6 +473,10 @@ async function main() {
       for(const b of gloomy.ordinarySkills.blinds)delete b.resisted;
       assert.ok(createCharacterSkills().restore(gloomy.ordinarySkills,now,1));const gloomFit=fitTrafficSnapshot(gloomy);assert.ok(gloomFit);assert.deepEqual(gloomFit.ordinarySkills,gloomy.ordinarySkills);assert.deepEqual(gloomFit.actors,gloomy.actors);assert.ok(Buffer.byteLength(JSON.stringify(gloomFit))<=65536);clock+=200;assert.equal((await send(host,'team:red','game',gloomFit)).status,201);console.log(`GLOOM20 +NEARSIGHT20 capacity ${Buffer.byteLength(JSON.stringify(gloomFit))}B /65536B; authority retained`);
       const limited=fitTrafficSnapshot(full);assert.ok(limited);assert.ok(limited.cues.length<full.cues.length);assert.deepEqual(limited.actors,full.actors);assert.deepEqual(limited.ordinarySkills,full.ordinarySkills);assert.deepEqual(limited.rules,full.rules);assert.ok(Buffer.byteLength(JSON.stringify(limited))<=65536);clock+=200;assert.equal((await send(host,'team:red','game',limited)).status,201);console.log(`HIRAKATA simultaneous10 launches full wire ${Buffer.byteLength(JSON.stringify(limited))}B /65536B; only old cosmetic cues reduced`);
+      const trcFull=JSON.parse(JSON.stringify(full));trcFull.mapId='trc';delete trcFull.busTransit;delete trcFull.busDamage;trcFull.trcDoors=[['D1',180,false],['D2',179,true],['D3',0,true]];
+      for(const actor of trcFull.actors)Object.assign(actor,{trcLadder:'L1',crouch:1,hp:1000,armor:500});
+      const trcFit=fitTrafficSnapshot(trcFull);assert.ok(trcFit);for(const field of ['trcDoors','actors','rules','roster','ordinarySkills','teamAbilities','zoneAbilities','drops'])assert.deepEqual(trcFit[field],trcFull[field]);
+      const trcBytes=Buffer.byteLength(JSON.stringify(trcFit));assert.ok(trcBytes<=65536);clock+=200;assert.equal((await send(host,'team:red','game',trcFit)).status,201);console.log(`TRC10 climbers/doors/boostedactors bounded wire ${trcBytes}B /65536B; authority retained`);
       const driven={...full,busTransit:[[0,0,0,now+25,29.123,-35.789,-1.571,17,[0,1,2]],[1,0,3,now+25,1.234,32.456,1.571,17,[3,4,5]],[2,0,6,now+25,31.456,-36.123,1.571,17,[6,7]],[3,0,8,now+25,3.456,33.123,1.571,17,[8,9]]]};
       for(const actor of driven.actors)Object.assign(actor,{hp:1000,armor:500});
       const busFit=fitTrafficSnapshot(driven);assert.ok(busFit);assert.deepEqual(busFit.busTransit,driven.busTransit);assert.deepEqual(busFit.actors,driven.actors);assert.deepEqual(busFit.ordinarySkills,driven.ordinarySkills);assert.ok(Buffer.byteLength(JSON.stringify(busFit))<=65536);clock+=200;assert.equal((await send(host,'team:red','game',busFit)).status,201);console.log(`BUS4 /10 riders / full skills capacity ${Buffer.byteLength(JSON.stringify(busFit))}B /65536B`);
