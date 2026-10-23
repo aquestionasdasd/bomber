@@ -181,6 +181,7 @@ const ownSide=()=>player.team===match?.attackerTeam?'attack':'defend';
 let inventory = {primary:null,secondary:'classic',active:'classic'};
 let ammoStore = {};
 let roundPurchases = {};
+let skillPurchaseLedger=new WeakMap(),bomberNoticeKey='',bomberNoticeUntil=0;
 let roster = [];
 let redLossStreak=0,spectateIndex=0,spectatedBot=null,interactionHeld=false,shotSequence=0,stepClock=0;
 let targetSite='A',lastSpikeBeep=0,botThinkTick=0;
@@ -226,10 +227,11 @@ function sound(type,{weapon:id=inventory.active,entity=null,localOnly=false}={})
   if(!localOnly&&!isGuest()&&match?.phase==='live'){const actor=entity||player;if(actor===player||bots.includes(actor))botHearing.emit(actor,type==='enemy'||type==='shot'?(id==='knife'?null:'shot'):type,elapsed);}
   if(!soundEnabled||!volume)return;
   const dx=entity?entity.x-player.x:0,dz=entity?entity.z-player.z:0,distance=Math.hypot(dx,dz);
-  if(type!=='explosion'&&distance>65)return;
+  if(!['explosion','plant','spike'].includes(type)&&distance>65)return;
   const pan=distance?(dx*Math.cos(player.yaw)-dz*Math.sin(player.yaw))/distance:0;
   const occluded=entity&&distance>2&&!map.collision.rayClear(player.x,player.y+1.5,player.z,entity.x,1.3,entity.z);
-  gameAudio.play(type,{volume,weapon:id,pan,distance:type==='explosion'?distance*.2:distance,occluded});
+  const plantedNotice=type==='plant',bomberTick=type==='spike';
+  gameAudio.play(type,{volume,weapon:id,pan:plantedNotice?0:pan,distance:plantedNotice?0:type==='explosion'?distance*.2:bomberTick?distance*.35:distance,occluded:plantedNotice||bomberTick?false:occluded});
 }
 function resetDetonation(){detonationState=null;detonationClock=0;stationDetonation.reset();if($('detonation-flash'))$('detonation-flash').style.opacity='0';}
 function resetTakeover(){takeoverState=null;takeoverClock=0;stationTakeover.reset();}
@@ -647,12 +649,36 @@ function openShop(){
   mode='shop';keys.clear();firing=false;aiming=false;setVisible('shop-overlay',true);if(document.pointerLockElement)document.exitPointerLock();updateShop();
   if($('shop-status'))$('shop-status').textContent=exploring?'練習中は全武器を無料で選択できます。':'装備を選択してください。';
 }
+// Only purchases made by this kit in this buy phase can be refunded. No wire
+// fields are needed: the host keeps the ledger, guests send an ordinary action.
+function tradeSkill(actor,id,selling=false){
+  if(!actor?.alive||!match||match.phase!=='buy'||netHostPaused||exploring)return false;
+  const key=['c','smoke'].includes(id)?'c':['q','updraft'].includes(id)?'q':null;if(!key)return false;
+  const kit=actor.kit,definition=getCharacterSkill(kit.character,key),slot=key==='c'?'smoke':'updraft';
+  let ledger=skillPurchaseLedger.get(kit);
+  if(!ledger||ledger.round!==match.round||ledger.character!==kit.character){ledger={round:match.round,character:kit.character,c:[],q:[]};skillPurchaseLedger.set(kit,ledger);}
+  const record=actor===player?match:actor.record;if(!record)return false;
+  if(selling){
+    if(!ledger[key].length||kit[slot]<1)return false;
+    const price=ledger[key].pop();kit[slot]--;if(actor===player)match.addCredits(price);else record.credits=Math.min(9000,record.credits+price);return true;
+  }
+  const ok=kit.buy(key,price=>{if(record.credits<price)return false;if(actor===player)return match.purchase(price);record.credits-=price;return true;});
+  if(ok)ledger[key].push(definition.price);return ok;
+}
+function clickSkillPurchase(key){
+  if(!['c','q'].includes(key)||!player.alive||match?.phase!=='buy'||netHostPaused||exploring)return false;
+  const selling=player.kit[key==='c'?'smoke':'updraft']>0,id=selling?'sell-'+key:key;
+  if(isGuest()){if(netActions.some(a=>a.type==='buy'&&[key,key==='c'?'smoke':'updraft','sell-'+key].includes(a.id)))return false;queueNetAction('buy',{id});return true;}
+  const ok=tradeSkill(player,key,selling);
+  if($('shop-status'))$('shop-status').textContent=ok?`${getCharacterSkill(player.kit.character,key).name} を${selling?'売却':'購入'}しました`:'持ち越したスキルは売却できません';
+  if(ok)sound('buy');updateShop();updateHUD();return ok;
+}
 function buy(id){
   if(netHostPaused)return false;
   if(exploring){const spec=WEAPONS[id];if(!spec||spec.slot==='melee')return false;inventory[spec.slot]=id;delete ammoStore[id];equip(id,true);updateShop();updateHUD();return true;}
   if(isGuest()){queueNetAction('buy',{id});return true;}
-  if(!match||match.phase!=='buy')return false;
-  if(id==='smoke'||id==='updraft'){const ok=player.kit.buy(id,price=>match.purchase(price));if(ok){sound('buy');updateShop();updateHUD();}return ok;}
+  if(!match||match.phase!=='buy'||!player.alive)return false;
+  if(['smoke','updraft','c','q'].includes(id)){const ok=tradeSkill(player,id);if(ok){sound('buy');updateShop();updateHUD();}return ok;}
   const armor=id==='light'||id==='heavy';const spec=armor?{price:id==='light'?400:1000,slot:'armor'}:WEAPONS[id];if(!spec)return false;
   const slot=spec.slot;const oldId=armor?null:inventory[slot];
   if((armor&&player.armor>=(id==='light'?25:50))||(!armor&&oldId===id)){if($('shop-status'))$('shop-status').textContent='すでに装備しています';return false;}
@@ -782,7 +808,7 @@ function spawnRound(reset=false) {
   clearDrops();
   syncSmokes([]);player.kit.resetRound({reset});player.dashTimer=0;player.dashVec=null;
   if(reset||!player.alive){inventory={primary:null,secondary:'classic',active:'classic'};player.armor=0;}
-  ammoStore={};roundPurchases={};player.alive=true;player.hp=100;reloading=0;round=match.round;timeLeft=match.phaseTime;
+  ammoStore={};roundPurchases={};skillPurchaseLedger=new WeakMap();bomberNoticeKey='';bomberNoticeUntil=0;player.alive=true;player.hp=100;reloading=0;round=match.round;timeLeft=match.phaseTime;
   const positions=match.side==='attack'?map.teamSpawns.attack:map.teamSpawns.defend;
   player.x=positions[0].x;player.z=positions[0].z;player.y=0;player.vy=0;player.vx=0;player.vz=0;
   player.yaw=map.spawnYaw?.[match.side]??(match.side==='attack'?0:Math.PI);player.pitch=0;player.recoil=0;renderedRecoil=0;resetMouseLook();
@@ -1936,6 +1962,15 @@ function updateHUD(){
     }
   }
   const s=match.spike;
+  const planted=match.phase==='live'&&s.status==='planted',notice=$('bomber-alert');
+  if(notice){
+    notice.hidden=!planted;
+    if(planted){const key=`${match.round}:${s.site}`;if(bomberNoticeKey!==key){bomberNoticeKey=key;bomberNoticeUntil=elapsed+4.5;}
+      notice.classList.toggle('announcing',elapsed<bomberNoticeUntil);notice.classList.toggle('urgent',!objectivePractice&&s.timer<=10);
+      $('bomber-alert-title').textContent=`${s.site}サイト ボンバー設置`;
+      $('bomber-alert-time').textContent=objectivePractice?'練習中 · 起爆なし':`起爆まで ${Math.max(0,Math.ceil(s.timer))}秒`;
+    }else{bomberNoticeKey='';bomberNoticeUntil=0;}
+  }
   $('phase-label').textContent=match.phase==='buy'?'BUY PHASE / 購入':match.phase==='post'?'ROUND OVER':s.status==='planted'?'BOMBER PLANTED':'ROUND LIVE';
   $('objective-label').textContent=match.phase==='buy'?(onlinePlaying?'Bで購入 · フェーズ終了で全員同時に開始':'Bで購入 · 購入終了ボタンで開始'):ownSide()==='attack'?(s.status==='planted'?'起爆までボンバーを守れ':'A / B サイトで F 長押し → 4秒で設置'):(s.status==='planted'?'ボンバー付近で F 長押し → 7秒で電源オフ':'敵の設置を阻止せよ');
   $('spike-state').textContent=s.status==='planted'?`${s.site} · 起爆まで ${Math.ceil(s.timer)}s`:s.status==='dropped'?'BOMBER DROPPED / 回収可能':s.status==='defused'?'BOMBER POWERED OFF':s.status==='detonated'?'BOMBER DETONATED':s.carrier===player.id?'BOMBER · YOU':`BOMBER · ${ownSide()==='attack'?'味方が所持':'敵が所持'}`;
@@ -2775,10 +2810,10 @@ function applyNetPurchaseFeedback(packet,self,fresh,ack){
     receipt[0]>ack||receipt[1]!==match.round||typeof receipt[2]!=='string')return;
   const action=netActions.find(a=>a.type==='buy'&&a.seq===receipt[0]&&a.round===receipt[1]&&a.id===receipt[2]);if(!action)return;
   sound('buy',{localOnly:true});
-  const id=action.id,label=id==='light'?'ライトシールド':id==='heavy'?'ヘヴィーシールド':
+  const id=action.id,selling=['sell-c','sell-q'].includes(id),label=selling?getCharacterSkill(player.kit.character,id.slice(-1))?.name:id==='light'?'ライトシールド':id==='heavy'?'ヘヴィーシールド':
     ['c','smoke'].includes(id)?getCharacterSkill(player.kit.character,'c')?.name:
     ['q','updraft'].includes(id)?getCharacterSkill(player.kit.character,'q')?.name:WEAPONS[id]?.name;
-  if(mode==='shop'&&$('shop-status'))$('shop-status').textContent=`${label||'装備'} を購入しました`;
+  if(mode==='shop'&&$('shop-status'))$('shop-status').textContent=`${label||'装備'} を${selling?'売却':'購入'}しました`;
 }
 function applyNetSnapshot(packet){
   if((packet.mapId||'hashimoto')!==(map.id||'hashimoto'))return;
@@ -2976,7 +3011,7 @@ function applyRemoteAction(actor,action,actionTime=elapsed){
   if((actor.planting||actor.defusing)&&['fire','reload','equip','ability','drop'].includes(action.type))return;
   if(action.type==='character'){if(match.phase==='buy'&&match.round===1&&characterIds.includes(action.character))actor.kit.character=action.character;return;}
   if(action.type==='buy'&&match.phase==='buy'){
-    if(['smoke','updraft','c','q'].includes(action.id)){if(actor.kit?.buy(action.id,price=>{if(r.credits<price)return false;r.credits-=price;return true;}))actor.netPurchaseAck=[action.seq,match.round,action.id];return;}
+    if(['smoke','updraft','c','q','sell-c','sell-q'].includes(action.id)){const selling=action.id.startsWith('sell-'),id=selling?action.id.slice(-1):action.id;if(tradeSkill(actor,id,selling))actor.netPurchaseAck=[action.seq,match.round,action.id];return;}
     const id=action.id,spec=WEAPONS[id],armor=id==='light'||id==='heavy',price=armor?(id==='light'?400:1000):spec?.price;
     if(!Number.isFinite(price))return;r.netPurchases||={};const slot=armor?'armor':spec.slot;if(slot!=='armor'&&!['primary','secondary'].includes(slot))return;
     if(armor?actor.armor>=(id==='light'?25:50):r[slot]===id)return;
@@ -3190,7 +3225,8 @@ $('pause-back-menu')?.addEventListener('click',backMenu);
 $('pause').addEventListener('click',()=>pauseGame());$('map-toggle').addEventListener('click',()=>pauseGame(true));$('close-map').addEventListener('click',resumeGame);
 $('close-shop')?.addEventListener('click',resumeGame);$('start-round')?.addEventListener('click',startRound);$('scoreboard-close')?.addEventListener('click',resumeGame);
 createArsenalShop(document);
-document.querySelectorAll('[data-buy]').forEach(button=>button.addEventListener('click',()=>buy(button.dataset.buy)));
+document.querySelectorAll('[data-buy]').forEach(button=>button.addEventListener('click',()=>button.dataset.skillKey?clickSkillPurchase(button.dataset.skillKey):buy(button.dataset.buy)));
+for(const key of ['c','q'])$(`shop-skill-${key}-add`)?.addEventListener('click',()=>buy(key));
 $('sound').addEventListener('click',()=>{soundEnabled=!soundEnabled;$('sound').textContent=soundEnabled?'SOUND ON':'SOUND OFF';$('sound').setAttribute('aria-pressed',String(soundEnabled));syncVictoryMusic();if(soundEnabled){audioInit();sound('scan');}});
 function updateFormatSummary(){
   const format=$('match-format')?.value,objective=['plant','defuse'].includes(format),practice=objective||['explore','range'].includes(format);

@@ -118,6 +118,7 @@
       <div class="hud-top-right"><span id="side-label" class="side-label">ATTACKING</span><button id="map-toggle" class="hud-icon-button" type="button" aria-label="マップを開く"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 5 6-2 6 2 6-2v16l-6 2-6-2-6 2zM9 3v16m6-14v16"/></svg><kbd>M</kbd></button><button id="pause" class="hud-icon-button" type="button" aria-label="一時停止"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14M16 5v14"/></svg><kbd>ESC</kbd></button></div>
     </div>
     <div class="objective-strip"><span id="objective-label">購入フェーズ — 装備を整えよう</span><span id="spike-state">BOMBER / CARRIED</span></div>
+    <div id="bomber-alert" class="bomber-alert" hidden><strong id="bomber-alert-title" role="status" aria-live="assertive"></strong><span id="bomber-alert-time" role="timer" aria-live="off"></span></div>
     <div id="online-session-status" class="online-session-status" role="status" aria-live="polite" hidden></div>
     <div id="status-effects" hidden aria-live="polite"></div>
 
@@ -245,7 +246,9 @@
         </section>
         <section class="shop-category ability-shop"><h3><span>05</span> ABILITIES<small>能力</small></h3>
           <button id="shop-skill-c" class="buy-card ability-buy-card" data-buy="smoke" data-skill-key="c" type="button"><span class="buy-name"><span id="shop-skill-c-name">煙幕</span><small id="shop-skill-c-key">C / 煙幕</small></span><svg class="ability-buy-icon" viewBox="0 0 36 30" aria-hidden="true"><path id="shop-skill-c-glyph" d="M9 23a6 6 0 0 1-1-12 9 9 0 0 1 17-3 8 8 0 0 1 2 16H9M6 27h24M12 18h12"/></svg><span id="shop-skill-c-description" class="ability-buy-description">視線を遮る煙を展開</span><small id="shop-skill-c-count" class="ability-buy-stock">所持 0/2 · 1回分を購入</small><span class="buy-price"><span>C / SKILL</span><strong id="shop-skill-c-price">SC 200</strong></span></button>
+          <button id="shop-skill-c-add" class="skill-add-button" type="button">＋1回分購入</button>
           <button id="shop-skill-q" class="buy-card ability-buy-card" data-buy="updraft" data-skill-key="q" type="button"><span class="buy-name"><span id="shop-skill-q-name">上昇</span><small id="shop-skill-q-key">Q / 上昇</small></span><svg class="ability-buy-icon" viewBox="0 0 36 30" aria-hidden="true"><path id="shop-skill-q-glyph" d="m10 14 8-9 8 9M18 6v17M7 21l11 6 11-6M5 26l13 3 13-3"/></svg><span id="shop-skill-q-description" class="ability-buy-description">上空へ跳び上がる</span><small id="shop-skill-q-count" class="ability-buy-stock">所持 0/1 · 1回分を購入</small><span class="buy-price"><span>Q / SKILL</span><strong id="shop-skill-q-price">SC 150</strong></span></button>
+          <button id="shop-skill-q-add" class="skill-add-button" type="button">＋1回分購入</button>
         </section>
       </div>
       <footer class="shop-footer"><div><p id="shop-status" role="status" aria-live="polite">装備を選択してください。</p><span>クリックして購入 <i>·</i> B で閉じる <i>·</i> ラウンド中の購入はできません</span></div><button id="start-round" class="primary-button" type="button"><span>準備完了<small>START ROUND / SOLO</small></span><span class="arrow">→</span></button></footer>
