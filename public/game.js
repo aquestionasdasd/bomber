@@ -1400,7 +1400,7 @@ function catEnemyTarget(actor,aim=null){
  const origin=new THREE.Vector3(actor.x,(actor.y||0)+1.7-(actor.crouch||0)*.55,actor.z),direction=new THREE.Vector3(-Math.sin(yaw)*Math.cos(pitch),Math.sin(pitch),-Math.cos(yaw)*Math.cos(pitch));
  let best=null;for(const enemy of [player,...bots])if(enemy.alive&&enemy.team!==actor.team&&visibleBetween(actor,enemy)){
   const state=isGuest()?enemy.netTarget:null,w=state?.weapon||actorWeaponId(enemy),ammo=state?state.ammo:enemy===player?player.ammo:enemy.remoteId?enemy.netAmmo:enemy.aiAmmo;
-  if(!WEAPONS[w]?.mag||!(ammo>0)||enemy===player&&reloading>0||(state?state.reloading:enemy.remoteId?enemy.netReload:enemy.aiReload)>0||(state?state.serviceReload:enemy.serviceReload))continue;
+  if(!WEAPONS[w]?.mag||!Number.isInteger(ammo)||ammo<=0||ammo>WEAPONS[w].mag||enemy===player&&reloading>0||(state?state.reloading:enemy.remoteId?enemy.netReload:enemy.aiReload)>0||(state?state.serviceReload:enemy.serviceReload))continue;
   const center=new THREE.Vector3(enemy.x,(enemy.y||0)+1.3-(enemy.crouch||0)*.55,enemy.z),offset=center.clone().sub(origin),along=offset.dot(direction);
   if(along<0||Math.hypot(enemy.x-actor.x,center.y-(actor.y||0),enemy.z-actor.z)>CAT_SKILLS.pluckRange||offset.addScaledVector(direction,-along).length()>.55)continue;
   if(!best||along<best.distance)best={enemy,weapon:w,ammo,distance:along,x:enemy.x,y:center.y,z:enemy.z,targetId:enemy.id};
@@ -1731,9 +1731,10 @@ function activateCatAbility(actor,key,{predict=false,aim=null}={}){
  const effect=actor.kit.activate(key,elapsed);if(!effect)return;
  const event=predict?null:ordinarySkills.cast(effect,view,target,elapsed,match.round);if(!predict&&!event){actor.kit.restore(before);return;}
  if(!predict&&key==='q'){
-  const victim=target.enemy,remaining=Math.max(0,target.ammo-CAT_SKILLS.pluckAmmo);
-  if(victim===player){player.ammo=remaining;ammoStore[inventory.active]={ammo:remaining,reserve:player.reserve};showMessage('ひげの弾抜き','装填中の弾を抜かれました · 予備弾は残っています',1.5);}
+  const victim=target.enemy,removed=Math.min(target.ammo,CAT_SKILLS.pluckAmmo),remaining=target.ammo-removed;
+  if(victim===player){player.ammo=remaining;ammoStore[inventory.active]={ammo:remaining,reserve:player.reserve};showMessage('ひげの弾裂き','装填弾が破裂しました · 予備弾は残っています',1.5);}
   else{if(victim.remoteId)victim.netAmmo=remaining;else victim.aiAmmo=remaining;if(victim.netStores?.[target.weapon])victim.netStores[target.weapon].ammo=remaining;}
+  damageEntity(victim,removed*CAT_SKILLS.pluckDamagePerRound,actor,{skill:'cat'});
  }
  if(!predict&&key==='e'&&!pickupDroppedWeapon(actor,target.drop.id,{catFetch:true})){ordinarySkills.cancelCatEvent(event.id);actor.kit.restore(before);return;}
  if(actor===player)showMessage(key==='x'?'白紙の8秒':getCharacterSkill('cat',key).name,key==='x'?'8秒、試合時計を停止 · 移動・射撃・設置・電源オフは続きます':getCharacterSkill('cat',key).description,2);

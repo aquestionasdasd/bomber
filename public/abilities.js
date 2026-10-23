@@ -19,7 +19,7 @@ export const CHARACTER_DEFS = Object.freeze({
     description: 'C：円環の霜のステッチ / Q：遠くのドールミスト / E：低い姿勢で滑り込み、減速にも耐える。X：最大20m先に半径7mの減速場を10秒展開（7pt）。', color: '#96dce5', ultIcon: 'M18 2v26M6 8l24 14M6 22 30 8M14 5l4 4 4-4M14 25l4-4 4 4M6 13l6-1-1-6M30 17l-6 1 1 6M6 17l6 1-1 6M30 13l-6-1 1-6' }),
   duck: Object.freeze({ id:'duck', label:'🦆', role:'防護・封印', ultName:'不屈の卵', ultShortName:'卵', ultimatePoints:7,
     description:'C：狙った敵の新しいスキルを封印 / Q：弾だけを止める羽盾 / E：10秒スペース連打で飛行、最初の5秒は消音。X：8秒、致死攻撃を2回までHP1で耐える（7pt）。', color:'#77b34c', ultIcon:'M18 2C9 2 5 16 5 21a13 9 0 0 0 26 0C31 16 27 2 18 2Zm-2 10 5 5-5 4 4 5' }),
-  cat: Object.freeze({id:'cat',label:'猫の画像',role:'回収・時制',ultName:'白紙の8秒',ultShortName:'時止め',ultimatePoints:7,description:'C：保存地点へ帰還 / Q：敵の装填弾を5発抜く / E：落ちた銃を遠隔回収。X：8秒、ラウンドとボンバーの時計を止める。行動と電源オフは進む（7pt）。',color:'#eee8dd',ultIcon:'M18 3a12 12 0 1 0 0 24 12 12 0 0 0 0-24ZM14 9v12m8-12v12'}),
+  cat: Object.freeze({id:'cat',label:'猫の画像',role:'回収・時制',ultName:'白紙の8秒',ultShortName:'時止め',ultimatePoints:7,description:'C：保存地点へ帰還 / Q：敵の装填弾を最大5発裂き、1発12・最大60ダメージ / E：落ちた銃を遠隔回収。X：8秒、ラウンドとボンバーの時計を止める。行動と電源オフは進む（7pt）。',color:'#eee8dd',ultIcon:'M18 3a12 12 0 1 0 0 24 12 12 0 0 0 0-24ZM14 9v12m8-12v12'}),
   car: Object.freeze({id:'car',label:'トミカ',role:'排除・補給',ultName:'ピットクルー',ultShortName:'補給',ultimatePoints:7,description:'C：本体突進で75ダメージ＋最大24m吹き飛ばし / Q：狙った煙を一つ除去 / E：接地中の移動射撃を安定化。X：視線内24mの味方と自身のC/Q/Eを補給（7pt）。',color:'#e9ece8',ultIcon:'M4 23h28V10H4ZM8 14h8v5H8Zm12 0h8v5h-8ZM12 4v4m12-4v4M9 25v4m18-4v4'}),
   nobi:Object.freeze({id:'nobi',label:'のび',role:'弱点・工作',ultName:'逆転えり',ultShortName:'逆転',ultimatePoints:7,description:'C：敵を銃に弱くする鈴 / Q：敵の連射を遅らせるひげ / E：設置と電源オフを加速。X：8秒、胴・脚への銃撃も頭相当の威力（7pt）。',color:'#f3cb48',ultIcon:'M18 3 3 13l15 15 15-15ZM10 13l8 8 8-8M18 3v11'}),
   japan:Object.freeze({id:'japan',label:'しばくでジャパン',role:'国境・総動員',ultName:'総動員',ultShortName:'総動員',ultimatePoints:7,description:'C：越えた敵へ国境線 / Q：敵の装甲を接収 / E：被銃撃を撃ち手へ返送。X：倒れた味方全員を開始地点へ1000HPで呼び戻す（7pt）。',color:'#e8ca91',ultIcon:'M3 15h30M18 2v26M7 4l22 22M29 4 7 26M4 23h28'}),
@@ -54,11 +54,11 @@ export const FROST_SKILLS = Object.freeze({ stitchRange: 16, stitchFlight: .55, 
 export const JAPAN_SKILLS=Object.freeze({borderRange:40,borderWidth:10,borderHeight:2.8,borderArm:1,borderDuration:14,borderDamage:1000,levyRange:40,levyAmount:50,levyScale:10,armorCap:500,returnDuration:5,returnScale:6.5,signatureCooldown:20,musterDuration:1,musterHP:1000});
 export const NOBI_SKILLS=Object.freeze({tagRange:35,tagDuration:6,vulnerability:1.35,brakeRange:40,brakeDuration:5,fireIntervalScale:1.6,toolDuration:6,toolScale:1.5,signatureCooldown:18,legendDuration:8});
 export const CAR_SKILLS=Object.freeze({bumperRange:35,bumperDistance:24,bumperSpeed:26,bumperDamage:75,bumperLaunchTime:1,bumperLift:6,washRange:40,gyroDuration:4,signatureCooldown:18,pitRange:24});
-export const CAT_SKILLS=Object.freeze({bookmarkDuration:10,returnRange:24,pluckRange:30,pluckAmmo:5,fetchRange:18,signatureCooldown:18,clockDuration:8});
+export const CAT_SKILLS=Object.freeze({bookmarkDuration:10,returnRange:24,pluckRange:30,pluckAmmo:5,pluckDamagePerRound:12,fetchRange:18,signatureCooldown:18,clockDuration:8});
 export const DUCK_SKILLS = Object.freeze({ sealRange:40, sealDuration:4, shieldRange:28, shieldDuration:6, shieldHP:180, shieldWidth:3, shieldHeight:2.4, hushDuration:5, flightDuration:10, flapVelocity:5.8, flapInterval:.18, flightHeight:8, signatureCooldown:20, eggDuration:8, eggLives:2 });
 const catSkills={
  c:{name:'白いしおり',shortName:'帰還',description:'接地中に場所を記録。10秒以内にCを再押しで24m以内の記録地点へ戻る。HP・弾は戻らず、着地先が塞がると不発。初回だけ回数消費。',max:2,price:100,type:'cat-bookmark',icon:'M10 3h16v26l-8-6-8 6ZM14 9h8m-8 5h8'},
- q:{name:'ひげの弾抜き',shortName:'弾抜き',description:'Qで構え、30mの視線内敵へ左確定・右取消。敵の現在の銃の装填弾を最大5発抜く。空・装填中・ナイフには無効。',max:1,price:100,type:'cat-pluck',icon:'M8 7h6v18H8Zm14 0h6v18h-6ZM3 16h5m20 0h5M16 12l4 8'},
+ q:{name:'ひげの弾裂き',shortName:'弾裂き',description:'Qで構え、30mの視線内敵へ左確定・右取消。現在の銃から最大5発を裂き、実際に抜いた1発につき12ダメージ（最大60・装甲あり）。予備弾は残る。空・装填中・ナイフには無効。',max:1,price:100,type:'cat-pluck',icon:'M8 7h6v18H8Zm14 0h6v18h-6ZM3 16h5m20 0h5M16 12l4 8'},
  e:{name:'ねこの手',shortName:'銃回収',description:'Eで構え、18mの見える落ちた銃へ左確定・右取消。銃を回収し前の同枠装備は足元へ落とす。弾は生成せず、18秒で再使用。',max:1,price:0,type:'cat-fetch',icon:'M7 26V14l5 7V5h5v13V3h5v16l4-8 4 2-4 15Z'},
 };
 const duckSkills = {
