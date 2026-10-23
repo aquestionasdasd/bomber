@@ -314,8 +314,8 @@ function buildWeapon(kit, id, parent, detailed = true) {
     tube(group,[0,.005,barrel-.025],.016,.004,M.rubber,'z');
     if(sniper){
       softBox(group,[0,.095,-.05],[.04,.10,.16],M.dark,.004);
-      tube(group,[0,.16,-.06],heavy?.053:.044,.29,M.gun,'z');
-      for(const z of[-.207,.09])tube(group,[0,.16,z],heavy?.045:.036,.008,M.signal,'z');
+      const scopeTube=kit.mesh(group,kit.keep(new THREE.CylinderGeometry(heavy?.053:.044,heavy?.053:.044,.29,16,1,true)),M.gun,[0,.16,-.06]);scopeTube.rotation.x=Math.PI/2;scopeTube.name='Open scope tube';
+      for(const z of[-.207,.09]){const rim=kit.mesh(group,kit.keep(new THREE.TorusGeometry(heavy?.047:.038,.005,6,24)),M.steel,[0,.16,z]);rim.name='Open scope rim';}
       softBox(magazine,[0,-.105,-.045],[.06,.11,.11],M.dark,.006);sightY=.16;
       if(heavy)for(const x of[-.05,.05])softBox(group,[x,-.08,-.40],[.012,.13,.025],M.edge,.003);
     } else {

@@ -1,4 +1,4 @@
-export const ONNARA_SKILLS=Object.freeze({taxRange:40,taxDuration:8,taxPerShot:30,taxBudget:300,taxHealthPerShot:4,orbRange:40,orbDuration:8,hoverDuration:2,signatureCooldown:18,chainDuration:8,chainRange:12,chainScale:.7});
+export const ONNARA_SKILLS=Object.freeze({taxRange:40,taxDuration:8,taxPerShot:30,taxBudget:300,taxHealthPerShot:4,orbRange:40,orbDuration:8,hoverDuration:13,signatureCooldown:18,chainDuration:8,chainRange:12,chainScale:.7});
 export const URCHIN_SKILLS=Object.freeze({jamRange:40,jamDuration:8,disarmRange:32,pearlBullets:5,pearlValue:20,tridentDuration:9,tridentAngle:Math.PI/45,tridentScale:.65,tridentRange:90,signatureCooldown:18});
 export const CAP_SKILLS=Object.freeze({lockRange:40,lockDuration:8,lockSpread:.07,lockAimScale:.55,cleanRange:24,bounceDuration:6,bounceScale:.75,bounceRange:90,magazineDuration:9,signatureCooldown:22});
 // Original fan-made tuning inspired by the duelist role; not an exact live-game ruleset.
@@ -22,11 +22,12 @@ export const CHARACTER_DEFS = Object.freeze({
   cat: Object.freeze({id:'cat',label:'猫の画像',role:'回収・時制',ultName:'白紙の8秒',ultShortName:'時止め',ultimatePoints:7,description:'C：保存地点へ帰還 / Q：敵の装填弾を5発抜く / E：落ちた銃を遠隔回収。X：8秒、ラウンドとボンバーの時計を止める。行動と電源オフは進む（7pt）。',color:'#eee8dd',ultIcon:'M18 3a12 12 0 1 0 0 24 12 12 0 0 0 0-24ZM14 9v12m8-12v12'}),
   car: Object.freeze({id:'car',label:'トミカ',role:'排除・補給',ultName:'ピットクルー',ultShortName:'補給',ultimatePoints:7,description:'C：本体突進で75ダメージ＋最大24m吹き飛ばし / Q：狙った煙を一つ除去 / E：接地中の移動射撃を安定化。X：視線内24mの味方と自身のC/Q/Eを補給（7pt）。',color:'#e9ece8',ultIcon:'M4 23h28V10H4ZM8 14h8v5H8Zm12 0h8v5h-8ZM12 4v4m12-4v4M9 25v4m18-4v4'}),
   nobi:Object.freeze({id:'nobi',label:'のび',role:'弱点・工作',ultName:'逆転えり',ultShortName:'逆転',ultimatePoints:7,description:'C：敵を銃に弱くする鈴 / Q：敵の連射を遅らせるひげ / E：設置と電源オフを加速。X：8秒、胴・脚への銃撃も頭相当の威力（7pt）。',color:'#f3cb48',ultIcon:'M18 3 3 13l15 15 15-15ZM10 13l8 8 8-8M18 3v11'}),
-  japan:Object.freeze({id:'japan',label:'しばくでジャパン',role:'国境・総動員',ultName:'総動員',ultShortName:'総動員',ultimatePoints:7,description:'C：越えた敵へ国境線 / Q：敵の装甲を接収 / E：被銃撃を撃ち手へ返送。X：倒れた味方全員を開始地点へ100HPで呼び戻す（7pt）。',color:'#e8ca91',ultIcon:'M3 15h30M18 2v26M7 4l22 22M29 4 7 26M4 23h28'}),
+  japan:Object.freeze({id:'japan',label:'しばくでジャパン',role:'国境・総動員',ultName:'総動員',ultShortName:'総動員',ultimatePoints:7,description:'C：越えた敵へ国境線 / Q：敵の装甲を接収 / E：被銃撃を撃ち手へ返送。X：倒れた味方全員を開始地点へ1000HPで呼び戻す（7pt）。',color:'#e8ca91',ultIcon:'M3 15h30M18 2v26M7 4l22 22M29 4 7 26M4 23h28'}),
   cap:Object.freeze({id:'cap',label:'キャップは？',role:'光学・解除',ultName:'エンドレスマガジン',ultShortName:'無消費',ultimatePoints:7,description:'C：敵の銃の照準とADSを妨害 / Q：現在の妨害を解除 / E：壁で弾を一度反射。X：9秒、装填済みの銃弾を消費せず発射（7pt）。',color:'#e36336',ultIcon:'M5 7h26v16H5ZM12 11c-8 0-8 8 0 8s4-8 12-8 8 8 0 8-4-8-12-8'}),
   urchin:Object.freeze({id:'urchin',label:'青ウニ',role:'棘・弾道',ultName:'三叉潮',ultShortName:'三叉',ultimatePoints:7,description:'C：敵の装填を止める / Q：敵の購入主武器を床へ落とす / E：自分の装填弾をコインへ交換。X：9秒、銃弾が三方向へ分かれる（7pt）。',color:'#a9f1e4',ultIcon:'M18 28V4M18 20 5 7M18 20 31 7M2 11 5 7 9 8M27 8 31 7 34 11M14 8 18 4 22 8'}),
-  onnara:Object.freeze({id:'onnara',label:'おんなら',role:'星冠・裁定',ultName:'星座裁定',ultShortName:'連鎖',ultimatePoints:7,description:'C：敵の発砲にHPとコインの代償 / Q：遠方を360度見回す宝玉 / E：空中で2秒静止。X：8秒、銃撃した敵から別の敵1人へ実被害の70%を連鎖（7pt）。',color:'#ffc948',ultIcon:'M18 2 22 11 32 12 24 19 27 29 18 23 9 29 12 19 4 12 14 11Z'}),
+  onnara:Object.freeze({id:'onnara',label:'おんなら',role:'星冠・裁定',ultName:'星座裁定',ultShortName:'連鎖',ultimatePoints:7,description:'C：敵の発砲にHPとコインの代償 / Q：遠方を360度見回す宝玉 / E：空中で13秒静止。X：8秒、銃撃した敵から別の敵1人へ実被害の70%を連鎖（7pt）。',color:'#ffc948',ultIcon:'M18 2 22 11 32 12 24 19 27 29 18 23 9 29 12 19 4 12 14 11Z'}),
 });
+export const getCharacterUltimate = character => { const id=normalizeCharacter(character),def=CHARACTER_DEFS[id]; return {key:'x',name:def.ultName,shortName:def.ultShortName,description:def.description.split('X：')[1]||'',points:def.ultimatePoints,icon:def.ultIcon}; };
 export const normalizeCharacter = value => typeof value === 'string' && Object.hasOwn(CHARACTER_DEFS, value) ? value : 'duelist';
 export const DUELIST = Object.freeze({ smokeMax: 2, smokePrice: 100, smokeDuration: 5,
   updraftMax: 2, updraftPrice: 100, updraftVelocity: 7.8,
@@ -50,7 +51,7 @@ export const FROST_SKILLS = Object.freeze({ stitchRange: 16, stitchFlight: .55, 
   stitchRadius: 3.8, stitchInnerRadius: .9, stitchSpeedScale: .45, stitchGroundOffset: .12, stitchHeightTolerance: .45,
   mistRange: 18, mistFlight: .5, mistDuration: 9, mistRadius: 3.5, mistCenterOffset: 1.4,
   unravelDuration: 5, unravelSlowFraction: .15, slideDuration: .9, slideStartSpeed: 12, slideEndSpeed: 7, signatureCooldown: 18 });
-export const JAPAN_SKILLS=Object.freeze({borderRange:40,borderWidth:10,borderHeight:2.8,borderArm:1,borderDuration:14,borderDamage:100,levyRange:40,levyAmount:50,armorCap:50,returnDuration:5,returnScale:.65,signatureCooldown:20,musterDuration:1});
+export const JAPAN_SKILLS=Object.freeze({borderRange:40,borderWidth:10,borderHeight:2.8,borderArm:1,borderDuration:14,borderDamage:1000,levyRange:40,levyAmount:50,levyScale:10,armorCap:500,returnDuration:5,returnScale:6.5,signatureCooldown:20,musterDuration:1,musterHP:1000});
 export const NOBI_SKILLS=Object.freeze({tagRange:35,tagDuration:6,vulnerability:1.35,brakeRange:40,brakeDuration:5,fireIntervalScale:1.6,toolDuration:6,toolScale:1.5,signatureCooldown:18,legendDuration:8});
 export const CAR_SKILLS=Object.freeze({bumperRange:35,bumperDistance:24,bumperSpeed:26,bumperDamage:75,bumperLaunchTime:1,bumperLift:6,washRange:40,gyroDuration:4,signatureCooldown:18,pitRange:24});
 export const CAT_SKILLS=Object.freeze({bookmarkDuration:10,returnRange:24,pluckRange:30,pluckAmmo:5,fetchRange:18,signatureCooldown:18,clockDuration:8});
@@ -116,9 +117,9 @@ const capSkills={
  e:{name:'バンクレンズ',shortName:'跳弾',description:'6秒、銃弾が縦の壁で一度だけ反射し、通常の75%ダメージ。総経路90mまで。照準中央の反射後の経路を本人に点線表示（弾の拡散は別）。二枚目の壁・盾・囮で止まり、自動追尾はない。22秒で再使用。',max:1,price:0,type:'cap-bank',icon:'M4 25 18 11l14 14M4 7h28M18 11v-6'}
 };
 const japanSkills={
- c:{name:'国境線',shortName:'国境線',description:'Cで構え40m先の床へ左確定・右取消。1秒後から14秒、幅10m・高さ2.8mの線を越えた敵へ一度だけ100ダメージ。壁越しは無効。',max:2,price:100,type:'japan-border',icon:'M3 25V5m30 20V5M3 15h30M9 9v12m9-12v12m9-12v12'},
- q:{name:'装甲接収',shortName:'装甲接収',description:'Qで構え40mの見える敵へ左確定・右取消。敵の装甲から最大50を自身へ移す。自身は50まで。満装甲・相手の装甲0なら消費しない。',max:1,price:100,type:'japan-levy',icon:'M18 3 5 8v9l13 11 13-11V8ZM8 15h20m-7-5 7 5-7 5'},
- e:{name:'弾丸返送',shortName:'返送',description:'5秒、敵の銃撃で実際に失ったHPと装甲の65%を撃ち手へ返す。元の被害は受ける。ナイフ・スキルは対象外で返送は連鎖しない。20秒で再使用。',max:1,price:0,type:'japan-return',icon:'M4 10h19l-6-6m6 6-6 6M32 22H13l6-6m-6 6 6 6'}
+ c:{name:'国境線',shortName:'国境線',description:'Cで構え40m先の床へ左確定・右取消。1秒後から14秒、幅10m・高さ2.8mの線を越えた敵へ一度だけ1000ダメージ。壁越しは無効。',max:2,price:100,type:'japan-border',icon:'M3 25V5m30 20V5M3 15h30M9 9v12m9-12v12m9-12v12'},
+ q:{name:'装甲接収',shortName:'装甲接収',description:'Qで構え40mの見える敵へ左確定・右取消。敵の装甲を最大50奪い、その10倍を自身の装甲へ変換。自身は500まで。満装甲・相手の装甲0なら消費しない。',max:1,price:100,type:'japan-levy',icon:'M18 3 5 8v9l13 11 13-11V8ZM8 15h20m-7-5 7 5-7 5'},
+ e:{name:'弾丸返送',shortName:'返送',description:'5秒、敵の銃撃で実際に失ったHPと装甲の650%を撃ち手へ返す。元の被害は受ける。ナイフ・スキルは対象外で返送は連鎖しない。20秒で再使用。',max:1,price:0,type:'japan-return',icon:'M4 10h19l-6-6m6 6-6 6M32 22H13l6-6m-6 6 6 6'}
 };
 const nobiSkills={
  c:{name:'鈴の弱点',shortName:'弱点の鈴',description:'Cで構え35mの見える敵へ左確定・右取消。6秒、その敵の被銃撃ダメージを1.35倍。位置は表示せず、同効果は重ならない。',max:2,price:100,type:'nobi-tag',icon:'M18 3a8 8 0 0 0-8 8v8l-4 5h24l-4-5v-8a8 8 0 0 0-8-8ZM15 27h6'},
@@ -128,7 +129,7 @@ const nobiSkills={
 const onnaraSkills={
  c:{name:'王冠の徴税',shortName:'発砲の代償',description:'Cで構え40mの見える敵へ左確定・右取消。8秒、通常銃撃1回ごとHP4と最大30コインを失う（10回まで）。装甲を無視するがHP1で止まる。0コインでも有効。射撃を控えるか妨害解除で対処でき、重複刻印不可。',max:2,price:100,type:'onnara-tax',icon:'M5 8l5 5 8-10 8 10 5-5-3 18H8ZM12 19h12'},
  q:{name:'星見の宝玉',shortName:'周回映像',description:'Qで構え40mの見える床へ左確定・右取消。8秒、固定地点から360度を一周見回す映像を本人の小窓に表示。脇道や背後の確認にも使える。壁・煙で遮られ、遠隔射撃や自動検知はしない。',max:1,price:100,type:'onnara-orb',icon:'M18 3a12 12 0 1 0 0 24 12 12 0 0 0 0-24ZM6 15h24M18 3v24'},
- e:{name:'星留め',shortName:'空中静止',description:'空中でE。2秒、その高さで静止し水平移動と射撃は継続。上昇はしない。接地・高い床への侵入で終了。18秒で再使用。',max:1,price:0,type:'onnara-hover',icon:'M18 3v18M10 13l8 8 8-8M5 28h26'}
+ e:{name:'星留め',shortName:'空中静止',description:'空中でE。13秒、その高さで静止し水平移動と射撃は継続。上昇はしない。接地・高い床への侵入で終了。18秒で再使用。',max:1,price:0,type:'onnara-hover',icon:'M18 3v18M10 13l8 8 8-8M5 28h26'}
 };
 const skillsFor = character => character==='onnara'?onnaraSkills : character==='urchin'?urchinSkills : character==='cap'?capSkills : character==='japan'?japanSkills : character==='nobi'?nobiSkills : character==='car'?carSkills : character === 'cat' ? catSkills : character === 'duck' ? duckSkills : character === 'nope' ? nopeSkills : character === 'mend' ? mendSkills : character === 'echo' ? iagnuSkills : character === 'veil' ? veilSkills : character === 'ember' ? emberSkills : character === 'frost' ? frostSkills : baseSkills;
 export const signatureCooldown = character => character==='onnara'?ONNARA_SKILLS.signatureCooldown : character==='urchin'?URCHIN_SKILLS.signatureCooldown : character==='cap'?CAP_SKILLS.signatureCooldown : character==='japan'?JAPAN_SKILLS.signatureCooldown : character==='nobi'?NOBI_SKILLS.signatureCooldown : character==='car'?CAR_SKILLS.signatureCooldown : character === 'cat' ? CAT_SKILLS.signatureCooldown : character === 'duck' ? DUCK_SKILLS.signatureCooldown : character === 'nope' ? NOPE_SKILLS.signatureCooldown : character === 'mend' ? MEND_SKILLS.signatureCooldown : character === 'echo' ? IAGNU_SKILLS.signatureCooldown : character === 'veil' ? VEIL_SKILLS.signatureCooldown : character === 'ember' ? EMBER_SKILLS.signatureCooldown : character === 'frost' ? FROST_SKILLS.signatureCooldown : 0;

@@ -308,7 +308,7 @@
 .skill-detail strong{display:block;font-size:10px;line-height:1.4;font-weight:600;color:#e4ece5;overflow-wrap:anywhere}
 .skill-detail p{margin:4px 0;font-size:8px;line-height:1.65;letter-spacing:0;color:#b2c7cb;overflow-wrap:anywhere}
 .skill-detail small{display:block;font-size:7px;line-height:1.5;color:#89cbb7;letter-spacing:0}
-.character-preview-panel>.character-skills{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:0 0 12px;padding-top:12px;border-top:1px solid #b7d5d12b}
+.character-preview-panel>.character-skills{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:0 0 12px;padding-top:12px;border-top:1px solid #b7d5d12b}
 .character-preview-panel .skill-detail{display:block}
 .character-preview-panel .skill-detail kbd{display:inline-grid;margin-bottom:5px}
 .character-preview-panel .skill-detail strong{font-size:9px}

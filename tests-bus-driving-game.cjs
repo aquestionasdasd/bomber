@@ -132,5 +132,12 @@ async function main() {
  });
  check('actual moving bus strikes both teams once, neutralizes friendly reward and drops bomber',()=>{setup();board();killDriver();local.run("busInteract();makeBot({x:0,z:60},0,'blue',{id:'blue-1',team:'blue',primary:null,secondary:'classic',armor:0,credits:800,kit:new DuelistKit({character:'nope'})});makeBot({x:0,z:60},1,'red',{id:'red-0',team:'red',primary:null,secondary:'classic',armor:0,credits:800,kit:new DuelistKit({character:'nope'})});for(var b of bots){b.hp=100;b.armor=0;b.alive=true;Object.assign(b,{x:bus.x,z:bus.z,y:0,vy:0});}match.spike={...match.spike,status:'carried',carrier:bots[0].id};keys.add('KeyW');elapsed+=.1;updateTraffic(.1)");assert.equal(local.run('bots.every(b=>!b.alive)'),true);assert.equal(local.run('totalKills'),1);assert.equal(local.run('match.spike.status'),'dropped');assert.equal(local.run('bots.every(b=>!!b.trafficLaunch)'),true);});
  console.log('PASS '+groups+' actual bus game groups; no audio');
+
+ check('driver last hit gives exactly one capped ULT point, no reward for preview or repeat',()=>{
+  setup();board();local.run(`player.kit.ultPoints=3;var driverHit={object:{userData:{busDriver:bus.id}},point:new THREE.Vector3(bus.x,1.6,bus.z)};shootBusDriver(driverHit,player,99)`);assert.equal(local.run('player.kit.ultPoints'),3);
+  local.run(`shootBusDriver(driverHit,player,1,{visualOnly:true})`);assert.equal(local.run('player.kit.ultPoints'),3);
+  local.run(`shootBusDriver(driverHit,player,1);shootBusDriver(driverHit,player,100)`);assert.equal(local.run('player.kit.ultPoints'),4);
+  setup();board();local.run(`player.kit.ultPoints=7;var driverHit={object:{userData:{busDriver:bus.id}},point:new THREE.Vector3(bus.x,1.6,bus.z)};shootBusDriver(driverHit,player,100)`);assert.equal(local.run('player.kit.ultPoints'),7);
+ });
  console.log('TOTAL '+Math.round(performance.now()-started)+'ms wall / '+Math.round(process.cpuUsage(cpuStarted).user/1000)+'ms CPU');
 }main().catch(e=>{console.error(e);process.exitCode=1;});

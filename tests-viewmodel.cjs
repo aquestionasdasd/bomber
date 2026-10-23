@@ -171,7 +171,7 @@ async function main() {
   const knifeGlove = knifeHand.children.find(object => object.isMesh && object.material.color?.getHexString() === '8a806c');
   assert.equal(createHash('sha256').update(Buffer.from(knifeGlove.geometry.attributes.position.array.buffer)).digest('hex'),
     'b1d9de643856c2f91caf49fe578787b9a0d82abb290b7fc943ee4f01ec21f9c3', 'The knife grip must remain unchanged');
-  assert.deepEqual([geometries.size, materials.size, textures.size], [146, 79, 16], 'Ten firearms plus knife use a bounded expanded cache; repeat switching must not grow resources');
+  assert.deepEqual([geometries.size, materials.size, textures.size], [144, 77, 16], 'Ten firearms plus knife use a bounded expanded cache; repeat switching must not grow resources');
   const currentResources = new Set();
   view.group.traverse(object => {
     if (!object.isMesh) return;

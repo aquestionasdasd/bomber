@@ -11,3 +11,5 @@
 - 車体の9点と各点の掃引線分を0.12m以下の小刻みな移動で検査し、建物・境界・大きい段差を通り抜けない。対戦164m/景観練習224mは維持するが、運転可能範囲は対戦内の車道と周辺に制限する。
 
 関連試験: tests-bus-service.cjs / tests-bus-driving-game.cjs / tests-bus-negative.cjs / tests-hirakata.cjs / tests-hirakata-game.cjs / tests-online.cjs。独立JSON VMでの同期検証と、実ブラウザーの単独運転確認を区別する。実2タブでの新運転、実スマホ、別家庭回線、10実端末、聴感は未確認。
+
+第81巡：人間指定で運転手を倒した射撃本人へULT+1（最大7）。hostでHP>0→0の一撃だけ。命中予測、非致死、再射撃、観戦には加算しない。中立運転手のままで敵撃破数/コイン/フルコンボ対象外。

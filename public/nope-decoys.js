@@ -9,7 +9,7 @@ const coordinate = value => Number.isFinite(value) && Math.abs(value) <= 1000;
 const identifier = value => typeof value === 'string' && value.length > 0 && value.length <= 64 && !/[\u0000-\u001f\u007f]/.test(value);
 const record = value => value !== null && typeof value === 'object' && !Array.isArray(value) && Object.prototype.toString.call(value) === '[object Object]';
 const living = actor => actor && identifier(actor.id) && team(actor.team) && actor.alive === true
-  && Number.isFinite(actor.hp) && actor.hp > 0 && actor.hp <= 100 && coordinate(actor.x) && coordinate(actor.z)
+  && Number.isFinite(actor.hp) && actor.hp > 0 && actor.hp <= 1000 && coordinate(actor.x) && coordinate(actor.z)
   && (actor.y === undefined || coordinate(actor.y));
 const endTime = startedAt => startedAt + NOPE_SKILLS.decoyDuration;
 const validEnd = (startedAt, endsAt) => clock(endsAt) && endsAt > startedAt && endsAt === endTime(startedAt)

@@ -36,7 +36,7 @@ async function main() {
   test('invalid living sources, clocks and rounds never replace an existing wave or consume sequence IDs', () => {
     const engine = createNopeDecoys(); assert.equal(engine.start(owner(), points(), 1, 1), true);
     const before = engine.snapshot();
-    for (const source of [null, {}, owner({ id: '' }), owner({ id: 'x'.repeat(65) }), owner({ id: 'bad\nname' }), owner({ team: 'green' }), owner({ alive: false }), owner({ alive: 1 }), owner({ hp: 0 }), owner({ hp: 101 }), owner({ hp: '100' }), owner({ x: NaN }), owner({ y: Infinity }), owner({ z: 1000.01 })]) {
+    for (const source of [null, {}, owner({ id: '' }), owner({ id: 'x'.repeat(65) }), owner({ id: 'bad\nname' }), owner({ team: 'green' }), owner({ alive: false }), owner({ alive: 1 }), owner({ hp: 0 }), owner({ hp: 1000.01 }), owner({ hp: '100' }), owner({ x: NaN }), owner({ y: Infinity }), owner({ z: 1000.01 })]) {
       assert.equal(engine.start(source, points(), 1, 1), false); assert.deepEqual(engine.snapshot(), before);
     }
     for (const now of [NaN, Infinity, -1, '1', .999, Number.MAX_VALUE]) assert.equal(engine.start(owner(), points(), now, 1), false);
