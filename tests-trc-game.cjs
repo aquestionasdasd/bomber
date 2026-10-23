@@ -95,7 +95,7 @@ async function main() {
     }
     const clearWalls = () => run('environment.clear();map.colliders.length=0;map.collision=createCollisionIndex(map.colliders)');
     sandbox.createCollisionIndex = createCollisionIndex;
-    return { sandbox, run, seed, wall, clearWalls, reset, elements };
+    return { sandbox, run, seed, wall, clearWalls, reset, elements, listeners };
   }
 
 
@@ -119,6 +119,7 @@ async function main() {
   });
   check('real BOT update follows the A duct to heaven and the B loading route',()=>{
     for(const route of ['attackA','attackB']){setup();local.sandbox.routeName=route;local.run(`
+      Object.assign(match.spike,{status:'carried',carrier:player.id});
       makeBot(map.teamSpawns.attack[0],3,'blue',{id:'blue-3',name:'climber',team:'blue',primary:'vandal',secondary:'classic',armor:0,credits:0,kit:new DuelistKit({character:'nope'})});
       var climber=bots[0];climber.trcRoute={key:routeName,round:match.round,index:0};
       for(var i=0;i<1500;i++){elapsed+=.05;updateBots(.05);}
@@ -153,10 +154,26 @@ async function main() {
     setup();local.run(`{
       const positions=[...map.sites.flatMap(s=>s.plantPositions),tp(27,44.6)];
       for(const p of positions){Object.assign(player,p,{y:0,vy:0});Object.assign(match.spike,{status:'carried',carrier:player.id,plantProgress:0,plantActor:null});interactionHeld=true;updateInteraction(4,true);if(match.spike.status!=='planted'||Math.hypot(match.spike.x-p.x,match.spike.z-p.z)>.001)throw Error('plant failed '+JSON.stringify(p));}
-      Object.assign(player,tp(27,44.6),{y:0,vy:0});Object.assign(match.spike,{status:'carried',carrier:player.id,plantProgress:0,plantActor:null});if(trcInteract())throw Error('door stole plant key');
+      Object.assign(player,tp(27,44.6),{y:0,vy:0});Object.assign(match.spike,{status:'carried',carrier:player.id,plantProgress:0,plantActor:null});updateInteraction(0,true);if($('interaction-key').textContent!=='4')throw Error('door stole plant prompt');
       player.y=3.2;updateInteraction(4,true);if(match.spike.status!=='carried')throw Error('airborne plant');
-      player.y=0;player.team=match.defenderTeam;Object.assign(match.spike,{status:'planted',x:player.x,z:player.z,defuseProgress:0,defuseActor:null,checkpoint:0});if(trcInteract())throw Error('door stole defuse key');updateInteraction(7,true);if(match.spike.status==='planted')throw Error('door prevented defuse');
+      player.y=0;player.team=match.defenderTeam;Object.assign(match.spike,{status:'planted',x:player.x,z:player.z,defuseProgress:0,defuseActor:null,checkpoint:0});updateInteraction(0,true);if($('interaction-key').textContent!=='4')throw Error('door stole defuse prompt');updateInteraction(7,true);if(match.spike.status==='planted')throw Error('door prevented defuse');
     }`);
+  });
+  check('TRC starts with a reachable floor bomber; F opens nearby doors while hold4 plants without movement',()=>{
+    setup();assert.equal(local.run('match.spike.status'),'dropped');assert.equal(local.run('match.spike.carrier'),null);
+    assert.equal(local.run('canStand(match.spike.x,match.spike.z,.34,0)&&buyAreaContains(map.buyAreas.attack,match.spike.x,match.spike.z,.34)'),true);
+    local.run(`match.phase='buy';Object.assign(player,{x:match.spike.x,z:match.spike.z,y:0,vy:0});updateInteraction(.05,true);`);
+    assert.equal(local.run('match.spike.carrier'),local.run('player.id'));
+    local.run(`match.phase='live';Object.assign(player,tp(27,44.6),{y:0,vy:0,vx:3,vz:3});
+      makeBot(map.teamSpawns.defend[0],0,'red',{id:'red-0',team:'red',primary:null,secondary:'classic',armor:0,credits:800,kit:new DuelistKit({character:'nope'})});bots[0].rangeTarget=true;
+      var workX=player.x,workZ=player.z;`);
+    const key=(code,up=false)=>{for(const fn of local.listeners.get(up?'keyup':'keydown')||[])fn({code,repeat:false,preventDefault(){},target:{}});};
+    key('KeyF');assert.equal(local.run('map.traversal.doors[0].open'),true);assert.equal(local.run('interactionHeld'),false);key('KeyF',true);
+    key('KeyW');key('Digit4');local.run('for(var i=0;i<20;i++)updatePlay(.05)');
+    assert.equal(local.run('player.x'),local.run('workX'));assert.equal(local.run('player.z'),local.run('workZ'));
+    assert.ok(local.run('match.spike.plantProgress>.99'));
+    assert.equal(local.run('map.traversal.doors[0].open'),true);
+    key('Digit4',true);local.run('updatePlay(.05)');assert.equal(local.run('match.spike.plantProgress'),0);key('KeyW',true);
   });
   function detonateTrc(){local.run(`Object.assign(match.spike,{status:'planted',x:map.sites[0].x,z:map.sites[0].z,timer:.01});match.tick(.02,{blueAlive:1,redAlive:1,playerAlive:true});handleMatchEvents();`);}
   check('TRC collapse preserves visible ground, releases climbers and removes upper support, routes and door interactions together',()=>{
