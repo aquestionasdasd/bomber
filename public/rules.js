@@ -46,7 +46,7 @@ export class MatchRules {
     s.status='dropped';s.carrier=null;s.x=x;s.z=z;s.plantProgress=0;s.plantActor=null;this.events.push({type:'dropped'});return true;
   }
   pickupSpike(actorId,team,x,z){
-    const s=this.spike;if(this.phase!=='live'||s.status!=='dropped'||team!==this.attackerTeam||Math.hypot(s.x-x,s.z-z)>1.8)return false;
+    const s=this.spike;if(!['buy','live'].includes(this.phase)||!Number.isFinite(x)||!Number.isFinite(z)||s.status!=='dropped'||team!==this.attackerTeam||Math.hypot(s.x-x,s.z-z)>1.8)return false;
     s.status='carried';s.carrier=actorId;this.events.push({type:'pickup',actorId});return true;
   }
   cancelPlant(actorId){const s=this.spike;if(s.plantActor===actorId){s.plantProgress=0;s.plantActor=null;}}
