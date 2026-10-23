@@ -810,7 +810,7 @@ function spawnRound(reset=false) {
   if(reset||!player.alive){inventory={primary:null,secondary:'classic',active:'classic'};player.armor=0;}
   ammoStore={};roundPurchases={};skillPurchaseLedger=new WeakMap();bomberNoticeKey='';bomberNoticeUntil=0;player.alive=true;player.hp=100;reloading=0;round=match.round;timeLeft=match.phaseTime;
   const positions=match.side==='attack'?map.teamSpawns.attack:map.teamSpawns.defend;
-  player.x=positions[0].x;player.z=positions[0].z;player.y=0;player.vy=0;player.vx=0;player.vz=0;
+  player.x=positions[0].x;player.z=positions[0].z;player.y=0;player.vy=0;player.vx=0;player.vz=0;player.crouch=0;
   player.yaw=map.spawnYaw?.[match.side]??(match.side==='attack'?0:Math.PI);player.pitch=0;player.recoil=0;renderedRecoil=0;resetMouseLook();
   player.dash=1;player.scan=1;scanTime=0;roundWait=0;shotSequence=0;lastShot=-10;
   stepClock=0;
@@ -1149,11 +1149,12 @@ function updateTravelButtons(){
   const trial=document.createElement('button');trial.type='button';trial.textContent='キャラ能力を試す';trial.disabled=!exploring||!!rangeSession;
   trial.addEventListener('click',startCharacterTrial);container.append(trial);
 }
-function canStand(x,z,r=.34,feet=player.y) {
+function actorBodyHeight(actor){return 1.7-clamp(Number.isFinite(actor.crouch)?actor.crouch:0,0,1)*.55;}
+function canStand(x,z,r=.34,feet=player.y,height=1.7) {
   const b=activeArenaBounds();
   if(x<b.minX+r||x>b.maxX-r||z<b.minZ+r||z>b.maxZ-r)return false;
   // Ground details under 2 cm are harmless; raised solids require feet above their real top.
-  return !map.collision.blocked(x,z,r,feet);
+  return !map.collision.blocked(x,z,r,feet,height);
 }
 function rampFloor(x,z) {
   let floor=null;
@@ -1186,14 +1187,14 @@ function moveEntity(entity,dx,dz,r=.34) {
         // Only ankle-height ledges can be stepped onto; crates still require jumping.
         for(const c of map.collision.query(x,z,r))if(c.height>feet&&c.height<=entity.y+.22&&map.collision.overlaps(c,x,z,r))feet=c.height;
       }
-      if(canStand(x,z,r,feet)){entity.x=x;entity.z=z;if(followsFloor)entity.y=feet;}
+      if(canStand(x,z,r,feet,actorBodyHeight(entity))){entity.x=x;entity.z=z;if(followsFloor)entity.y=feet;}
     }
     attempt(entity.x+dx/n,entity.z);
     attempt(entity.x,entity.z+dz/n);
   }
 }
 function visibleBetween(a,b) {
-  const eye=entity=>(entity.y||0)+1.45-(entity===player?player.crouch*.5:0);
+  const eye=entity=>(entity.y||0)+actorBodyHeight(entity)-.25;
   return !smokeBlocks(a,b)&&map.collision.rayClear(a.x,eye(a),a.z,b.x,eye(b),b.z)&&(!map.traffic||map.traffic.rayClear({x:a.x,y:eye(a),z:a.z},{x:b.x,y:eye(b),z:b.z},elapsed));
 }
 function safeDropPoint(entity=player){
@@ -2088,7 +2089,7 @@ function drawMinimap(target,large=false){
 }
 
 function enemyRimFor(bot){const viewerTeam=!player.alive&&spectatedBot?spectatedBot.team:player.team;return mode!=='menu'&&(viewerTeam==='blue'||viewerTeam==='red')&&(bot.team==='blue'||bot.team==='red')&&bot.team!==viewerTeam;}
-function agentEquipment(bot){const weapon=bot.remoteId?bot.netWeapon:bot.netTarget?.weapon||bot.record?.primary||bot.record?.secondary||"classic";return {weapon,character:bot.kit?.character||bot.netTarget?.kit?.character||'duelist',ultimate:bot.kit?.knivesActive&&weapon==="knife",knives:bot.kit?.knives||0,shotSequence:bot.netTarget?.shotSequence??bot.shotSequence??0,enemyRim:enemyRimFor(bot),sliding:frostSlideSpeed(bot)>0&&!!bot.moving,...roundDanceState(match,bot),...(reducedMotion.matches?{danceTime:0}:{})};}
+function agentEquipment(bot){const weapon=bot.remoteId?bot.netWeapon:bot.netTarget?.weapon||bot.record?.primary||bot.record?.secondary||"classic";return {weapon,character:bot.kit?.character||bot.netTarget?.kit?.character||'duelist',ultimate:bot.kit?.knivesActive&&weapon==="knife",knives:bot.kit?.knives||0,shotSequence:bot.netTarget?.shotSequence??bot.shotSequence??0,enemyRim:enemyRimFor(bot),crouch:bot.crouch||0,sliding:frostSlideSpeed(bot)>0&&!!bot.moving,...roundDanceState(match,bot),...(reducedMotion.matches?{danceTime:0}:{})};}
 function updateBots(dt){
   const cfg=levels[difficulty]||levels.normal;
   if(!isGuest())navigation.updateTraffic?.(elapsed);
@@ -2442,7 +2443,7 @@ function updateBots(dt){
           if(spec.mag>0&&!spec.arsenal&&ordinarySkills.capLocked?.(bot.id,elapsed))chance*=CAP_SKILLS.lockAimScale;
           const hit=Math.random()<chance,head=hit&&Math.random()<.065+cfg.aim*.07;
           const from=new THREE.Vector3(bot.x,(bot.y||0)+1.2,bot.z);
-          const to=new THREE.Vector3(enemy.x,(enemy.y||0)+(head?1.62:1.15),enemy.z);
+          const to=new THREE.Vector3(enemy.x,(enemy.y||0)+(head?1.62:1.15)-(enemy.crouch||0)*.55,enemy.z);
           if(!hit){to.x+=(Math.random()-.5)*1.8;to.y+=(Math.random()-.5)*.8;}
           if(spec.arsenal){fireArsenal(bot,from,to.clone().sub(from).normalize(),spec,!bot.moving);sound('enemy',{weapon:weaponId,entity:bot});}
           else{
@@ -2535,13 +2536,13 @@ function updateActorVertical(actor,dt,radius=.34){
     const flight=duckFlight(actor);
     const verticalSteps=Math.max(1,Math.ceil(dt*120)),verticalDt=dt/verticalSteps;
     for(let i=0;i<verticalSteps;i++){
-      const previousFeet=actor.y,nextFeet=previousFeet+actor.vy*verticalDt-7.5*verticalDt*verticalDt;
+      const height=actorBodyHeight(actor),previousFeet=actor.y,nextFeet=previousFeet+actor.vy*verticalDt-7.5*verticalDt*verticalDt;
       actor.vy-=15*verticalDt;let support=0,ceiling=flight?Math.min(11,flight.y+DUCK_SKILLS.flightHeight):Infinity;
       if(nextFeet>previousFeet){
         for(const c of map.collision.query(actor.x,actor.z,radius)){
           const underside=c.base||0;
-          if(previousFeet+1.7>underside+.00001||nextFeet+1.7<underside)continue;
-          if(map.collision.overlaps(c,actor.x,actor.z,radius))ceiling=Math.min(ceiling,underside-1.7);
+          if(previousFeet+height>underside+.00001||nextFeet+height<underside)continue;
+          if(map.collision.overlaps(c,actor.x,actor.z,radius))ceiling=Math.min(ceiling,underside-height);
         }
       }
       if(actor.vy<=0){
@@ -2586,9 +2587,10 @@ function updatePlay(dt){
   const moveX=-Math.sin(yaw)*forward+Math.cos(yaw)*side,moveZ=-Math.cos(yaw)*forward-Math.sin(yaw)*side;
   const len=Math.hypot(moveX,moveZ);
   const slideSpeed=frostSlideSpeed(player),crouching=controlled&&(slideSpeed>0||keys.has('KeyV')||keys.has('ControlLeft')||keys.has('ControlRight')||keys.has('TouchCrouch'));
-  player.crouch=THREE.MathUtils.lerp(player.crouch,crouching?1:0,Math.min(1,dt*12));
+  const nextCrouch=THREE.MathUtils.lerp(player.crouch,crouching?1:0,1-Math.exp(-dt*16));
+  if(nextCrouch>=player.crouch||canStand(player.x,player.z,.34,player.y,1.7-nextCrouch*.55))player.crouch=nextCrouch;
   const walking=keys.has('ShiftLeft')||keys.has('ShiftRight');
-  const slow=actorSpeedScale(player),speed=(slideSpeed|| (crouching?1.8:(walking?2.8:inventory.active==='knife'?6.3:5.4)*1.15))*(aiming?.78:1)*slow;
+  const slow=actorSpeedScale(player),speed=(slideSpeed|| (crouching||player.crouch>.5?1.8:(walking?2.8:inventory.active==='knife'?6.3:5.4)*1.15))*(aiming?.78:1)*slow;
   const desiredX=moveX/Math.max(1,len)*speed,desiredZ=moveZ/Math.max(1,len)*speed;
   if(controlled&&!slideSpeed){
     // Adapted from collaborator PR44: vector acceleration, release inertia,
@@ -2616,7 +2618,7 @@ function updatePlay(dt){
   if(player.alive&&!player.carMotion&&!busSeat()){
     if(player.dashTimer>0){const step=Math.min(dt,player.dashTimer);moveEntity(player,player.dashVec.x*(12/.18)*step,player.dashVec.z*(12/.18)*step);player.dashTimer-=step;player.vx=0;player.vz=0;}else moveEntity(player,player.vx*dt,player.vz*dt);
     updateActorVertical(player,dt);
-    const running=controlled&&(slideSpeed>0||!walking&&!crouching)&&player.vy===0&&Math.hypot(player.x-previousX,player.z-previousZ)>dt*2;
+    const running=controlled&&(slideSpeed>0||!walking&&!crouching&&player.crouch<.5)&&player.vy===0&&Math.hypot(player.x-previousX,player.z-previousZ)>dt*2;
     stepClock=running?stepClock+dt:0;
     if(stepClock>.35){stepClock=0;sound('step');}
     if(previousVy<-.8&&player.vy===0&&previousY>player.y+.005)sound('land');
@@ -2639,7 +2641,7 @@ function updatePlay(dt){
   }
   else{
     const team=bots.filter(b=>b.alive&&b.team===player.team);const watched=team[spectateIndex%Math.max(1,team.length)];
-    if(watched){spectatedBot=watched;watched.group.visible=false;camera.position.set(watched.x,1.65+(watched.y||0),watched.z);camera.rotation.set(0,watched.group.rotation.y+Math.PI,0);$('spectator-hint').textContent=`${watched.record.name} を観戦中 · クリックで切り替え`;}
+    if(watched){spectatedBot=watched;watched.group.visible=false;camera.position.set(watched.x,1.65+(watched.y||0)-(watched.crouch||0)*.55,watched.z);camera.rotation.set(0,watched.group.rotation.y+Math.PI,0);$('spectator-hint').textContent=`${watched.record.name} を観戦中 · クリックで切り替え`;}
     else $('spectator-hint').textContent='倒されました · 次のラウンドで復帰します';
     setVisible('spectator-hint',true);
   }
@@ -2664,7 +2666,7 @@ function updatePlay(dt){
   if(botThinkTick<=0){botThinkTick=.25;const front=new THREE.Vector3();camera.getWorldDirection(front);for(const bot of bots){if(bot.team===player.team||!bot.alive)continue;const offset=new THREE.Vector3(bot.x-player.x,0,bot.z-player.z);if(player.alive&&offset.length()<42&&offset.normalize().dot(front)>.55&&visibleBetween(player,bot))bot.spottedUntil=elapsed+.6;}}
   if(!exploring&&!isGuest()){match.tick(dt,{clockPaused:match.phase==='live'&&ordinarySkills.clockFrozen(elapsed),blueAlive:aliveCount('blue'),redAlive:aliveCount('red'),playerAlive:player.alive});handleMatchEvents();}
   timeLeft=match.phase==='buy'||match.phase==='post'?match.phaseTime:match.spike.status==='planted'?match.spike.timer:match.roundTime;
-  viewmodel.update(dt,{character:player.kit.character,scoped,aiming:aiming&&controlled,reloading,reloadDuration:player.serviceReload?EMBER_SKILLS.serviceDuration:weapon().reload,kick,moving:len>0,time:elapsed,crouching:player.crouch,interacting:interactionHeld&&controlled,ultimate:player.kit.knivesActive&&inventory.active==='knife',knives:player.kit.knives,shotSequence});
+  viewmodel.update(dt,{character:player.kit.character,scoped,aiming:aiming&&controlled,reloading,reloadDuration:player.serviceReload?EMBER_SKILLS.serviceDuration:weapon().reload,kick,moving:Math.hypot(player.vx,player.vz)>.5,time:elapsed,crouching:player.crouch,interacting:interactionHeld&&controlled,ultimate:player.kit.knivesActive&&inventory.active==='knife',knives:player.kit.knives,shotSequence});
   flash.visible=player.alive&&inventory.active!=='knife'&&elapsed-lastShot<.045;flash.rotation.z=elapsed*40;
   const s=match.spike;spikeModel.position.set(s.x,0,s.z);objectiveModel.update({time:elapsed,...s,practice:!!objectivePractice});
   if(s.status==='planted'&&!objectivePractice){
@@ -2806,6 +2808,7 @@ async function copyPartyCode(){
 function receiveNetPacket(from,packet){
   if(!onlinePlaying||!packet||!Number.isSafeInteger(packet.seq)||packet.seq<1)return;
   if(online.host){
+    if(packet.input?.crouch!==undefined&&(!Number.isFinite(packet.input.crouch)||packet.input.crouch<0||packet.input.crouch>1))return;
     const id=netParticipants.get(from);if(!id||id==='player'||packet.type!=='input')return;
     const previous=netInputs.get(from),connection=typeof packet.connection==='string'&&packet.connection.length<=64?packet.connection:'legacy';
     const previousConnection=previous?.connection||'legacy',retired=new Set(previous?.retiredConnections||[]),changed=previous&&connection!==previousConnection;
@@ -2819,7 +2822,7 @@ function receiveNetPacket(from,packet){
 function captureNetActor(actor){
   const local=actor===player,record=local?roster[0]:actor.record;
   return{id:actor.id,team:actor.team,x:actor.x,z:actor.z,y:actor.y||0,yaw:local?player.yaw:actor.remoteId?(actor.netYaw||0):actor.group.rotation.y-Math.PI,
-    hp:actor.hp,armor:actor.armor,alive:actor.alive,moving:local?Math.hypot(player.vx,player.vz)>.5:!!actor.moving,
+    hp:actor.hp,armor:actor.armor,alive:actor.alive,...(Number.isFinite(actor.crouch)&&actor.crouch>.0005?{crouch:Math.round(Math.min(1,actor.crouch)*1000)/1000}:{}),moving:local?Math.hypot(player.vx,player.vz)>.5:!!actor.moving,
     weapon:local?inventory.active:actor.netWeapon||record?.primary||record?.secondary||'classic',primary:local?inventory.primary:record?.primary,secondary:local?inventory.secondary:record?.secondary,
     ammo:local?player.ammo:actor.remoteId?actor.netAmmo:actor.aiAmmo,reserve:local?player.reserve:actor.remoteId?actor.netReserve:actor.aiReserve,reloading:local?reloading:actor.remoteId?actor.netReload||0:actor.aiReload||0,credits:local?match.credits:record?.credits||0,
     ...(carMotionActive(actor)?{carMove:[actor.carMotion.id,actor.carMotion.phase,actor.carMotion.endsAt,...[actor.carMotion.vx,actor.carMotion.vz,actor.vy||0].map(n=>Math.round(n*1000)/1000)]}:{}),...(actor.trafficLaunch?{trafficHit:[actor.trafficLaunch.seq,actor.trafficLaunch.endsAt,actor.trafficLaunch.vx,actor.trafficLaunch.vz,actor.vy||0]}:{}),
@@ -2845,6 +2848,7 @@ function applyNetPurchaseFeedback(packet,self,fresh,ack){
 function applyNetSnapshot(packet){
   if((packet.mapId||'hashimoto')!==(map.id||'hashimoto'))return;
   if(!packet.rules||!Array.isArray(packet.actors)||packet.actors.length>10||!Array.isArray(packet.roster)||!Number.isFinite(packet.time))return;
+  if(packet.actors.some(a=>!a||a.crouch!==undefined&&(!Number.isFinite(a.crouch)||a.crouch<0||a.crouch>1)))return;
   const ownId=netParticipants.get(online.session.memberId),self=packet.actors.find(a=>a.id===ownId);if(!self)return;
   if(map.destruction&&!map.destruction.valid(packet.busDamage??''))return;
   if(map.traffic&&!map.traffic.service.restore(packet.busTransit||[],packet.actors.map(a=>a.id),packet.time))return;
@@ -2861,8 +2865,8 @@ if(map.destruction){if(fresh||!packet.busDamage)map.destruction.reset();map.dest
   const stopped=fresh||wasAlive&&!self.alive||previousPhase!==match.phase&&['post','match'].includes(match.phase);
   if(stopped||wasPaused!==Boolean(packet.paused))clearCombatInput();
   if(mode==='shop'&&match.phase!=='buy')resumeGame();
-  if(fresh){victoryMusic.reset();lastRoundAudio='';Object.assign(dashFeedback,{round:null,state:null,expires:0,charge:null,signatureAt:0});clearBots();clearDrops();resetDetonation();resetTakeover();resetTeamAbilities();netPositionHistory.clear();netPositionAck=0;netPositionCorrectionX=0;netPositionCorrectionZ=0;player.x=self.x;player.z=self.z;player.y=self.y;player.vy=0;player.yaw=self.yaw;player.pitch=0;player.recoil=0;renderedRecoil=0;player.vx=0;player.vz=0;player.dashTimer=0;player.dashVec=null;player.netPredictDashUntil=0;netRound=match.round;setVisible('round-banner',false);for(const [id,endsAt]of retainedFrostStops)stoppedFrostEvents.set(id,endsAt);}
-  else if(!wasAlive&&self.alive){player.x=self.x;player.y=self.y;player.z=self.z;player.vy=0;player.vx=0;player.vz=0;player.dashTimer=0;netPositionHistory.clear();netPositionAck=packet.positionAcks?.[online.session.memberId]?.seq||0;netPositionCorrectionX=0;netPositionCorrectionZ=0;clearCombatInput();showMessage('総動員','開始地点へ復帰しました',3);}
+  if(fresh){victoryMusic.reset();lastRoundAudio='';Object.assign(dashFeedback,{round:null,state:null,expires:0,charge:null,signatureAt:0});clearBots();clearDrops();resetDetonation();resetTakeover();resetTeamAbilities();netPositionHistory.clear();netPositionAck=0;netPositionCorrectionX=0;netPositionCorrectionZ=0;player.x=self.x;player.z=self.z;player.y=self.y;player.vy=0;player.yaw=self.yaw;player.pitch=0;player.recoil=0;renderedRecoil=0;player.vx=0;player.vz=0;player.crouch=self.crouch||0;player.dashTimer=0;player.dashVec=null;player.netPredictDashUntil=0;netRound=match.round;setVisible('round-banner',false);for(const [id,endsAt]of retainedFrostStops)stoppedFrostEvents.set(id,endsAt);}
+  else if(!wasAlive&&self.alive){player.x=self.x;player.y=self.y;player.z=self.z;player.vy=0;player.vx=0;player.vz=0;player.crouch=self.crouch||0;player.dashTimer=0;netPositionHistory.clear();netPositionAck=packet.positionAcks?.[online.session.memberId]?.seq||0;netPositionCorrectionX=0;netPositionCorrectionZ=0;clearCombatInput();showMessage('総動員','開始地点へ復帰しました',3);}
   else if(!(player.netPredictDashUntil>elapsed)&&!carMotionMarker(self.carMove,packet.time)&&!carMotionActive(player)&&!(player.carRecoveryUntil>elapsed)){
     const positionAck=packet.positionAcks?.[online.session.memberId],sent=positionAck&&netPositionHistory.get(positionAck.seq);
     if(sent&&positionAck.seq>netPositionAck&&positionAck.round===match.round&&positionAck.connection===(online.connectionId||'legacy')&&[positionAck.x,positionAck.z].every(Number.isFinite)){
@@ -2872,7 +2876,7 @@ if(map.destruction){if(fresh||!packet.busDamage)map.destruction.reset();map.dest
       let dx=positionAck.x-sent.x-(netPositionCorrectionX-sent.correctionX),dz=positionAck.z-sent.z-(netPositionCorrectionZ-sent.correctionZ);
       if(Math.hypot(dx,dz)>1e-5){
         const x=player.x+dx,z=player.z+dz;
-        if(Math.hypot(positionAck.x-sent.x,positionAck.z-sent.z)>2||!canStand(x,z,.34,player.y)||!map.collision.segmentClear(player.x,player.z,x,z,.34,player.y)){dx=self.x-player.x;dz=self.z-player.z;player.y=self.y;}
+        if(Math.hypot(positionAck.x-sent.x,positionAck.z-sent.z)>2||!canStand(x,z,.34,player.y,actorBodyHeight(player))||!map.collision.segmentClear(player.x,player.z,x,z,.34,player.y,actorBodyHeight(player))){dx=self.x-player.x;dz=self.z-player.z;player.y=self.y;}
         player.x+=dx;player.z+=dz;netPositionCorrectionX+=dx;netPositionCorrectionZ+=dz;
       }
       netPositionAck=positionAck.seq;for(const seq of netPositionHistory.keys())if(seq<=positionAck.seq)netPositionHistory.delete(seq);
@@ -2956,7 +2960,7 @@ if(map.destruction){if(fresh||!packet.busDamage)map.destruction.reset();map.dest
     if(!actor){makeBot(state,Number(state.id.split('-')[1])||0,state.team,roster.find(r=>r.id===state.id));actor=bots[bots.length-1];actor.id=state.id;actor.x=state.x;actor.z=state.z;actor.y=state.y;}
     if(actor.alive&&!state.alive)actor.death=.85;
     if(!actor.alive&&state.alive){actor.death=0;actor.group.visible=true;actor.x=state.x;actor.y=state.y;actor.z=state.z;}
-    actor.hp=state.hp;actor.armor=state.armor;actor.alive=state.alive;actor.moving=state.moving;actor.netTarget=state;actor.carMotion=carMotionMarker(state.carMove,packet.time);if(actor.carMotion)actor.carMotion.team=state.team;actor.planting=state.planting;actor.defusing=state.defusing;actor.flash=state.flash?.07:0;actor.shotSequence=state.shotSequence||0;
+    actor.crouch=state.crouch||0;actor.hp=state.hp;actor.armor=state.armor;actor.alive=state.alive;actor.moving=state.moving;actor.netTarget=state;actor.carMotion=carMotionMarker(state.carMove,packet.time);if(actor.carMotion)actor.carMotion.team=state.team;actor.planting=state.planting;actor.defusing=state.defusing;actor.flash=state.flash?.07:0;actor.shotSequence=state.shotSequence||0;
     if(state.kit&&actor.kit)actor.kit.restore(state.kit);
   }
   if(busSeat()){map.traffic.service.place(player,elapsed);player.vx=player.vz=player.vy=0;}
@@ -2979,6 +2983,8 @@ function updateRemoteActor(actor,dt){
     const distance=Math.hypot(dx,dz),limit=(actor.dashTimer>0?12/.18:(frostSlideSpeed(actor,inputGrounded)||(input.quiet===true?2.8:7)*1.15)*actorSpeedScale(actor,inputGrounded))*dt;
     if(distance>limit){dx*=limit/distance;dz*=limit/distance;}
     if(match.phase==='buy'){const area=map.buyAreas[actor.team===match.attackerTeam?'attack':'defend'];if(Math.hypot(actor.x+dx-area.x,actor.z+dz-area.z)>area.radius-.4){dx=0;dz=0;}}
+    const requestedCrouch=frostSlideSpeed(actor)>0?1:Number.isFinite(input.crouch)?clamp(input.crouch,0,1):0;
+    if(requestedCrouch>=(actor.crouch||0)||canStand(actor.x,actor.z,.34,actor.y||0,1.7-requestedCrouch*.55))actor.crouch=requestedCrouch;
     moveEntity(actor,dx,dz);
     const blocked=Math.hypot(actor.x-previousX-dx,actor.z-previousZ-dz)>1e-5;
     if(!wasDashing&&actor.netDashInputSequence!==data.seq&&(Math.hypot(input.x-actor.x,input.z-actor.z)<1e-5||blocked||distance>2))actor.netPositionAck={seq:data.seq,connection:data.connection,round:data.round,x:actor.x,z:actor.z};
@@ -2986,12 +2992,12 @@ function updateRemoteActor(actor,dt){
       const floor=inputGrounded?getZoneFloor(actor.x,actor.z,Math.max(actor.y,inputFeet)+.22):null;
       // A capped stair input follows support at the accepted XZ, not the feet
       // height of a point the host has not reached yet.
-      let acceptedY=floor!==null&&Math.abs(floor-inputFeet)<=.45&&canStand(actor.x,actor.z,.34,floor)?floor:inputFeet;
+      let acceptedY=floor!==null&&Math.abs(floor-inputFeet)<=.45&&canStand(actor.x,actor.z,.34,floor,actorBodyHeight(actor))?floor:inputFeet;
       const flight=duckFlight(actor);
       if(flight){
         acceptedY=Math.min(acceptedY,flight.y+DUCK_SKILLS.flightHeight,previousY+DUCK_SKILLS.flapVelocity*dt);
         if(acceptedY>previousY)for(const c of map.collision.query(actor.x,actor.z,.34)){
-          const underside=c.base||0;if(previousY+1.7<=underside+.00001&&acceptedY+1.7>=underside&&map.collision.overlaps(c,actor.x,actor.z,.34))acceptedY=Math.min(acceptedY,underside-1.7);
+          const underside=c.base||0,height=actorBodyHeight(actor);if(previousY+height<=underside+.00001&&acceptedY+height>=underside&&map.collision.overlaps(c,actor.x,actor.z,.34))acceptedY=Math.min(acceptedY,underside-height);
         }
       }
       actor.y=acceptedY;
@@ -3000,7 +3006,6 @@ function updateRemoteActor(actor,dt){
       actor.vy=inputGrounded?0:(actor.y-previousY)/Math.max(dt,1e-6);
     }
     applyStarHold(actor);
-    actor.crouch=frostSlideSpeed(actor)>0?1:clamp(Number(input.crouch)||0,0,1);
     actorMovementScale(actor);
     actor.netYaw=Number.isFinite(input.yaw)?input.yaw:0;actor.netPitch=clamp(Number(input.pitch)||0,-1.35,1.35);actor.group.rotation.y=actor.netYaw+Math.PI;
   }
@@ -3110,7 +3115,7 @@ function tickOnline(dt){
     const rules={format:match.format,startingSide:match.startingSide,round:match.round,score:{...match.score},phase:match.phase,phaseTime:match.phaseTime,roundTime:match.roundTime,winner:match.winner,lastRound:match.lastRound?{...match.lastRound}:null,spike:{...match.spike}};
     if(rules.lastRound&&match.phase!=='post')delete rules.lastRound.fullCombo;
     const teamState=teamAbilities.snapshot(),packet={type:'snapshot',mapId:map.id||'hashimoto',seq:++netSequence,time:elapsed,paused:netHostPaused,cues:serializeNetCues(),smokes:serializeSmokes(),drops:serializeDrops(),detonation:detonationState?{...detonationState}:null,takeover:takeoverState?{...takeoverState}:null,zoneAbilities:zoneAbilities.snapshot(),...(map.traffic?{busTransit:map.traffic.service.snapshot([player,...bots].map(a=>a.id)),...(map.destruction?.snapshot()?{busDamage:map.destruction.snapshot()}:{})}:{}),rules,roster:roster.map(r=>({...r,kit:r.kit?.snapshot()})),actors:[player,...bots].map(captureNetActor),acks:Object.fromEntries(netApplied),positionAcks:Object.fromEntries(bots.filter(b=>b.remoteId&&b.netPositionAck).map(b=>[b.remoteId,{...b.netPositionAck}]))};
-    for(const team of ['blue','red']){let state={...packet,teamAbilities:{...teamState,pings:teamState.pings.filter(ping=>ping.observerTeam===team)},ordinarySkills:ordinarySkills.snapshot(team),nopeDecoys:nopeDecoys.snapshot(),nopePops:serializeNopePops()};if(map.traffic||[player,...bots].some(carMotionActive)||match.phase==='post'||state.cues.some(c=>c.type==='skill-hit'||c.type==='skill-heal'))state=fitTrafficSnapshot(state);if(state)online.send(state,{team});}
+    for(const team of ['blue','red']){let state={...packet,teamAbilities:{...teamState,pings:teamState.pings.filter(ping=>ping.observerTeam===team)},ordinarySkills:ordinarySkills.snapshot(team),nopeDecoys:nopeDecoys.snapshot(),nopePops:serializeNopePops()};if(map.traffic||packet.actors.some(a=>a.crouch>0)||[player,...bots].some(carMotionActive)||match.phase==='post'||state.cues.some(c=>c.type==='skill-hit'||c.type==='skill-heal'))state=fitTrafficSnapshot(state);if(state)online.send(state,{team});}
   }else if(netHasSnapshot){
     const seq=++netSequence,input={x:player.x,z:player.z,y:player.y,yaw:player.yaw,pitch:player.pitch,crouch:player.crouch,quiet:keys.has('ShiftLeft')||keys.has('ShiftRight'),interact:mode==='play'&&interactionHeld,...(busDriving()?{bus:busControls(player.id)}:{})};
     netPositionHistory.set(seq,{x:input.x,z:input.z,correctionX:netPositionCorrectionX,correctionZ:netPositionCorrectionZ});while(netPositionHistory.size>128)netPositionHistory.delete(netPositionHistory.keys().next().value);
