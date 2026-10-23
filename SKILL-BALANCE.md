@@ -1,3 +1,15 @@
+## 第95巡 / 青ウニEを壁抜けの暗闇波へ
+
+人間指定で弾→コイン交換を廃止し「深潮のまなざし」へ。E構え→照準方向へ左確定/右取消。0.25秒後、幅4mの波が24m/sで36mを直進し壁/煙を貫通。触れた敵と味方に3秒・8mの近視、本人除外、横避け/近距離/キャップQ解除で対処可能。弾/コイン/HP/移動/聴覚を変えず18秒CD。全15人比較と公式オーメン操作の参考はURCHIN-E-REVIEW.md。C/Q/Xと他キャラを保持。
+
+hostのみ掃引接触し一発各人一回、guestはCDだけ予測。新strict16field波/既存7field blindレコードを用い、白閃光と近視は別保持・総20件。20event拒否rollback/死亡team次R清掃/重複・古いJSON/再参加/観戦/スコープ/遠隔視点の制限を検査。旧urchin-pearlは旧データ互換だけ。波4draw/8棘を有限管理、音素材/HTTP頻度/地形/物理/52命中面不変。
+
+実updatePlay一frame一回の24組48独立5v5round、両map攻守seed7–12/精鋭/全Vandal50armor満在庫7pt、青本人E有効無効。本人E17対0、敵命中14/味方誤爆1、対象team勝利12対14、本人生存9対10/撃破21対20/与ダメ3896.874903243014対3776.2383253897992。本人設置1対1/電源オフ0対1。全チーム設置22対22/電源オフ6対8は本人貢献ではない。小標本/武器経済偏り/発動後PRNG分岐を保持し、勝率改善の実証とも旧Eとの同標本比較とも扱わない。raw/集計はworkspace cycle95-urchin-after.json/cycle95-balance-summary.json。全15人調整未完了。
+
+新契約8/実savedgame8/3memory故障、既存青ウニ5+実game15/C10+契約5+故障4、通常55/CAP8+実game22、知覚8/戦術14行と実地4seed、測定8、SQLite20（新20波+20近視65460B、最大65522/65536B）、演出8/録音mock4、本番build5成功。全main反復なし。新overlay fixtureが描画関数を呼んでいなかった件、敵を味方観戦としたfixture、旧Eの弾・金額期待を修正し製品ルールを緩めない。
+
+所有hidden local191は初手SOUND OFFfalse/AX0。タイトル新E全説明、構え/右取消/左確定、壁方向へ移動する波を実確認warn/error0。近視の受け手視界・8m/3秒/実同期は独立savedgameであり実browser対戦ではない。191閉鎖/8055listener0/NOPEhashimotostandardattacknormal復元、ユーザー既存タブ/OS/他アプリ不操作、試聴なし。新実2タブ/スマホ/異家庭/10実機/聴感は未確認。公開とGitHubの最終確定はworkspace cycle95-release.jsonを正本とする。
+
 ## 第79巡 / BOT比較の部分tickを実ゲームのフルフレームへ訂正
 
 - 計測用scripts/bot-balance.cjsがupdateBots/updateTrafficを手動で呼び、トミカのupdateCarMotionsを呼んでいなかった。第78巡32roundの強さ評価は無効としてworkspace cycle78-release.jsonへ追記、旧rawは保存。実ゲームの18契約試験と公開ソロの観察を無効にした意味ではない。

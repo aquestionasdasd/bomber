@@ -466,21 +466,45 @@ async function main() {
       const{fitTrafficSnapshot}=await import(pathToFileURL(path.join(__dirname,'public/traffic-state.js')).href);
       const full=JSON.parse(JSON.stringify(snapshot));for(const actor of full.actors)actor.trafficHit=[99999,now+.8,17.123456,16.123456,5.6];
       full.cues.push(...Array.from({length:30},(_,i)=>({...full.cues[0],seq:100+i})));
+      const gloomy=JSON.parse(JSON.stringify(full)),gloomPool=createCharacterSkills();
+      for(let i=0;i<20;i++)assert.ok(gloomPool.cast('urchin-gloom',{...player,id:'g'.repeat(62)+String(i).padStart(2,'0')},{x:player.x,y:(player.y||0)+1.7,z:player.z-36},now,1));
+      gloomy.ordinarySkills.events=gloomPool.snapshot().events.map((e,i)=>({...e,id:`skill-urchin-gloom-${999999999999980+i}`}));
+      gloomy.ordinarySkills.blinds=gloomy.ordinarySkills.blinds.map((b,i)=>({...b,eventId:`skill-urchin-gloom-${999999999999980+i}`,startedAt:now,endsAt:now+3}));
+      for(const b of gloomy.ordinarySkills.blinds)delete b.resisted;
+      assert.ok(createCharacterSkills().restore(gloomy.ordinarySkills,now,1));const gloomFit=fitTrafficSnapshot(gloomy);assert.ok(gloomFit);assert.deepEqual(gloomFit.ordinarySkills,gloomy.ordinarySkills);assert.deepEqual(gloomFit.actors,gloomy.actors);assert.ok(Buffer.byteLength(JSON.stringify(gloomFit))<=65536);clock+=200;assert.equal((await send(host,'team:red','game',gloomFit)).status,201);console.log(`GLOOM20 +NEARSIGHT20 capacity ${Buffer.byteLength(JSON.stringify(gloomFit))}B /65536B; authority retained`);
       const limited=fitTrafficSnapshot(full);assert.ok(limited);assert.ok(limited.cues.length<full.cues.length);assert.deepEqual(limited.actors,full.actors);assert.deepEqual(limited.ordinarySkills,full.ordinarySkills);assert.deepEqual(limited.rules,full.rules);assert.ok(Buffer.byteLength(JSON.stringify(limited))<=65536);clock+=200;assert.equal((await send(host,'team:red','game',limited)).status,201);console.log(`HIRAKATA simultaneous10 launches full wire ${Buffer.byteLength(JSON.stringify(limited))}B /65536B; only old cosmetic cues reduced`);
       const driven={...full,busTransit:[[0,0,0,now+25,29.123,-35.789,-1.571,17,[0,1,2]],[1,0,3,now+25,1.234,32.456,1.571,17,[3,4,5]],[2,0,6,now+25,31.456,-36.123,1.571,17,[6,7]],[3,0,8,now+25,3.456,33.123,1.571,17,[8,9]]]};
       for(const actor of driven.actors)Object.assign(actor,{hp:1000,armor:500});
       const busFit=fitTrafficSnapshot(driven);assert.ok(busFit);assert.deepEqual(busFit.busTransit,driven.busTransit);assert.deepEqual(busFit.actors,driven.actors);assert.deepEqual(busFit.ordinarySkills,driven.ordinarySkills);assert.ok(Buffer.byteLength(JSON.stringify(busFit))<=65536);clock+=200;assert.equal((await send(host,'team:red','game',busFit)).status,201);console.log(`BUS4 /10 riders / full skills capacity ${Buffer.byteLength(JSON.stringify(busFit))}B /65536B`);
       const queued={...driven,busDamage:'ff'.repeat(10)+'03',busTransit:driven.busTransit.map((v,i)=>[i,100,-1,0,v[4],v[5],v[6],0,v[8],now-12.345])};
       const queuedFit=fitTrafficSnapshot(queued);assert.ok(queuedFit);assert.deepEqual(queuedFit.busDamage,queued.busDamage);assert.deepEqual(queuedFit.busTransit,queued.busTransit);assert.deepEqual(queuedFit.actors,queued.actors);assert.deepEqual(queuedFit.ordinarySkills,queued.ordinarySkills);clock+=200;assert.equal((await send(host,'team:red','game',queuedFit)).status,201);console.log(`BUS4 QUEUED /82 destroyed props /10 boosted riders ${Buffer.byteLength(JSON.stringify(queuedFit))}B /65536B; authority retained`);
+      const allBays={...queued,busDamage:'ff'.repeat(32)};const allBaysFit=fitTrafficSnapshot(allBays);assert.ok(allBaysFit);assert.equal(allBaysFit.busDamage,allBays.busDamage);assert.deepEqual(allBaysFit.actors,allBays.actors);assert.deepEqual(allBaysFit.busTransit,allBays.busTransit);assert.deepEqual(allBaysFit.ordinarySkills,allBays.ordinarySkills);clock+=200;assert.equal((await send(host,'team:red','game',allBaysFit)).status,201);console.log(`BUS4 queued /max256 demolition bits /10 boosted actors ${Buffer.byteLength(JSON.stringify(allBaysFit))}B /65536B`);
 
       // Ten crouched actors must still fit with the full bus/effect state.
       for(const actor of actors)actor.crouch=.987654321;
       sent.length=0;sandbox.map={id:'hashimoto'};vm.runInContext('tickOnline(.1)',sandbox);
       assert.equal(sent.length,2);assert.ok(sent.every(s=>s.packet.actors.every(a=>a.crouch===.988)));
-      const crouched=fitTrafficSnapshot({...queued,actors:sent[1].packet.actors.map(a=>({...a,hp:1000,armor:500,trafficHit:[99999,now+.8,17.123456,16.123456,5.6]}))});
+      const crouched=fitTrafficSnapshot({...allBays,actors:sent[1].packet.actors.map(a=>({...a,hp:1000,armor:500,trafficHit:[99999,now+.8,17.123456,16.123456,5.6]}))});
       assert.ok(crouched);assert.ok(crouched.actors.every(a=>a.crouch===.988));assert.deepEqual(crouched.ordinarySkills,queued.ordinarySkills);assert.deepEqual(crouched.busTransit,queued.busTransit);
       assert.ok(Buffer.byteLength(JSON.stringify(crouched))<=65536);clock+=200;assert.equal((await send(host,'team:red','game',crouched)).status,201);
-      console.log(`CROUCH10 /4queued buses /82 destroyed /full skills ${Buffer.byteLength(JSON.stringify(crouched))}B /65536B; authoritative posture retained`);
+      console.log(`CROUCH10 /4queued buses /max256 destroyed /full skills ${Buffer.byteLength(JSON.stringify(crouched))}B /65536B; authoritative posture retained`);
+
+      // Buy-only previous-round reports do not grow a live combat snapshot.
+      assert.equal(snapshot.damageReport,undefined);
+      const {createRoundDamageTracker}=await load('combat-report.js');
+      const reports=createRoundDamageTracker();reports.begin(1,roster);
+      for(const victim of roster)for(const killer of [null,...roster])reports.record(1,victim.id,killer?.id,10000000);
+      reports.finish(1);sandbox.roundDamage=reports;sandbox.match.phase='buy';sandbox.match.round=2;
+      sent.length=0;vm.runInContext('tickOnline(.1)',sandbox);
+      assert.equal(sent.length,2);assert.ok(sent.every(s=>s.packet.damageReport[1].length===80));
+      for(const {packet}of sent){assert.ok(Buffer.byteLength(JSON.stringify(packet))<=65536);assert.equal(packet.rules.phase,'buy');}
+      const buyFull={...crouched,rules:{...crouched.rules,phase:'buy',round:2},damageReport:reports.snapshot('red',2)};
+      const buyFit=fitTrafficSnapshot(buyFull);assert.ok(buyFit);assert.deepEqual(buyFit.damageReport,buyFull.damageReport);assert.deepEqual(buyFit.actors,buyFull.actors);assert.deepEqual(buyFit.ordinarySkills,buyFull.ordinarySkills);assert.deepEqual(buyFit.busTransit,buyFull.busTransit);
+      assert.ok(createRoundDamageTracker().restore(buyFit.damageReport,roster,2,'red'));
+      clock+=200;assert.equal((await send(host,'team:red','game',buyFit)).status,201);
+      const damageDelivery=await getMessages(guest);assert.deepEqual(damageDelivery.value.messages.at(-1).data.damageReport,buyFit.damageReport);
+      console.log(`DAMAGE REPORT80 /10actors /4queued /full effects buy ${Buffer.byteLength(JSON.stringify(buyFit))}B /65536B; no authority/report removed`);
+
 
 
 

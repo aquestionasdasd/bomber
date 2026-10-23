@@ -71,12 +71,14 @@ async function main(){
   const {createGameAudio,SAMPLE_CUES}=await import(pathToFileURL(path.join(__dirname,'public/audio.js')).href),types=Object.keys(SAMPLE_CUES),files=new Set(Object.values(SAMPLE_CUES).flatMap(l=>l.map(x=>x.file)));
   const manifests=JSON.parse(fs.readFileSync(path.join(__dirname,'public/audio/manifest.json'),'utf8'));
   assert.equal(manifests.filter(e=>e.adopted_cycle===71).length,22);assert.equal(new Set(manifests.map(e=>e.file)).size,manifests.length);
-  for(const e of manifests){const b=fs.readFileSync(path.join(__dirname,'public/audio',e.file));assert.equal(sha(b),e.sha256);assert.equal(b.length,e.bytes);assert.equal(b.subarray(0,4).toString(),'OggS');}
-  for(const file of files)assert.equal(fs.readFileSync(path.join(__dirname,'public/audio',file)).subarray(0,4).toString(),'OggS');
+  const signature=(b,file)=>{if(file.endsWith('.mp3'))assert.ok(b.subarray(0,3).toString()==='ID3'||b[0]===255&&(b[1]&224)===224,'MP3 frame/header');else assert.equal(b.subarray(0,4).toString(),'OggS');};
+  for(const e of manifests){const b=fs.readFileSync(path.join(__dirname,'public/audio',e.file));assert.equal(sha(b),e.sha256);assert.equal(b.length,e.bytes);signature(b,e.file);}
+  for(const file of files)signature(fs.readFileSync(path.join(__dirname,'public/audio',file)),file);
   for(const pack of ['rpg-audio','impact-sounds','music-jingles']){const license=fs.readFileSync(path.join(__dirname,'public/audio/LICENSE-'+pack+'.txt'),'utf8');assert.match(license,/CC0/);assert.match(license,/commercial/i);}
   assert.equal(sha(fs.readFileSync(path.join(__dirname,'public/audio/footstep_concrete_000.ogg'))),'d7267e183067757c92c169de2a379abea592cfca6b39bb2e8feea15221ad79fe');assert.equal(sha(fs.readFileSync(path.join(__dirname,'public/audio/footstep_concrete_001.ogg'))),'507a75eb19b897087855a3be3cf11a12d7fa37d143ad535eeebe0b8031c7325d');
   assert.ok(types.length>=70);assert.ok(![...files].some(f=>f.startsWith('interface-')||f.includes('forceField')||f.includes('doorClose_001')));
-  console.log('PASS:22 original CC0 additions/SHA/license plus every active sample;historical licenses and replacement files present');
+  assert.equal(manifests.filter(e=>e.adopted_cycle===99).length,1);assert.equal(SAMPLE_CUES['vehicle-hit'].length,1);assert.equal(SAMPLE_CUES['vehicle-hit'][0].file,'vehicle-impact-user.mp3');assert.equal(SAMPLE_CUES['vehicle-hit'][0].rate,1);assert.equal(manifests.find(e=>e.adopted_cycle===99).sha256,'ae00f7eee68c22f65d1800f52b545ec73930b30f4253d4b54bc877fa3b21cc01');
+  console.log('PASS:22 original CC0 additions plus exact user MP3/SHA and every active sample;no electronic interface/forcefield layers');
 
   global.window={AudioContext:Context};const cold=createGameAudio();const prior=Context.current;cold.play('kill');assert.equal(Context.current,prior);cold.init();const c=Context.current;
   for(const type of [...types,'unknown','constructor','toString','__proto__'])cold.play(type);assert.equal(c.sources.length,0);assert.equal(c.nodes.length,0,'Not-ready non-gun effects allocate no nodes and never synthesize');

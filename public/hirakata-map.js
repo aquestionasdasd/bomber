@@ -1,3 +1,4 @@
+import {addBusArchitecture} from './bus-architecture.js';
 import {createCollisionIndex} from './collision.js';
 import {createBusDestruction} from './bus-destruction.js';
 import {createTrafficClock,createBusModels} from './bus-traffic.js';
@@ -122,8 +123,9 @@ export function createHirakataMap(T,scene){
  // Station interiors receive local warm fill; no extra shadow maps or audio.
  for(const[x,z]of[[8,-11],[-46,-11],[-20,0]]){const light=new T.PointLight('#ffead1',16,31,1);light.position.set(x,3.9,z);light.name='Station interior / warm ceiling fill';world.add(light);}
  const districtBuildings=addHirakataDistrict({part,solid,sign,mapShapes,breakable});
+ const damageGroups=addBusArchitecture(T,world,batches,colliders,mapShapes,ramps,[...breakGroups.values()]);
  for(const b of batches.values()){const mesh=new T.InstancedMesh(b.g,b.m,b.entries.length);b.mesh=mesh;b.entries.forEach((m,i)=>mesh.setMatrixAt(i,m));mesh.instanceMatrix.needsUpdate=true;mesh.castShadow=mesh.receiveShadow=true;mesh.userData.solid=true;world.add(mesh);}
- const collision=createCollisionIndex(colliders),destruction=createBusDestruction(T,world,colliders,mapShapes,[...breakGroups.values()],collision);
+ const collision=createCollisionIndex(colliders),destruction=createBusDestruction(T,world,colliders,mapShapes,damageGroups,collision,ramps);
  const traffic=createTrafficClock(),busModels=createBusModels(T,world,traffic);busModels.update(0);
  const sites=HIRAKATA_INDOOR_SITES.map(({id,name,x,z,polygon,plantPositions})=>({id,name,x,z,radius:7,polygon:polygon.map(p=>[...p]),plantPositions:plantPositions.map(p=>({...p}))}));
  const teamSpawns={attack:Array.from({length:5},(_,i)=>({x:-10+i*5,z:73})),defend:Array.from({length:5},(_,i)=>({x:-12+i*6,z:-74}))};

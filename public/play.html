@@ -14,6 +14,7 @@
   <canvas id="game" aria-label="橋本駅前をモチーフにした3D競技マップ"></canvas>
   <div class="scene-grain" aria-hidden="true"></div>
   <div id="detonation-flash" aria-hidden="true"></div>
+  <div id="skill-nearsight-overlay" aria-hidden="true" hidden></div>
   <div id="skill-blind-overlay" aria-hidden="true" hidden><svg viewBox="0 0 80 70" focusable="false"><path d="m16 17 14 14m0-14L16 31m34-14 14 14m0-14L50 31M21 46q19 16 38 0"/></svg></div>
 
   <main id="menu" class="menu-screen screen">
@@ -134,6 +135,11 @@
     <div id="skill-cast-feedback" class="skill-cast-feedback" hidden></div>
     <div id="skill-hit-feedback" class="skill-hit-feedback" hidden></div>
     <div id="round-banner" class="round-banner" hidden></div>
+    <details id="combat-report" class="combat-report" hidden open aria-label="前ラウンドのダメージレポート">
+      <summary><span id="combat-report-round">前ラウンドのダメージ</span><span class="combat-report-totals"><span>与ダメ <b id="combat-report-given">0</b></span><span>被ダメ <b id="combat-report-received">0</b></span></span></summary>
+      <div class="combat-report-scroll"><table><thead><tr><th>相手</th><th>与ダメ</th><th>被ダメ</th></tr></thead><tbody id="combat-report-body"></tbody></table></div>
+      <small>HP＋装甲の実損失 · 弾とスキルを合計</small>
+    </details>
     <div id="death-card" class="death-card" role="status" aria-live="polite" hidden><span>ELIMINATED</span><strong>倒されました</strong><small>まもなく味方の観戦へ切り替わります</small></div>
     <div id="spectator-hint" class="spectator-hint" hidden>観戦中 — 次のラウンドで復帰します</div>
     <div id="interaction" class="interaction" hidden><div><kbd>F</kbd><strong id="interaction-title">ボンバーを設置中</strong></div><div class="interaction-track"><i id="interaction-progress"></i></div></div>

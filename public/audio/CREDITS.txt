@@ -146,3 +146,8 @@ Included files (original archive path -> bundled filename):
   Audio/forceField_001.ogg -> scifi-forceField_001.ogg
   Audio/forceField_004.ogg -> scifi-forceField_004.ogg
   Audio/slime_000.ogg -> scifi-slime_000.ogg
+
+User supplied vehicle impact (cycle99)
+Original attachment: 打撃8.mp3 -> vehicle-impact-user.mp3 (unchanged bytes).
+Included at the user's explicit request for vehicle impacts in this game.
+This file is separate from the Kenney CC0 packs; no CC0 license is claimed.

@@ -1,0 +1,2 @@
+const {spawnSync}=require('node:child_process'),path=require('node:path'),assert=require('node:assert/strict');
+for(const fault of['guest','repeat','range']){const r=spawnSync(process.execPath,[path.join(__dirname,'tests-urchin-gloom-contract.cjs'),'--fault='+fault],{encoding:'utf8'});assert.notEqual(r.status,0,'fault escaped: '+fault);assert.ok(r.stdout.includes('PASS:')||r.stderr.includes('AssertionError'),r.stderr);console.log('PASS: detects memory-only '+fault+' fault');}
