@@ -1,3 +1,13 @@
+# 現行仕様 / 第78巡の人間指定
+
+Cバンパーウェーブは旧3m即時押し出しから、本体の26m/秒突進→接触75ダメージ→最大24m/1秒の連続放物線吹き飛ばしへ更新。35mの見える接地敵を選んで左確定・右取消、実際の進路に入った最初の敵へ1回だけ命中。壁/足場切れで突進が止まり、移動する相手を追尾しない。吹き飛ばしは実際に重力/天井/壁と衝突する。装甲は通常ルール、C2回/100を保持、Q/E/Xは不変。
+
+全15人比較：DUELISTの本人だけの短距離dash、VEIL/IAGNUの歩行加速、FROSTの操作付きslide、DUCKの連打飛行、CATのしおり帰還は敵のHPと軌道を変えない。NOPE/MEND/EMBER/NOBI/JAPAN/CAP/URCHIN/ONNARAの投擲・妨害・反射・資源・連鎖等とも異なり、自身が危険を負って進路でぶつかり、敵の位置を大きく変えて道を開く役割。共有の衝突/重力/命中演出だけを利用。
+
+host-owned6field carMove（eventID,phase,endsAt,vx,vz,vy）を既存actor snapshotで同期。guestの発動前予測は在庫だけ、命中/ダメージは決めない。位相・速度・期限・有限値・IDの検査、重複入力/死亡/次R/退出を実savedgame18群で確認。配達や全10端末の人間対戦を検証済みという意味ではない。
+
+以下は第49巡の初期設計の履歴。旧Cの3m/無ダメージ/即時座標補正は現在の仕様ではない。
+
 # トミカ / tenth character
 
 The supplied name is literal. The white miniature sports car, dark roof/glazing, four black tyres, silver rims and rear wing are recreated procedurally; no photo, logo or third-party model is redistributed. The shared articulated combat rig/52 hit surfaces remain unchanged. A car-bodied mechanical avatar keeps the existing standing/crouching/weapon silhouette and controls.
