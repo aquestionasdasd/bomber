@@ -396,5 +396,17 @@
     "source": "User supplied attachment; requested vehicle-hit use in this game",
     "license": "User-provided; no CC0 or third-party license claim",
     "adopted_cycle": 99
+  },
+  {
+    "file": "bus-wall-break-user.mp3",
+    "original": "岩が真っ二つに割れる.mp3",
+    "bytes": 137088,
+    "sha256": "d1cce96561699734a68acb931c204d928c44b75bf57bdd804017a21283e4251d",
+    "seconds": 5.548299319727891,
+    "format": "mp3",
+    "pack": "user-provided",
+    "source": "User attachment explicitly requested for bus wall demolition in this game",
+    "license": "User-provided; no CC0 or third-party license claim",
+    "adopted_cycle": 102
   }
 ]

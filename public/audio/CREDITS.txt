@@ -115,3 +115,8 @@ User supplied vehicle impact (cycle99)
 Original attachment: 打撃8.mp3 -> vehicle-impact-user.mp3 (unchanged bytes).
 Included at the user's explicit request for vehicle impacts in this game.
 This file is separate from the Kenney CC0 packs; no CC0 license is claimed.
+
+User supplied bus wall destruction (cycle102)
+Original attachment: 岩が真っ二つに割れる.mp3 -> bus-wall-break-user.mp3 (unchanged bytes).
+Included at the user's explicit request for bus demolition in this game.
+Separate from Kenney CC0 packs; no CC0 license is claimed.

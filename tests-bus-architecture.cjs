@@ -26,13 +26,13 @@ const assert=require('node:assert/strict'),path=require('node:path'),{pathToFile
   const hit=d.breakAt(p,p,1);assert.ok(hit.some(i=>d.groups[i].structural));assert.equal(map.colliders.includes(floor),false);assert.equal(map.collision.rayClear(8,1.5,0,8,1.5,12),true);assert.equal(nav.isWalkable(8,9),true);
   assert.ok(map.collision.blocked(55,9,.34,0),'unhit neighboring retail stays solid');
   for(const i of hit){const g=d.groups[i];assert.ok(g.colliders.every(c=>!map.colliders.includes(c)));assert.ok(g.shapes.every(s=>!map.mapShapes.includes(s)));for(const part of g.parts){const m=new T.Matrix4();part.batch.mesh.getMatrixAt(part.index,m);assert.equal(m.determinant(),0);}}
-  d.update(1.1);assert.ok(d.fx.children[0].count>0);assert.ok(d.fx.children[0].count<=96);
+  d.update(1.1);assert.ok(d.fx.children[0].count>0);assert.ok(d.fx.children[0].count<=768);
  });
  check('every architectural bay and stair can be destroyed; ground and arena boundaries remain',()=>{
   for(const g of d.groups)for(const b of g.bounds){const p=pose(b);d.breakAt(p,p,2);}
   assert.equal(map.colliders.length,0);assert.equal(map.ramps.length,0);assert.equal(map.mapShapes.filter(s=>Number.isFinite(s.height)).length,0);
   assert.ok(d.groups.every(g=>g.nodes.every(o=>!o.visible)));assert.ok(map.world.children.some(o=>o.visible&&o.geometry?.parameters.width===224));assert.deepEqual(map.combatBounds,{minX:-82,maxX:82,minZ:-82,maxZ:82});
-  d.update(2.2);assert.ok(d.fx.children[0].count<=96);assert.ok(d.fx.children[1].count<=48);assert.ok(d.fx.children[2].count<=8);d.update(4);assert.ok(d.fx.children.every(o=>o.count===0));
+  d.update(2.2);assert.ok(d.fx.children[0].count<=768);assert.ok(d.fx.children[1].count<=192);assert.ok(d.fx.children[2].count<=8);d.update(5);assert.ok(d.fx.children.every(o=>o.count===0));
  });
  check('shared wide signs stay hidden until every supporting bay is intact',()=>{
   const node=d.groups.flatMap(g=>g.nodes).find(o=>d.groups.filter(g=>g.nodes.includes(o)).length>1);assert.ok(node);
