@@ -2897,7 +2897,7 @@ function suspendSession(){
   if(['play','map','shop','score'].includes(mode)){setVisible('map-overlay',false);pauseGame();}
 }
 window.addEventListener('blur',suspendSession);
-document.addEventListener('visibilitychange',()=>{if(document.hidden)suspendSession();else resetMouseLook();if(onlinePlaying&&online?.host){netHostPaused=document.hidden;tickOnline(.1);updateHUD();}});
+document.addEventListener('visibilitychange',()=>{if(document.hidden)suspendSession();else resetMouseLook();if(onlinePlaying&&online?.host){if(!document.hidden)online.cancelPausedRelay();netHostPaused=document.hidden;tickOnline(.1);updateHUD();}});
 $('start').addEventListener('click',startGame);$('resume').addEventListener('click',resumeGame);
 $('victory-dance-preview')?.addEventListener('click',()=>victoryDance.preview(selectedCharacter(),performance.now()));
 $('explore-start')?.addEventListener('click',()=>{$('match-format').value='explore';updateFormatSummary();startGame();});
