@@ -41,7 +41,7 @@ async function main() {
         if (!this.listeners.has(type)) this.listeners.set(type, []);
         this.listeners.get(type).push(listener);
       }, getContext: () => context2d,
-      attributes: {}, setAttribute(name, value) { this.attributes[name] = value; }, setPointerCapture() {}, requestPointerLock() { document.pointerLockElement = e; },
+      attributes: {}, dataset: {}, setAttribute(name, value) { this.attributes[name] = value; }, setPointerCapture() {}, requestPointerLock() { document.pointerLockElement = e; },
       getBoundingClientRect: () => ({ left: 0, top: 0, width: 100, height: 100 }),
       replaceChildren(...nodes) { for (const child of this.children) child.parentNode = null; this.children = nodes; for (const child of nodes) child.parentNode = this; },
       append(node) { this.children.push(node); node.parentNode = this; }, prepend(node) { this.children.unshift(node); node.parentNode = this; },
@@ -1927,7 +1927,7 @@ async function main() {
   assert.equal(cycleRun('detonationState'), null, 'A defused snapshot must never start an explosion on the guest');
   assert.equal(cycleRun('match.phase'), 'post'); assert.equal(cycleRun('match.score.blue'), 1); assert.equal(cycleRun('match.score.red'), 0);
   assert.equal(cycleElements.get('round-banner').hidden, false, 'A guest must see the authoritative post-round result');
-  assert.equal(cycleElements.get('round-banner').textContent, '閉米\nボンバーの電源オフ', 'A red guest must see its own loss when blue defuses');
+  assert.equal(cycleElements.get('round-banner').children.map(e=>e.textContent).join('\n'), '閉米\nボンバーの電源オフ', 'A red guest must see its own loss when blue defuses');
   assert.equal(cycleRun('interactionHeld||firing||reloading>0'), false, 'An authoritative post-round transition must release the guest trigger, F hold and reload');
   assert.equal(cycleElements.get('interaction').hidden, true, 'A completed round must immediately hide the guest interaction panel');
   const frozenPostTime = cycleRun('match.phaseTime'); cycleRun('updatePlay(.5)');
@@ -2022,7 +2022,7 @@ async function main() {
   assert.equal(run('blastSounds.length'), 1, 'A real local detonation must play its explosion sound once');
   const blastPacket = cycleSnapshot();
   assert.equal(cycleElements.get('round-banner').hidden, false);
-  assert.equal(cycleElements.get('round-banner').textContent, '開米\nボンバー起爆', 'A red guest must see its own win when red detonates the spike');
+  assert.equal(cycleElements.get('round-banner').children.map(e=>e.textContent).join('\n'), '開米\nボンバー起爆', 'A red guest must see its own win when red detonates the spike');
   assert.ok(blastPacket.detonation?.id, 'The host snapshot must include a persistent semantic detonation identity');
   assert.equal(blastPacket.detonation.round, blastPacket.rules.round);
   assert.ok(Number.isFinite(blastPacket.detonation.startedAt));
@@ -2205,7 +2205,7 @@ async function main() {
     assert.equal(cycleRun('takeoverState'), null, 'Invalid paint timing, identities and round changes must fail closed');
   }
   run('match.endRound("blue","elimination");handleMatchEvents()');
-  assert.match(document.getElementById('round-banner').textContent, /^開米/);
+  assert.match(document.getElementById('round-banner').children[0].textContent, /^開米/);
   run('match.nextRound();handleMatchEvents()'); cycleSnapshot();
   assert.equal(run('takeoverState'), null); assert.equal(cycleRun('takeoverState'), null, 'The next round must clear the shared NOPE effect');
   assert.equal(run('stationTakeover.group.visible'), false); assert.equal(cycleRun('stationTakeover.group.visible'), false);

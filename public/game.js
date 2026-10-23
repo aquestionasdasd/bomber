@@ -1,3 +1,4 @@
+import { createSkillSpectacle, createSkillFeedback, SKILL_LOOKS } from './skill-spectacle.js';
 import { createFullComboTracker, renderRoundBanner } from './full-combo.js';
 import { ONNARA_SKILLS } from './abilities.js';
 import { createOnnaraSkillFX } from './onnara-skill-fx.js';
@@ -120,6 +121,7 @@ const stationDetonation=createStationDetonation(THREE);scene.add(stationDetonati
 const stationTakeover=createStationTakeover(THREE);scene.add(stationTakeover.group);
 const teamAbilities=createTeamAbilities(),characterFX=createCharacterFX(THREE);scene.add(characterFX.group);
 const zoneAbilities=createZoneAbilities(),zoneFX=createZoneFX(THREE);scene.add(zoneFX.group);
+const skillSpectacle=createSkillSpectacle(THREE),skillFeedback=createSkillFeedback(document);scene.add(skillSpectacle.group);
 const ordinarySkills=createCharacterSkills(),ordinaryFX=createNopeSkillFX(THREE,camera);scene.add(ordinaryFX.group);
 const nopeDecoys=createNopeDecoys(),nopeDecoyFX=createNopeDecoyFX(THREE);scene.add(nopeDecoyFX.group);
 let nopePopSequence=0,nopeSeenPopSequence=0,nopeDecoyTownCandidates=null;
@@ -164,7 +166,7 @@ let online=null,onlinePlaying=false,netHasSnapshot=false,netSequence=0,netAction
 const netPositionHistory=new Map();
 let netPositionAck=0,netPositionCorrectionX=0,netPositionCorrectionZ=0;
 let netActions=[],netParticipants=new Map(),netApplied=new Map(),netInputs=new Map();
-let netCueSequence=0,netSeenCueSequence=0;const netCues=[];
+let netCueSequence=0,netSeenCueSequence=0,skillImpactSequence=0;const netCues=[];
 const actionCueTypes=new Set(['shot','enemy','smoke','frost','updraft','dash-armed','dash','knives','heal','recon','veil','ember-warning']);
 const dashFeedback={round:null,state:null,expires:0,charge:null,signatureAt:0};
 const signatureReadyNotices=new Set();
@@ -229,7 +231,7 @@ function resetTakeover(){takeoverState=null;takeoverClock=0;stationTakeover.rese
 function resetZoneAbilities(){zoneAbilities.reset();zoneFX.reset();zonePulseAudio.clear();zoneTargetPreview=null;zoneTargetPreviewAt=-Infinity;zoneTargetCharacter=null;if($('status-effects')){$('status-effects').hidden=true;$('status-effects').textContent='';}}
 const stoppedTurfEvents=new Map();
 const stoppedFrostEvents=new Map();
-function resetOrdinarySkills(){starHold.reset();onnaraSkillFX.reset();urchinSkillFX.reset();capSkillFX.reset();japanSkillFX.reset();nobiSkillFX.reset();carImpulseSeen.clear();carSkillFX.reset();catReturnSeen.clear();catSkillFX.reset();duckAim=null;duckSkillFX.reset();botHearing.reset();ordinarySkills.reset();ordinaryFX.reset();nopeDecoys.reset();nopeDecoyFX.reset();nopePops.length=0;nopeSeenPopSequence=0;mendSkillFX.reset();iagnuSkillFX.reset();grassSkillFX.reset();emberSkillFX.reset();frostSkillFX.reset();duelistSkillFX.reset();for(const actor of [player,...bots]){cancelServiceReload(actor);actor.lastHeard=null;actor.netStepClock=0;}stoppedServiceEvents.clear();stoppedTurfEvents.clear();stoppedFrostEvents.clear();ordinaryAudio.clear();ordinaryMarkerAudio.clear();const overlay=$('skill-blind-overlay');if(overlay){overlay.hidden=true;overlay.style.opacity='0';}}
+function resetOrdinarySkills(){skillSpectacle.reset();skillFeedback.reset();starHold.reset();onnaraSkillFX.reset();urchinSkillFX.reset();capSkillFX.reset();japanSkillFX.reset();nobiSkillFX.reset();carImpulseSeen.clear();carSkillFX.reset();catReturnSeen.clear();catSkillFX.reset();duckAim=null;duckSkillFX.reset();botHearing.reset();ordinarySkills.reset();ordinaryFX.reset();nopeDecoys.reset();nopeDecoyFX.reset();nopePops.length=0;nopeSeenPopSequence=0;mendSkillFX.reset();iagnuSkillFX.reset();grassSkillFX.reset();emberSkillFX.reset();frostSkillFX.reset();duelistSkillFX.reset();for(const actor of [player,...bots]){cancelServiceReload(actor);actor.lastHeard=null;actor.netStepClock=0;}stoppedServiceEvents.clear();stoppedTurfEvents.clear();stoppedFrostEvents.clear();ordinaryAudio.clear();ordinaryMarkerAudio.clear();const overlay=$('skill-blind-overlay');if(overlay){overlay.hidden=true;overlay.style.opacity='0';}}
 function resetTeamAbilities(){teamAbilities.reset();characterFX.reset();resetZoneAbilities();resetOrdinarySkills();}
 function actorGrounded(actor){
   if(!actor?.alive||!Number.isFinite(actor.y)||Number.isFinite(actor.vy)&&Math.abs(actor.vy)>1e-5)return false;
@@ -390,8 +392,8 @@ function updateOrdinarySkills(){
     });
     for(const effect of ordinarySkills.update(views,elapsed,match.round,{reachable:ordinaryReachable,groundHeight:ordinaryGroundHeight})){
       const target=actors.find(actor=>actor.id===effect.targetId),source=actors.find(actor=>actor.id===effect.sourceId);
-      if(effect.type==='damage'&&target&&source)damageEntity(target,effect.amount,source);
-      if(effect.type==='heal'&&target?.alive&&source?.alive&&target.team===source.team)target.hp=Math.min(100,target.hp+effect.amount);
+      if(effect.type==='damage'&&target&&source)damageEntity(target,effect.amount,source,{skill:source.kit?.character});
+      if(effect.type==='heal'&&target?.alive&&source?.alive&&target.team===source.team){const before=target.hp;target.hp=Math.min(100,target.hp+effect.amount);if(target.hp>before)skillImpact(target,source,'mend','heal');}
       if(effect.type==='blind'&&target?.target)target.target=null;
     }
   }
@@ -420,6 +422,9 @@ function updateOrdinarySkills(){
 }
 function renderOrdinarySkills(){
   const live=match?.phase==='live',viewer=player.alive?player:spectatedBot;
+  const spectacleEvents=live?[...ordinarySkills.events(elapsed),...teamAbilities.events(elapsed),...zoneAbilities.events(elapsed)]:[];
+  skillFeedback.observe(spectacleEvents,elapsed,player.id);skillFeedback.render(elapsed,{active:live&&mode==='play'&&player.alive,reducedMotion:reducedMotion.matches});
+  skillSpectacle.update(spectacleEvents,elapsed,{actors:[player,...bots],viewer:viewer||player,reducedMotion:reducedMotion.matches,visible:p=>ordinarySkills.blindUntil((viewer||player).id,elapsed)<=elapsed&&visibleBetween(viewer||player,p)});
   ordinaryFX.update(live?ordinarySkills.events(elapsed).filter(event=>event.type!=='nope-decoy'):[],elapsed,{viewer:viewer||player,showHand:live&&mode==='play'&&player.alive,reducedMotion:reducedMotion.matches});
   nopeDecoyFX.update(live?allNopeDecoys():[],elapsed,{viewer:viewer||player,reducedMotion:reducedMotion.matches});
   mendSkillFX.update(live?ordinarySkills.events(elapsed):[],elapsed,{viewer:viewer||player,showHand:live&&mode==='play'&&player.alive,reducedMotion:reducedMotion.matches});
@@ -451,7 +456,7 @@ function updateTeamAbilities(){
     const actors=[player,...bots];
     for(const impact of zoneAbilities.update(actors,elapsed,match.round)){
       const target=actors.find(actor=>actor.id===impact.targetId),source=actors.find(actor=>actor.id===impact.sourceId&&actor.team===impact.team);
-      if(target&&source&&target.team!==source.team)damageEntity(target,impact.damage,source);
+      if(target&&source&&target.team!==source.team)damageEntity(target,impact.damage,source,{skill:source.kit?.character});
     }
   }
   characterFX.update(teamAbilities.events(elapsed),elapsed,{reducedMotion:reducedMotion.matches});
@@ -515,13 +520,22 @@ function renderWithDetonation(dt=0){
     renderOnnaraOrb();
   }finally{camera.position.copy(renderCameraPosition);camera.rotation.copy(renderCameraRotation);renderer.toneMappingExposure=exposure;}
 }
+function skillImpact(target,source,character,kind='hit'){
+  if(isGuest()||!Object.hasOwn(SKILL_LOOKS,character)||!target||!source)return;
+  const point={x:target.x,y:(target.y||0)+1.1,z:target.z};
+  skillSpectacle.impact(character,point,elapsed,{kind});
+  if(source.id===player.id)skillFeedback.note(kind,'local:'+match.round+':'+(++skillImpactSequence),character,elapsed);
+  if(onlinePlaying&&online?.host){netCues.push({seq:++netCueSequence,round:match.round,type:kind==='heal'?'skill-heal':'skill-hit',weapon:character,id:source.id,...point,time:elapsed});if(netCues.length>64)netCues.splice(0,netCues.length-64);}
+}
 function serializeNetCues(){return netCues.filter(c=>c.round===match?.round&&c.time>=elapsed-1.5);}
 function applyNetCues(packet,fresh,ownId){
-  const cues=Array.isArray(packet.cues)?packet.cues.slice(-64):[],previous=netSeenCueSequence;
+  const cues=Array.isArray(packet.cues)?packet.cues.slice(-64):[],previous=netSeenCueSequence,seen=new Set();
   for(const cue of cues){
-    if(!Number.isSafeInteger(cue.seq)||cue.seq<=previous)continue;
+    if(!Number.isSafeInteger(cue.seq)||cue.seq<=previous||seen.has(cue.seq))continue;seen.add(cue.seq);
     netSeenCueSequence=Math.max(netSeenCueSequence,cue.seq);
-    if(fresh||cue.id===ownId||cue.round!==packet.rules.round||packet.time-cue.time>1||packet.time<cue.time||!actionCueTypes.has(cue.type)||![cue.x,cue.z].every(Number.isFinite))continue;
+    if(fresh||cue.round!==packet.rules.round||packet.time-cue.time>1||packet.time<cue.time||![cue.x,cue.z].every(Number.isFinite))continue;
+    if(['skill-hit','skill-heal'].includes(cue.type)){if(!Object.hasOwn(SKILL_LOOKS,cue.weapon)||!Number.isFinite(cue.y)||Math.max(Math.abs(cue.x),Math.abs(cue.y),Math.abs(cue.z))>1000||packet.time-cue.time>.65||packet.rules.phase!=='live')continue;const kind=cue.type==='skill-heal'?'heal':'hit';skillSpectacle.impact(cue.weapon,cue,cue.time,{kind});if(cue.id===ownId)skillFeedback.note(kind,'receipt:'+cue.round+':'+cue.seq,cue.weapon,cue.time);continue;}
+    if(cue.id===ownId||!actionCueTypes.has(cue.type))continue;
     sound(cue.type,{weapon:cue.weapon,entity:cue});
   }
 }
@@ -653,7 +667,7 @@ function updateScoreboard(){
 }
 function aliveCount(team){return bots.filter(b=>b.alive&&b.team===team).length+(team===player.team&&player.alive?1:0);}
 function recordOf(entity){return entity.id==='player'?roster[0]:entity.record;}
-function damageEntity(entity,amount,killer,{firearm=false,returned=false,chain=true}={}){
+function damageEntity(entity,amount,killer,{firearm=false,returned=false,chain=true,skill=null}={}){
   if(isGuest())return;
   if(!entity.alive||match?.phase!=='live'||(killer&&entity.team===killer.team))return;
   if(rangeSession&&entity.rangeTarget){
@@ -663,9 +677,10 @@ function damageEntity(entity,amount,killer,{firearm=false,returned=false,chain=t
   }
   const returnScale=!returned&&firearm&&killer?.alive?ordinarySkills.japanReturn(entity.id,elapsed):0,healthBefore=entity.hp,armorBefore=entity.armor;
   const result=applyArmorDamage(entity.hp,entity.armor,amount);entity.hp=result.hp;entity.armor=result.armor;if(entity.hp<=0&&ordinarySkills.guardLethal(entity.id,elapsed,match.round)){entity.hp=1;if(entity===player)showMessage('不屈の卵 / 殻が割れた','致死攻撃をHP1で耐えました',1.5);}
+  if(skill&&killer&&Math.max(0,healthBefore-entity.hp)+Math.max(0,armorBefore-entity.armor)>0)skillImpact(entity,killer,skill);
   if(entity===player)damageFlash=.45;
-  if(returnScale){const actual=Math.max(0,healthBefore-entity.hp)+Math.max(0,armorBefore-entity.armor);if(actual>0)damageEntity(killer,actual*returnScale,entity,{returned:true});}
-  if(firearm&&chain&&!returned&&killer?.alive&&ordinarySkills.onnaraEvent?.('onnara-chain',killer.id,elapsed)){const actual=Math.max(0,healthBefore-entity.hp)+Math.max(0,armorBefore-entity.armor);const next=actual>0?constellationTarget(entity,killer,[player,...bots],visibleBetween):null;if(next){const from=new THREE.Vector3(entity.x,(entity.y||0)+1.2,entity.z),to=new THREE.Vector3(next.x,(next.y||0)+1.2,next.z);ordinarySkills.recordConstellation(killer.id,from,to,elapsed);damageEntity(next,actual*ONNARA_SKILLS.chainScale,killer,{chain:false});}}
+  if(returnScale){const actual=Math.max(0,healthBefore-entity.hp)+Math.max(0,armorBefore-entity.armor);if(actual>0)damageEntity(killer,actual*returnScale,entity,{returned:true,skill:'japan'});}
+  if(firearm&&chain&&!returned&&killer?.alive&&ordinarySkills.onnaraEvent?.('onnara-chain',killer.id,elapsed)){const actual=Math.max(0,healthBefore-entity.hp)+Math.max(0,armorBefore-entity.armor);const next=actual>0?constellationTarget(entity,killer,[player,...bots],visibleBetween):null;if(next){const from=new THREE.Vector3(entity.x,(entity.y||0)+1.2,entity.z),to=new THREE.Vector3(next.x,(next.y||0)+1.2,next.z);ordinarySkills.recordConstellation(killer.id,from,to,elapsed);damageEntity(next,actual*ONNARA_SKILLS.chainScale,killer,{chain:false,skill:'onnara'});}}
   if(entity.hp>0)return;
   fullComboTracker.record(match.round,entity,killer);
   entity.alive=false;cancelServiceReload(entity);entity.kit?.awardPoint();const record=recordOf(entity);if(record)record.d++;
@@ -1145,7 +1160,7 @@ function shoot(shotTime=elapsed) {
     if(bot&&bot.alive&&bot.team!==player.team&&!isGuest()){
       hits++;const head=hit.object.userData.head;let damage=nobiBulletDamage(player,bot,head?spec.head:hit.point.y-(bot.y||0)<.7?spec.leg:spec.body,spec.head,!melee&&!ultimate);
       if(['phantom','spectre','ghost','classic'].includes(inventory.active)&&hit.distance>15)damage*=hit.distance>30?.8:.9;
-      damageEntity(bot,damage,player,{firearm:!melee&&!ultimate});hitFlash=.14;burst(hit.point,head?'#fff3c8':'#ff737e',5);sound('hit');
+      damageEntity(bot,damage,player,{firearm:!melee&&!ultimate,skill:ultimate?'duelist':null});hitFlash=.14;burst(hit.point,head?'#fff3c8':'#ff737e',5);sound('hit');
       if(rangeSession&&bot.rangeTarget)rangeSession.recordHit({head,eliminated:!bot.alive});
     }else{burst(hit.point,'#f9ce9a',4);if(!melee&&!ultimate)capBounceShot(player,camera.position,direction,hit,spec);}
   }
@@ -1437,7 +1452,7 @@ function urchinTridentShot(actor,origin,incoming,spec){
   const fake=raycastNopeDecoy(from,aim,nearest,actor.team),shield=ordinarySkills.interceptShield(from,aim,fake?.distance??nearest,spec.body*URCHIN_SKILLS.tridentScale,elapsed,match.round,{consume:!isGuest()});
   if(shield){target=null;point=new THREE.Vector3(shield.point.x,shield.point.y,shield.point.z);}else if(fake){target=null;point=fake.point;if(!isGuest())hitNopeDecoy(fake.event,actor);}
   const end=point||from.clone().addScaledVector(aim,URCHIN_SKILLS.tridentRange);tracer(from,end,'#a9f1e4',.1);
-  if(target?.alive&&target.team!==actor.team&&!isGuest()){let damage=nobiBulletDamage(actor,target,head?spec.head:point.y-(target.y||0)<.7?spec.leg:spec.body,spec.head,true)*URCHIN_SKILLS.tridentScale;const id=urchinWeapon(actor);if(['phantom','spectre','ghost','classic'].includes(id)&&nearest>15)damage*=nearest>30?.8:.9;damageEntity(target,damage,actor,{firearm:true,chain:false});burst(point,'#a9f1e4',3);}
+  if(target?.alive&&target.team!==actor.team&&!isGuest()){let damage=nobiBulletDamage(actor,target,head?spec.head:point.y-(target.y||0)<.7?spec.leg:spec.body,spec.head,true)*URCHIN_SKILLS.tridentScale;const id=urchinWeapon(actor);if(['phantom','spectre','ghost','classic'].includes(id)&&nearest>15)damage*=nearest>30?.8:.9;damageEntity(target,damage,actor,{firearm:true,chain:false,skill:'urchin'});burst(point,'#a9f1e4',3);}
   results.push({targetId:target?.id||null,x:end.x,y:end.y,z:end.z});
  }return results;
 }
@@ -1475,7 +1490,7 @@ function capBounceShot(actor,origin,incoming,hit,spec){
  const fake=raycastNopeDecoy(from,aim,nearest,actor.team),shield=ordinarySkills.interceptShield(from,aim,fake?.distance??nearest,spec.body*CAP_SKILLS.bounceScale,elapsed,match.round,{consume:!isGuest()});
  if(shield){target=null;point=new THREE.Vector3(shield.point.x,shield.point.y,shield.point.z);}else if(fake){target=null;point=fake.point;if(!isGuest())hitNopeDecoy(fake.event,actor);}
  const end=point||from.clone().addScaledVector(aim,remaining);tracer(hit.point,end,'#71e3ed',.12);
- if(target?.alive&&target.team!==actor.team&&!isGuest()){let amount=nobiBulletDamage(actor,target,head?spec.head:point.y-(target.y||0)<.7?spec.leg:spec.body,spec.head,true)*CAP_SKILLS.bounceScale;const weaponId=actor===player?inventory.active:actor.remoteId?actor.netWeapon:actor.aiWeapon;if(['phantom','spectre','ghost','classic'].includes(weaponId)&&hit.distance+nearest>15)amount*=hit.distance+nearest>30?.8:.9;damageEntity(target,amount,actor,{firearm:true,chain:false});burst(point,'#79e7ee',5);}
+ if(target?.alive&&target.team!==actor.team&&!isGuest()){let amount=nobiBulletDamage(actor,target,head?spec.head:point.y-(target.y||0)<.7?spec.leg:spec.body,spec.head,true)*CAP_SKILLS.bounceScale;const weaponId=actor===player?inventory.active:actor.remoteId?actor.netWeapon:actor.aiWeapon;if(['phantom','spectre','ghost','classic'].includes(weaponId)&&hit.distance+nearest>15)amount*=hit.distance+nearest>30?.8:.9;damageEntity(target,amount,actor,{firearm:true,chain:false,skill:'cap'});burst(point,'#79e7ee',5);}
  return{targetId:target?.id||null,point:end,head};
 }
 
@@ -1706,6 +1721,7 @@ function activateAbility(actor,key,{predict=false,zonePoint=null,aim=null}={}){
     }
     if(healing&&!predict)updateOrdinarySkills();
   }
+  if(!predict&&actor===player)skillFeedback.note('cast','accepted:'+match.round+':'+effect.type+':'+elapsed,actor.kit.character,elapsed,definition?.name||CHARACTER_DEFS[actor.kit.character]?.ultName);
   if(effect.type==='smoke'&&!predict){const origin=new THREE.Vector3(actor.x,(actor.y||0)+1.6,actor.z),aim=new THREE.Vector3(-Math.sin(yaw)*Math.cos(pitch),Math.sin(pitch),-Math.cos(yaw)*Math.cos(pitch));raycaster.set(origin,aim);raycaster.far=16;const hit=raycaster.intersectObject(environment,true)[0],end=origin.clone().addScaledVector(aim,hit?Math.max(.8,hit.distance-1):16);end.y=Math.max(1.7,end.y);syncSmokes([...serializeSmokes().slice(-19),{id:++smokeSequence,x:end.x,y:end.y,z:end.z,expires:elapsed+effect.duration,kind:'smoke',radius:3.6}]);raycaster.far=190;}
   if(effect.type==='veil'&&!predict)syncSmokes([...serializeSmokes().slice(-19),{id:++smokeSequence,x:actor.x,y:(actor.y||0)+1.7,z:actor.z,expires:elapsed+effect.duration,kind:'veil',radius:effect.radius}]);
   // Remote casts can happen between two BOT updates. Invalidate sightings now,
@@ -2811,7 +2827,7 @@ function applyRemoteAction(actor,action,actionTime=elapsed){
   if(melee&&nearest>2.2)target=null;const end=point||origin.clone().addScaledVector(aim,90);if(!melee)tracer(origin,end);sound('shot',{weapon:actor.netWeapon,entity:actor});
   if(!target&&!fake&&!shield&&!melee&&!knives&&hit)capBounceShot(actor,origin,aim,hit,spec);
   if(!melee&&!knives)urchinTridentShot(actor,origin,aim,spec);
-  if(target&&target.team!==actor.team){let damage=nobiBulletDamage(actor,target,head?spec.head:point.y-(target.y||0)<.7?spec.leg:spec.body,spec.head,!melee&&!knives);if(!knives&&['phantom','spectre','ghost','classic'].includes(actor.netWeapon)&&nearest>15)damage*=nearest>30?.8:.9;damageEntity(target,damage,actor,{firearm:!melee&&!knives});burst(point,head?'#fff3c8':'#ff737e',5);}
+  if(target&&target.team!==actor.team){let damage=nobiBulletDamage(actor,target,head?spec.head:point.y-(target.y||0)<.7?spec.leg:spec.body,spec.head,!melee&&!knives);if(!knives&&['phantom','spectre','ghost','classic'].includes(actor.netWeapon)&&nearest>15)damage*=nearest>30?.8:.9;damageEntity(target,damage,actor,{firearm:!melee&&!knives,skill:knives?'duelist':null});burst(point,head?'#fff3c8':'#ff737e',5);}
 }
 function tickOnline(dt){
   if(!onlinePlaying||!online||!match)return;netClock+=dt;if(netClock<.065)return;netClock=0;
@@ -2819,7 +2835,7 @@ function tickOnline(dt){
     const rules={format:match.format,startingSide:match.startingSide,round:match.round,score:{...match.score},phase:match.phase,phaseTime:match.phaseTime,roundTime:match.roundTime,winner:match.winner,lastRound:match.lastRound?{...match.lastRound}:null,spike:{...match.spike}};
     if(rules.lastRound&&match.phase!=='post')delete rules.lastRound.fullCombo;
     const teamState=teamAbilities.snapshot(),packet={type:'snapshot',mapId:map.id||'hashimoto',seq:++netSequence,time:elapsed,paused:netHostPaused,cues:serializeNetCues(),smokes:serializeSmokes(),drops:serializeDrops(),detonation:detonationState?{...detonationState}:null,takeover:takeoverState?{...takeoverState}:null,zoneAbilities:zoneAbilities.snapshot(),rules,roster:roster.map(r=>({...r,kit:r.kit?.snapshot()})),actors:[player,...bots].map(captureNetActor),acks:Object.fromEntries(netApplied),positionAcks:Object.fromEntries(bots.filter(b=>b.remoteId&&b.netPositionAck).map(b=>[b.remoteId,{...b.netPositionAck}]))};
-    for(const team of ['blue','red']){let state={...packet,teamAbilities:{...teamState,pings:teamState.pings.filter(ping=>ping.observerTeam===team)},ordinarySkills:ordinarySkills.snapshot(team),nopeDecoys:nopeDecoys.snapshot(),nopePops:serializeNopePops()};if(map.traffic||match.phase==='post')state=fitTrafficSnapshot(state);if(state)online.send(state,{team});}
+    for(const team of ['blue','red']){let state={...packet,teamAbilities:{...teamState,pings:teamState.pings.filter(ping=>ping.observerTeam===team)},ordinarySkills:ordinarySkills.snapshot(team),nopeDecoys:nopeDecoys.snapshot(),nopePops:serializeNopePops()};if(map.traffic||match.phase==='post'||state.cues.some(c=>c.type==='skill-hit'||c.type==='skill-heal'))state=fitTrafficSnapshot(state);if(state)online.send(state,{team});}
   }else if(netHasSnapshot){
     const seq=++netSequence,input={x:player.x,z:player.z,y:player.y,yaw:player.yaw,pitch:player.pitch,crouch:player.crouch,quiet:keys.has('ShiftLeft')||keys.has('ShiftRight'),interact:mode==='play'&&interactionHeld};
     netPositionHistory.set(seq,{x:input.x,z:input.z,correctionX:netPositionCorrectionX,correctionZ:netPositionCorrectionZ});while(netPositionHistory.size>128)netPositionHistory.delete(netPositionHistory.keys().next().value);

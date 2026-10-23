@@ -393,3 +393,10 @@
 @keyframes full-combo-enter{from{opacity:0;transform:scale(.78) translateY(12px)}to{opacity:1;transform:scale(1) translateY(0)}}
 @media(prefers-reduced-motion:reduce){.round-banner.full-combo .full-combo-title{animation:none}}
 @media(max-height:500px) and (orientation:landscape){.round-banner.full-combo{top:17%;padding:10px 18px}.round-banner.full-combo .full-combo-title{font-size:40px}.full-combo-result{font-size:16px;margin-top:0}.round-banner.full-combo small{margin-top:4px}}
+
+/* Skill cues stay below the aim point; no full-screen flashes or camera shake. */
+.skill-cast-feedback,.skill-hit-feedback{position:absolute;left:50%;transform:translateX(-50%);z-index:9;pointer-events:none;text-align:center;text-shadow:0 2px 5px #000,0 0 16px currentColor;white-space:nowrap;font-weight:800;letter-spacing:.08em}
+.skill-cast-feedback{top:66%;padding:7px 18px;border-bottom:2px solid currentColor;background:linear-gradient(90deg,#0c182000,#0c1820d9 20%,#0c1820d9 80%,#0c182000);font-size:clamp(12px,1.5vw,20px)}
+.skill-hit-feedback{top:57%;font-size:clamp(12px,1.25vw,17px)}
+.skill-cast-feedback[hidden],.skill-hit-feedback[hidden]{display:none}
+@media(max-height:500px){.skill-cast-feedback{top:73%;font-size:12px;padding:3px 10px}.skill-hit-feedback{top:60%;font-size:12px}}
