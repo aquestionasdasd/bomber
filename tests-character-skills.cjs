@@ -17,9 +17,9 @@ async function main() {
   test('casts use canonical bounded data, unique IDs, strict actors, and separate six-meter decoy range', () => {
     const skills = createCharacterSkills(), owner = actor();
     const bottle = skills.cast({ type: 'nope-bottle', radius: 900 }, owner, target(0, -20), 5, 1);
-    assert.ok(bottle); assert.equal(bottle.radius, 5.5); assert.equal(bottle.flight, .55); assert.equal(bottle.triggerAt, 6); near(bottle.endsAt, 6.6);
+    assert.ok(bottle); assert.equal(bottle.radius, 8); assert.equal(bottle.flight, .55); assert.equal(bottle.triggerAt, 6); near(bottle.endsAt, 6.6);
     assert.equal(bottle.fromY, 1.7); assert.equal(bottle.round, 1); assert.equal(bottle.sourceId, owner.id);
-    assert.equal(skills.cast('nope-bottle', owner, target(0, -20.001), 5, 1), null);
+    assert.equal(skills.cast('nope-bottle', owner, target(0, -40.001), 5, 1), null);
     assert.equal(skills.cast('nope-decoy', owner, target(0, -6.001), 5, 1), null);
     const decoy = skills.cast('nope-decoy', owner, target(0, -6), 5, 1); assert.ok(decoy); assert.notEqual(decoy.id, bottle.id);
     assert.equal(decoy.endsAt, 17); assert.equal(decoy.flight, 0); assert.equal(decoy.radius, 0);
@@ -52,7 +52,7 @@ async function main() {
 
   test('bottle fuse samples once, falls off with distance, respects cover and height, and never damages friends or dead actors', () => {
     const skills = createCharacterSkills(), owner = actor(); skills.cast('nope-bottle', owner, target(0, -5), 0, 1);
-    const enemies = [actor('center', 'red', 0, -5), actor('half', 'red', 2.75, -5), actor('edge', 'red', 5.5, -5),
+    const enemies = [actor('center', 'red', 0, -5), actor('half', 'red', 4, -5), actor('edge', 'red', 8, -5),
       actor('above', 'red', 0, -5, { y: 2.5 }), actor('too-high', 'red', 0, -5, { y: 2.501 }),
       actor('blocked', 'red', 0, -5), actor('dead', 'red', 0, -5, { hp: 0, alive: false }), actor('friend', 'blue', 0, -5)];
     assert.deepEqual(skills.update(enemies, .999999, 1, allReach), []);
@@ -75,7 +75,7 @@ async function main() {
   test('flash needs visible facing eyes but intentionally includes the caster and teammates', () => {
     const skills = createCharacterSkills(), owner = actor(), flash = skills.cast('nope-flash', owner, target(0, -5, 1.7), 0, 1);
     const observers = [owner, actor('enemy', 'red'), actor('friend', 'blue'), actor('away', 'red', 0, 0, { yaw: Math.PI }),
-      actor('blocked', 'red'), actor('edge', 'red', 0, 7), actor('too-far', 'red', 0, 7.001),
+      actor('blocked', 'red'), actor('edge', 'red', 0, 25), actor('too-far', 'red', 0, 25.001),
       actor('dead', 'red', 0, 0, { alive: false, hp: 0 }), actor('side', 'red', 0, 0, { yaw: Math.PI / 2 })];
     assert.deepEqual(skills.update(observers, .449, 1, allReach), []);
     const hits = skills.update(observers, .45, 1, { reachable: (_, other) => other.id !== 'blocked' });

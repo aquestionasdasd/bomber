@@ -21,14 +21,14 @@ function validEvent(event,now){
 export function createNopeDecoyFX(THREE){
   const asset=acquireNopeDecoyAsset(THREE),group=new THREE.Group(),batches=[];
   group.name='NOPE / full body decoys';group.visible=false;
-  const transform=new THREE.Object3D(),seen=new Set();let disposed=false;
+  const transform=new THREE.Object3D(),leg=new THREE.Object3D(),result=new THREE.Matrix4(),pivot=new THREE.Matrix4().makeTranslation(0,-.8,0),seen=new Set();let disposed=false;
   for(const part of asset.parts){
     const mesh=new THREE.InstancedMesh(part.geometry,part.material,MAX_DECOYS);
-    mesh.name=`NOPE decoy / ${part.finish}${part.team?` ${part.team}`:''}`;mesh.count=0;mesh.visible=false;
+    mesh.name=`NOPE decoy / ${part.finish}${part.motion!=='body'?' '+part.motion:''}${part.team?` ${part.team}`:''}`;mesh.count=0;mesh.visible=false;
     mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);mesh.frustumCulled=false;
     mesh.castShadow=false;mesh.receiveShadow=false;mesh.raycast=()=>{};
     mesh.userData.solid=false;mesh.userData.character='nope';mesh.userData.decoy=true;
-    group.add(mesh);batches.push({mesh,team:part.team});
+    group.add(mesh);batches.push({mesh,team:part.team,motion:part.motion});
   }
   group.userData.capacity=MAX_DECOYS;group.userData.activeEvents=0;
   function reset(){
@@ -41,9 +41,11 @@ export function createNopeDecoyFX(THREE){
       const event=events[index];if(!validEvent(event,now)||seen.has(event.id))continue;
       seen.add(event.id);
       const yaw=Object.hasOwn(event,'yaw')?event.yaw:viewer&&coordinate(viewer.x)&&coordinate(viewer.z)?Math.atan2(viewer.x-event.x,viewer.z-event.z):0;
-      // Both motion modes deliberately keep the feet and silhouette stationary.
+      // Translation is already derived by host-clock event views. Limb motion is cosmetic.
       transform.position.set(event.x,event.y,event.z);transform.rotation.set(0,yaw,0);transform.scale.set(1,1,1);transform.updateMatrix();
-      for(const {mesh,team}of batches){if(team&&team!==event.team)continue;mesh.setMatrixAt(mesh.count++,transform.matrix);}
+      for(const {mesh,team,motion}of batches){if(team&&team!==event.team)continue;
+        if(motion!=='body'&&event.walking===true&&Number.isFinite(event.walkPhase)){const angle=Math.sin(event.walkPhase*4)*(motion==='legL'?1:-1)*.35;leg.position.set(0,.8,0);leg.rotation.set(angle,0,0);leg.updateMatrix();result.multiplyMatrices(transform.matrix,leg.matrix).multiply(pivot);mesh.setMatrixAt(mesh.count++,result);}
+        else mesh.setMatrixAt(mesh.count++,transform.matrix);}
       if(seen.size===MAX_DECOYS)break;
     }
     for(const {mesh}of batches){mesh.visible=mesh.count>0;if(mesh.visible)mesh.instanceMatrix.needsUpdate=true;}
