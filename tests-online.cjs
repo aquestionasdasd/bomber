@@ -317,7 +317,7 @@ async function main() {
         z: i ? 5.34567890123456 + (i - 1) * .2345678901234 : 0, y: 0, yaw: 0, vx: 0, vz: 0,
         hp: 100, armor: 50, alive: true, grounded: true, weaponId: 'phantom', ammo: 30, reserve: 90, netWeapon: 'phantom', netAmmo: 30, netReserve: 90, netReload: .7234567890123457,
         serviceReload: { eventId: `skill-ember-service-${999999999999999-i}`, weaponId: 'phantom', endsAt: now + .7234567890123457 },
-        remoteId: i ? record.memberId : null, netYaw: 1.2345678901234567, group: { rotation: { y: 0 } },
+        remoteId: i ? record.memberId : null, netPurchaseAck: [Number.MAX_SAFE_INTEGER,1,'updraft'], netYaw: 1.2345678901234567, group: { rotation: { y: 0 } },
         netPositionAck: { seq: 100, connection: '10000000-0000-4000-8000-000000000000', round: 1,
           x: -20.123456789012345 + (i - 1) * 4.3210987654321, z: 5.34567890123456 + (i - 1) * .2345678901234 } }));
       const player = actors[0], bots = actors.slice(1), teamAbilities = createTeamAbilities(), zoneAbilities = createZoneAbilities(), ordinarySkills = createCharacterSkills();
@@ -400,6 +400,7 @@ async function main() {
       assert.ok(snapshot.ordinarySkills.events.filter(event => event.type === 'mend-heal').every(event => event.targetId.length === 64), 'The transport budget must include complete legal heal target IDs');
       const bytes = Buffer.byteLength(JSON.stringify(snapshot), 'utf8');
       assert.equal(snapshot.nopeDecoys.points.length,30);assert.equal(snapshot.nopePops.length,8);
+      assert.equal(snapshot.actors.filter(a=>a.purchaseAck).length,0,'Purchase receipts must not consume the full live effect budget');
       const nopeReplica=createNopeDecoys();assert.equal(nopeReplica.restore(snapshot.nopeDecoys,now,1),true);assert.equal(nopeReplica.events(now).length,30);
       assert.ok(bytes > 40 * 1024 && bytes <= 64 * 1024, `The complete conservative snapshot must exceed the former limit and fit the new cap, got ${bytes}B`);
       assert.equal((await send(host, 'team:red', 'game', snapshot)).status, 201);

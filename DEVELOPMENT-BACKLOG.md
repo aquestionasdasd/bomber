@@ -98,3 +98,8 @@ C/Q/E/Xの全4技について、既存全員との比較表を先に作り、効
 - [x] 最後のpaused snapshotだけ初回+最大2再試行/25秒期限。既存2team/200msゲート、同seq・同payload、最新保留とdirect復帰の優先、復帰/退出/非playing/identity変更の取消を実装。
 - [x] 制御HTTP/偽時計12群・4故障検出、実SQLite/RoomClient20群、待機UI6群、独立JSON VM枚方9群。最終統合/build/公開/共有の根拠はworkspace cycle64-release.json。
 - [ ] 実2タブでの通信障害再現、新枚方A/Bサイトの実2タブ設置/電源オフ、実端末/別回線は未確認。全ブラウザー凍結中の配達保証ではない。guest購入成功本人ACK音は引き続き未実装。
+
+## 第65巡：ゲスト購入の本人確認
+- [x] host成功receiptと保留buyのseq/round/itemを照合し、成功音/ショップ本文を一度だけ更新。失敗/重複/再参加/次R/死亡/フェーズ終了は鳴らさず、既存muteを保持。短時間の複数成功は1回へ集約。receiptはbuy限定でliveの64KiB枠を増やさない。
+- [x] hostの盾重複/下位盾購入拒否を通常購入へ一致。専用実game独立JSON VM/SQLite通信/音mock/待機UI/relay retryとbuildを検証。公開・共有の確定状態はworkspace cycle65-release.json。
+- [ ] 聴感試聴、実回線断復帰、新枚方A/Bの実2タブ設置/電源オフ、実端末/別回線は未確認。旧巡の「ACK音未実装」は履歴であり現在は上記実装が正本。
