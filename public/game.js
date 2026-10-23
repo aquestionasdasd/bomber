@@ -5,6 +5,7 @@ import { chargeCrownTax, constellationTarget, createStarHold, orbViewYaw } from 
 import { URCHIN_SKILLS } from './abilities.js';
 import { createUrchinSkillFX } from './urchin-skill-fx.js';
 import { CAP_SKILLS } from './abilities.js';
+import { capShotOffset } from './cap-optics.js';
 import { createCapSkillFX } from './cap-skill-fx.js';
 import { createJapanSkillFX } from './japan-skill-fx.js';
 import { createNobiSkillFX } from './nobi-skill-fx.js';
@@ -425,7 +426,7 @@ function renderOrdinarySkills(){
   emberSkillFX.update(live?ordinarySkills.events(elapsed):[],elapsed,{viewer:viewer||player,actors:[player,...bots].map(ordinaryActorView),showHand:live&&mode==='play'&&player.alive,reducedMotion:reducedMotion.matches});
   onnaraSkillFX.update(live?ordinarySkills.events(elapsed):[],elapsed,{actors:[player,...bots].filter(a=>a.team===player.team||ordinarySkills.blindUntil(player.id,elapsed)<=elapsed&&visibleBetween(player,a)),reducedMotion:reducedMotion.matches});
   urchinSkillFX.update(live?ordinarySkills.events(elapsed):[],elapsed,{actors:[player,...bots].filter(a=>a.team===player.team||ordinarySkills.blindUntil(player.id,elapsed)<=elapsed&&visibleBetween(player,a))});
-  capSkillFX.update(live?ordinarySkills.events(elapsed):[],elapsed,{actors:[player,...bots].filter(a=>a.team===player.team||ordinarySkills.blindUntil(player.id,elapsed)<=elapsed&&visibleBetween(player,a))});
+  capSkillFX.update(live?ordinarySkills.events(elapsed):[],elapsed,{actors:[player,...bots].filter(a=>a.team===player.team||ordinarySkills.blindUntil(player.id,elapsed)<=elapsed&&visibleBetween(player,a)),reducedMotion:reducedMotion.matches,hiddenActorId:viewer?.id});
   japanSkillFX.update(live?ordinarySkills.events(elapsed):[],elapsed,{actors:[player,...bots].filter(a=>a.team===player.team||ordinarySkills.blindUntil(player.id,elapsed)<=elapsed&&visibleBetween(player,a))});
   nobiSkillFX.update(live?ordinarySkills.events(elapsed):[],elapsed,{actors:[player,...bots].filter(a=>a.team===player.team||ordinarySkills.blindUntil(player.id,elapsed)<=elapsed&&visibleBetween(player,a))});
   carSkillFX.update(live?ordinarySkills.events(elapsed):[],elapsed,{actors:[player,...bots],preview:live&&mode==='play'&&player.alive&&player.kit.character==='car'&&duckAim?carSkillTarget(player,duckAim):null});
@@ -1122,7 +1123,7 @@ function shoot(shotTime=elapsed) {
   const spread=ultimate?0:spec.spread*(aiming?.65:player.crouch>.5?.8:1)+carMovementSpread({airborne:!actorGrounded(player),moving,gyro:ordinarySkills.carGyro(player.id,elapsed)&&actorGrounded(player)})+Math.min(.04,Math.max(0,shotSequence-3)*.004);
   direction.x+=(Math.random()-.5)*spread;direction.y+=(Math.random()-.5)*spread;direction.normalize();
   if(!ultimate&&shotSequence>3)direction.x+=Math.sin(shotSequence*1.8)*.008;
-  direction.normalize();raycaster.set(camera.position,direction);raycaster.far=melee?2.2:120;
+  direction.normalize();if(!melee&&!ultimate)capDistortAim(player,direction);raycaster.set(camera.position,direction);raycaster.far=melee?2.2:120;
   if(isGuest())queueNetAction('fire',{yaw:player.yaw,pitch:player.pitch+renderedRecoil,ultimate});
   // A target can spawn between rendered frames, including while the trigger is held.
   botsGroup.updateMatrixWorld(true);
@@ -1152,7 +1153,7 @@ function fireArsenal(actor,origin,aim,spec,ads=false,{visualOnly=false}={}){
   const id=actor===player?inventory.active:actor.netWeapon||actor.aiWeapon;
   const moving=actor===player?Math.hypot(player.vx,player.vz)>1.2:!!actor.moving||!!actor.remoteMoving;
   const sequence=actor===player?shotSequence:actor.shotSequence||1;
-  const forward=aim.clone().normalize(),right=new THREE.Vector3().crossVectors(forward,new THREE.Vector3(0,1,0)).normalize();
+  const forward=capDistortAim(actor,aim.clone().normalize()),right=new THREE.Vector3().crossVectors(forward,new THREE.Vector3(0,1,0)).normalize();
   const up=new THREE.Vector3().crossVectors(right,forward).normalize(),totals=new Map();
   botsGroup.updateMatrixWorld(true);
   const targets=[environment,botsGroup];
@@ -1451,6 +1452,12 @@ function activateCapAbility(actor,key,{predict=false,aim=null}={}){
  if(actor===player)showMessage(key==='x'?'エンドレスマガジン':getCharacterSkill('cap',key).name,key==='x'?'9秒、装填済みの銃弾を消費せず撃てます。空弾倉は装填が必要。':getCharacterSkill('cap',key).description,3);return effect;
 }
 function confirmCapSkill(key){if(netHostPaused||mode!=='play'||!player.alive||interactionHeld||objectivePractice)return;refillMapPracticeSkills();const aim={yaw:player.yaw,pitch:player.pitch},effect=activateAbility(player,key,{predict:isGuest(),aim});if(effect&&isGuest())queueNetAction('ability',{key,...aim});if(!effect)showMessage('対象を確認','敵・味方・現在の妨害・視線・距離を確認 · 消費していません',2);refillMapPracticeSkills();updateHUD();}
+function capDistortAim(actor,aim){
+ const sequence=actor===player?shotSequence:actor.shotSequence||1,offset=capShotOffset(sequence,ordinarySkills.capLocked(actor.id,elapsed));
+ if(!offset.x&&!offset.y)return aim;
+ const right=new THREE.Vector3().crossVectors(aim,new THREE.Vector3(0,1,0)).normalize(),up=new THREE.Vector3().crossVectors(right,aim).normalize();
+ return aim.addScaledVector(right,offset.x).addScaledVector(up,offset.y).normalize();
+}
 function capBounceShot(actor,origin,incoming,hit,spec){
  if(!ordinarySkills.capBank(actor.id,elapsed)||!spec.mag||!hit?.face||hit.object.userData.bot||!Number.isFinite(hit.distance)||hit.distance>=CAP_SKILLS.bounceRange-.1)return null;
  const transform=hit.object.matrixWorld.clone();if(hit.object.isInstancedMesh&&Number.isInteger(hit.instanceId)){const instance=new THREE.Matrix4();hit.object.getMatrixAt(hit.instanceId,instance);transform.multiply(instance);}
@@ -1793,7 +1800,7 @@ function updateHUD(){
     if(ordinarySkills.onnaraEvent?.('onnara-chain',player.id,elapsed))statuses.push('星座裁定 · 近くの敵へ70%連鎖');
     if(ordinarySkills.urchinJammed(player.id,elapsed))statuses.push('棘錠 · 装填不可');
     if(ordinarySkills.urchinTrident(player.id,elapsed))statuses.push('三叉潮 · 三方向射撃');
-    if(ordinarySkills.capLocked(player.id,elapsed))statuses.push('スコープロック · ADS不可');
+    if(ordinarySkills.capLocked(player.id,elapsed))statuses.push('レンズブレイク · 銃弾が拡散 / ADS不可');
     if(ordinarySkills.capBank(player.id,elapsed))statuses.push('バンクレンズ · 1回跳弾');
     if(ordinarySkills.capMagazine(player.id,elapsed))statuses.push('エンドレスマガジン · 銃弾消費なし');
     if(ordinarySkills.japanReturn(player.id,elapsed)>0)statuses.push('弾丸返送 · 被銃撃の65%を返す');
@@ -2119,7 +2126,7 @@ function updateBots(dt){
     if(bot.kit?.character==='cap'&&!interactPlant&&!interactDefuse&&elapsed>=(bot.nextSkillAt||0)){
       const friend=[bot,...bots.filter(b=>b.team===bot.team),...(player.team===bot.team?[player]:[])].find(a=>a.alive&&ordinarySkills.hasImpairment(a.id,a.team,elapsed)&&distance(bot,a)<=CAP_SKILLS.cleanRange&&(a===bot||visibleBetween(bot,a)));
       if(friend)activateAbility(bot,'q',{aim:{yaw:Math.atan2(bot.x-friend.x,bot.z-friend.z),pitch:Math.atan2((friend.y||0)+1.3-((bot.y||0)+1.7),Math.max(.001,distance(bot,friend)))}});
-      if(enemy&&enemyDistance<CAP_SKILLS.lockRange&&visibleBetween(bot,enemy)){const enemyWeapon=enemy===player?inventory.active:enemy.remoteId?enemy.netWeapon:enemy.aiWeapon;if((enemy===player||enemy.remoteId)&&WEAPONS[enemyWeapon]?.slot==='primary'&&!ordinarySkills.capLocked(enemy.id,elapsed))activateAbility(bot,'c',{aim:{yaw:Math.atan2(bot.x-enemy.x,bot.z-enemy.z),pitch:Math.atan2((enemy.y||0)+1.3-((bot.y||0)+1.7),Math.max(.001,enemyDistance))}});if(enemyDistance<35){activateAbility(bot,'e');if(bot.aiAmmo>0&&bot.kit.ultPoints>=7)activateAbility(bot,'x');}}
+      if(enemy&&enemyDistance<CAP_SKILLS.lockRange&&visibleBetween(bot,enemy)){const enemyWeapon=enemy===player?inventory.active:enemy.remoteId?enemy.netWeapon:enemy.aiWeapon;if(WEAPONS[enemyWeapon]?.mag>0&&!ordinarySkills.capLocked(enemy.id,elapsed))activateAbility(bot,'c',{aim:{yaw:Math.atan2(bot.x-enemy.x,bot.z-enemy.z),pitch:Math.atan2((enemy.y||0)+1.3-((bot.y||0)+1.7),Math.max(.001,enemyDistance))}});if(enemyDistance<35){activateAbility(bot,'e');if(bot.aiAmmo>0&&bot.kit.ultPoints>=7)activateAbility(bot,'x');}}
       bot.nextSkillAt=elapsed+1;
     }
     if(bot.kit?.character==='japan'&&!interactPlant&&!interactDefuse&&elapsed>=(bot.nextSkillAt||0)){
@@ -2206,6 +2213,7 @@ function updateBots(dt){
           let chance=cfg.aim*(enemy===player?.54:.66)*Math.max(.48,1-enemyDistance/65);
           if(enemy===player&&Math.hypot(player.vx||0,player.vz||0)>2.5)chance*=.76;
           if(bot.moving&&!(ordinarySkills.carGyro(bot.id,elapsed)&&actorGrounded(bot)))chance*=.72;
+          if(spec.mag>0&&!spec.arsenal&&ordinarySkills.capLocked?.(bot.id,elapsed))chance*=CAP_SKILLS.lockAimScale;
           const hit=Math.random()<chance,head=hit&&Math.random()<.065+cfg.aim*.07;
           const from=new THREE.Vector3(bot.x,(bot.y||0)+1.2,bot.z);
           const to=new THREE.Vector3(enemy.x,(enemy.y||0)+(head?1.62:1.15),enemy.z);
@@ -2781,6 +2789,7 @@ function applyRemoteAction(actor,action,actionTime=elapsed){
   actor.lastNetShot=actionTime;actor.flash=.07;actor.shotSequence=(actor.shotSequence||0)+1;
   const origin=new THREE.Vector3(actor.x,1.7+(actor.y||0)-(actor.crouch||0)*.55,actor.z),aim=new THREE.Vector3(-Math.sin(yaw)*Math.cos(pitch),Math.sin(pitch),-Math.cos(yaw)*Math.cos(pitch));
   if(spec.arsenal){sound('shot',{weapon:actor.netWeapon,entity:actor});fireArsenal(actor,origin,aim,spec,action.ads===true);return;}
+  if(!melee&&!knives)capDistortAim(actor,aim);
   botsGroup.updateMatrixWorld(true);const ray=new THREE.Raycaster(origin,aim,0,melee?2.2:120);
   const all=ray.intersectObjects([environment,botsGroup],true).filter(h=>h.object.userData.bot!==actor&&(!h.object.userData.bot||h.object.userData.bot.alive));
   const hit=all[0];let target=hit?.object.userData.bot,point=hit?.point,head=!!hit?.object.userData.head,nearest=hit?.distance??120;
