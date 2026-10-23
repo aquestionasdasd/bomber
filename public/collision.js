@@ -144,5 +144,5 @@ export function createCollisionIndex(colliders, cellSize = 20) {
     return true;
   }
   refresh();
-  return { query, blocked, segmentClear, rayClear, overlaps, get revision() { refresh(); return revision; } };
+  return { query, blocked, segmentClear, rayClear, overlaps, invalidate() { indexedLength=-1; refresh(); }, get revision() { refresh(); return revision; } };
 }

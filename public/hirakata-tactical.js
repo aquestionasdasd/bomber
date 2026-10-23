@@ -7,12 +7,12 @@ export const HIRAKATA_INDOOR_SITES=Object.freeze([
   polygon:[[-53,-16.5],[-39,-16.5],[-39,-6],[-53,-6]],plantPositions:[{id:'B-cover',label:'案内台裏',style:'cover',x:-47,z:-12.5},{id:'B-open',label:'西ホール中央',style:'open',x:-43,z:-10}]},
 ]);
 
-export function addHirakataTactical({part,solid,sign}){
+export function addHirakataTactical({part,solid,sign,breakable=(id,build)=>build()}){
  const rooms=[],covers=[];
  function zWall(id,z,a,b){if(b-a<=0)return;solid((a+b)/2,2.35,z,b-a,4.7,.34,'cream','wall',id);part((a+b)/2,.24,z,b-a,.2,.38,'dark');}
  function xWall(id,x,a,b){if(b-a<=0)return;solid(x,2.35,(a+b)/2,.34,4.7,b-a,'cream','wall',id);part(x,.24,(a+b)/2,.38,.2,b-a,'dark');}
  function doorway(id,x,z,w,d,color){solid(x,3.95,z,w,1.5,d,'cream','surface',id+'-lintel');part(x,3.1,z,w,.16,d+.12,color);}
- function cover(id,x,z,w,d,h,m){solid(x,h/2,z,w,h,d,m,'cover',id);part(x,h+.035,z,w+.06,.07,d+.06,'silver');covers.push({id,x,z,w,d,h});}
+ function cover(id,x,z,w,d,h,m){breakable(id,()=>{solid(x,h/2,z,w,h,d,m,'cover',id);part(x,h+.035,z,w+.06,.07,d+.06,'silver');});covers.push({id,x,z,w,d,h});}
  for(const s of HIRAKATA_INDOOR_SITES){
   const[a,b,c,d]=s.room,west=s.id==='B',backX=s.back.x;
   zWall(s.id+'-south',d,a,b);
@@ -30,13 +30,13 @@ export function addHirakataTactical({part,solid,sign}){
   const p=s.polygon;for(let i=0;i<p.length;i++){const u=p[i],v=p[(i+1)%p.length];part((u[0]+v[0])/2,.065,(u[1]+v[1])/2,Math.abs(v[0]-u[0])||.12,.025,Math.abs(v[1]-u[1])||.12,s.color);}
   const bx=west?-33:-5;
   cover(s.id+'-flank-baffle',bx,-9,1,6,3.75,'dark');
-  part(bx,2,-8.9,1.04,1.3,.14,'wood');
-  sign(west?'B →':'← A','MID FLANK / 回り込み',bx+(west?.54:-.54),2.35,-9,4.3,.95,{bg:west?'#936a39':'#315f75',fg:'#fff1d6',ry:west?Math.PI/2:-Math.PI/2});
+  breakable(s.id+'-flank-baffle',()=>{part(bx,2,-8.9,1.04,1.3,.14,'wood');
+  sign(west?'B →':'← A','MID FLANK / 回り込み',bx+(west?.54:-.54),2.35,-9,4.3,.95,{bg:west?'#936a39':'#315f75',fg:'#fff1d6',ry:west?Math.PI/2:-Math.PI/2});});
   cover(s.id+'-desk',s.x,-7.5,5.8,1.2,1.35,'wood');
-  for(const dx of[-1.6,1.6])part(s.x+dx,1.5,-7.5,.7,.25,.25,'black');
+  breakable(s.id+'-desk',()=>{for(const dx of[-1.6,1.6])part(s.x+dx,1.5,-7.5,.7,.25,.25,'black');});
   cover(s.id+'-column',west?-52:21.8,-12,1.4,1.4,4.7,'concrete');
   cover(s.id+'-case',west?-57:26,-14.6,3,2,2.3,'metal');
-  for(let y=.35;y<2.3;y+=.55)part(west?-57:26,y,-13.57,2.6,.055,.045,s.color);
+  breakable(s.id+'-case',()=>{for(let y=.35;y<2.3;y+=.55)part(west?-57:26,y,-13.57,2.6,.055,.045,s.color);});
   rooms.push({id:s.id,bounds:{minX:a,maxX:b,minZ:c,maxZ:d},main:s.main,flank:s.flank,back:s.back});
  }
  // Offset screens make the transverse gallery a route with turns rather than
