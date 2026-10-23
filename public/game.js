@@ -329,6 +329,7 @@ function updateCharacterDescription(){
 }
 function mendReachable(actor,target){return actor===target||visibleBetween(actor,target);}
 function ordinaryReachable(event,actor){
+  if(event.type==='urchin-lance')return map.collision.rayClear(event.x,event.y,event.z,actor.x,(actor.y||0)+1.3-(actor.crouch||0)*.55,actor.z);
   if(event.type==='japan-border'||event.type==='veil-roots'||event.type==='frost-stitch')return map.collision.rayClear(event.x,event.y+.18,event.z,actor.x,(actor.y||0)+.18,actor.z);
   const eye=(actor.y||0)+1.7-clamp(actor.crouch||0,0,1)*.55;
   const y=['nope-bottle','mend-seeds','echo-tag'].includes(event.type)?event.y+.18:event.y;
@@ -423,7 +424,7 @@ function updateOrdinarySkills(){
       ordinaryAudio.set(event.id,beat);
     }else{
       const trigger=ordinaryAudioTime(event),triggered=elapsed>=trigger;
-      if(triggered&&previous!==true&&elapsed-trigger<.18)sound({'onnara-tax':'onnara-tax','onnara-orb':'onnara-orb','onnara-hover':'onnara-hover','onnara-chain':'onnara-chain','nope-bottle':'bottle-pop','nope-flash':'flash','mend-seeds':'seed-bloom','mend-pollen':'pollen','mend-heal':'flower-heal','echo-tag':'echo-tag-set','echo-glint':'echo-glint','echo-kerning':'echo-kerning','veil-dust':'grass-dust','veil-roots':'grass-roots','veil-turf':'grass-turf','ember-solder':'solder-pop','ember-shade':'shade-check','ember-service':'quick-solder','frost-stitch':'frost-stitch','frost-mist':'frost-mist','frost-unravel':'frost-unravel','duelist-comet':'duelist-comet','duelist-lift':'duelist-lift','duck-seal':'duck-seal','duck-shield':'duck-shield','duck-hush':'duck-hush','duck-egg':'duck-egg','cat-bookmark':'cat-bookmark','cat-return':'cat-return','cat-pluck':'cat-pluck','cat-fetch':'cat-fetch','cat-clock':'cat-clock','urchin-jam':'urchin-jam','urchin-disarm':'urchin-disarm','urchin-pearl':'urchin-pearl','urchin-trident':'urchin-trident','cap-lock':'cap-lock','cap-clean':'cap-clean','cap-bank':'cap-bank','cap-magazine':'cap-magazine','japan-border':'japan-border','japan-levy':'japan-levy','japan-return':'japan-return','japan-muster':'japan-muster','nobi-tag':'nobi-tag','nobi-brake':'nobi-brake','nobi-tool':'nobi-tool','nobi-legend':'nobi-legend','car-bumper':'car-bumper','car-wash':'car-wash','car-gyro':'car-gyro','car-pit':'car-pit'}[event.type]||'smoke',{entity:event,localOnly:true});
+      if(triggered&&previous!==true&&elapsed-trigger<.18)sound({'onnara-tax':'onnara-tax','onnara-orb':'onnara-orb','onnara-hover':'onnara-hover','onnara-chain':'onnara-chain','nope-bottle':'bottle-pop','nope-flash':'flash','mend-seeds':'seed-bloom','mend-pollen':'pollen','mend-heal':'flower-heal','echo-tag':'echo-tag-set','echo-glint':'echo-glint','echo-kerning':'echo-kerning','veil-dust':'grass-dust','veil-roots':'grass-roots','veil-turf':'grass-turf','ember-solder':'solder-pop','ember-shade':'shade-check','ember-service':'quick-solder','frost-stitch':'frost-stitch','frost-mist':'frost-mist','frost-unravel':'frost-unravel','duelist-comet':'duelist-comet','duelist-lift':'duelist-lift','duck-seal':'duck-seal','duck-shield':'duck-shield','duck-hush':'duck-hush','duck-egg':'duck-egg','cat-bookmark':'cat-bookmark','cat-return':'cat-return','cat-pluck':'cat-pluck','cat-fetch':'cat-fetch','cat-clock':'cat-clock','urchin-lance':'urchin-jam','urchin-jam':'urchin-jam','urchin-disarm':'urchin-disarm','urchin-pearl':'urchin-pearl','urchin-trident':'urchin-trident','cap-lock':'cap-lock','cap-clean':'cap-clean','cap-bank':'cap-bank','cap-magazine':'cap-magazine','japan-border':'japan-border','japan-levy':'japan-levy','japan-return':'japan-return','japan-muster':'japan-muster','nobi-tag':'nobi-tag','nobi-brake':'nobi-brake','nobi-tool':'nobi-tool','nobi-legend':'nobi-legend','car-bumper':'car-bumper','car-wash':'car-wash','car-gyro':'car-gyro','car-pit':'car-pit'}[event.type]||'smoke',{entity:event,localOnly:true});
       ordinaryAudio.set(event.id,triggered);
     }
   }
@@ -1475,7 +1476,11 @@ function urchinWeapon(actor){return actor===player?inventory.active:actor.remote
 function urchinCancelReload(actor){cancelServiceReload(actor);if(actor===player)reloading=0;else if(actor.remoteId)actor.netReload=0;else actor.aiReload=0;}
 function urchinTarget(actor,key,aim=null){
  if(ordinarySkills.blindUntil(actor.id,elapsed)>elapsed)return null;
- const d=carAim(actor,aim);if(!d)return null;const range=key==='c'?URCHIN_SKILLS.jamRange:URCHIN_SKILLS.disarmRange,origin={x:actor.x,y:(actor.y||0)+1.7-(actor.crouch||0)*.55,z:actor.z};let best=null;
+ const d=carAim(actor,aim);if(!d)return null;const range=key==='c'?URCHIN_SKILLS.lanceRange:URCHIN_SKILLS.disarmRange,origin={x:actor.x,y:(actor.y||0)+1.7-(actor.crouch||0)*.55,z:actor.z};
+ if(key==='c'){const at=t=>({x:origin.x+d.x*t,y:origin.y+d.y*t,z:origin.z+d.z*t}),clear=t=>{const p=at(t);return map.collision.rayClear(origin.x,origin.y,origin.z,p.x,p.y,p.z);};let reach=range;
+  if(!clear(reach)){let low=0,high=reach;for(let i=0;i<24;i++){const middle=(low+high)/2;if(clear(middle))low=middle;else high=middle;}reach=Math.max(0,low-.05);}
+  return reach>=1?at(reach):null;
+ }let best=null;
  for(const target of[player,...bots]){if(!target.alive||target===actor||target.team===actor.team||!visibleBetween(actor,target))continue;const v={x:target.x-origin.x,y:(target.y||0)+1.3-(target.crouch||0)*.55-origin.y,z:target.z-origin.z},along=v.x*d.x+v.y*d.y+v.z*d.z;if(along<0||Math.hypot(v.x,v.y,v.z)>range||Math.hypot(v.x-d.x*along,v.y-d.y*along,v.z-d.z*along)>.55)continue;if(!best||along<best.distance)best={x:target.x,y:target.y||0,z:target.z,targetId:target.id,actor:target,distance:along};}
  if(best&&key==='q'){const id=urchinWeapon(best.actor),r=best.actor===player?inventory:best.actor.record;if(WEAPONS[id]?.slot!=='primary'||!r||r[WEAPONS[id].slot]!==id||droppedWeapons.length>=32)return null;}
  return best;
@@ -1488,14 +1493,14 @@ function urchinDisarm(target){
 }
 function activateUrchinAbility(actor,key,{predict=false,aim=null}={}){
  key=String(key).toLowerCase();if(netHostPaused||!actor?.alive||match?.phase!=='live'||actor.planting||actor.defusing||actor.serviceReload||!['c','q','e','x'].includes(key))return;
- const type={c:'urchin-jam',q:'urchin-disarm',e:'urchin-pearl',x:'urchin-trident'}[key];if(key==='x'&&ordinarySkills.urchinTrident(actor.id,elapsed))return;
+ const type={c:'urchin-lance',q:'urchin-disarm',e:'urchin-pearl',x:'urchin-trident'}[key];if(key==='x'&&ordinarySkills.urchinTrident(actor.id,elapsed))return;
  const target=['c','q'].includes(key)?urchinTarget(actor,key,aim):{x:actor.x,y:actor.y||0,z:actor.z};if(!target)return;
  const local=actor===player,remote=!!actor.remoteId,id=urchinWeapon(actor),ammo=local?player.ammo:remote?actor.netAmmo:actor.aiAmmo,r=local?null:actor.record,credits=local?match.credits:r?.credits;
  const count=key==='e'?Math.min(URCHIN_SKILLS.pearlBullets,Math.floor(ammo||0),Math.floor((9000-credits)/URCHIN_SKILLS.pearlValue)):0;
  if(key==='e'&&(!WEAPONS[id]?.mag||!(count>0)||!Number.isFinite(credits)||(local?reloading:remote?actor.netReload:actor.aiReload)>0))return;
  const before=actor.kit.snapshot(),effect=actor.kit.activate(key,elapsed);if(!effect)return;
  if(!predict){const event=ordinarySkills.cast(effect,ordinaryActorView(actor),target,elapsed,match.round);if(!event){actor.kit.restore(before);return;}
-  if(key==='c')urchinCancelReload(target.actor);
+  // C only commits a fixed telegraphed lane; its host tick resolves damage.
   if(key==='q')urchinDisarm(target.actor);
   if(key==='e'){if(local){player.ammo-=count;match.credits+=count*URCHIN_SKILLS.pearlValue;}else{if(remote)actor.netAmmo-=count;else actor.aiAmmo-=count;r.credits+=count*URCHIN_SKILLS.pearlValue;}}
  }
@@ -2266,7 +2271,7 @@ function updateBots(dt){
       }bot.nextSkillAt=elapsed+1.2;
     }
     if(bot.kit?.character==='urchin'&&!interactPlant&&!interactDefuse&&elapsed>=(bot.nextSkillAt||0)){
-      if(enemy&&visibleBetween(bot,enemy)){const aim={yaw:Math.atan2(bot.x-enemy.x,bot.z-enemy.z),pitch:Math.atan2((enemy.y||0)+1.3-((bot.y||0)+1.7),Math.max(.001,enemyDistance))};if(enemyDistance<URCHIN_SKILLS.jamRange&&!ordinarySkills.urchinJammed(enemy.id,elapsed))activateAbility(bot,'c',{aim});if(enemyDistance<URCHIN_SKILLS.disarmRange)activateAbility(bot,'q',{aim});if(bot.aiAmmo>0&&enemyDistance<30&&bot.kit.ultPoints>=7)activateAbility(bot,'x');}
+      if(enemy&&visibleBetween(bot,enemy)){const aim={yaw:Math.atan2(bot.x-enemy.x,bot.z-enemy.z),pitch:Math.atan2((enemy.y||0)+1.3-((bot.y||0)+1.7),Math.max(.001,enemyDistance))};if(enemyDistance<URCHIN_SKILLS.lanceRange&&!ordinarySkills.events(elapsed).some(e=>e.type==='urchin-lance'&&e.sourceId===bot.id&&elapsed<e.triggerAt))activateAbility(bot,'c',{aim});if(enemyDistance<URCHIN_SKILLS.disarmRange)activateAbility(bot,'q',{aim});if(bot.aiAmmo>0&&enemyDistance<30&&bot.kit.ultPoints>=7)activateAbility(bot,'x');}
       else if(bot.aiAmmo>=8&&bot.aiReserve>=10&&(bot.record?.credits||0)<8500)activateAbility(bot,'e');
       bot.nextSkillAt=elapsed+.7;
     }

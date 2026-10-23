@@ -10,6 +10,7 @@ const specs = Object.freeze({
  'onnara-orb':Object.freeze({flight:0,delay:0,tail:ONNARA_SKILLS.orbDuration,radius:0}),
  'onnara-hover':Object.freeze({flight:0,delay:0,tail:ONNARA_SKILLS.hoverDuration,radius:0}),
  'onnara-chain':Object.freeze({flight:0,delay:0,tail:ONNARA_SKILLS.chainDuration,radius:0}),
+ 'urchin-lance':Object.freeze({flight:0,delay:URCHIN_SKILLS.lanceDelay,tail:URCHIN_SKILLS.lanceTail,radius:URCHIN_SKILLS.lanceRadius}),
  'urchin-jam':Object.freeze({flight:0,delay:0,tail:URCHIN_SKILLS.jamDuration,radius:0}),
  'urchin-disarm':Object.freeze({flight:0,delay:0,tail:.8,radius:0}),
  'urchin-pearl':Object.freeze({flight:0,delay:0,tail:.8,radius:0}),
@@ -81,9 +82,9 @@ const serviceWeapon = value => typeof value === 'string' && Object.hasOwn(WEAPON
   && ['primary', 'secondary'].includes(WEAPONS[value].slot) && WEAPONS[value].mag > 0;
 const personal = type => ['onnara-orb','onnara-hover','onnara-chain','urchin-pearl','urchin-trident','cap-bank','cap-magazine','japan-return','nobi-tool','nobi-legend','car-gyro','cat-bookmark','cat-clock','duck-hush', 'duck-egg', 'echo-kerning', 'veil-turf', 'ember-shade', 'ember-service', 'frost-unravel'].includes(type);
 const groundedPersonal = type => type === 'veil-turf' || type === 'frost-unravel';
-const feetSource = type => type.startsWith('onnara-') || type.startsWith('urchin-') || type.startsWith('cap-') || type.startsWith('japan-') || type.startsWith('nobi-') || type.startsWith('car-') || type.startsWith('cat-') || type === 'mend-heal' || type === 'duelist-lift' || personal(type) || type.startsWith('veil-');
+const feetSource = type => type.startsWith('onnara-') || type.startsWith('urchin-')&&type!=='urchin-lance' || type.startsWith('cap-') || type.startsWith('japan-') || type.startsWith('nobi-') || type.startsWith('car-') || type.startsWith('cat-') || type === 'mend-heal' || type === 'duelist-lift' || personal(type) || type.startsWith('veil-');
 const eventFields = ['id', 'type', 'team', 'sourceId', 'round', 'fromX', 'fromY', 'fromZ', 'x', 'y', 'z', 'startedAt', 'flight', 'triggerAt', 'endsAt', 'radius'];
-const withinCastRange = (type, actor, target, sourceEyeY = eyeY(actor)) => type.startsWith('onnara-') ? feetDistance(actor,target)<=(type==='onnara-tax'?ONNARA_SKILLS.taxRange+.002:type==='onnara-orb'?ONNARA_SKILLS.orbRange+.002:1e-8)+1e-8 : type.startsWith('urchin-') ? feetDistance(actor,target)<=(type==='urchin-jam'?URCHIN_SKILLS.jamRange:type==='urchin-disarm'?URCHIN_SKILLS.disarmRange:1e-8)+1e-8 : type.startsWith('cap-') ? feetDistance(actor,target)<=(type==='cap-lock'?CAP_SKILLS.lockRange:type==='cap-clean'?CAP_SKILLS.cleanRange:1e-8)+1e-8 : type.startsWith('japan-') ? feetDistance(actor,target)<=(type==='japan-border'?JAPAN_SKILLS.borderRange:type==='japan-levy'?JAPAN_SKILLS.levyRange:1e-8)+1e-8 : type.startsWith('nobi-') ? feetDistance(actor,target)<=(type==='nobi-tag'?NOBI_SKILLS.tagRange:type==='nobi-brake'?NOBI_SKILLS.brakeRange:1e-8)+1e-8 : type.startsWith('car-') ? feetDistance(actor,target)<=(type==='car-bumper'?CAR_SKILLS.bumperRange:type==='car-wash'?CAR_SKILLS.washRange:1e-8)+1e-8 : type.startsWith('cat-') ? feetDistance(actor,target) <= (type==='cat-return'?CAT_SKILLS.returnRange:type==='cat-pluck'?CAT_SKILLS.pluckRange:type==='cat-fetch'?CAT_SKILLS.fetchRange:1e-8)+1e-8 : type === 'duck-seal' || type === 'duck-shield' ? Math.hypot(target.x-actor.x,target.y-sourceEyeY,target.z-actor.z) <= (type === 'duck-seal' ? DUCK_SKILLS.sealRange : DUCK_SKILLS.shieldRange)+1e-8 : type === 'duelist-comet' ? Math.hypot(target.x - actor.x, target.y - sourceEyeY, target.z - actor.z) <= DUELIST_SKILLS.cometRange + 1e-8
+const withinCastRange = (type, actor, target, sourceEyeY = eyeY(actor)) => type.startsWith('onnara-') ? feetDistance(actor,target)<=(type==='onnara-tax'?ONNARA_SKILLS.taxRange+.002:type==='onnara-orb'?ONNARA_SKILLS.orbRange+.002:1e-8)+1e-8 : type==='urchin-lance' ? Math.hypot(target.x-actor.x,target.y-sourceEyeY,target.z-actor.z)<=URCHIN_SKILLS.lanceRange+1e-8 : type.startsWith('urchin-') ? feetDistance(actor,target)<=(type==='urchin-jam'?URCHIN_SKILLS.jamRange:type==='urchin-disarm'?URCHIN_SKILLS.disarmRange:1e-8)+1e-8 : type.startsWith('cap-') ? feetDistance(actor,target)<=(type==='cap-lock'?CAP_SKILLS.lockRange:type==='cap-clean'?CAP_SKILLS.cleanRange:1e-8)+1e-8 : type.startsWith('japan-') ? feetDistance(actor,target)<=(type==='japan-border'?JAPAN_SKILLS.borderRange:type==='japan-levy'?JAPAN_SKILLS.levyRange:1e-8)+1e-8 : type.startsWith('nobi-') ? feetDistance(actor,target)<=(type==='nobi-tag'?NOBI_SKILLS.tagRange:type==='nobi-brake'?NOBI_SKILLS.brakeRange:1e-8)+1e-8 : type.startsWith('car-') ? feetDistance(actor,target)<=(type==='car-bumper'?CAR_SKILLS.bumperRange:type==='car-wash'?CAR_SKILLS.washRange:1e-8)+1e-8 : type.startsWith('cat-') ? feetDistance(actor,target) <= (type==='cat-return'?CAT_SKILLS.returnRange:type==='cat-pluck'?CAT_SKILLS.pluckRange:type==='cat-fetch'?CAT_SKILLS.fetchRange:1e-8)+1e-8 : type === 'duck-seal' || type === 'duck-shield' ? Math.hypot(target.x-actor.x,target.y-sourceEyeY,target.z-actor.z) <= (type === 'duck-seal' ? DUCK_SKILLS.sealRange : DUCK_SKILLS.shieldRange)+1e-8 : type === 'duelist-comet' ? Math.hypot(target.x - actor.x, target.y - sourceEyeY, target.z - actor.z) <= DUELIST_SKILLS.cometRange + 1e-8
   : type === 'mend-heal' ? feetDistance(actor, target) <= MEND_SKILLS.healRange + 1e-8
   : personal(type) || type === 'duelist-lift' ? feetDistance(actor, target) <= 1e-8
   : type === 'veil-dust' ? Math.hypot(target.x - actor.x, target.z - actor.z) <= 1e-8 && close(target.y, (actor.y || 0) + VEIL_SKILLS.dustCenterOffset)
@@ -252,6 +253,17 @@ export function createCharacterSkills() {
         if(Math.abs((x-e.x)*nz-(z-e.z)*nx)>e.radius||y<e.y-.45||y>e.y+JAPAN_SKILLS.borderHeight||Math.hypot(actor.x-previous.x,actor.z-previous.z)>15)continue;
         if(!canReach(reachable,{...e,x,y:Math.max(e.y,y),z},actor))continue;
         history.get(actor.id).hit=true;effects.push({type:'damage',targetId:actor.id,sourceId:e.sourceId,amount:JAPAN_SKILLS.borderDamage});
+      }
+    }
+    // A locally cast lane resolves once at the advertised time. Restored lanes
+    // are visual only, and never gain hit authority or follow an actor.
+    for(const id of owned){const e=active.get(id);if(e?.type!=='urchin-lance'||now+1e-8<e.triggerAt)continue;
+      owned.delete(id);const dx=e.x-e.fromX,dy=e.y-e.fromY,dz=e.z-e.fromZ,length=Math.hypot(dx,dy,dz);if(length<1e-8)continue;
+      const seen=new Set();for(const actor of list){if(!living(actor)||actor.team===e.team||seen.has(actor.id))continue;seen.add(actor.id);
+        const ax=actor.x-e.fromX,ay=(actor.y||0)+1.3-Math.max(0,Math.min(1,actor.crouch||0))*.55-e.fromY,az=actor.z-e.fromZ;
+        const along=(ax*dx+ay*dy+az*dz)/length;if(along<0||along>length)continue;
+        if(Math.hypot(ax-dx*along/length,ay-dy*along/length,az-dz*along/length)>e.radius)continue;
+        if(canReach(reachable,{...e,x:e.fromX,y:e.fromY,z:e.fromZ},actor))effects.push({type:'damage',targetId:actor.id,sourceId:e.sourceId,amount:URCHIN_SKILLS.lanceDamage});
       }
     }
     for (const id of owned) {
