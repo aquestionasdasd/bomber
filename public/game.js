@@ -2091,6 +2091,7 @@ function enemyRimFor(bot){const viewerTeam=!player.alive&&spectatedBot?spectated
 function agentEquipment(bot){const weapon=bot.remoteId?bot.netWeapon:bot.netTarget?.weapon||bot.record?.primary||bot.record?.secondary||"classic";return {weapon,character:bot.kit?.character||bot.netTarget?.kit?.character||'duelist',ultimate:bot.kit?.knivesActive&&weapon==="knife",knives:bot.kit?.knives||0,shotSequence:bot.netTarget?.shotSequence??bot.shotSequence??0,enemyRim:enemyRimFor(bot),sliding:frostSlideSpeed(bot)>0&&!!bot.moving,...roundDanceState(match,bot),...(reducedMotion.matches?{danceTime:0}:{})};}
 function updateBots(dt){
   const cfg=levels[difficulty]||levels.normal;
+  if(!isGuest())navigation.updateTraffic?.(elapsed);
   const actors=[player,...bots];
   const distance=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
   const spike=match?.spike;
@@ -2131,17 +2132,18 @@ function updateBots(dt){
   }
   function advance(bot,goal,intent='objective'){
     const safe=navigation.nearest(goal.x,goal.z);if(!safe)return false;
-    const dist=distance(bot,safe);if(dist<.32){bot.path=[];return false;}
+    const dist=distance(bot,safe);if(dist<(intent==='bus-escape'?.04:.32)){bot.path=[];return false;}
     bot.pathTime=(bot.pathTime||0)-dt;
     if(bot.pathTime<=0||!bot.path?.length||!bot.goal||distance(bot.goal,safe)>2||bot.pathIntent!==intent){
-      bot.path=navigation.path(bot.x,bot.z,safe.x,safe.z);bot.pathTime=.8+Math.random()*.15;bot.goal=safe;bot.pathIntent=intent;
+      bot.path=intent==='bus-escape'?[safe]:navigation.path(bot.x,bot.z,safe.x,safe.z);bot.pathTime=.8+Math.random()*.15;bot.goal=safe;bot.pathIntent=intent;
     }
-    while(bot.path.length&&distance(bot,bot.path[0])<.22)bot.path.shift();
+    while(bot.path.length&&distance(bot,bot.path[0])<(intent==='bus-escape'?.04:.22))bot.path.shift();
     const point=bot.path[0];if(!point)return false;
     const dx=point.x-bot.x,dz=point.z-bot.z,length=Math.hypot(dx,dz)||1;
     const speed=(frostSlideSpeed(bot)||(3.35+cfg.speed*.25)*1.15)*actorSpeedScale(bot);
     const step=Math.min(length,speed*dt),oldX=bot.x,oldZ=bot.z;
-    if(elapsed<(bot.trafficLaunch?.endsAt||0)||map.traffic&&map.traffic.dangerous(bot.x+dx/length*step,bot.z+dz/length*step,elapsed))return false;
+    if(elapsed<(bot.trafficLaunch?.endsAt||0))return false;
+    if(navigation.trafficStep&&!navigation.trafficStep(bot.x,bot.z,bot.x+dx/length*step,bot.z+dz/length*step)){bot.pathTime=0;return false;}
     moveEntity(bot,dx/length*step,dz/length*step,.4);
     bot.group.rotation.y=Math.atan2(dx,dz);
     const moved=Math.hypot(bot.x-oldX,bot.z-oldZ)>.002;
@@ -2239,8 +2241,9 @@ function updateBots(dt){
     // A close threat interrupts starting an interaction; an ongoing plant or urgent retake commits.
     const committedPlant=spike.plantActor===bot.id&&spike.plantProgress>0;
     const committedDefuse=spike.defuseActor===bot.id&&spike.defuseProgress>0;
-    const interactPlant=actorGrounded(bot)&&plantSite&&(enemyDistance>10||committedPlant||role?.urgent);
-    const interactDefuse=actorGrounded(bot)&&shouldDefuse&&(!spike.defuseActor||spike.defuseActor===bot.id)&&(enemyDistance>9||committedDefuse||role?.urgent);
+    const trafficEscape=actorGrounded(bot)?navigation.trafficEscape?.(bot.x,bot.z):null;
+    const interactPlant=!trafficEscape&&actorGrounded(bot)&&plantSite&&(enemyDistance>10||committedPlant||role?.urgent);
+    const interactDefuse=!trafficEscape&&actorGrounded(bot)&&shouldDefuse&&(!spike.defuseActor||spike.defuseActor===bot.id)&&(enemyDistance>9||committedDefuse||role?.urgent);
     // Arm the work tool immediately before starting a real assigned task.
     // Approaching a site alone must not spend its six-second working window.
     bot.planting=false;bot.defusing=false;bot.moving=false;
@@ -2407,7 +2410,9 @@ function updateBots(dt){
       }
     }
     if(interactPlant||interactDefuse)cancelServiceReload(bot);
-    if(interactPlant){
+    if(trafficEscape){
+      bot.moving=advance(bot,trafficEscape,'bus-escape');
+    }else if(interactPlant){
       match.interactPlant(dt*(ordinarySkills.nobiWork?.(bot.id,elapsed)||1),{actorId:bot.id,team:bot.team,site:plantSite.id,x:bot.x,z:bot.z,stationary:true});
       bot.group.rotation.y=Math.atan2(site.x-bot.x,site.z-bot.z);
     }else if(interactDefuse){
