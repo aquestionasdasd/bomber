@@ -1,0 +1,2 @@
+const cp=require('node:child_process');
+for(const fault of ['early','repeat','wall','guest']){const p=cp.spawnSync(process.execPath,['tests-urchin-lance-contract.cjs','--fault='+fault],{cwd:__dirname,encoding:'utf8',timeout:30000,windowsHide:true});if(p.status!==1||!p.stderr.includes('AssertionError'))throw Error('Undetected in-memory fault '+fault+' '+p.stderr);console.log('PASS: in-memory fixed-lance fault detected / '+fault);}

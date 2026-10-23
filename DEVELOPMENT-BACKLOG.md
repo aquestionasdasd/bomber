@@ -1,3 +1,12 @@
+## 第84巡 / 青ウニCを予告付き直線棘撃「潮割り」へ
+
+- 旧Cの装填封鎖から、最大40m/幅1.3mの固定直線を構えて左確定/右取消、0.65秒予告後に線上の敵へ80rawを一度与える攻撃へ再設計。通常装甲処理、横避け/壁で対処、敵位置の追尾なし。空所や煙越しにも方向を狙えるがBOTは現在視認した敵のみ。C2/100coin、Q/E/Xと他キャラ、地形/移動/音源を保持。全15人との比較はURCHIN-C-REVIEW.md。
+- strict16fieldのurchin-lanceを追加。host tickのみ命中/HP/撃破、guestは在庫だけ予測、snapshot復元は描画のみ。旧urchin-jamは旧snapshot互換として残し新Cからは発生させない。満杯20event拒否rollback、重複/壁/横回避/複数敵一度ずつ/死亡/チーム/次R清掃を確認。予告2辺と9棘/命中時の帯で固定射線を見せ、既存録音cueを利用。
+- 修正前8組16roundはC7対0/対象チーム勝利3対4/本人生存3対3/撃破3対3/与ダメ582.4441187670064対568.4441187670064。最終24組48roundは両map攻守seed1–6/精鋭5v5/Vandal50armor満在庫7pt/青本人Cだけ有効無効でC28対0、勝利12対8/生存6対4/撃破21対9/与ダメ3944.9319189750986対1873.9319189750988。全チーム設置13対12/電源オフ6対5は本人貢献ではない。小標本/武器経済偏り/発動後PRNG分岐、旧8組との同標本直接比較でも人間や全員の勝率保証でもない。raw/集計とsourceSHAをworkspace cycle84-urchin-before/after.json/cycle84-balance-summary.jsonに保存。実updatePlay一frame一回。
+- 青ウニ契約5/実game15、新lance実savedgame10/strict契約5/4memory故障検出、通常55/SQLite20（新type20個も容量検査、既存最大65516/65536B）/知覚8/戦術14PASS行と実地4seed/測定7/演出8/録音mock4/本番5段階build成功。全mainは再実行しない。初回の旧jam期待、装甲期待、次Rfixture、JSON循環、40m端点fixtureを修正し、製品権威や射程を緩めていない。
+- 所有hidden local179は初手SOUND OFFfalse/AX0、説明/C構え左確定/予告射線と同標的2回で敵3→2/撃破00→01を実確認、warn/error0。80数値/装甲/多重命中/横避けは独立savedgame検査で実browser数値確認ではない。local179をNOPE/hashimoto/standard/attack/normalへ復元し閉鎖。8047/8048は保持sessionへ停止入力しlistener0。失敗178は8047接続timeoutで制御handle未取得、操作/開始せず一時タブ自動cleanup対象、error URL policyを回避しない。ユーザー3/5/8/10/12不操作、foreground/実音/試聴なし。新実2タブ/実端末未確認。
+- 公開確定/共有の正本はworkspace cycle84-release.json。全15人調整は未完了。次は🦆C等の弱い封印系を使用機会/追撃/目標寄与で比較し、一技ずつ再設計。完成した同一48round/全mainの無用反復をしない。CAR75raw24m/Japan人間指定10倍を保持。
+
 ## 第83巡 / 猫Qを命中後の追撃につなぐ弾裂きへ
 
 - Q「ひげの弾裂き」は敵の現弾倉から実際に抜いた最大5発を破裂させ、1発12/最大60rawを通常装甲処理で与える。予備弾は生成/消費せず、構え/左確定/右取消/30m/Q1/100coinと壁煙/装填中/空/ナイフ拒否を保持。全15人との効果/操作/役割比較はCAT-Q-REVIEW.md。単なる封鎖から、残弾に依存する単体の確定ダメージへ変更。C/E/X・他キャラ・地形・物理・音源は不変。

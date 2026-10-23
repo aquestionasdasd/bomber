@@ -1,5 +1,5 @@
 export const ONNARA_SKILLS=Object.freeze({taxRange:40,taxDuration:8,taxPerShot:30,taxBudget:300,taxHealthPerShot:4,orbRange:40,orbDuration:8,hoverDuration:13,signatureCooldown:18,chainDuration:8,chainRange:12,chainScale:.7});
-export const URCHIN_SKILLS=Object.freeze({jamRange:40,jamDuration:8,disarmRange:32,pearlBullets:5,pearlValue:20,tridentDuration:9,tridentAngle:Math.PI/45,tridentScale:.65,tridentRange:90,signatureCooldown:18});
+export const URCHIN_SKILLS=Object.freeze({jamRange:40,jamDuration:8,lanceRange:40,lanceDelay:.65,lanceTail:.35,lanceRadius:.65,lanceDamage:80,disarmRange:32,pearlBullets:5,pearlValue:20,tridentDuration:9,tridentAngle:Math.PI/45,tridentScale:.65,tridentRange:90,signatureCooldown:18});
 export const CAP_SKILLS=Object.freeze({lockRange:40,lockDuration:8,lockSpread:.07,lockAimScale:.55,cleanRange:24,bounceDuration:6,bounceScale:.75,bounceRange:90,magazineDuration:9,signatureCooldown:22});
 // Original fan-made tuning inspired by the duelist role; not an exact live-game ruleset.
 export const CHARACTER_DEFS = Object.freeze({
@@ -24,7 +24,7 @@ export const CHARACTER_DEFS = Object.freeze({
   nobi:Object.freeze({id:'nobi',label:'のび',role:'弱点・工作',ultName:'逆転えり',ultShortName:'逆転',ultimatePoints:7,description:'C：敵を銃に弱くする鈴 / Q：敵の連射を遅らせるひげ / E：設置と電源オフを加速。X：8秒、胴・脚への銃撃も頭相当の威力（7pt）。',color:'#f3cb48',ultIcon:'M18 3 3 13l15 15 15-15ZM10 13l8 8 8-8M18 3v11'}),
   japan:Object.freeze({id:'japan',label:'しばくでジャパン',role:'国境・総動員',ultName:'総動員',ultShortName:'総動員',ultimatePoints:7,description:'C：越えた敵へ国境線 / Q：敵の装甲を接収 / E：被銃撃を撃ち手へ返送。X：倒れた味方全員を開始地点へ1000HPで呼び戻す（7pt）。',color:'#e8ca91',ultIcon:'M3 15h30M18 2v26M7 4l22 22M29 4 7 26M4 23h28'}),
   cap:Object.freeze({id:'cap',label:'キャップは？',role:'光学・解除',ultName:'エンドレスマガジン',ultShortName:'無消費',ultimatePoints:7,description:'C：敵の銃の照準とADSを妨害 / Q：現在の妨害を解除 / E：壁で弾を一度反射。X：9秒、装填済みの銃弾を消費せず発射（7pt）。',color:'#e36336',ultIcon:'M5 7h26v16H5ZM12 11c-8 0-8 8 0 8s4-8 12-8 8 8 0 8-4-8-12-8'}),
-  urchin:Object.freeze({id:'urchin',label:'青ウニ',role:'棘・弾道',ultName:'三叉潮',ultShortName:'三叉',ultimatePoints:7,description:'C：敵の装填を止める / Q：敵の購入主武器を床へ落とす / E：自分の装填弾をコインへ交換。X：9秒、銃弾が三方向へ分かれる（7pt）。',color:'#a9f1e4',ultIcon:'M18 28V4M18 20 5 7M18 20 31 7M2 11 5 7 9 8M27 8 31 7 34 11M14 8 18 4 22 8'}),
+  urchin:Object.freeze({id:'urchin',label:'青ウニ',role:'棘・弾道',ultName:'三叉潮',ultShortName:'三叉',ultimatePoints:7,description:'C：予告した直線へ棘を一斉射出 / Q：敵の購入主武器を床へ落とす / E：自分の装填弾をコインへ交換。X：9秒、銃弾が三方向へ分かれる（7pt）。',color:'#a9f1e4',ultIcon:'M18 28V4M18 20 5 7M18 20 31 7M2 11 5 7 9 8M27 8 31 7 34 11M14 8 18 4 22 8'}),
   onnara:Object.freeze({id:'onnara',label:'おんなら',role:'星冠・裁定',ultName:'星座裁定',ultShortName:'連鎖',ultimatePoints:7,description:'C：敵の発砲にHPとコインの代償 / Q：遠方を360度見回す宝玉 / E：空中で13秒静止。X：8秒、銃撃した敵から別の敵1人へ実被害の70%を連鎖（7pt）。',color:'#ffc948',ultIcon:'M18 2 22 11 32 12 24 19 27 29 18 23 9 29 12 19 4 12 14 11Z'}),
 });
 export const getCharacterUltimate = character => { const id=normalizeCharacter(character),def=CHARACTER_DEFS[id]; return {key:'x',name:def.ultName,shortName:def.ultShortName,description:def.description.split('X：')[1]||'',points:def.ultimatePoints,icon:def.ultIcon}; };
@@ -107,7 +107,7 @@ const carSkills={
  e:{name:'タイヤジャイロ',shortName:'移動射撃',description:'4秒、接地中だけ銃の移動による精度低下をなくす。反動・連射拡散・空中精度・速度は通常通り。18秒で再使用。',max:1,price:0,type:'car-gyro',icon:'M18 3a12 12 0 1 0 0 24 12 12 0 0 0 0-24ZM18 8v14M11 15h14M7 25l-3 4m25-4 3 4'}
 };
 const urchinSkills={
- c:{name:'棘錠',shortName:'装填封鎖',description:'Cで構え40mの見える敵へ左確定・右取消。8秒、通常/整備装填を中止し新しい装填も封じる。装填済み弾の射撃や持替は可能。',max:2,price:100,type:'urchin-jam',icon:'M6 9h24v18H6ZM11 9V5h14v4M18 13v10'},
+ c:{name:'潮割り',shortName:'直線棘撃',description:'Cで構え、照準方向へ左確定・右取消。40mの固定射線を0.65秒予告し、幅1.3mの棘を一斉射出。線上の敵へ80ダメージ（装甲あり）。横回避と壁で防げる。',max:2,price:100,type:'urchin-lance',icon:'M6 9h24v18H6ZM11 9V5h14v4M18 13v10'},
  q:{name:'棘抜き',shortName:'銃を落とす',description:'Qで構え32mの見える敵へ左確定・右取消。構え中の購入主武器を弾数ごと床へ落とす。無料CLASSIC・ナイフ・ボンバー・ULTは対象外。銃は拾い直せる。',max:1,price:100,type:'urchin-disarm',icon:'M4 6h28v8H4ZM14 14v8h8v-8M18 23v7m-5-4 5 4 5-4'},
  e:{name:'真珠勘定',shortName:'弾→コイン',description:'自分の装填弾を最大5発消費、1発20しばくでコインへ交換。所持9000まで。空弾倉・装填中は使えない。18秒で再使用。',max:1,price:0,type:'urchin-pearl',icon:'M7 5h7v17H7ZM11 26h17M24 6a8 8 0 1 0 0 16 8 8 0 0 0 0-16Z'}
 };
@@ -181,7 +181,7 @@ export class DuelistKit {
         if (this.smoke <= 0) return null;
         this.smoke--;
         if(this.character==='onnara')return {type:'onnara-tax'};
-        if(this.character==='urchin')return {type:'urchin-jam'};
+        if(this.character==='urchin')return {type:'urchin-lance'};
         if(this.character==='cap')return {type:'cap-lock'};
         if(this.character==='japan')return {type:'japan-border'};
         if(this.character==='nobi')return {type:'nobi-tag'};
