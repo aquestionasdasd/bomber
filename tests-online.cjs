@@ -76,6 +76,59 @@ async function main() {
   async function test(name, fn) { await fn(); passed++; console.log(`PASS: ${name}`); }
 
   try {
+    await test('lobby map and format are host-owned, persisted before start, and visible to joins/polls/resume',async()=>{
+      const created=await api('',{method:'POST',body:{name:'MAP HOST',mapId:'hirakata',format:'standard'}});
+      assert.equal(created.status,201);const host=created.value,guest=await join(host);
+      assert.equal(guest.settings.mapId,'hirakata');assert.equal(guest.settings.format,'standard');
+      const change=(member,body)=>api(`/${host.code}/settings`,{method:'POST',member,body});
+      assert.equal((await change(guest,{mapId:'hashimoto',format:'swift'})).status,403);
+      assert.equal((await change(null,{mapId:'hashimoto',format:'swift'})).status,401);
+      for(const body of [{mapId:'bad',format:'swift'},{mapId:'hashimoto',format:'explore'},{mapId:'hashimoto'},{mapId:null,format:null}])assert.equal((await change(host,body)).status,400);
+      assert.equal((await getMessages(guest)).value.room.settings.mapId,'hirakata');
+      const saved=await change(host,{mapId:'hashimoto',format:'swift',maxPlayers:999,lobbyRevision:999});
+      assert.equal(saved.status,200);assert.equal(saved.value.settings.maxPlayers,10);assert.equal(saved.value.settings.lobbyRevision,1);
+      assert.deepEqual((await getMessages(guest)).value.room.settings,saved.value.settings);
+      assert.deepEqual((await api(`/${host.code}?resume=1`,{member:guest})).value.settings,saved.value.settings);
+      await ready(host);await ready(guest);
+      const started=await api(`/${host.code}/start`,{method:'POST',member:host,body:{format:'swift'}});assert.equal(started.status,200);assert.equal(started.value.settings.mapId,'hashimoto');
+      assert.equal((await change(host,{mapId:'hirakata',format:'standard'})).status,409);
+      assert.equal((await api(`/${host.code}`,{member:guest})).value.settings.mapId,'hashimoto');
+      await api(`/${host.code}/leave`,{method:'POST',member:host,body:{}});
+      assert.equal((await change(host,{mapId:'hirakata',format:'standard'})).status,401);
+      assert.equal((await change(guest,{mapId:'hirakata',format:'standard'})).status,410);
+    });
+    await test('invalid create choices never allocate rooms and legacy lobby revision upgrades without migration',async()=>{
+      const count=()=>db.prepare('SELECT COUNT(*) AS n FROM online_rooms').get().n,before=count();
+      for(const body of [{name:'HOST',mapId:'invalid'},{name:'HOST',format:'explore'}])assert.equal((await api('',{method:'POST',body})).status,400);
+      assert.equal(count(),before);
+      const host=await create();db.prepare('UPDATE online_rooms SET settings=? WHERE code=?').run(JSON.stringify({format:'swift',mapId:'hashimoto',maxPlayers:10}),host.code);
+      const saved=await api(`/${host.code}/settings`,{method:'POST',member:host,body:{format:'standard',mapId:'hirakata'}});
+      assert.equal(saved.status,200);assert.equal(saved.value.settings.lobbyRevision,1);assert.equal(saved.value.settings.mapId,'hirakata');
+      const guest=await join(host);await ready(host);await ready(guest);
+      const results=await Promise.all([
+        api(`/${host.code}/start`,{method:'POST',member:host,body:{format:'standard',mapId:'hirakata'}}),
+        api(`/${host.code}/settings`,{method:'POST',member:host,body:{format:'swift',mapId:'hashimoto'}}),
+      ]);
+      assert.equal(results[0].status,200);assert.ok([200,409].includes(results[1].status));
+      const final=(await api(`/${host.code}`,{member:guest})).value;
+      assert.equal(final.status,'playing');assert.equal(final.settings.mapId,'hirakata');assert.equal(final.settings.format,'standard');
+    });
+    await test('real RoomClient blocks stale lobby polls, pending starts, failed saves, and callbacks after leave',async()=>{
+      const {RoomClient}=await import(pathToFileURL(path.join(__dirname,'public/online.js')).href);
+      const updates=[],room={code:'MAPTEST2',status:'lobby',settings:{mapId:'hashimoto',format:'swift',lobbyRevision:0}};
+      let resolve,reject,requests=0;
+      const client=Object.assign(Object.create(RoomClient.prototype),{room,host:true,closed:false,settingsPending:false,onRoom:r=>updates.push(r),api:()=>{requests++;return new Promise((yes,no)=>{resolve=yes;reject=no;});}});
+      const pending=client.configure('standard','hirakata');assert.equal(client.settingsPending,true);
+      await assert.rejects(client.start('swift','hashimoto'),/保存/);await assert.rejects(client.configure('swift','hashimoto'),/保存/);assert.equal(requests,1);
+      resolve({...room,settings:{mapId:'hirakata',format:'standard',lobbyRevision:1}});await pending;
+      assert.equal(client.settingsPending,false);client.acceptRoom(room);assert.equal(client.room.settings.mapId,'hirakata');
+      const failed=client.configure('swift','hashimoto');reject(Error('offline'));await assert.rejects(failed,/offline/);
+      assert.equal(client.settingsPending,false);assert.equal(client.room.settings.mapId,'hirakata');
+      client.acceptRoom({...client.room,status:'playing'});client.acceptRoom({...room,settings:{lobbyRevision:99}});assert.equal(client.room.status,'playing');
+      client.room=room;const abandoned=client.configure('standard','hirakata'),before=updates.length;client.closed=true;
+      resolve({...room,settings:{mapId:'hirakata',lobbyRevision:1}});await abandoned;assert.equal(updates.length,before);assert.equal(client.room.settings.mapId,'hashimoto');
+      client.closed=false;client.host=false;await assert.rejects(client.configure('standard','hirakata'),/ホスト/);
+    });
     await test('host chooses map at start; invalid/guest maps never mutate room, reconnect retains map',async()=>{
       const host=await create(),guest=await join(host);await ready(host);await ready(guest);
       assert.equal((await api(`/${host.code}/start`,{method:'POST',member:guest,body:{format:'swift',mapId:'hirakata'}})).status,403);

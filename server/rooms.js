@@ -115,6 +115,12 @@ async function publicRoom(db, room, now) {
   };
 }
 function requireOpen(room) { if (room.status === 'closed') fail(410, 'room_closed', 'ホストが退出したため部屋を閉じました。新しい部屋を作ってください。'); }
+function lobbySettings(body, defaults = { format: 'swift', mapId: 'hashimoto' }) {
+  const format = body.format ?? defaults.format, mapId = body.mapId ?? defaults.mapId;
+  if (!['swift', 'standard'].includes(format)) fail(400, 'invalid_format', '試合形式を選択してください。');
+  if (!['hashimoto', 'hirakata'].includes(mapId)) fail(400, 'invalid_map', 'マップを選択してください。');
+  return { format, mapId, maxPlayers: 10 };
+}
 
 async function createRoom(request, db, now) {
   const body = await readBody(request);
@@ -122,7 +128,7 @@ async function createRoom(request, db, now) {
   cleanTeam(body.team, 'blue');
   await cleanup(db, now);
   const token = randomHex(), tokenHash = await hashToken(token), id = crypto.randomUUID();
-  const settings = JSON.stringify({ format: 'swift', mapId: 'hashimoto', maxPlayers: 10 });
+  const settings = JSON.stringify({ ...lobbySettings(body), lobbyRevision: 0 });
   for (let attempt = 0; attempt < 4; attempt++) {
     const code = randomCode();
     try {
@@ -166,12 +172,26 @@ async function setReady(request, db, room, member, now) {
   if (!changed(result)) fail(409, 'team_full', '選択したチームは満員です。');
   return json(await publicRoom(db, room, now));
 }
+async function configureRoom(request, db, room, member, now) {
+  requireOpen(room);
+  if (member.id !== room.host_id) fail(403, 'host_only', 'ホストだけがマップと試合形式を選択できます。');
+  if (room.status !== 'lobby') fail(409, 'match_started', '試合中はマップと試合形式を変更できません。');
+  const body = await readBody(request);
+  // Both fields are required: delayed partial requests must not restore old settings.
+  if (typeof body.format !== 'string' || typeof body.mapId !== 'string') fail(400, 'invalid_settings', 'マップと試合形式を選択してください。');
+  const { format, mapId } = lobbySettings(body);
+  const result = await statement(db, `UPDATE online_rooms SET settings = json_set(settings,
+    '$.format', ?, '$.mapId', ?, '$.lobbyRevision', COALESCE(json_extract(settings, '$.lobbyRevision'), 0) + 1)
+    WHERE code = ? AND status = 'lobby'`, format, mapId, room.code).run();
+  if (!changed(result)) fail(409, 'match_started', '試合が開始または終了したため変更できません。');
+  return json(await publicRoom(db, await roomByCode(db, room.code, now), now));
+}
 async function startRoom(request, db, room, member, now) {
   requireOpen(room);
   if (member.id !== room.host_id) fail(403, 'host_only', 'ホストだけが開始できます。');
   const body = await readBody(request);
   if (!['swift', 'standard'].includes(body.format)) fail(400, 'invalid_format', '試合形式を選択してください。');
-  const mapId=body.mapId??'hashimoto';
+  const mapId=body.mapId??JSON.parse(room.settings).mapId??'hashimoto';
   if(!['hashimoto','hirakata'].includes(mapId))fail(400,'invalid_map','マップを選択してください。');
   const settings = JSON.stringify({ format: body.format, mapId, maxPlayers: 10 });
   const result = await statement(db, `UPDATE online_rooms SET status = 'playing', settings = ? WHERE code = ? AND status = 'lobby'
@@ -250,7 +270,7 @@ export async function handleRooms(request, env) {
       if (request.method !== 'POST') fail(405, 'method_not_allowed', 'この操作には対応していません。');
       return await createRoom(request, env.DB, now);
     }
-    const match = path.match(/^\/api\/rooms\/([A-Z2-9]{8})(?:\/(join|ready|start|messages|leave))?$/i);
+    const match = path.match(/^\/api\/rooms\/([A-Z2-9]{8})(?:\/(join|ready|settings|start|messages|leave))?$/i);
     if (!match) fail(404, 'not_found', '部屋のURLが不正です。');
     const code = match[1].toUpperCase(), action = match[2], room = await roomByCode(env.DB, code, now);
     if (action === 'join' && request.method === 'POST') return await joinRoom(request, env.DB, room, now);
@@ -262,6 +282,7 @@ export async function handleRooms(request, env) {
     }
     if (action === 'messages' && request.method === 'GET') return await receiveMessages(env.DB, room, member, now, url);
     if (action === 'ready' && request.method === 'POST') return await setReady(request, env.DB, room, member, now);
+    if (action === 'settings' && request.method === 'POST') return await configureRoom(request, env.DB, room, member, now);
     if (action === 'start' && request.method === 'POST') return await startRoom(request, env.DB, room, member, now);
     if (action === 'messages' && request.method === 'POST') return await sendMessage(request, env.DB, room, member, now);
     if (action === 'leave' && request.method === 'POST') return await leaveRoom(env.DB, room, member, now);
