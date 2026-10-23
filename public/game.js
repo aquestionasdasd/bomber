@@ -1598,6 +1598,25 @@ function catDropTarget(actor,aim=null){
  const origin=new THREE.Vector3(actor.x,(actor.y||0)+1.7-(actor.crouch||0)*.55,actor.z),direction=new THREE.Vector3(-Math.sin(yaw)*Math.cos(pitch),Math.sin(pitch),-Math.cos(yaw)*Math.cos(pitch));
  let best=null;for(const drop of droppedWeapons){const target=new THREE.Vector3(drop.x,.2,drop.z),offset=target.clone().sub(origin),along=offset.dot(direction);if(along<0||Math.hypot(drop.x-actor.x,actor.y||0,drop.z-actor.z)>CAT_SKILLS.fetchRange||offset.addScaledVector(direction,-along).length()>.8||!catDropVisible(actor,drop))continue;if(!best||along<best.distance)best={drop,distance:along,x:drop.x,y:0,z:drop.z};}return best;
 }
+function catBotFetchAim(bot){
+ if(bot.aiReload>0||bot.serviceReload)return null;
+ const active=WEAPONS[actorWeaponId(bot)];let best=null;
+ for(const drop of droppedWeapons){
+  const spec=WEAPONS[drop.weapon];if(!spec||drop.ammo<=0||!['primary','secondary'].includes(spec.slot)||active?.slot==='primary'&&spec.slot==='secondary')continue;
+  const owned=bot.record?.[spec.slot],current=WEAPONS[owned];
+  // Price is a conservative equipment-upgrade heuristic, not a combat score.
+  // A same-gun swap must improve the loaded magazine without losing total ammo.
+  if(current){
+   if(owned===drop.weapon){const saved=actorWeaponId(bot)===owned?{ammo:bot.aiAmmo,reserve:bot.aiReserve}:bot.netStores?.[owned];if(!saved||!(drop.ammo>saved.ammo)||drop.ammo+drop.reserve<saved.ammo+saved.reserve)continue;}
+   else if(spec.price<=current.price)continue;
+  }
+  const distance=Math.hypot(drop.x-bot.x,drop.z-bot.z),aim={yaw:Math.atan2(bot.x-drop.x,bot.z-drop.z),pitch:Math.atan2(.2-((bot.y||0)+1.7-(bot.crouch||0)*.55),distance)};
+  // Use the real human target ray: a nearer drop can intercept this aim.
+  if(catDropTarget(bot,aim)?.drop!==drop)continue;
+  const score=spec.price+drop.ammo/spec.mag;
+  if(!best||score>best.score||score===best.score&&(distance<best.distance||distance===best.distance&&drop.id<best.id))best={aim,score,distance,id:drop.id};
+ }return best?.aim||null;
+}
 function japanBorderTarget(actor,aim=null){
  if(ordinarySkills.blindUntil(actor.id,elapsed)>elapsed)return null;const d=carAim(actor,aim);if(!d||Math.hypot(d.x,d.z)<.05)return null;
  const origin={x:actor.x,y:(actor.y||0)+1.7-(actor.crouch||0)*.55,z:actor.z};let reach=JAPAN_SKILLS.borderRange;
@@ -2542,7 +2561,7 @@ function updateBots(dt){
       if(bot.kit.ultPoints>=7&&catBotClockUseful(bot)&&!ordinarySkills.clockFrozen(elapsed))cast=activateAbility(bot,'x');
       if(!cast&&bookmark&&bot.hp<45)cast=activateAbility(bot,'c');
       if(!cast&&enemy&&visibleBetween(bot,enemy)){const aim={yaw:Math.atan2(-(enemy.x-bot.x),-(enemy.z-bot.z)),pitch:Math.atan2((enemy.y||0)+1.3-((bot.y||0)+1.7),Math.hypot(enemy.x-bot.x,enemy.z-bot.z))};cast=activateAbility(bot,'q',{aim});if(!cast&&!bookmark&&bot.hp>60)cast=activateAbility(bot,'c');}
-      if(!cast&&!enemy){const drop=droppedWeapons.find(d=>Math.hypot(d.x-bot.x,d.z-bot.z)<CAT_SKILLS.fetchRange);if(drop){const distance=Math.hypot(drop.x-bot.x,drop.z-bot.z),aim={yaw:Math.atan2(-(drop.x-bot.x),-(drop.z-bot.z)),pitch:Math.atan2(.2-((bot.y||0)+1.7),distance)};cast=activateAbility(bot,'e',{aim});}}
+      if(!cast&&!enemy){const aim=catBotFetchAim(bot);if(aim)cast=activateAbility(bot,'e',{aim});}
       bot.nextSkillAt=elapsed+(cast?1:.5);
     }
     if(bot.kit?.character==='duck'&&!interactPlant&&!interactDefuse&&elapsed>=(bot.nextSkillAt||0)){
