@@ -1,48 +1,49 @@
-// CC0 recorded effects. Gunfire and step/landing traces retain their original graph.
+// Recorded effects from Sound Effect Lab, OtoLogic and On-Jin. See audio/CREDITS.txt.
 const layer=(file,gain=.15,length=.35,delay=0,rate=1)=>Object.freeze({file,gain,length,delay,rate});
-const cloth=(gain=.18,length=.28,delay=0)=>layer('rpg-cloth1.ogg',gain,length,delay);
-const air=(gain=.18,length=.28,delay=0)=>layer('rpg-knifeSlice.ogg',gain,length,delay);
-const glass=(gain=.13,length=.3,delay=0)=>layer('impactGlass_light_000.ogg',gain,length,delay);
-const page=(gain=.15,length=.25,delay=0)=>layer('rpg-bookFlip1.ogg',gain,length,delay);
-const bell=(gain=.10,length=.45,delay=0)=>layer('impactBell_heavy_000.ogg',gain,length,delay);
-const soft=(gain=.19,length=.22,delay=0)=>layer('impactSoft_medium_000.ogg',gain,length,delay);
-const wood=(gain=.18,length=.28,delay=0)=>layer('impactWood_heavy_000.ogg',gain,length,delay);
-const liquid=(gain=.17,length=.4,delay=0)=>layer('scifi-slime_000.ogg',gain,length,delay);
-const pluck=(id,gain=.14,length=.65,delay=0)=>layer('jingle-PIZZI'+id+'.ogg',gain,length,delay);
+const cloth=(gain=.18,length=.28,delay=0)=>layer('lab-cloth.ogg',gain,length,delay);
+const air=(gain=.18,length=.28,delay=0)=>layer('onjin-dash.ogg',gain,length,delay);
+const glass=(gain=.13,length=.3,delay=0)=>layer('lab-ice.ogg',gain,length,delay);
+const page=(gain=.15,length=.25,delay=0)=>layer('lab-cloth.ogg',gain,length,delay);
+const bell=(gain=.10,length=.45,delay=0)=>layer('oto-cyber21-1.ogg',gain,length,delay);
+const soft=(gain=.19,length=.22,delay=0)=>layer('lab-punch-light1.ogg',gain,length,delay);
+const wood=(gain=.18,length=.28,delay=0)=>layer('lab-landing1.ogg',gain,length,delay);
+const liquid=(gain=.17,length=.4,delay=0)=>layer('lab-liquid.ogg',gain,length,delay);
+const pluck=(id,gain=.14,length=.65,delay=0)=>layer((id==='00'?'oto-angel01-1.ogg':id==='07'?'lab-success1.ogg':'lab-cancel2.ogg'),gain,length,delay);
 export const SAMPLE_CUES=Object.freeze({
- reload:[cloth(.24,.24),layer('rpg-beltHandle1.ogg',.18,.24,.06)],hit:[soft(.23,.14)],
- spike:[layer('rpg-handleCoins2.ogg',.42,.18),bell(.18,.12)],plant:[bell(.34,.8),layer('rpg-bookClose.ogg',.25,.30),layer('rpg-handleCoins.ogg',.12,.30,.20)],defuse:[layer('rpg-bookOpen.ogg',.2,.26),cloth(.18,.25,.08)],
- buy:[layer('rpg-handleCoins.ogg',.20,.3),layer('rpg-beltHandle1.ogg',.12,.22,.05)],scan:[page(.15,.18),bell(.07,.3,.06)],
- 'skill-throw':[cloth(.26,.25),air(.13,.24,.03)],'bottle-pop':[liquid(.25,.45),layer('impactGlass_heavy_000.ogg',.16,.4,.025),soft(.15,.2)],
- flash:[air(.16,.24),glass(.11,.24,.04)],decoy:[layer('rpg-dropLeather.ogg',.20,.25),cloth(.17,.3,.04)],takeover:[layer('rpg-doorClose_1.ogg',.21,.45),air(.20,.4,.07),liquid(.15,.45,.14)],
- explosion:[layer('explosionCrunch_004.ogg',.48,2.8),wood(.18,.45,.18)],'ember-impact':[layer('explosionCrunch_004.ogg',.16,.35,0,1.25)],
- frost:[glass(.14,.4),cloth(.1,.35,.04)],smoke:[air(.24,.42),cloth(.18,.4,.04)],updraft:[layer('rpg-knifeSlice2.ogg',.25,.4),cloth(.14,.25,.04)],dash:[air(.27,.28),cloth(.15,.2,.02)],
- 'dash-armed':[layer('rpg-handleSmallLeather.ogg',.18,.18)],'dash-ready':[bell(.09,.4),page(.12,.18,.04)],'dash-expired':[layer('rpg-bookClose.ogg',.13,.22)],knives:[layer('rpg-knifeSlice2.ogg',.2,.3),glass(.12,.25,.07)],kill:[soft(.2,.16),bell(.13,.4,.03)],
- 'seed-bloom':[layer('rpg-cloth2.ogg',.24,.3),wood(.10,.18,.03)],pollen:[cloth(.22,.4),liquid(.12,.28,.06)],'flower-heal':[pluck('00',.14,.75),page(.10,.2,.06)],heal:[pluck('00',.18,1),cloth(.10,.25,.08)],
- 'echo-tag-set':[page(.18,.18),layer('rpg-bookPlace1.ogg',.12,.16,.04)],'echo-tag-detect':[bell(.09,.25),bell(.065,.25,.09)],'echo-glint':[glass(.13,.24),air(.09,.2,.025)],'echo-kerning':[page(.15,.2),air(.1,.22,.02)],
- 'grass-dust':[cloth(.25,.32),wood(.09,.2,.04)],'grass-roots':[layer('rpg-creak1.ogg',.16,.3),wood(.12,.24,.06)],'grass-turf':[cloth(.19,.24),air(.11,.2,.025)],
- 'solder-pop':[layer('rpg-metalLatch.ogg',.10,.12),glass(.09,.18,.02)],'shade-check':[layer('rpg-handleSmallLeather.ogg',.13,.15),glass(.06,.2,.025)],'quick-solder':[layer('rpg-beltHandle1.ogg',.14,.2),cloth(.12,.22,.04)],
+ 'duck-pad':[cloth(.22,.25),layer('oto-cyber19-1.ogg',.08,.3,.04)],'urchin-lance':[air(.19,.28),glass(.13,.3,.03)],
+ jump:[cloth(.20,.16)],'duck-flap':[cloth(.18,.23)],'duck-launch':[air(.18,.3),cloth(.16,.2)],
+ 'weapon-classic':[layer('lab-handgun-firing1.ogg',.34,.42)],'weapon-ghost':[layer('lab-handgun-firing1.ogg',.21,.35,0,1.12)],
+ 'weapon-spectre':[layer('lab-machinegun-firing2.ogg',.27,.12,0,1.18)],'weapon-phantom':[layer('lab-machinegun-firing2.ogg',.25,.12,0,.94)],'weapon-vandal':[layer('lab-machinegun-firing1.ogg',.40,.12)],
+ 'weapon-knife':[layer('lab-knife-slash-1.ogg',.22,.36)],'weapon-pump':[layer('lab-handgun-firing1.ogg',.40,.42,0,.78)],'weapon-drum':[layer('lab-machinegun-firing1.ogg',.36,.12,0,.85)],
+ 'weapon-scout':[layer('lab-handgun-firing1.ogg',.36,.42,0,.92)],'weapon-atlas':[layer('lab-handgun-firing1.ogg',.43,.5,0,.68)],'weapon-forge':[layer('lab-machinegun-firing2.ogg',.31,.12,0,.8)],
+ reload:[layer('lab-machinegun-magazine-set1.ogg',.22,.52)],hit:[soft(.23,.14)],
+ spike:[layer('lab-beep1.ogg',.42,.18),bell(.18,.12)],plant:[bell(.34,.8),layer('onjin-latch.ogg',.25,.30),layer('lab-decision6.ogg',.12,.30,.20)],defuse:[layer('oto-cyber19-1.ogg',.2,.26),cloth(.18,.25,.08)],
+ buy:[layer('lab-decision6.ogg',.20,.3),layer('onjin-equipment.ogg',.12,.22,.05)],scan:[page(.15,.18),bell(.07,.3,.06)],
+ 'skill-throw':[cloth(.26,.25),air(.13,.24,.03)],'bottle-pop':[liquid(.25,.45),layer('lab-ice.ogg',.16,.4,.025),soft(.15,.2)],
+ flash:[air(.16,.24),glass(.11,.24,.04)],decoy:[layer('onjin-decoy.ogg',.20,.25),cloth(.17,.3,.04)],takeover:[layer('onjin-field.ogg',.21,.45),air(.20,.4,.07),liquid(.15,.45,.14)],
+ explosion:[layer('lab-bomb1.ogg',.48,2.8),wood(.18,.45,.18)],'ember-impact':[layer('lab-bomb1.ogg',.16,.35,0,1.25)],
+ frost:[glass(.14,.4),cloth(.1,.35,.04)],smoke:[layer('onjin-smoke.ogg',.20,.75)],updraft:[layer('onjin-dash.ogg',.25,.4),cloth(.14,.25,.04)],dash:[air(.27,.28),cloth(.15,.2,.02)],
+ 'dash-armed':[layer('onjin-equipment.ogg',.18,.18)],'dash-ready':[bell(.09,.4),page(.12,.18,.04)],'dash-expired':[layer('onjin-latch.ogg',.13,.22)],knives:[layer('onjin-dash.ogg',.2,.3),glass(.12,.25,.07)],kill:[soft(.2,.16),bell(.13,.4,.03)],
+ 'seed-bloom':[layer('lab-cloth.ogg',.24,.3),wood(.10,.18,.03)],pollen:[cloth(.22,.4),liquid(.12,.28,.06)],'flower-heal':[pluck('00',.14,.75),page(.10,.2,.06)],heal:[pluck('00',.18,1),cloth(.10,.25,.08)],
+ 'echo-tag-set':[page(.18,.18),layer('lab-decision13.ogg',.12,.16,.04)],'echo-tag-detect':[bell(.09,.25),bell(.065,.25,.09)],'echo-glint':[glass(.13,.24),air(.09,.2,.025)],'echo-kerning':[page(.15,.2),air(.1,.22,.02)],
+ 'grass-dust':[cloth(.25,.32),wood(.09,.2,.04)],'grass-roots':[layer('onjin-field.ogg',.16,.3),wood(.12,.24,.06)],'grass-turf':[cloth(.19,.24),air(.11,.2,.025)],
+ 'solder-pop':[layer('onjin-latch.ogg',.10,.12),glass(.09,.18,.02)],'shade-check':[layer('onjin-equipment.ogg',.13,.15),glass(.06,.2,.025)],'quick-solder':[layer('onjin-equipment.ogg',.14,.2),cloth(.12,.22,.04)],
  'frost-stitch':[glass(.13,.22),cloth(.08,.18,.035)],'frost-mist':[cloth(.22,.4),glass(.07,.3,.03)],'frost-unravel':[cloth(.16,.24),page(.09,.18,.03)],
- 'duelist-comet':[air(.19,.28),glass(.08,.2,.025)],'duelist-lift':[layer('rpg-knifeSlice2.ogg',.18,.28),cloth(.13,.22,.025)],
- 'duck-seal':[layer('rpg-bookClose.ogg',.2,.22),soft(.10,.16,.03)],'duck-shield':[wood(.20,.3),air(.12,.25,.04)],'duck-hush':[cloth(.16,.24)],'duck-egg':[layer('rpg-dropLeather.ogg',.2,.3),glass(.11,.28,.06)],
- 'cat-bookmark':[page(.19,.22)],'cat-return':[layer('rpg-bookOpen.ogg',.19,.3),air(.13,.25,.02)],'cat-pluck':[cloth(.19,.2)],'cat-fetch':[layer('rpg-handleSmallLeather.ogg',.20,.25)],'cat-clock':[page(.17,.28),bell(.09,.5,.06)],
- 'car-bumper':[soft(.24,.22),wood(.16,.25,.02)],'car-wash':[liquid(.20,.4),cloth(.1,.24,.025)],'car-gyro':[layer('rpg-beltHandle1.ogg',.17,.2),air(.1,.22)],'car-pit':[layer('rpg-handleCoins.ogg',.13,.25),cloth(.18,.3,.04)],
- 'nobi-tag':[bell(.10,.32),soft(.1,.15)],'nobi-brake':[layer('rpg-cloth2.ogg',.2,.25),soft(.09,.18,.02)],'nobi-tool':[layer('rpg-bookOpen.ogg',.2,.28)],'nobi-legend':[bell(.15,.6),page(.14,.25,.06)],
- 'japan-border':[cloth(.25,.4),wood(.13,.26,.05)],'japan-levy':[layer('rpg-handleCoins2.ogg',.21,.3)],'japan-return':[air(.21,.3),cloth(.14,.22,.04)],'japan-muster':[layer('rpg-cloth2.ogg',.24,.4),bell(.13,.55,.07)],
- 'cap-lock':[layer('impactGlass_heavy_000.ogg',.17,.32),air(.11,.2,.025)],'cap-clean':[cloth(.24,.3),glass(.08,.22,.04)],'cap-bank':[glass(.17,.25),soft(.12,.2,.025)],'cap-magazine':[layer('rpg-handleSmallLeather.ogg',.24,.3),cloth(.12,.22,.05)],
- 'urchin-jam':[wood(.14,.23),glass(.1,.22,.03)],'urchin-disarm':[layer('rpg-dropLeather.ogg',.2,.27),glass(.1,.2,.03)],'urchin-pearl':[liquid(.15,.35),glass(.11,.26,.03)],'urchin-trident':[air(.19,.3),glass(.14,.3,.025)],
- 'onnara-tax':[layer('rpg-handleCoins2.ogg',.20,.3),bell(.08,.3,.03)],'onnara-orb':[air(.2,.35),bell(.1,.5,.04)],'onnara-hover':[cloth(.23,.4),air(.12,.35,.04)],'onnara-chain':[bell(.12,.5),glass(.12,.3,.05)],
- recon:[bell(.12,.5),page(.14,.24,.08)],veil:[cloth(.27,.5),air(.18,.4,.08)],'ember-warning':[layer('rpg-bookClose.ogg',.17,.2),air(.15,.3,.08)],
+ 'duelist-comet':[air(.19,.28),glass(.08,.2,.025)],'duelist-lift':[layer('onjin-dash.ogg',.18,.28),cloth(.13,.22,.025)],
+ 'duck-seal':[layer('onjin-latch.ogg',.2,.22),soft(.10,.16,.03)],'duck-shield':[wood(.20,.3),air(.12,.25,.04)],'duck-hush':[cloth(.16,.24)],'duck-egg':[layer('onjin-decoy.ogg',.2,.3),glass(.11,.28,.06)],
+ 'cat-bookmark':[page(.19,.22)],'cat-return':[layer('oto-cyber19-1.ogg',.19,.3),air(.13,.25,.02)],'cat-pluck':[cloth(.19,.2)],'cat-fetch':[layer('onjin-equipment.ogg',.20,.25)],'cat-clock':[page(.17,.28),bell(.09,.5,.06)],
+ 'car-bumper':[soft(.24,.22),wood(.16,.25,.02)],'car-wash':[liquid(.20,.4),cloth(.1,.24,.025)],'car-gyro':[layer('onjin-equipment.ogg',.17,.2),air(.1,.22)],'car-pit':[layer('lab-decision6.ogg',.13,.25),cloth(.18,.3,.04)],
+ 'nobi-tag':[bell(.10,.32),soft(.1,.15)],'nobi-brake':[layer('lab-cloth.ogg',.2,.25),soft(.09,.18,.02)],'nobi-tool':[layer('oto-cyber19-1.ogg',.2,.28)],'nobi-legend':[bell(.15,.6),page(.14,.25,.06)],
+ 'japan-border':[cloth(.25,.4),wood(.13,.26,.05)],'japan-levy':[layer('lab-beep1.ogg',.21,.3)],'japan-return':[air(.21,.3),cloth(.14,.22,.04)],'japan-muster':[layer('lab-cloth.ogg',.24,.4),bell(.13,.55,.07)],
+ 'cap-lock':[layer('lab-ice.ogg',.17,.32),air(.11,.2,.025)],'cap-clean':[cloth(.24,.3),glass(.08,.22,.04)],'cap-bank':[glass(.17,.25),soft(.12,.2,.025)],'cap-magazine':[layer('onjin-equipment.ogg',.24,.3),cloth(.12,.22,.05)],
+ 'urchin-jam':[wood(.14,.23),glass(.1,.22,.03)],'urchin-disarm':[layer('onjin-decoy.ogg',.2,.27),glass(.1,.2,.03)],'urchin-pearl':[liquid(.15,.35),glass(.11,.26,.03)],'urchin-trident':[air(.19,.3),glass(.14,.3,.025)],
+ 'onnara-tax':[layer('lab-beep1.ogg',.20,.3),bell(.08,.3,.03)],'onnara-orb':[air(.2,.35),bell(.1,.5,.04)],'onnara-hover':[cloth(.23,.4),air(.12,.35,.04)],'onnara-chain':[bell(.12,.5),glass(.12,.3,.05)],
+ recon:[bell(.12,.5),page(.14,.24,.08)],veil:[cloth(.27,.5),air(.18,.4,.08)],'ember-warning':[layer('onjin-latch.ogg',.17,.2),air(.15,.3,.08)],
  'round-win':[pluck('07',.18,.85)],'round-loss':[pluck('16',.16,.85)],'match-win':[pluck('07',.23,1.6)],'match-loss':[pluck('16',.20,1.6)]
 });
 export function createGameAudio(){
   let context=null,active=0,loading=false,sampleSequence=0;const buffers=new Map(),samples=new Map();
-  const recordings={step:{files:['footstep_concrete_000.ogg','footstep_concrete_001.ogg'],gain:.20,length:.30},land:{files:['impactSoft_heavy_000.ogg'],gain:.25,rate:.9,length:.40}};
-  const profiles={
-    classic:{frequency:1750,body:125,length:.15,gain:.28},ghost:{frequency:1250,body:95,length:.13,gain:.23},
-    spectre:{frequency:2200,body:145,length:.12,gain:.27},phantom:{frequency:1500,body:105,length:.16,gain:.29},
-    vandal:{frequency:2900,body:155,length:.20,gain:.36},knife:{frequency:1200,body:0,length:.13,gain:.15}
-  };
+  const recordings={step:{files:['lab-walk-asphalt1.ogg','lab-walk-asphalt2.ogg'],gain:.20,length:.30},land:{files:['lab-landing1.ogg'],gain:.25,rate:.9,length:.40}};
   function init(){
     try{context||=new (window.AudioContext||window.webkitAudioContext)();if(context.state==='suspended')context.resume()?.catch?.(()=>{});loadSamples();}catch{}
   }
@@ -74,8 +75,9 @@ export function createGameAudio(){
   }
   function play(type,{volume=.45,weapon='classic',pan=0,distance=0,occluded=false}={}){
     if(!context||context.state!=='running'||volume<=0||active>=48)return;
-    const protectedSound=['shot','enemy','step','land'].includes(type);
-    const recipe=Object.hasOwn(SAMPLE_CUES,type)?SAMPLE_CUES[type]:null;
+    const protectedSound=['step','land'].includes(type);
+    const cueType=type==='shot'||type==='enemy'?'weapon-'+(Object.hasOwn(SAMPLE_CUES,'weapon-'+weapon)?weapon:'classic'):type;
+    const recipe=Object.hasOwn(SAMPLE_CUES,cueType)?SAMPLE_CUES[cueType]:null;
     const layers=protectedSound?null:recipe?.filter(layer=>samples.has(layer.file));
     // Failed or not-yet-decoded samples stay silent: never queue a late cue or emit a beep.
     if(!protectedSound&&!layers?.length)return;
@@ -103,12 +105,7 @@ export function createGameAudio(){
       source.connect(filter);filter.connect(amp);amp.connect(out);source.start(t,0,length*rate);
       sources.push({source,end:length});nodes.push(source,filter,amp);return true;
     }
-    if(type==='shot'||type==='enemy'){
-      const spec=profiles[({pump:'vandal',drum:'vandal',scout:'vandal',atlas:'vandal',forge:'phantom'})[weapon]||weapon]||profiles.classic;
-      hiss(spec.length,spec.frequency,spec.gain,weapon==='knife');
-      if(spec.body)tone(spec.body,spec.body*.34,.12,spec.gain*.48,'triangle');
-      if(weapon==='vandal'||weapon==='classic')hiss(.055,4300,.10,true);
-    }else if(type==='step'||type==='land'){
+    if(type==='step'||type==='land'){
       if(!recording(type)){hiss(type==='land'?.12:.075,660,type==='land'?.16:.10);tone(type==='land'?95:125,45,.065,type==='land'?.10:.045,'triangle');}
     }else{
       for(const layer of layers){
