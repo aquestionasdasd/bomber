@@ -497,7 +497,7 @@ async function main() {
   run('for(let i=0;i<6;i++)updatePlay(.05)');
   assert.ok(run('player.crouch') > .95, 'Holding V while walking must lower the actual player eye');
   assertNear(run('Math.hypot(player.vx,player.vz)'), 1.8, 'V plus W must move at crouch speed');
-  assertNear(run('player.z'), 26 - 1.8 * .3, 'V plus W must walk forward without a browser modifier key');
+  assert.ok(run('player.z')>26-1.8*.3&&run('player.z')<25.5,'V plus W accelerates to crouched walking without a browser modifier key');
   shortcutUp('KeyV'); run('for(let i=0;i<6;i++)updatePlay(.05)');
   assert.ok(run('player.crouch') < .01, 'Releasing V must restore the standing pose');
   assertNear(run('Math.hypot(player.vx,player.vz)'), (5.4*1.15), 'Releasing V while W stays held must restore normal rifle/sidearm speed');
@@ -522,6 +522,8 @@ async function main() {
     assert.ok(shortcutKey('KeyW', { ctrlKey: true }) > 0, 'A delivered Ctrl+W must cancel its browser default');
     run('updatePlay(.05)');
     assert.ok(run('player.crouch') > .5, `${control} must retain compatible held crouching`);
+    assert.ok(run('player.vz')<0&&run('player.vz')>-1.8,'A delivered Ctrl+W starts moving during acceleration');
+    run('updatePlay(.05)');
     assertNear(run('player.vz'), -1.8, 'A delivered Ctrl+W must retain crouched forward movement');
     shortcutUp('KeyW'); shortcutUp(control);
   }
