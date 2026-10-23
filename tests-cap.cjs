@@ -18,5 +18,28 @@ async function main(){const load=f=>import(pathToFileURL(path.join(__dirname,'pu
   fx.update(events,1.3,{actors:[enemy],hiddenActorId:enemy.id});assert.equal(fx.group.children.length,0);fx.update(events,1.4,{actors:[enemy]});assert.equal(fx.group.children.length,count);
   let disposals=0;for(const g of geometries)g.addEventListener('dispose',()=>disposals++);fx.dispose();fx.dispose();assert.equal(disposals,2);fx.update(events,2,{actors:[enemy]});assert.equal(fx.group.children.length,0);
  });
+ const {traceCapBankPreview,createCapBankPreviewFX}=await load('cap-bank-preview.js');
+ test('reflection preview follows rotated/instanced wall normals, ends at the next wall and refuses floors',()=>{
+  for(const instanced of[false,true]){
+   const world=new THREE.Group(),geometry=new THREE.BoxGeometry(15,4,.2),material=new THREE.MeshBasicMaterial();
+   const wall=instanced?new THREE.InstancedMesh(geometry,material,1):new THREE.Mesh(geometry,material);
+   const pose=new THREE.Object3D();pose.position.set(0,2,-5);pose.rotation.y=Math.PI/4;
+   if(instanced){pose.updateMatrix();wall.setMatrixAt(0,pose.matrix);}else{wall.position.copy(pose.position);wall.rotation.copy(pose.rotation);}
+   world.add(wall);const stop=new THREE.Mesh(new THREE.BoxGeometry(.2,4,30),material);stop.position.set(8,2,0);world.add(stop);
+   const path=traceCapBankPreview(THREE,world,new THREE.Vector3(0,1.7,0),new THREE.Vector3(0,0,-1));assert.ok(path);
+   assert.ok(Math.abs(path.end.x-7.9)<1e-6,'second wall clips preview');assert.ok(path.end.distanceTo(path.start)<90);
+   assert.ok(Math.abs(path.end.z-path.start.z)<.03,'45 degree wall turns horizontally with the shared .025m surface bias');
+   assert.equal(traceCapBankPreview(THREE,world,new THREE.Vector3(0,6,0),new THREE.Vector3(0,-1,0)),null,'horizontal surfaces never bounce');
+   geometry.dispose();stop.geometry.dispose();material.dispose();
+  }
+ });
+ test('one bounded depth-tested dotted draw, stable resources, reset and idempotent disposal',()=>{
+  const fx=createCapBankPreviewFX(THREE),dash=fx.group.children[0];assert.equal(fx.group.visible,false);assert.equal(dash.material.depthTest,true);assert.equal(dash.material.depthWrite,false);
+  const geometry=dash.geometry,material=dash.material;let disposed=0;geometry.addEventListener('dispose',()=>disposed++);material.addEventListener('dispose',()=>disposed++);
+  for(let i=0;i<100;i++)fx.update({start:new THREE.Vector3(),end:new THREE.Vector3(0,0,89)});
+  assert.equal(dash.count,119);assert.equal(dash.geometry,geometry);assert.equal(dash.material,material);assert.equal(fx.group.children.length,1);
+  const matrix=new THREE.Matrix4();dash.getMatrixAt(1,matrix);assert.ok(matrix.elements[14]>.75,'real gaps between dashes');
+  fx.reset();assert.equal(fx.group.visible,false);assert.equal(dash.count,0);fx.dispose();fx.dispose();assert.equal(disposed,2);fx.update({});assert.equal(fx.group.visible,false);
+ });
  console.log(`PASS: ${groups} cap contract/JSON/model/cleanup groups; no audio`);
 }main().catch(e=>{console.error(e);process.exitCode=1;});

@@ -156,6 +156,31 @@ async function main() {
   assert.equal(local.run('ordinarySkills.capLocked(targetBot.id,elapsed)'),true);assert.equal(local.run('enemy.kit.smoke'),1);
   local.run('elapsed+=CAP_SKILLS.lockDuration+.01;updateOrdinarySkills()');assert.equal(local.run('ordinarySkills.capLocked(targetBot.id,elapsed)'),false);
  });
+ check('local guide matches the actual bounce endpoint without consuming ammo, HP, events or shots',()=>{
+  setup();local.wall({z:-5,width:20});local.wall({z:9,width:20});local.run(`activateAbility(player,'e');var beforeGuide=JSON.stringify(ordinarySkills.snapshot());var hpBefore=enemy.hp;var ammoBefore=player.ammo;var shotsBefore=shots;var guide=getCapBankPreview();var origin=new THREE.Vector3(0,1.7,0),aim=new THREE.Vector3(0,0,-1);var wallHit=new THREE.Raycaster(origin,aim,0,90).intersectObject(environment,true)[0];var shotEnd=capBounceShot(player,origin,aim,wallHit,WEAPONS.classic);`);
+  assert.ok(local.run('guide'));near(local.run('guide.end.z'),local.run('shotEnd.point.z'),'preview and actual second wall');
+  assert.equal(local.run('JSON.stringify(ordinarySkills.snapshot())'),local.run('beforeGuide'));assert.equal(local.run('player.ammo'),local.run('ammoBefore'));assert.equal(local.run('shots'),local.run('shotsBefore'));assert.equal(local.run('enemy.hp'),local.run('hpBefore'));
+  local.run(`enemy.group.position.set(0,0,2);enemy.x=0;enemy.z=2;elapsed+=.051;var concealedGuide=getCapBankPreview()`);near(local.run('concealedGuide.end.z'),local.run('guide.end.z'),'guide never queries hidden actors');
+ });
+ check('owner-only ACK guide hides on knife, blind, smoke, pause, death, expiry and reset',()=>{
+  for(const state of['knife','pause','dead','expiry','reset','smoke','blind','guest-pending']){
+   setup();local.wall({z:-5,width:20});local.run(`activateAbility(player,'e');getCapBankPreview()`);
+   if(state==='knife')local.run(`inventory.active='knife'`);
+   if(state==='pause')local.run(`mode='pause'`);
+   if(state==='dead')local.run(`player.alive=false`);
+   if(state==='expiry')local.run(`elapsed+=CAP_SKILLS.bounceDuration+.01`);
+   if(state==='reset')local.run(`resetOrdinarySkills()`);
+   if(state==='smoke')local.run(`syncSmokes([{id:1,kind:'smoke',x:0,y:1.7,z:-2,radius:3.6,expires:100}]);elapsed+=.051`);
+   if(state==='blind')local.run(`ordinarySkills.cast('nope-flash',{...ordinaryActorView(enemy),x:0,z:0},{x:0,y:1.7,z:-2},elapsed,match.round);elapsed+=NOPE_SKILLS.flashFlight+.01;updateOrdinarySkills()`);
+   if(state==='guest-pending')local.run(`resetOrdinarySkills();onlinePlaying=true;online={host:false,session:{memberId:'guest',hostId:'host'}};activateAbility(player,'e',{predict:true})`);
+   assert.equal(local.run('getCapBankPreview()'),null,state);local.run('renderOrdinarySkills()');assert.equal(local.run('capBankPreviewFX.group.visible'),false,state);
+  }
+ });
+ check('rendered guide is capped at20Hz and never creates a network action',()=>{
+  setup();local.wall({z:-5,width:20});local.run(`activateAbility(player,'e');var beforeNet=JSON.stringify(netActions);var firstGuide=getCapBankPreview();renderOrdinarySkills();var firstPreview=capPreviewPath;elapsed+=.01;player.yaw=.2;renderOrdinarySkills()`);
+  assert.equal(local.run('capPreviewPath===firstPreview'),true);assert.equal(local.run('capBankPreviewFX.group.visible'),true);assert.equal(local.run('JSON.stringify(netActions)'),local.run('beforeNet'));
+  local.run('elapsed+=.051;renderOrdinarySkills()');assert.notEqual(local.run('capPreviewPath===firstPreview'),true);local.run('mode="menu";renderOrdinarySkills()');assert.equal(local.run('capBankPreviewFX.group.visible'),false);
+ });
  console.log(`PASS: ${groups} actual-game cap groups; audio/rendering inert`);
 }
 main().catch(error=>{console.error(error);process.exitCode=1;});
