@@ -483,6 +483,34 @@ async function main() {
   }
   console.log('PASS: reduced sensitivity, unlocked/locked mouse aiming, warp filtering, pointer re-entry, focus/overlay transitions, and no arrow-key aiming');
 
+  const movementTestFormat=document.getElementById('match-format').value;
+  for(const fps of [30,60,144]){
+    run(`$('match-format').value='explore';startGame();clearBots();clearCombatInput();Object.assign(player,{x:0,z:26,y:0,vy:0,vx:0,vz:0,yaw:0,crouch:0});inventory.active='classic';keys.add('KeyD');updatePlay(1/${fps})`);
+    assert.ok(run('player.vx')>0&&run('player.vx')<6.21,'Movement accelerates from rest');
+    run(`for(let i=0;i<${fps};i++)updatePlay(1/${fps});keys.clear()`);
+    assertNear(run('player.vx'),6.21,'Run speed is preserved');
+    run(`updatePlay(1/${fps})`);
+    assert.ok(run('player.vx')>0&&run('player.vx')<6.21,'Release retains momentum');
+    let release=0;while(run('player.vx')>1.2&&release<fps){run(`updatePlay(1/${fps})`);release++;}
+    run(`player.vx=6.21;player.vz=0;keys.add('KeyA')`);
+    let reverse=0;while(run('player.vx')>1.2&&reverse<fps){run(`updatePlay(1/${fps})`);reverse++;}
+    assert.ok(reverse<release,'Reverse reaches accurate shooting speed sooner');
+    run(`for(let i=0;i<${fps};i++)updatePlay(1/${fps})`);
+    assertNear(run('player.vx'),-6.21,'Held reverse accelerates in the new direction');
+  }
+  run('clearCombatInput()');
+  console.log('PASS: acceleration, release inertia and counter-strafing at 30/60/144 FPS');
+  run(`Object.assign(player,{x:0,z:26,y:0,vy:0,vx:0,vz:0,crouch:1});var crouchRoof={minX:-1,maxX:1,minZ:25,maxZ:27,base:1.3,height:2};map.colliders.push(crouchRoof)`);
+  assert.equal(run('canStand(0,26,.34,0)'),false,'Standing capsule cannot fit under low roof');
+  assert.equal(run('canStand(0,26,.34,0,1.15)'),true,'Crouched capsule fits under low roof');
+  run('updatePlay(.1)');
+  assert.ok(run('1.7-player.crouch*.55')<=1.3,'Release cannot push head into ceiling');
+  assertNear(run('captureNetActor(player).crouch'),run('player.crouch'),'Snapshot preserves crouch');
+  run('map.colliders.splice(map.colliders.indexOf(crouchRoof),1);for(let i=0;i<30;i++)updatePlay(1/60)');
+  assert.ok(run('player.crouch')<.01,'Leaving roof permits standing');
+
+
+  document.getElementById('match-format').value=movementTestFormat;
   // Delivered shortcuts can be cancelled; browser-reserved events that never reach the page cannot be simulated here.
   const shortcutFormat = document.getElementById('match-format').value;
   document.getElementById('match-format').value = 'explore';
@@ -497,7 +525,7 @@ async function main() {
   run('for(let i=0;i<6;i++)updatePlay(.05)');
   assert.ok(run('player.crouch') > .95, 'Holding V while walking must lower the actual player eye');
   assertNear(run('Math.hypot(player.vx,player.vz)'), 1.8, 'V plus W must move at crouch speed');
-  assertNear(run('player.z'), 26 - 1.8 * .3, 'V plus W must walk forward without a browser modifier key');
+  assert.ok(run('player.z') > 26 - 1.8 * .3 && run('player.z') < 25.5, 'Crouched movement accelerates before reaching full speed');
   shortcutUp('KeyV'); run('for(let i=0;i<6;i++)updatePlay(.05)');
   assert.ok(run('player.crouch') < .01, 'Releasing V must restore the standing pose');
   assertNear(run('Math.hypot(player.vx,player.vz)'), (5.4*1.15), 'Releasing V while W stays held must restore normal rifle/sidearm speed');
@@ -522,7 +550,7 @@ async function main() {
     assert.ok(shortcutKey('KeyW', { ctrlKey: true }) > 0, 'A delivered Ctrl+W must cancel its browser default');
     run('updatePlay(.05)');
     assert.ok(run('player.crouch') > .5, `${control} must retain compatible held crouching`);
-    assertNear(run('player.vz'), -1.8, 'A delivered Ctrl+W must retain crouched forward movement');
+    assert.ok(run('player.vz') < -1.5 && run('player.vz') >= -1.8, 'Ctrl+W accelerates into crouched forward movement');
     shortcutUp('KeyW'); shortcutUp(control);
   }
   for (const overlay of ['play', 'pause', 'shop', 'map', 'score']) {
