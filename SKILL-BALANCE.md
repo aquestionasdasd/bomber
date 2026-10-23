@@ -46,3 +46,15 @@ E判断を実移動と視認・反応・照準確認後、実際に発砲する�
 実savedgame専用8群は、移動した最初の銃弾にEが適用されること、同一移動のE無効側との差、誤発動拒否、容量満杯/再試行、死亡/次R、guest非決定を確認。旧ソース・移動条件欠損・接地条件欠損の3メモリ変異を検出した。ソースに変異を保存しない。既存の他技・音源・地形・通信payloadは変更しない。
 
 次ははんだEの武器/装填状態など、未使用技の局面を広げて測定する。実ブラウザーや実2タブの新BOT判断は未確認。確定公開と試験の根拠は所有者workspaceのcycle72-release/test-report。
+
+## 第73巡：はんだEの新武器対応
+
+武器と弾数を指定できるよう、実game測定へ `--weapon=scout --magazine=low --reserve=short` を追加した。magazineはfull/low/empty、reserveはfull/short/empty。青側本人一人だけを変え、残りはVandal/精鋭/50装甲/満在庫/7pt。low/shortは弾倉の25%切捨て・最低1。既定のVandal満弾条件も維持する。`serviceCompletions/serviceRounds` は実tickServiceReloadで増えた弾だけを測り、通常BOT Rの補充をEの貢献に数えない。
+
+SCOUT1/5・予備1の8組16roundでE0、両群の全actorと結果が一致。技側に残る旧5武器リストが、新追加5銃PUMP/DRUM/SCOUT/ATLAS/FORGEをcast/strict restore両方で拒否していた。WEAPONSから銃判定を共有し全10銃へ修正。人間/BOT共通の欠陥であり、BOTの視認やurgentを緩める必要はなかった。0.8秒/18CD/有限予備・拒否/取消条件は保持する。
+
+修正後SCOUT(seed1–2/1発+予備1)、FORGE(seed3–4/15発+予備120)、PUMP(seed5–6/0発+予備1)、両map/攻守の24組48roundでは本人E24発動・24完了・376発装填、無効群0。勝利12/24対9/24、生存7対7、撃破16対11、与ダメ3339.792505対2774.911367。全チーム合計の設置19対17・電源オフ8対4。修正前FORGE60発/予備0の4組8roundはE0で全actor/結果一致だった。
+
+SCOUT単独の勝利は4対4、FORGE3対3、PUMP5対2であり、全武器で勝利が伸びたという意味ではない。固定seedも発動後の乱数分岐があり、小標本・部分的な武器/初期弾倉/予備条件の比較。BOT通常R全体は既存のままなので、その無限補充を有限化したとは言わない。人間相手の勝率/経済試合や全キャラ調整完了を保証しない。
+
+実savedgame8群で全10銃のlocalと5新銃のBOT/hostguest独立JSONを確認。初回fixture不備とCRLF変異anchor停止を含むログは所有者workspaceに保存。旧allowlistと不正武器の無条件受理をメモリ変異で検出。実ブラウザー/実2タブ/実端末/聴感は未確認。次はまだ未使用の尾野Q/E・おんならE等を役割/局面付きで測り、使用不能と効果不足を分ける。

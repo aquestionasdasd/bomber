@@ -1,4 +1,5 @@
 import { ONNARA_SKILLS, URCHIN_SKILLS, CAP_SKILLS, JAPAN_SKILLS, NOBI_SKILLS, CAR_SKILLS, CAT_SKILLS, DUCK_SKILLS, DUELIST_SKILLS, NOPE_SKILLS, MEND_SKILLS, IAGNU_SKILLS, VEIL_SKILLS, EMBER_SKILLS, FROST_SKILLS } from './abilities.js';
+import { WEAPONS } from './rules.js';
 
 // Ordinary skills are separate from ultimates. A restored event owns visuals,
 // never hit sampling; only a successful local cast may produce gameplay effects.
@@ -76,7 +77,8 @@ const idSequence = (id, type) => {
 };
 const eyeY = actor => (actor.y || 0) + 1.7 - Math.max(0, Math.min(1, Number.isFinite(actor.crouch) ? actor.crouch : 0)) * .55;
 const feetDistance = (a, b) => Math.hypot(a.x - b.x, (a.y || 0) - (b.y || 0), a.z - b.z);
-const serviceWeapon = value => ['classic', 'ghost', 'spectre', 'vandal', 'phantom'].includes(value);
+const serviceWeapon = value => typeof value === 'string' && Object.hasOwn(WEAPONS, value)
+  && ['primary', 'secondary'].includes(WEAPONS[value].slot) && WEAPONS[value].mag > 0;
 const personal = type => ['onnara-orb','onnara-hover','onnara-chain','urchin-pearl','urchin-trident','cap-bank','cap-magazine','japan-return','nobi-tool','nobi-legend','car-gyro','cat-bookmark','cat-clock','duck-hush', 'duck-egg', 'echo-kerning', 'veil-turf', 'ember-shade', 'ember-service', 'frost-unravel'].includes(type);
 const groundedPersonal = type => type === 'veil-turf' || type === 'frost-unravel';
 const feetSource = type => type.startsWith('onnara-') || type.startsWith('urchin-') || type.startsWith('cap-') || type.startsWith('japan-') || type.startsWith('nobi-') || type.startsWith('car-') || type.startsWith('cat-') || type === 'mend-heal' || type === 'duelist-lift' || personal(type) || type.startsWith('veil-');

@@ -85,7 +85,7 @@ async function main(){
   for(const [current,old,check]of variants){
     assert.ok(source.includes(current),`Expected mutation anchor ${current}`);
     const url='data:text/javascript;base64,'+Buffer.from(source.replace(current,old)).toString('base64');
-    const code=engineSource.replace("'./abilities.js'",JSON.stringify(url));const altered=await import('data:text/javascript;base64,'+Buffer.from(code).toString('base64'));
+    const code=engineSource.replace("'./abilities.js'",JSON.stringify(url)).replace("'./rules.js'",JSON.stringify(pathToFileURL(path.join(__dirname,'public/rules.js')).href));const altered=await import('data:text/javascript;base64,'+Buffer.from(code).toString('base64'));
     assert.throws(()=>check(altered.createCharacterSkills()),assert.AssertionError,`${old} must fail the actual gameplay assertion`);
   }
   const used=process.cpuUsage(cpu);console.log(JSON.stringify({groups,negativeControls:3,wallMs:performance.now()-started,cpuMs:(used.user+used.system)/1000}));
