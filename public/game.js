@@ -2590,8 +2590,27 @@ function updatePlay(dt){
   const walking=keys.has('ShiftLeft')||keys.has('ShiftRight');
   const slow=actorSpeedScale(player),speed=(slideSpeed|| (crouching?1.8:(walking?2.8:inventory.active==='knife'?6.3:5.4)*1.15))*(aiming?.78:1)*slow;
   const desiredX=moveX/Math.max(1,len)*speed,desiredZ=moveZ/Math.max(1,len)*speed;
-  const rate=(len?45:75)*dt;
-  player.vx+=clamp(desiredX-player.vx,-rate,rate);player.vz+=clamp(desiredZ-player.vz,-rate,rate);
+  if(controlled&&!slideSpeed){
+    // Adapted from collaborator PR44: vector acceleration, release inertia,
+    // and faster opposite-key braking. Short steps split braking through zero.
+    const steps=Math.max(1,Math.ceil(dt*240)),step=dt/steps;
+    for(let i=0;i<steps;i++){
+      const current=Math.hypot(player.vx,player.vz);
+      if(!len){
+        const scale=current?Math.max(0,current-22*step)/current:0;
+        player.vx*=scale;player.vz*=scale;
+      }else{
+        const reverse=player.vx*desiredX+player.vz*desiredZ<0;
+        const dx=desiredX-player.vx,dz=desiredZ-player.vz,distance=Math.hypot(dx,dz);
+        const scale=distance?Math.min(1,(reverse?85:32)*step/distance):0;
+        player.vx+=dx*scale;player.vz+=dz*scale;
+      }
+    }
+  }else{
+    // Preserve skill-driven slide acceleration and non-controlled cleanup.
+    const rate=(len?45:75)*dt;
+    player.vx+=clamp(desiredX-player.vx,-rate,rate);player.vz+=clamp(desiredZ-player.vz,-rate,rate);
+  }
   const velocity=Math.hypot(player.vx,player.vz);if((slow<1||player.turfMovementEnded)&&velocity>speed){player.vx*=speed/velocity;player.vz*=speed/velocity;}player.turfMovementEnded=false;
   const previousY=player.y,previousVy=player.vy,previousX=player.x,previousZ=player.z;
   if(player.alive&&!player.carMotion&&!busSeat()){
