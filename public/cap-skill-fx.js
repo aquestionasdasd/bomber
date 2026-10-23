@@ -17,9 +17,9 @@ export function createCapSkillFX(THREE){
   }else root.add(mesh(bar,material));
   group.add(root);items.set(e.id,root);return root;
  }
- function update(events,now,{actors=[],reducedMotion=false}={}){
+ function update(events,now,{actors=[],reducedMotion=false,hiddenActorId=null}={}){
   if(disposed)return;const seen=new Set();
-  for(const e of events){if(!e.type.startsWith('cap-'))continue;const actor=actors.find(a=>a.id===(e.targetId||e.sourceId));if(!actor?.alive)continue;seen.add(e.id);const root=items.get(e.id)||create(e);
+  for(const e of events){if(!e.type.startsWith('cap-'))continue;const actor=actors.find(a=>a.id===(e.targetId||e.sourceId));if(!actor?.alive||actor.id===hiddenActorId)continue;seen.add(e.id);const root=items.get(e.id)||create(e);
    root.position.set(actor.x,(actor.y||0)+2-(actor.crouch||0)*.55,actor.z);root.rotation.y=reducedMotion?0:now*.65;
    root.scale.setScalar(e.type==='cap-lock'&&!reducedMotion?1+.22*Math.max(0,1-(now-e.startedAt)/.3):1);
   }

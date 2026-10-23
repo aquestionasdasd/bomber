@@ -15,6 +15,7 @@ async function main(){const load=f=>import(pathToFileURL(path.join(__dirname,'pu
   const fx=createCapSkillFX(THREE),h=createCharacterSkills();for(let i=0;i<20;i++)h.cast('cap-lock',{...owner,id:'c'+i},{...enemy,targetId:enemy.id},1,1);
   const events=h.events(1);fx.update(events,1.1,{actors:[enemy]});let calls=0;const geometries=new Set(),materials=new Set();fx.group.traverse(o=>{if(o.isMesh){calls++;geometries.add(o.geometry);materials.add(o.material);assert.equal(o.material.depthTest,true);}});assert.equal(calls,80);assert.equal(geometries.size,2);const count=fx.group.children.length;
   fx.update(events,1.2,{actors:[enemy],reducedMotion:true});assert.equal(fx.group.children.length,count);for(const root of fx.group.children){assert.equal(root.rotation.y,0);assert.equal(root.scale.x,1);}
+  fx.update(events,1.3,{actors:[enemy],hiddenActorId:enemy.id});assert.equal(fx.group.children.length,0);fx.update(events,1.4,{actors:[enemy]});assert.equal(fx.group.children.length,count);
   let disposals=0;for(const g of geometries)g.addEventListener('dispose',()=>disposals++);fx.dispose();fx.dispose();assert.equal(disposals,2);fx.update(events,2,{actors:[enemy]});assert.equal(fx.group.children.length,0);
  });
  console.log(`PASS: ${groups} cap contract/JSON/model/cleanup groups; no audio`);
