@@ -25,6 +25,7 @@ export function createMap(THREE, scene, id='hashimoto') {
     metal: standard('#405965', .45, .42), edge: standard('#72888c', .48, .32), glass: standard('#345d70', .25, .36),
     glassLight: standard('#6c929f', .27, .3), glassShade: standard('#284957', .3, .26), teal: standard('#498d88'), green: standard('#3f8269'),
     coral: standard('#ed5968', .65), mutedCoral: standard('#bb6762'), yellow: standard('#e6c57d'), wood: standard('#9c8060'),
+    busYellow: standard('#dfbb61', .65), busRed: standard('#b54832', .6),
     terracotta: standard('#ab7767'), soil: standard('#4a5b4c'), leaf: standard('#5b7e62'), leafLight: standard('#81976c'), leafDark: standard('#416952'), trunk: standard('#7d6d56'),
     light: new THREE.MeshStandardMaterial({ color: '#fff1c7', emissive: '#ffe4a6', emissiveIntensity: .5, roughness: .6 }),
   };
@@ -413,7 +414,7 @@ export function createMap(THREE, scene, id='hashimoto') {
   for(const z of [-7,3,13,23]){solid(-66,2,z,.42,4,.42,M.metal,{kind:'column',minimap:false});box(-62.5,3.95,z,8.5,.08,.2,M.light);}label('橋本駅北口 1 · 2','BUS TERMINAL / NORTH EXIT',-62.3,3.6,25.33,9,1.2,'#ecedda','#3e6964');
   const wheelGeo=new THREE.CylinderGeometry(1,1,1,12);wheelGeo.rotateZ(Math.PI/2);
   function bus(x,z){solid(x,1.45,z,3.15,2.9,11.8,M.ivory,{kind:'vehicle'});box(x,2.95,z-.3,3,.3,10.8,M.ivory);box(x,1.03,z,3.22,.38,11.9,M.teal);box(x,.55,z,3.22,.22,11.9,M.metal);for(const side of [-1,1]){box(x+side*1.6,2.12,z-.2,.06,1.1,9.8,M.glassShade);for(let dz=-4.7;dz<5;dz+=1.8)box(x+side*1.65,2.1,z+dz,.08,1.15,.1,M.edge);for(const dz of [-3.6,3.7]){box(x+side*1.6,.64,z+dz,.3,.64,.64,M.black,0,0,wheelGeo);box(x+side*1.78,.64,z+dz,.05,.3,.3,M.edge,0,0,wheelGeo);}}box(x,2.05,z+5.96,2.8,1.25,.09,M.glassShade);box(x,2.95,z+5.94,2.6,.34,.1,M.black);for(const dx of [-1.1,1.1]){box(x+dx,.85,z+5.99,.4,.24,.1,M.light);box(x+dx,.85,z-5.99,.35,.2,.1,M.coral);}box(x,1.2,z+6.04,1.1,.22,.08,M.dark);label('橋本駅','HASHIMOTO',x,2.95,z+6.03,2.2,.3,'#e8d89e','#233b43');}
-  bus(-62.5,14.5);
+  const parkedBus={x:-62.5,z:14.5};bus(parkedBus.x,parkedBus.z);
   // Close cover has cap strips, inset panels and hardware rather than unadorned cubes.
   const assetStamp=textMaterial((ctx,w,h)=>{ctx.fillStyle='#415a64';ctx.fillRect(0,0,w,h);ctx.fillStyle='#c4d0c4';ctx.font='700 37px Arial';ctx.fillText('HASHIMOTO / TRANSIT',22,58);ctx.font='500 22px Arial';ctx.fillText('NORTH EXIT     HP–017',22,99);for(let x=w-138;x<w-24;x+=5){ctx.fillStyle='#d0d7c5';ctx.fillRect(x,22,2+(x%3),80);}},768,128),stampGeo=new THREE.PlaneGeometry(1,1);
   function crate(x,z,w=3.4,h=2,d=3,ry=0,mat=M.dark){
@@ -715,7 +716,7 @@ export function createMap(THREE, scene, id='hashimoto') {
   // walkable station and all existing mesh transforms remain independently auditable.
   const surveyWorld=new THREE.Group();surveyWorld.name='Station survey / facade details';surveyWorld.userData.stationSurvey=true;world.add(surveyWorld);
   const surveyBatches=new Map();batchTarget=surveyBatches;
-  const surveyDetails=addHashimotoSurvey({box,label:(...args)=>{const p=label(...args);p.userData.solid=false;p.raycast=()=>{};surveyWorld.add(p);return p;},M});
+  const surveyDetails=addHashimotoSurvey({box,label:(...args)=>{const p=label(...args);p.userData.solid=false;p.raycast=()=>{};surveyWorld.add(p);return p;},M,parkedBus});
   for(const{mat,geometry,entries}of surveyBatches.values()){const mesh=new THREE.InstancedMesh(geometry,mat,entries.length);entries.forEach((matrix,index)=>mesh.setMatrixAt(index,matrix));mesh.instanceMatrix.needsUpdate=true;mesh.computeBoundingSphere();mesh.castShadow=false;mesh.receiveShadow=true;mesh.userData.solid=false;mesh.raycast=()=>{};surveyWorld.add(mesh);}
   batchTarget=batches;
   // The overhead station slab is still physical above the concourse, but the

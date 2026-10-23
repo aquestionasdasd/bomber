@@ -15,7 +15,7 @@ export function addHirakataSurvey({part,sign}){
  return['north-arched-fascia','north-bus-holding-marking','north-car-wayfinding','hirakata-mall-bands','tsite-layered-glazing'];
 }
 
-export function addHashimotoSurvey({box,label,M}){
+export function addHashimotoSurvey({box,label,M,parkedBus}){
  // Current official JR station number and observed north-side JR/Keio routing.
  label('JH 28','橋本 / HASHIMOTO',-31.6,7.45,-32.78,2.2,1.7,'#f8f7e8','#39784a').name='Survey / JR JH28';
  label('京王線のりば ↑','KEIO LINE / 南口方面',-20.5,5.1,-52,9,.9,'#3b454b','#eeeade').name='Survey / Keio transfer';
@@ -26,5 +26,25 @@ export function addHashimotoSurvey({box,label,M}){
  for(const z of[-18.8,-16.4,-14.2])box(62,2.924,z,27,.022,.035,M.edge);
  // Pale fascia jointing and blue glazing horizontal bands seen in north photos.
  for(let y=5.6;y<20.5;y+=.85){box(62,y,-18.49,27.7,.045,.06,M.ivory);box(47.57,y,-39,.06,.045,39.5,M.ivory);}
- return['jr-jh28','keio-transfer-sign','north-deck-sign','mewe-covered-ceiling','mewe-glazing-bands'];
+ // North-side road SV (2024-01): yellow body and red/orange waist, distinct
+ // from Hirakata's white/red Keihan buses. Thin cosmetic skins cover the old
+ // teal belt without touching its audited collision/roof/mesh transforms.
+ const{x,z}=parkedBus;
+ for(const side of[-1,1]){
+  box(x+side*1.625,1.13,z,.018,.9,11.92,M.busYellow);
+  box(x+side*1.64,.99,z,.012,.26,11.94,M.busRed);
+  box(x,1.13,z+side*5.97,3.24,.9,.018,M.busYellow);
+  box(x,.99,z+side*5.985,3.27,.26,.012,M.busRed);
+  // Exterior mirrors stay outside the windscreen, not across the glass.
+  box(x+side*1.76,2.72,z+5.45,.32,.065,.065,M.edge);
+  box(x+side*1.91,2.52,z+5.46,.18,.46,.15,M.black);
+ }
+ // Front is +Z, so the bus's left is +X. Two tall leaves per opening.
+ for(const dz of[-.8,4.95]){
+  box(x+1.66,1.53,z+dz,.025,2.28,1.13,M.edge);
+  for(const leaf of[-1,1])box(x+1.678,1.59,z+dz+leaf*.26,.012,1.99,.48,M.glassShade);
+ }
+ // Front wipers are small trim; headlights/plate remain in front of the paint.
+ for(const dx of[-.65,.65])box(x+dx,1.57,z+6.016,.75,.035,.018,M.black);
+ return['jr-jh28','keio-transfer-sign','north-deck-sign','mewe-covered-ceiling','mewe-glazing-bands','north-bus-livery-and-doors'];
 }
