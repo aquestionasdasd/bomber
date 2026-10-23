@@ -175,7 +175,7 @@ const netPositionHistory=new Map();
 let netPositionAck=0,netPositionCorrectionX=0,netPositionCorrectionZ=0;
 let netActions=[],netParticipants=new Map(),netApplied=new Map(),netInputs=new Map();
 let netCueSequence=0,netSeenCueSequence=0,skillImpactSequence=0;const netCues=[];
-const actionCueTypes=new Set(['shot','enemy','smoke','frost','updraft','dash-armed','dash','knives','heal','recon','veil','ember-warning']);
+const actionCueTypes=new Set(['vehicle-hit','shot','enemy','smoke','frost','updraft','dash-armed','dash','knives','heal','recon','veil','ember-warning']);
 const dashFeedback={round:null,state:null,expires:0,charge:null,signatureAt:0};
 const signatureReadyNotices=new Set();
 let signatureFeedbackMatch=null;
@@ -564,8 +564,9 @@ function applyNetCues(packet,fresh,ownId){
     netSeenCueSequence=Math.max(netSeenCueSequence,cue.seq);
     if(fresh||cue.round!==packet.rules.round||packet.time-cue.time>1||packet.time<cue.time||![cue.x,cue.z].every(Number.isFinite))continue;
     if(['skill-hit','skill-heal'].includes(cue.type)){if(!Object.hasOwn(SKILL_LOOKS,cue.weapon)||!Number.isFinite(cue.y)||Math.max(Math.abs(cue.x),Math.abs(cue.y),Math.abs(cue.z))>1000||packet.time-cue.time>.65||packet.rules.phase!=='live')continue;const kind=cue.type==='skill-heal'?'heal':'hit';skillSpectacle.impact(cue.weapon,cue,cue.time,{kind});if(cue.id===ownId)skillFeedback.note(kind,'receipt:'+cue.round+':'+cue.seq,cue.weapon,cue.time);continue;}
-    if(cue.id===ownId||!actionCueTypes.has(cue.type))continue;
-    sound(cue.type,{weapon:cue.weapon,entity:cue});
+    // Vehicle contact is host-confirmed even when this guest is the victim.
+    if(cue.id===ownId&&cue.type!=='vehicle-hit'||!actionCueTypes.has(cue.type))continue;
+    sound(cue.type,{weapon:cue.weapon,entity:cue,localOnly:cue.type==='vehicle-hit'});
   }
 }
 function updateAbilityFeedback(){
@@ -939,6 +940,7 @@ function updateTraffic(dt){
   if(!isGuest()){
     for(const hit of map.traffic.impacts(actors,elapsed,{enabled:match.phase==='live'})){
       const actor=actors.find(a=>a.id===hit.actorId);actor.carMotion=null;actor.carImpulseUntil=0;actor.carFallUntil=0;actor.trafficLaunch={seq:hit.sequence,endsAt:hit.endsAt,vx:hit.vx,vz:hit.vz,vy:hit.vy};actor.vy=hit.vy;actor.dashTimer=0;actor.vx=0;actor.vz=0;actor.path=[];actor.planAt=0;
+      sound('vehicle-hit',{entity:actor});
       cancelServiceReload(actor);match.cancelPlant(actor.id);match.cancelDefuse(actor.id);damageEntity(actor,hit.damage,actors.find(a=>a.id===hit.owner)||null,{vehicle:true});
       if(actor===player){damageFlash=.55;showMessage('京阪バスと接触','100ダメージ · 車道から離れてください',3);}
     }
@@ -1726,7 +1728,7 @@ function updateCarMotions(dt){
      const speed=CAR_SKILLS.bumperDistance/CAR_SKILLS.bumperLaunchTime,scale=speed/CAR_SKILLS.bumperSpeed;
      actor.carMotion=null;actor.carImpulseUntil=0;
      beginCarMotion(victim,{id:m.id,phase:2,endsAt:elapsed+CAR_SKILLS.bumperLaunchTime,vx:m.vx*scale,vz:m.vz*scale});
-     damageEntity(victim,CAR_SKILLS.bumperDamage,actor,{skill:'car'});burst(new THREE.Vector3(victim.x,(victim.y||0)+1,victim.z),'#ffe18c',18);break;
+     sound('vehicle-hit',{entity:victim});damageEntity(victim,CAR_SKILLS.bumperDamage,actor,{skill:'car'});burst(new THREE.Vector3(victim.x,(victim.y||0)+1,victim.z),'#ffe18c',18);break;
     }
    }
    if(blocked){actor.carMotion=null;actor.carImpulseUntil=0;break;}

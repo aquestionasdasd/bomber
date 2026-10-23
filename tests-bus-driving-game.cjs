@@ -62,10 +62,11 @@ async function main() {
       constructor() { this.shadowMap = {}; this.info = { render: { calls: 0 } }; this.capabilities = { getMaxAnisotropy: () => 8 }; }
       setPixelRatio() {} setSize() {} render() {} getContext() { return {}; }
     }
-    const sandbox = { ...imported, THREE: { ...THREE, WebGLRenderer: Renderer },
+    const audioEvents=[];
+    const sandbox = { audioEvents, ...imported, THREE: { ...THREE, WebGLRenderer: Renderer },
       createMap: realMap ? actualCreateMap : fixtureMap, document,
       // Never instantiate AudioContext or fetch/decode/play any recording.
-      createGameAudio: () => ({ init() {}, play() {}, unlock() {}, resume() {}, setVolume() {}, dispose() {} }),
+      createGameAudio: () => ({ init() {}, play(type,options) {audioEvents.push({type,options});}, unlock() {}, resume() {}, setVolume() {}, dispose() {} }),
       window: { addEventListener() {} }, navigator: { maxTouchPoints: 0 }, matchMedia: () => ({ matches: false }),
       localStorage: { getItem: () => null, setItem() {} }, performance: { now: () => 0 },
       devicePixelRatio: 1, innerWidth: 1440, innerHeight: 900,
@@ -130,7 +131,16 @@ async function main() {
   host.run("elapsed+=26;updateTraffic(.05);netClock=0;tickOnline(.1)");guest.sandbox.transfer=copy(host.run('captured'));guest.sandbox.transfer.seq+=2;guest.run("receiveNetPacket('host',transfer)");assert.equal(guest.run('map.traffic.poses(elapsed).find(p=>p.owner===player.id).fuel'),0);
   host.run('spawnRound();netClock=0;tickOnline(.1)');guest.sandbox.transfer=copy(host.run('captured'));guest.sandbox.transfer.seq+=3;guest.run("receiveNetPacket('host',transfer)");assert.equal(guest.run('busSeat()'),null);
  });
- check('actual moving bus strikes both teams once, neutralizes friendly reward and drops bomber',()=>{setup();board();killDriver();local.run("busInteract();makeBot({x:0,z:60},0,'blue',{id:'blue-1',team:'blue',primary:null,secondary:'classic',armor:0,credits:800,kit:new DuelistKit({character:'nope'})});makeBot({x:0,z:60},1,'red',{id:'red-0',team:'red',primary:null,secondary:'classic',armor:0,credits:800,kit:new DuelistKit({character:'nope'})});for(var b of bots){b.hp=100;b.armor=0;b.alive=true;Object.assign(b,{x:bus.x,z:bus.z,y:0,vy:0});}match.spike={...match.spike,status:'carried',carrier:bots[0].id};keys.add('KeyW');elapsed+=.1;updateTraffic(.1)");assert.equal(local.run('bots.every(b=>!b.alive)'),true);assert.equal(local.run('totalKills'),1);assert.equal(local.run('match.spike.status'),'dropped');assert.equal(local.run('bots.every(b=>!!b.trafficLaunch)'),true);});
+ check('actual moving bus strikes both teams once, neutralizes friendly reward and drops bomber',()=>{setup();board();killDriver();local.run("busInteract();makeBot({x:0,z:60},0,'blue',{id:'blue-1',team:'blue',primary:null,secondary:'classic',armor:0,credits:800,kit:new DuelistKit({character:'nope'})});makeBot({x:0,z:60},1,'red',{id:'red-0',team:'red',primary:null,secondary:'classic',armor:0,credits:800,kit:new DuelistKit({character:'nope'})});for(var b of bots){b.hp=100;b.armor=0;b.alive=true;Object.assign(b,{x:bus.x,z:bus.z,y:0,vy:0});}soundEnabled=true;volume=.5;audioEvents.length=0;onlinePlaying=true;online={host:true};netCues.length=0;match.spike={...match.spike,status:'carried',carrier:bots[0].id};keys.add('KeyW');elapsed+=.1;updateTraffic(.1)");assert.equal(local.run('bots.every(b=>!b.alive)'),true);assert.equal(local.run('totalKills'),1);assert.equal(local.run('match.spike.status'),'dropped');assert.equal(local.run('bots.every(b=>!!b.trafficLaunch)'),true);assert.equal(local.run("audioEvents.filter(e=>e.type==='vehicle-hit').length"),2);assert.equal(local.run("netCues.filter(e=>e.type==='vehicle-hit').length"),2);local.run('updateTraffic(.01)');assert.equal(local.run("audioEvents.filter(e=>e.type==='vehicle-hit').length"),2);});
+
+ check('own guest receives vehicle impact once; fresh, duplicate, old and future cues stay silent',()=>{
+  const guest=harness();guest.reset();guest.run(`onlinePlaying=true;online={host:false,session:{memberId:'guest',hostId:'host'}};soundEnabled=true;volume=.5;netSeenCueSequence=0;audioEvents.length=0;var notice={time:elapsed,rules:{round:match.round,phase:'live'},cues:[{seq:1,round:match.round,type:'vehicle-hit',id:player.id,x:player.x,y:0,z:player.z,time:elapsed}]};applyNetCues(JSON.parse(JSON.stringify(notice)),false,player.id)`);
+  assert.equal(guest.run("audioEvents.filter(e=>e.type==='vehicle-hit').length"),1);guest.run(`applyNetCues(notice,false,player.id);notice.cues[0].seq=2;applyNetCues(notice,true,player.id);notice.cues[0].seq=3;notice.cues[0].time=elapsed-1.01;applyNetCues(notice,false,player.id);notice.cues[0].seq=4;notice.cues[0].time=elapsed+.1;applyNetCues(notice,false,player.id);notice.cues[0].seq=5;notice.cues[0].time=elapsed;notice.cues[0].round=match.round-1;applyNetCues(notice,false,player.id)`);assert.equal(guest.run("audioEvents.filter(e=>e.type==='vehicle-hit').length"),1);
+ });
+ check('mute and volume zero consume contact receipts without late replay; other contacts remain positioned',()=>{
+  const guest=harness();guest.reset();guest.run(`onlinePlaying=true;online={host:false,session:{memberId:'guest',hostId:'host'}};netSeenCueSequence=0;audioEvents.length=0;soundEnabled=false;volume=.5;var notice={time:elapsed,rules:{round:match.round,phase:'live'},cues:[{seq:1,round:match.round,type:'vehicle-hit',id:player.id,x:player.x,y:0,z:player.z,time:elapsed}]};applyNetCues(notice,false,player.id);soundEnabled=true;applyNetCues(notice,false,player.id);notice.cues[0].seq=2;volume=0;applyNetCues(notice,false,player.id);volume=.5;applyNetCues(notice,false,player.id)`);assert.equal(guest.run('audioEvents.length'),0);
+  guest.run(`notice.cues[0].seq=3;notice.cues[0].id='other';notice.cues[0].x=player.x+5;applyNetCues(notice,false,player.id)`);assert.equal(guest.run('audioEvents.length'),1);assert.equal(guest.run('audioEvents[0].type'),'vehicle-hit');assert.ok(guest.run('audioEvents[0].options.pan')>0);assert.equal(guest.run('audioEvents[0].options.distance'),5);
+ });
  console.log('PASS '+groups+' actual bus game groups; no audio');
 
  check('driver last hit gives exactly one capped ULT point, no reward for preview or repeat',()=>{

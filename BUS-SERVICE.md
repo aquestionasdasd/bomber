@@ -54,3 +54,5 @@ BOTの視線を車体全体の箱から共通の車内パネルへ変更し、�
 
 所有hidden195は新規初手SOUND OFF/aria=false/AX0。枚方練習でF乗車/実銃driver撃破/F運転/W+D走行、建物の窓付き外壁区画の消失と隣の切断面、燃料00を実確認warn/error0。天井崩壊瞬間/粉じんの実browser撮影は未実施、落下は独立savedgame検証。NOPE/hashimoto/standard/attack/normal復元、195閉鎖/8057 listener0、ユーザータブ/OS/他アプリ/前面操作なし。再生/試聴なし。新実2タブ/スマホ/別家庭/10実機/聴感は未確認。知人PR49/54はhead不変で未統合のまま保全。公開とGitHubの最終IDはworkspace cycle98-release.jsonを正本とする。
 
+
+第99巡：対人接触にユーザー提供「打撃8.mp3」を一回再生。host確定/被弾guest自身の受信/重複抑止/位置とmuteを保持。トミカC実接触にも共通。音色/実音量は未試聴。AUDIO-DESIGN.md参照。
