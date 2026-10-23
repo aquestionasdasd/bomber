@@ -15,15 +15,19 @@ const config = {
   dt: options.dt === '.05' ? .05 : .1,
   maps: (options.maps || 'hashimoto,hirakata').split(','),
   focal: options.focal || 'cap', ablate: options.ablate || 'c',
+  weapon: options.weapon || 'vandal', magazine: options.magazine || 'full', reserve: options.reserve || 'full',
   survey: options.survey === 'true', out: options.out || path.join(root, '..', 'bot-balance-report.json'),
-  sourceSha256: Object.fromEntries(['game.js','abilities.js','character-skills.js'].map(f => [f,createHash('sha256').update(fs.readFileSync(path.join(root,'public',f))).digest('hex')])),
+  sourceSha256: Object.fromEntries(['game.js','abilities.js','character-skills.js','rules.js'].map(f => [f,createHash('sha256').update(fs.readFileSync(path.join(root,'public',f))).digest('hex')])),
 };
 if (!config.maps.every(v => ['hashimoto', 'hirakata'].includes(v))) throw Error('Unknown map');
 if (!/^[a-z]+$/.test(config.focal) || !/^[cqex]+$/.test(config.ablate)) throw Error('Invalid kit/key');
+if (!['full','low','empty'].includes(config.magazine) || !['full','short','empty'].includes(config.reserve)) throw Error('Invalid magazine/reserve scenario');
+if (!/^[a-z]+$/.test(config.weapon)) throw Error('Invalid weapon');
 const body = `
  const config=${JSON.stringify(config)};
  const h=harness({realMap:true}),rows=[];
  const chars=Object.keys(imported.CHARACTER_DEFS);
+ if(!chars.includes(config.focal)||!['primary','secondary'].includes(imported.WEAPONS[config.weapon]?.slot))throw Error('Unknown character or firearm');
  h.sandbox.benchConfig=config;
  h.run(\`var bench=null;
  let measuredDepth=0;
@@ -36,6 +40,12 @@ const body = `
  };
  activateAbility=measureActivate(activateAbility);
  activateJapanAbility=measureActivate(activateJapanAbility);
+ const measuredService=tickServiceReload;
+ tickServiceReload=function(actor,dt){
+   const marker=actor.serviceReload,before=actor.aiAmmo,result=measuredService(actor,dt);
+   if(bench&&marker&&!actor.serviceReload&&actor.aiAmmo>before){const stat=bench.actors[actor.id];if(stat){stat.serviceCompletions++;stat.serviceRounds+=actor.aiAmmo-before;}}
+   return result;
+ };
  const measuredDamage=damageEntity;
  damageEntity=function(target,amount,killer,options){
    const hp=target.hp,armor=target.armor||0,alive=target.alive;
@@ -56,9 +66,11 @@ const body = `
        for(const team of ['blue','red'])for(let i=0;i<5;i++){
          const character=caseConfig.survey?caseConfig.chars[((caseConfig.seed-1)*5+i+(team==='red'?7:0))%caseConfig.chars.length]:i===focalIndex?benchConfig.focal:['nope','mend','ember','nobi','duck'][i];
          const record={id:team+'-'+i,team,name:team+'-'+i,k:0,d:0,a:0,credits:3000,primary:'vandal',secondary:'classic',armor:50,survived:false,kit:new DuelistKit({character})};
+         if(record.id===bench.focalId){const spec=WEAPONS[benchConfig.weapon];record.primary=spec.slot==='primary'?benchConfig.weapon:null;record.secondary=spec.slot==='secondary'?benchConfig.weapon:'classic';}
          record.kit.smoke=getCharacterSkill(character,'c').max;record.kit.updraft=getCharacterSkill(character,'q').max;record.kit.ultPoints=7;
          roster.push(record);const points=map.teamSpawns[team===match.attackerTeam?'attack':'defend'];makeBot(points[i],i,team,record);
-         bench.actors[record.id]={character,team,casts:{},damage:0,kills:0};
+         bench.actors[record.id]={character,team,casts:{},damage:0,kills:0,serviceCompletions:0,serviceRounds:0};
+         if(record.id===bench.focalId){const actor=bots.at(-1),weaponId=record.primary||record.secondary,spec=WEAPONS[weaponId];Object.assign(actor,{aiWeapon:weaponId,aiAmmo:benchConfig.magazine==='empty'?0:benchConfig.magazine==='low'?Math.max(1,Math.floor(spec.mag*.25)):spec.mag,aiReserve:benchConfig.reserve==='empty'?0:benchConfig.reserve==='short'?Math.max(1,Math.floor(spec.mag*.25)):spec.reserve,aiReload:0});bench.initialFocal={weapon:weaponId,ammo:actor.aiAmmo,reserve:actor.aiReserve};}
        }
        match.spike.carrier=match.attackerTeam+'-0';match.startLive();match.drainEvents();
        for(let frame=0;frame<Math.ceil(160/benchConfig.dt)&&match.phase==='live';frame++){
@@ -80,7 +92,7 @@ const body = `
    s.appearances++;s.wins+=row.result.winner===a.team?1:0;s.damage+=a.damage;s.kills+=a.kills;
    for(const[k,v]of Object.entries(a.casts))s.casts[k]=(s.casts[k]||0)+v;
  }
- fs.writeFileSync(config.out,JSON.stringify({kind:'actual saved-game VM;headless fixed steps;all actors hard/full Vandal/full stock/7pt;not human win-rate proof',config,rows,aggregate,wallMs:Math.round(performance.now()-started),cpuMs:Math.round((process.cpuUsage(cpuStarted).user+process.cpuUsage(cpuStarted).system)/1000)},null,2));
+ fs.writeFileSync(config.out,JSON.stringify({kind:'actual saved-game VM;headless fixed steps;all hard/full skill stock/7pt;only blue focal firearm/magazine/reserve varied, others Vandal;not human win-rate proof',config,rows,aggregate,wallMs:Math.round(performance.now()-started),cpuMs:Math.round((process.cpuUsage(cpuStarted).user+process.cpuUsage(cpuStarted).system)/1000)},null,2));
  console.log('REPORT '+config.out+'; '+rows.length+' rounds; '+Math.round(performance.now()-started)+'ms');
 }main().catch(e=>{console.error(e);process.exitCode=1;});
 `;

@@ -835,7 +835,7 @@ async function main() {
   const actualSource = fs.readFileSync(path.join(__dirname, 'public/character-skills.js'), 'utf8');
   async function memoryEngine(before, after) {
     assert.ok(actualSource.includes(before), 'The negative control must change an actual source expression');
-    const source = actualSource.replace(before, after).replace("from './abilities.js'", `from ${JSON.stringify(pathToFileURL(path.join(__dirname, 'public/abilities.js')).href)}`);
+    const source = actualSource.replace(before, after).replace(/from '(\.\/[a-z-]+\.js)'/g, (_, file) => `from ${JSON.stringify(pathToFileURL(path.join(__dirname, 'public', file)).href)}`);
     return import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'));
   }
   const arcMutant = await memoryEngine("event.type === 'duelist-comet' ? 0 :", "event.type === 'duelist-comet' ? .8 :");
