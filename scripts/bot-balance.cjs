@@ -43,6 +43,16 @@ const body = `
  };
  activateAbility=measureActivate(activateAbility);
  activateJapanAbility=measureActivate(activateJapanAbility);
+ const measuredPads=tickDuckPads;
+ tickDuckPads=function(){
+   const opportunities=[player,...bots].map(a=>({actor:a,before:a.duckPadAt,pad:ordinarySkills.duckPad(ordinaryActorView(a),elapsed,{groundHeight:ordinaryGroundHeight})}));
+   const result=measuredPads();
+   if(bench)for(const p of opportunities)if(p.pad&&p.actor.duckPadAt===elapsed&&p.actor.duckPadAt!==p.before){
+     const owner=bench.actors[p.pad.sourceId],rider=bench.actors[p.actor.id];
+     if(owner){owner.padUses=(owner.padUses||0)+1;const key=p.actor.team===p.pad.team?'padFriendlyUses':'padEnemyUses';owner[key]=(owner[key]||0)+1;}
+     if(rider)rider.padLaunches=(rider.padLaunches||0)+1;
+   }return result;
+ };
  const measuredService=tickServiceReload;
  tickServiceReload=function(actor,dt){
    const marker=actor.serviceReload,before=actor.aiAmmo,result=measuredService(actor,dt);
