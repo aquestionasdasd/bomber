@@ -325,6 +325,23 @@ async function main() {
     assert.equal(guest.run('allNopeDecoys().length'), 0, 'A late rejoin must not restart the twelve-second wave');
   });
 
+  check('real flash state drives face puffs on host and independent guest, expires and resets without extra wire fields', () => {
+    preparePeer(host, true); preparePeer(guest, false);
+    host.seed('blue',0,-6);
+    host.run(`Object.assign(player,{x:0,y:0,z:0,yaw:0,pitch:0});var flashed=bots.find(bot=>bot.remoteId==='friend');flashed.x=0;flashed.y=0;flashed.z=-5;flashed.group.position.set(0,0,-5);
+      flashed.group.rotation.y=Math.PI;flashed.netYaw=0;
+      hitNopeDecoy(allNopeDecoys()[0],flashed);tickOnline(.1);renderOrdinarySkills();`);
+    assert.ok(host.run('ordinarySkills.blindUntil(flashed.id,elapsed)>elapsed'));
+    assert.ok(host.run('flashStatusFX.group.userData.activeActors>0'));
+    const packet=deliver(host,guest,'host');
+    guest.run('renderOrdinarySkills()');
+    // The target is the guest viewer and must not cover their first-person aim.
+    assert.equal(guest.run('flashStatusFX.group.userData.activeActors'),0);
+    assert.ok(packet.ordinarySkills.blinds.length>0);
+    host.run('elapsed+=10;renderOrdinarySkills()');assert.equal(host.run('flashStatusFX.group.visible'),false);
+    host.run('resetOrdinarySkills()');assert.equal(host.run('flashStatusFX.group.visible'),false);
+  });
+
   // Reuse the established conservative store-filling fixture, but execute its
   // saved serializer with the additional legal wave/pop fields in this process.
   // This never starts the HTTP test database or performs a request.
