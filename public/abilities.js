@@ -62,9 +62,9 @@ const catSkills={
  e:{name:'ねこの手',shortName:'銃回収',description:'Eで構え、18mの見える落ちた銃へ左確定・右取消。銃を回収し前の同枠装備は足元へ落とす。弾は生成せず、18秒で再使用。',max:1,price:0,type:'cat-fetch',icon:'M7 26V14l5 7V5h5v13V3h5v16l4-8 4 2-4 15Z'},
 };
 const duckSkills = {
- c:{name:'羽根の跳び床',shortName:'跳び床',description:'Cで構え、28mの見える床へ左確定・右取消。0.25秒後から8秒、半径2mの羽根床に乗ると約4m跳躍。自分・味方・敵が再利用でき、天井で止まる。',max:2,price:100,type:'duck-pad',icon:'M8 25 28 5M12 9l8 8M9 13l7 7M17 6l8 8M5 27l4-1'},
+ c:{name:'羽根の跳び床',shortName:'跳び床',description:'Cで構え、28mの見える床へ左確定・右取消。0.25秒後から8秒、半径2mの羽根床に乗ると約4m跳躍。跳躍中の銃弾は照準どおり（ショットガンの散弾は通常幅）。自分・味方・敵が再利用でき、天井で止まる。',max:2,price:100,type:'duck-pad',icon:'M8 25 28 5M12 9l8 8M9 13l7 7M17 6l8 8M5 27l4-1'},
  q:{name:'浮き羽の盾',shortName:'羽盾',description:'Qで構え、28m以内の床へ左クリック設置・右クリック取消。6秒・180耐久の羽盾。両軍の弾を止め、視線・歩行・近接は通す。',max:1,price:100,type:'duck-shield',icon:'M18 3 5 8v9c0 8 13 12 13 12s13-4 13-12V8ZM18 8v16M10 12l8 4 8-4'},
- e:{name:'忍びガモ',shortName:'羽ばたき',description:'10秒、スペースを押すたび空中で羽ばたく。連打で上昇・維持、離すと落下。発動地点から最大8m。最初の5秒は足音・着地音なし。銃声は消えない。20秒で再使用。',max:1,price:0,type:'duck-hush',icon:'M18 24V10m-5 5 5-6 5 6M16 19 3 9l3 13 10 5m4-8L33 9l-3 13-10 5'},
+ e:{name:'忍びガモ',shortName:'羽ばたき',description:'10秒、スペースを押すたび空中で羽ばたく。連打で上昇・維持、離すと落下。発動地点から最大8m。飛行中の銃弾は照準どおり（ショットガンの散弾は通常幅）。最初の5秒は足音・着地音なし。銃声は消えない。20秒で再使用。',max:1,price:0,type:'duck-hush',icon:'M18 24V10m-5 5 5-6 5 6M16 19 3 9l3 13 10 5m4-8L33 9l-3 13-10 5'},
 };
 const baseSkills = {
   c: { name: '流れ星の幕', shortName: '星幕', description: `視線方向の空中${DUELIST_SKILLS.cometRange}m以内へ直線で投げ、到達から${DUELIST_SKILLS.cometDuration}秒、半径${DUELIST_SKILLS.cometRadius}mの星幕で敵味方双方の視界を遮る。`, max: DUELIST.smokeMax, price: DUELIST.smokePrice, type: 'duelist-comet', icon: 'm20 3 3 8 9 1-7 6 2 9-8-5-8 5 2-9-7-6 9-1ZM3 25l7-5M2 19l6-3m-2-6 4-1' },
