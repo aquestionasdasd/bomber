@@ -10,7 +10,7 @@ async function main(){
  const clone=x=>JSON.parse(JSON.stringify(x));let groups=0;
  const test=(label,fn)=>{fn();groups++;console.log('PASS: '+label);};
  test('ninth identity has four distinct contracts and finite costs/CD, preserves JSON and old eight identities',()=>{
-  assert.equal(CHARACTER_DEFS.cat.label,'猫の画像');assert.equal(Object.keys(CHARACTER_DEFS).length,14);
+  assert.equal(CHARACTER_DEFS.cat.label,'猫の画像');assert.equal(Object.keys(CHARACTER_DEFS).length,15);assert.equal(CAT_SKILLS.pluckDamagePerRound,12);
   const kit=new DuelistKit({character:'cat'});let spent=0;for(const key of ['c','c','q'])assert.equal(kit.buy(key,n=>(spent+=n,true)),true);assert.equal(spent,300);assert.equal(kit.buy('q',()=>true),false);
   for(const key of ['c','q','e'])assert.equal(kit.activate(key,1).type,getCharacterSkill('cat',key).type);
   assert.equal(kit.activate('e',18.99),null);assert.equal(kit.activate('e',19).type,'cat-fetch');kit.ultPoints=7;assert.equal(kit.activate('x',19).type,'cat-clock');assert.equal(kit.knivesActive,false);assert.equal(kit.ultPoints,0);
@@ -38,6 +38,9 @@ async function main(){
   const names=[];model.group.traverse(o=>{if(o.isMesh&&o.name.startsWith('Cat /'))names.push(o.name);});for(const word of ['cap','blue iris','moustache','glove','shoe','gold button'])assert.ok(names.some(n=>n.includes(word)),word);
   const bounds=new THREE.Box3().setFromObject(model.group);assert.ok(Number.isFinite(bounds.max.y));assert.ok(bounds.max.y<2.1);assert.ok(bounds.max.x-bounds.min.x<2.5);assert.equal(model.meshes.length,52);
   const fx=createCatSkillFX(THREE),skills=createCharacterSkills();skills.cast('cat-bookmark',actor,actor,1,1);skills.cast('cat-clock',actor,actor,1,1);fx.update(skills.events(1),1,{actors:[actor],preview:{x:1,y:0,z:-2,type:'e'}});assert.equal(fx.group.children.length,3);fx.update([],12);assert.equal(fx.group.children.length,1);fx.dispose();model.dispose();
+ });
+ test('burst whiskers expand at the fixed impact point, duplicate updates stay bounded and all shared resources dispose',()=>{
+  const fx=createCatSkillFX(THREE),skills=createCharacterSkills();skills.cast('cat-pluck',actor,{x:0,y:1.3,z:-10,targetId:'enemy'},1,1);const e=skills.events(1);fx.update(e,1.1);let shards=[];fx.group.traverse(o=>{if(o.name==='Cat / split whisker')shards.push(o);});assert.equal(shards.length,6);assert.ok(shards.every(s=>s.position.distanceTo(new THREE.Vector3(0,1.4,-10))<1.1));const size=shards[0].scale.x;fx.update(e,1.4,{actors:[{id:'enemy',x:50,y:8,z:50}]});assert.ok(shards[0].scale.x<size);for(let i=0;i<20;i++)fx.update(e,1.4);assert.equal(fx.group.children.length,2);fx.update([],2);assert.equal(fx.group.children.length,1);fx.dispose();assert.equal(fx.group.parent,null);
  });
  console.log(`PASS: ${groups} cat contracts/JSON/timer/model/FX groups; silent`);
 }main().catch(e=>{console.error(e);process.exitCode=1;});
