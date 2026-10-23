@@ -2520,9 +2520,24 @@ function captureNetActor(actor){
     weapon:local?inventory.active:actor.netWeapon||record?.primary||record?.secondary||'classic',primary:local?inventory.primary:record?.primary,secondary:local?inventory.secondary:record?.secondary,
     ammo:local?player.ammo:actor.remoteId?actor.netAmmo:actor.aiAmmo,reserve:local?player.reserve:actor.remoteId?actor.netReserve:actor.aiReserve,reloading:local?reloading:actor.remoteId?actor.netReload||0:actor.aiReload||0,credits:local?match.credits:record?.credits||0,
     ...(actor.trafficLaunch?{trafficHit:[actor.trafficLaunch.seq,actor.trafficLaunch.endsAt,actor.trafficLaunch.vx,actor.trafficLaunch.vz,actor.vy||0]}:{}),
+    ...(match.phase==='buy'&&actor.remoteId&&actor.netPurchaseAck?{purchaseAck:[...actor.netPurchaseAck]}:{}),
     serviceReload:actor.serviceReload?{...actor.serviceReload}:null,
     kit:actor.kit?.snapshot(),dashTimer:actor.dashTimer||0,dashVec:actor.dashVec?{x:actor.dashVec.x,z:actor.dashVec.z}:null,
     shotSequence:local?shotSequence:actor.shotSequence||0,planting:match.spike.plantActor===actor.id,defusing:match.spike.defuseActor===actor.id,flash:local?elapsed-lastShot<.05:actor.flash>0};
+}
+// Success receipts are host-issued and matched to this guest's still-pending
+// action before the ordinary cumulative ACK removes it. Rejoins stay silent.
+function applyNetPurchaseFeedback(packet,self,fresh,ack){
+  const receipt=self.purchaseAck;
+  if(fresh||!player.alive||!self.alive||match.phase!=='buy'||packet.rules.phase!=='buy'||packet.rules.round!==match.round||
+    !Number.isSafeInteger(ack)||!Array.isArray(receipt)||receipt.length!==3||!Number.isSafeInteger(receipt[0])||receipt[0]<1||
+    receipt[0]>ack||receipt[1]!==match.round||typeof receipt[2]!=='string')return;
+  const action=netActions.find(a=>a.type==='buy'&&a.seq===receipt[0]&&a.round===receipt[1]&&a.id===receipt[2]);if(!action)return;
+  sound('buy',{localOnly:true});
+  const id=action.id,label=id==='light'?'ライトシールド':id==='heavy'?'ヘヴィーシールド':
+    ['c','smoke'].includes(id)?getCharacterSkill(player.kit.character,'c')?.name:
+    ['q','updraft'].includes(id)?getCharacterSkill(player.kit.character,'q')?.name:WEAPONS[id]?.name;
+  if(mode==='shop'&&$('shop-status'))$('shop-status').textContent=`${label||'装備'} を購入しました`;
 }
 function applyNetSnapshot(packet){
   if((packet.mapId||'hashimoto')!==(map.id||'hashimoto'))return;
@@ -2533,7 +2548,7 @@ function applyNetSnapshot(packet){
   // effect already stopped by this player's movement before its host ACK.
   const retainedFrostStops=fresh&&netRound===packet.rules.round&&player.id===ownId&&player.team===self.team
     ?[...stoppedFrostEvents].filter(([,endsAt])=>endsAt>packet.time):[];
-  const ack=packet.acks?.[online.session.memberId]||0;netActions=netActions.filter(a=>a.seq>ack);
+  const ack=packet.acks?.[online.session.memberId]||0;applyNetPurchaseFeedback(packet,self,fresh,ack);netActions=netActions.filter(a=>a.seq>ack);
   netActionSequence=Math.max(netActionSequence,ack,...netActions.map(a=>a.seq));
   applyNetCues(packet,fresh,ownId);
   Object.assign(match,packet.rules);match.events=[];match.credits=self.credits;elapsed=packet.time;roster=packet.roster;
@@ -2696,12 +2711,12 @@ function applyRemoteAction(actor,action,actionTime=elapsed){
   if((actor.planting||actor.defusing)&&['fire','reload','equip','ability','drop'].includes(action.type))return;
   if(action.type==='character'){if(match.phase==='buy'&&match.round===1&&characterIds.includes(action.character))actor.kit.character=action.character;return;}
   if(action.type==='buy'&&match.phase==='buy'){
-    if(['smoke','updraft','c','q'].includes(action.id)){actor.kit?.buy(action.id,price=>{if(r.credits<price)return false;r.credits-=price;return true;});return;}
+    if(['smoke','updraft','c','q'].includes(action.id)){if(actor.kit?.buy(action.id,price=>{if(r.credits<price)return false;r.credits-=price;return true;}))actor.netPurchaseAck=[action.seq,match.round,action.id];return;}
     const id=action.id,spec=WEAPONS[id],armor=id==='light'||id==='heavy',price=armor?(id==='light'?400:1000):spec?.price;
     if(!Number.isFinite(price))return;r.netPurchases||={};const slot=armor?'armor':spec.slot;if(slot!=='armor'&&!['primary','secondary'].includes(slot))return;
-    if(!armor&&r[slot]===id)return;
+    if(armor?actor.armor>=(id==='light'?25:50):r[slot]===id)return;
     const purchase=r.netPurchases[slot],refund=purchase&&(armor||purchase.id===r[slot])?purchase.price:0;if(r.credits+refund<price)return;r.credits+=refund-price;r.netPurchases[slot]={id,price};
-    if(armor)actor.armor=id==='light'?25:50;else{r[slot]=id;actor.netWeapon=id;actor.netAmmo=spec.mag;actor.netReserve=spec.reserve;actor.netReload=0;actor.netStores||={};actor.netStores[id]={ammo:spec.mag,reserve:spec.reserve};}return;
+    if(armor)actor.armor=id==='light'?25:50;else{r[slot]=id;actor.netWeapon=id;actor.netAmmo=spec.mag;actor.netReserve=spec.reserve;actor.netReload=0;actor.netStores||={};actor.netStores[id]={ammo:spec.mag,reserve:spec.reserve};}actor.netPurchaseAck=[action.seq,match.round,id];return;
   }
   if(action.type==='ability'){
     if(['c','q','e','x'].includes(action.key)){
