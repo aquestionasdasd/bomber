@@ -18,11 +18,12 @@ async function main(){
  check('new shopfronts join multiple street branches instead of isolated inaccessible scenery',()=>{
   for(const b of map.districtBuildings){const side=Math.abs(b.x)>85&&Math.abs(b.z)<90;const p=side?{x:b.x-Math.sign(b.x)*(b.w/2+2),z:b.z}:{x:b.x,z:b.z-Math.sign(b.z)*(b.d/2+2)};assert.ok(nav.isWalkable(p.x,p.z),'front '+b.id);for(const corner of[[-84,-84],[84,84]]){assert.ok(nav.path(p.x,p.z,...corner).length,'branch '+b.id);routes++;}}
  });
- check('old station, slabs, stairs, sites, starts, bus routes and every old collision are unchanged',()=>{
-  // Captured from source21b772 before expansion; portable to the sanitized collaboration repository.
+ check('researched upper station, slabs, stairs, starts and buses survive the authorized ground-floor site redesign',()=>{
+  // Captured from public source44bcdd4 before the indoor A/B/MID change.
+  // Ground retail/site colliders are intentionally replaced, not grandfathered.
   const hash=v=>createHash('sha256').update(JSON.stringify(v)).digest('hex');
-  assert.equal(hash(map.colliders.slice(0,454)),'f3f53b29343b3f176c086b221d6bb623203c9ff8af91afed17af2aa9a6997458');
-  assert.equal(hash(map.sites),'67871e92790ee8250ce2341fcbda60839cf3157231c60198c37380d8d739527c');
+  const upper=map.colliders.filter(c=>c.base>=4.7||['stairs','railing'].includes(c.kind));assert.equal(upper.length,378);
+  assert.equal(hash(upper),'8b16660104e207db881514bbceb11b54133950314c0c211fd691c4ae5b41a05f');
   assert.equal(hash(map.ramps),'95921650c86f0eba516d4d7a23d54ce1f4beec1cd0020de651d253a6bc70da02');
   assert.equal(hash(map.teamSpawns),'aac89d78c0f51c7b3a70aec4d7a4daedb25879aa3b054ce630a91a20ac2a7cb4');
   assert.equal(hash(map.traffic.poses(12)),'f755bfdae189d50b38b032caa13c953d92a1a2abc65ce1c42781f1b1d0afd3ce');
@@ -31,5 +32,5 @@ async function main(){
  let meshes=0,instances=0,triangles=0;map.world.traverse(o=>{if(o.isMesh){meshes++;const n=o.isInstancedMesh?o.count:1;instances+=n;triangles+=n*(o.geometry.index?.count||o.geometry.attributes.position.count)/3;}});
  check('shared district instancing keeps render count and geometry bounded',()=>{assert.ok(meshes<180);assert.ok(instances<13000);assert.ok(triangles<180000);});
  const report={groups,routes,dimensions:[224,224],newBuildings:20,colliders:map.colliders.length,meshes,instances,triangles,wallMs:Math.round(performance.now()-started)};
- fs.writeFileSync(path.join(__dirname,'../cycle60-district-report.json'),JSON.stringify(report,null,2));console.log(JSON.stringify(report));
+ fs.writeFileSync(path.join(__dirname,'../cycle61-district-report.json'),JSON.stringify(report,null,2));console.log(JSON.stringify(report));
 }main().catch(e=>{console.error(e);process.exitCode=1;});

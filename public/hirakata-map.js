@@ -1,6 +1,8 @@
 import {createCollisionIndex} from './collision.js';
 import {createTrafficClock,createBusModels} from './bus-traffic.js';
 import {addHirakataDistrict} from './hirakata-district.js';
+import {addHirakataTactical,HIRAKATA_INDOOR_SITES} from './hirakata-tactical.js';
+import {addHirakataSurvey} from './station-survey-details.js';
 
 // Reconstructed from the city plaza plans and Keihan's 2026 station plan.
 // The real NE–SW station is rotated into the game's east–west coordinates.
@@ -36,13 +38,13 @@ export function createHirakataMap(T,scene){
 
  // Ground floor shops leave a broad WEST free passage and a separate EAST road.
  const shops=[[-66,-27,'京阪百貨店'],[-13,33,'駅ナカ'],[47,66,'京阪電車']];
- for(const[a,b,name]of shops)for(const s of[-1,1]){const x=(a+b)/2,z=s*11,w=b-a;solid(x,2.35,z,w,4.7,14,'cream');
+ for(const[a,b,name]of shops)for(const s of[-1,1]){if(s<0&&b<=33)continue;const x=(a+b)/2,z=s*11,w=b-a;solid(x,2.35,z,w,4.7,14,'cream');
   const face=s*18.04;part(x,2,face,w-.6,2.5,.08,'glass');part(x,3.65,face,w,.6,.2,name==='京阪百貨店'?'red':'dark');for(let xx=a+.8;xx<b;xx+=3.1){part(xx,1.9,face+s*.06,.12,2.7,.14,'metal');part(xx,.55,face+s*.1,2.5,.12,.5,'concrete');}sign(name,name==='京阪百貨店'?'KEIHAN DEPARTMENT STORE':'HIRAKATASHI STATION',x,3.65,face+s*.13,Math.min(w-1,12),.7,{bg:name==='京阪百貨店'?'#8e263c':'#283036',fg:'#f7eee1',ry:s<0?Math.PI:0});
  }
  // Shopfronts facing inside the through passage. Doors are visibly closed.
- for(const x of[-27.03,-12.97]){part(x,1.9,0,.06,2.9,6.8,'glass');for(let z=-2.5;z<=2.5;z+=1.25)part(x,1.9,z,.13,2.9,.06,'metal');}
+ // The cross-gallery and MID side doors are physically and visibly open.
  // Shop windows and lit fascias line the indoor passage rather than blank walls.
- for(const side of[-1,1])for(const z of[-13,-7,7,13]){
+ for(const side of[-1,1])for(const z of[7,13]){
   const x=side<0?-26.94:-13.06,ry=side<0?Math.PI/2:-Math.PI/2;
   part(x,1.75,z,.08,2.65,5.1,'glass2');for(const dz of[-2.5,0,2.5])part(x-side*.03,1.75,z+dz,.1,2.8,.09,'silver');
   part(x-side*.06,3.32,z,.16,.65,5.7,side<0?'wood':'dark');
@@ -55,7 +57,8 @@ export function createHirakataMap(T,scene){
  solid(0,4.9,0,134,.24,38,'concrete','surface','hirakata-concourse');
  for(let x=-25.5;x<-13;x+=2.5)for(let z=-17;z<=17;z+=2.5){part(x,4.75,z,2.44,.035,2.44,'ivory');if((Math.round(z*2)%5)===1)part(x,4.71,z,1.6,.045,.75,'light');}
  for(const z of[-16,0,16]){part(-20,4.2,z,11,.09,.1,'metal');sign(z===0?'南口 ← 自由通路 → 北口':z<0?'北口 バスのりば →':'← 南口 バス・タクシー','Central passage · 1F',-20,3.95,z,8,.9,{bg:'#354a50',fg:'#fff4d8',ry:z<0?Math.PI:0});}
- for(const[x,z]of[[-25.8,-10],[-25.8,9],[-14.2,-9],[-14.2,10]]){solid(x,.9,z,.65,1.8,1.1,'white','cover');part(x,.95,z+.57,.5,1.25,.025,'blue');for(let r=0;r<4;r++)for(let c=0;c<3;c++)part(x-.16+c*.16,.55+r*.27,z+.6,.1,.18,.03,r%2?'red':'warm');}
+ // North vending machines sit beyond the new A/B side doors, preserving their clear approach.
+ for(const[x,z]of[[-25.8,-16.5],[-25.8,9],[-14.2,-16.5],[-14.2,10]]){solid(x,.9,z,.65,1.8,1.1,'white','cover');part(x,.95,z+.57,.5,1.25,.025,'blue');for(let r=0;r<4;r++)for(let c=0;c<3;c++)part(x-.16+c*.16,.55+r*.27,z+.6,.1,.18,.03,r%2?'red':'warm');}
  // 2F central/east concourses: wood flooring, dark ceiling and ticket gates.
  const woodTex=texture((c,w,h)=>{c.fillStyle='#a18b69';c.fillRect(0,0,w,h);for(let r=0;r<16;r++){c.fillStyle=r%3?'#ad9876':'#947c59';c.fillRect(1,r*16+1,w-2,14);}},512,256);woodTex.wrapS=woodTex.wrapT=T.RepeatWrapping;woodTex.repeat.set(15,4);
  plane(0,5.025,0,133.8,37.8,new T.MeshStandardMaterial({map:woodTex,roughness:.86}),-Math.PI/2);
@@ -111,15 +114,19 @@ export function createHirakataMap(T,scene){
  // Street lamps, bins and road-side warning boards. No invisible perimeter walls.
  for(const[x,z]of[[-68,61],[-15,70],[28,71],[67,60],[-68,-35],[-13,-69],[18,-72],[64,-66]]){part(x,3.2,z,.11,6.4,.11,'metal');part(x+.6,6.4,z,1.3,.12,.15,'metal');part(x+1.1,6.35,z,.6,.06,.4,'light');}
  for(const[x,z,ry]of[[-18,31,0],[-18,-32,Math.PI],[42,31,0],[55,-31,Math.PI]])sign('車両に注意','BUS LANE · 横断注意',x,1.3,z,2.8,.8,{bg:'#f0ce58',fg:'#4c3030',ry});
+ const tactical=addHirakataTactical({part,solid,sign});
+ const surveyDetails=addHirakataSurvey({part,sign});
+ // Station interiors receive local warm fill; no extra shadow maps or audio.
+ for(const[x,z]of[[8,-11],[-46,-11],[-20,0]]){const light=new T.PointLight('#ffead1',16,31,1);light.position.set(x,3.9,z);light.name='Station interior / warm ceiling fill';world.add(light);}
  const districtBuildings=addHirakataDistrict({part,solid,sign,mapShapes});
  for(const b of batches.values()){const mesh=new T.InstancedMesh(b.g,b.m,b.entries.length);b.entries.forEach((m,i)=>mesh.setMatrixAt(i,m));mesh.instanceMatrix.needsUpdate=true;mesh.castShadow=mesh.receiveShadow=true;mesh.userData.solid=true;world.add(mesh);}
  const traffic=createTrafficClock(),busModels=createBusModels(T,world,traffic);busModels.update(0);
- const area=(x,z,name)=>({x,z,radius:5,name,polygon:rect(x,z,10,10),plantPositions:[{id:name+'-cover',label:'柱廊側',style:'cover',x:x-2,z:z+1},{id:name+'-open',label:'広場側',style:'open',x:x+2,z:z-1}]});
- const sites=[{id:'A',...area(45,-23,'A / 北口東広場')},{id:'B',...area(-43,-23,'B / 北口西広場')}];
+ const sites=HIRAKATA_INDOOR_SITES.map(({id,name,x,z,polygon,plantPositions})=>({id,name,x,z,radius:7,polygon:polygon.map(p=>[...p]),plantPositions:plantPositions.map(p=>({...p}))}));
  const teamSpawns={attack:Array.from({length:5},(_,i)=>({x:-10+i*5,z:73})),defend:Array.from({length:5},(_,i)=>({x:-12+i*6,z:-74}))};
  const points=a=>a.map(([x,z])=>({x,z}));
- const lanes=[{id:'bus',name:'西 / 百貨店脇',points:points([[-67,68],[-70,32],[-70,0],[-70,-23],[-43,-23]])},{id:'mid',name:'中央 / 南北自由通路',points:points([[-20,68],[-20,30],[-23,15],[-23,-15],[-20,-23],[0,-23],[45,-23]])},{id:'mewe',name:'東 / 高架下',points:points([[65,68],[65,30],[40,23],[40,-23],[45,-23]])}];
- const regions=[['south','南口ロータリー',-58,58,30,72],['north-bus','北口バスロータリー',-7,69,-71,-32],['north-car','北口一般車',-68,-18,-69,-33],['passage','1F / 南北自由通路',-27,-13,-20,20],['underpass','高架下車道',33,47,-20,20],['west','百貨店西連絡路',-81,-67,-30,32],['central','駅ナカ横通路',-66,66,-4,4],['a-site',sites[0].name,40,50,-28,-18],['b-site',sites[1].name,-48,-38,-28,-18],['north-street','新町 / 医大方面',-88,86,-92,-79],['east-street','岡東 / モール東通り',78,90,-80,81],['south-street','南口 / 商業街連絡路',-85,87,79,91],['west-street','岡本町 / 西路地',-90,-78,-79,79]];
- const callouts=regions.map(([id,name,a,b,c,d])=>({id,name,polygon:rect((a+b)/2,(c+d)/2,b-a,d-c),minY:-.1,maxY:4.7,label:{x:(a+b)/2,z:(c+d)/2}}));callouts.unshift({id:'upper',name:'2F / 改札コンコース',polygon:rect(0,0,134,38),minY:4.8,maxY:13,label:{x:0,z:0}});
- return{id:'hirakata',name:'枚方市駅',shortName:'HIRAKATASHI',world,bounds,colliders,collision:createCollisionIndex(colliders),mapShapes,ramps,sites,teamSpawns,lanes,callouts,zones:regions.map(([,name,a,b,c,d])=>({name,x:(a+b)/2,z:(c+d)/2,radius:Math.max(b-a,d-c)/2})),landmarks:[{id:'north',name:'南北自由通路',x:-23,z:12,yaw:0},{id:'south',name:'南口広場',x:-3,z:70,yaw:0},{id:'north-bus',name:'北口バスのりば',x:48,z:-23,yaw:0},{id:'north-car',name:'北口西広場',x:-43,z:-23,yaw:0},{id:'east',name:'東側高架下',x:40,z:0,yaw:0},{id:'upper',name:'2F 中央改札',x:-22,z:9,y:5.02,yaw:0},{id:'district-north',name:'新町・医大方面',x:-84,z:-84,yaw:-.8},{id:'district-east',name:'モール東通り',x:84,z:-53,yaw:0},{id:'district-south',name:'南口 商業街',x:27,z:84,yaw:Math.PI},{id:'district-west',name:'岡本町 西路地',x:-84,z:37,yaw:Math.PI}],spawn:{x:0,z:73,yaw:0},enemySpawns:teamSpawns.defend,spawnYaw:{attack:0,defend:Math.PI},buyAreas:{attack:{x:0,z:73,radius:12},defend:{x:0,z:-74,radius:12}},combatBounds:{minX:-82,maxX:82,minZ:-82,maxZ:82},rangeArea:{spawn:{x:-23,z:14,yaw:0},targets:[{x:-23,z:-10},{x:-23,z:-17},{x:-17,z:-12},{x:-17,z:-17}]},menuCamera:{position:[-43,15,67],target:[0,6,8]},origin:{lat:34.815,lon:135.649},districtBuildings,traffic,busModels,stats:{mode:'arena',width:224,depth:224,area:50176,combatWidth:164,combatDepth:164,buildings:31,districtBuildings:districtBuildings.length,sites:2,routes:3,collisionShapes:colliders.length,renderBatches:batches.size,trafficBuses:4},layout:{version:2,entrances:{A:[{id:'east',x:40,z:-23},{id:'north',x:60,z:-23}],B:[{id:'west',x:-62,z:-23},{id:'passage',x:-20,z:-23}]},siteEntries:{A:{x:40,z:-23},B:{x:-43,z:-23}},connectors:[],protectedPockets:[],rotationEnds:[{x:-20,z:-23},{x:40,z:-23}]}};
+ const lanes=[{id:'bus',name:'Bメイン / 百貨店西',points:points([[-67,68],[-70,32],[-70,0],[-69,-11],[-61,-11],[-46,-11.5]])},{id:'mid',name:'MID / 南北自由通路',points:points([[-20,68],[-23,30],[-23,15],[-20,-10],[-10,-10],[-9,-15],[1,-15],[14,-11.5]])},{id:'mewe',name:'Aメイン / 東側高架下',points:points([[65,68],[65,30],[40,23],[40,-11],[30,-11],[14,-11.5]])}];
+ const regions=[['south','南口ロータリー',-58,58,30,72],['north-bus','北口バスロータリー',-7,69,-71,-32],['north-car','北口一般車',-68,-18,-69,-33],['passage','MID / 南北自由通路',-27,-13,-20,20],['underpass','高架下車道',33,47,-20,20],['west','百貨店西連絡路',-81,-67,-30,32],['central','駅ナカ横通路',-66,66,-4,4],['a-site',sites[0].name,-12,33,-18,-4],['b-site',sites[1].name,-66,-27,-18,-4],['north-street','新町 / 医大方面',-88,86,-92,-79],['east-street','岡東 / モール東通り',78,90,-80,81],['south-street','南口 / 商業街連絡路',-85,87,79,91],['west-street','岡本町 / 西路地',-90,-78,-79,79]];
+ const callouts=regions.map(([id,name,a,b,c,d])=>({id,name,polygon:rect((a+b)/2,(c+d)/2,b-a,d-c),minY:-.1,maxY:4.7,label:{x:(a+b)/2,z:(c+d)/2}}));callouts.unshift({id:'upper',name:'2F / 改札コンコース',polygon:rect(0,0,134,38),minY:4.8,maxY:13});
+ for(const c of callouts){const labels={'a-site':{x:14,z:-23,text:'A 東ホール'},'b-site':{x:-46,z:-23,text:'B 西ホール'},passage:{x:-20,z:12,text:'MID'},central:{x:8,z:2,text:'横連絡'},underpass:{x:40,z:12,text:'東メイン'},west:{x:-74,z:12,text:'西メイン'}};if(labels[c.id])c.label=labels[c.id];}
+ return{id:'hirakata',name:'枚方市駅',shortName:'HIRAKATASHI',world,bounds,colliders,collision:createCollisionIndex(colliders),mapShapes,ramps,sites,teamSpawns,lanes,callouts,zones:regions.map(([,name,a,b,c,d])=>({name,x:(a+b)/2,z:(c+d)/2,radius:Math.max(b-a,d-c)/2})),landmarks:[{id:'north',name:'南北自由通路',x:-23,z:12,yaw:0},{id:'south',name:'南口広場',x:-3,z:70,yaw:0},{id:'a-hall',name:'A / 駅ナカ東ホール',x:30,z:-11,yaw:Math.PI/2},{id:'b-hall',name:'B / 百貨店西ホール',x:-62,z:-11,yaw:-Math.PI/2},{id:'mid',name:'MID / 横挟み分岐',x:-20,z:-10,yaw:Math.PI/2},{id:'north-bus',name:'北口バスのりば',x:48,z:-23,yaw:0},{id:'north-car',name:'北口西広場',x:-43,z:-23,yaw:0},{id:'east',name:'東側高架下',x:40,z:0,yaw:0},{id:'upper',name:'2F 中央改札',x:-22,z:9,y:5.02,yaw:0},{id:'district-north',name:'新町・医大方面',x:-84,z:-84,yaw:-.8},{id:'district-east',name:'モール東通り',x:84,z:-53,yaw:0},{id:'district-south',name:'南口 商業街',x:27,z:84,yaw:Math.PI},{id:'district-west',name:'岡本町 西路地',x:-84,z:37,yaw:Math.PI}],spawn:{x:0,z:73,yaw:0},enemySpawns:teamSpawns.defend,spawnYaw:{attack:0,defend:Math.PI},buyAreas:{attack:{x:0,z:73,radius:12},defend:{x:0,z:-74,radius:12}},combatBounds:{minX:-82,maxX:82,minZ:-82,maxZ:82},rangeArea:{spawn:{x:-23,z:14,yaw:0},targets:[{x:-23,z:-10},{x:-23,z:-17},{x:-17,z:-12},{x:-17,z:-17}]},menuCamera:{position:[-43,15,67],target:[0,6,8]},origin:{lat:34.815,lon:135.649},districtBuildings,tactical,surveyDetails,traffic,busModels,stats:{mode:'arena',width:224,depth:224,area:50176,combatWidth:164,combatDepth:164,buildings:31,districtBuildings:districtBuildings.length,sites:2,routes:3,collisionShapes:colliders.length,renderBatches:batches.size,trafficBuses:4},layout:{version:3,entrances:Object.fromEntries(tactical.rooms.map(r=>[r.id,[{id:'main',...r.main},{id:'mid',...r.flank},{id:'defend',...r.back}]])),siteEntries:{A:{x:30,z:-11},B:{x:-62,z:-11}},connectors:tactical.flanks,protectedPockets:tactical.covers,rotationEnds:[{x:-20,z:-10},{x:40,z:-11},{x:-69,z:-11}]}};
 }

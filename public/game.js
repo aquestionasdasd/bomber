@@ -792,7 +792,7 @@ function selectArena(id){
 function activeArenaBounds(){return exploring&&!onlinePlaying?map.bounds:map.combatBounds||map.bounds;}
 function updateMapLabels(){
   const name=map.name||'橋本駅',short=map.shortName||'HASHIMOTO',viewBounds=activeArenaBounds();
-  const copies={'mission-map':name+' 爆破・電源オフ作戦','menu-map-name':name+'前','character-preview-map':name+'前','hud-map-name':short+' STATION','map-title':name+' / 戦術マップ','map-area-name':name+' · '+(viewBounds.maxX-viewBounds.minX)+'m × '+(viewBounds.maxZ-viewBounds.minZ)+'m','map-route-copy':map.id==='hirakata'?'南北自由通路 / 東側高架下 / 百貨店西連絡路':'バス通り / 中央連絡路 / ミウィ通り'};
+  const copies={'mission-map':name+' 爆破・電源オフ作戦','menu-map-name':name+'前','character-preview-map':name+'前','hud-map-name':short+' STATION','map-title':name+' / 戦術マップ','map-area-name':name+' · '+(viewBounds.maxX-viewBounds.minX)+'m × '+(viewBounds.maxZ-viewBounds.minZ)+'m','map-route-copy':map.id==='hirakata'?'屋内A / 屋内B / MID横挟みルート':'バス通り / 中央連絡路 / ミウィ通り'};
   copies['map-site-a-name']=map.sites[0].name;copies['map-site-b-name']=map.sites[1].name;copies['map-detail']=map.id==='hirakata'?'対戦は従来の164m四方。マップ練習では周辺224m四方も探索できます。車道の京阪バスに注意。':'橋本駅前の景観をもとに構成したオリジナルマップです。';
   copies['map-coordinate-copy']=copies['menu-coordinate-copy']=map.id==='hirakata'?'34.815°N / 135.649°E':'35°35′42″N / 139°20′42″E';copies['menu-map-note']=map.id==='hirakata'?'枚方市駅 / 南北広場・自由通路・駅周辺街区':'非公式ファンメイド / 橋本駅前をモチーフにしたオリジナルマップ';copies['radar-map-copy']=short+' / 2 SITES';
   canvas.setAttribute('aria-label',name+'の3D競技マップ');$('large-minimap')?.setAttribute('aria-label',name+'の戦術マップ');
@@ -1842,6 +1842,7 @@ function drawMinimap(target,large=false){
   for(let x=Math.ceil(bounds.minX/grid)*grid;x<bounds.maxX;x+=grid){ctx.beginPath();ctx.moveTo(px(x),0);ctx.lineTo(px(x),h);ctx.stroke();}
   for(let z=Math.ceil(bounds.minZ/grid)*grid;z<bounds.maxZ;z+=grid){ctx.beginPath();ctx.moveTo(0,pz(z));ctx.lineTo(w,pz(z));ctx.stroke();}
   drawMapShapes(ctx,map.mapShapes,{bounds,px,pz,scale,large});
+  if(large&&map.tactical?.flanks){ctx.save();ctx.strokeStyle='#8bc9bd';ctx.lineWidth=2;ctx.setLineDash([5,4]);for(const flank of map.tactical.flanks){const points=flank.points;ctx.beginPath();ctx.moveTo(px(points[0][0]),pz(points[0][1]));for(const[x,z]of points.slice(1))ctx.lineTo(px(x),pz(z));ctx.stroke();const[a,b]=points.slice(-2),angle=Math.atan2(b[1]-a[1],b[0]-a[0]);ctx.setLineDash([]);ctx.beginPath();for(const side of[-1,1]){ctx.moveTo(px(b[0]),pz(b[1]));ctx.lineTo(px(b[0])-Math.cos(angle+side*.5)*9,pz(b[1])-Math.sin(angle+side*.5)*9);}ctx.stroke();ctx.setLineDash([5,4]);}ctx.restore();}
   if(large&&exploring&&map.combatBounds&&map.combatBounds!==map.bounds){const b=map.combatBounds;ctx.save();ctx.strokeStyle='#e68172';ctx.lineWidth=2;ctx.setLineDash([6,5]);ctx.strokeRect(px(b.minX),pz(b.minZ),(b.maxX-b.minX)*scale,(b.maxZ-b.minZ)*scale);ctx.setLineDash([]);ctx.fillStyle='#efb4a8';ctx.font='12px sans-serif';ctx.textAlign='left';ctx.fillText('対戦エリア / 164m',px(b.minX)+5,pz(b.minZ)+15);ctx.restore();}
   if(map.traffic)for(const bus of map.traffic.poses(elapsed)){ctx.save();ctx.translate(px(bus.x),pz(bus.z));ctx.rotate(-bus.yaw);ctx.fillStyle='#ee6675';ctx.fillRect(-1.25*scale,-5.3*scale,2.5*scale,10.6*scale);ctx.restore();}
   ctx.textAlign='center';ctx.textBaseline='middle';
