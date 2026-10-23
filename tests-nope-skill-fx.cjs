@@ -33,8 +33,8 @@ async function main(){
     }
     finite(fx.group);fx.update(data,1.2);assert.equal(fx.group.userData.activeEvents,2);
     const bottle=fx.group.children.find(child=>child.name.endsWith('nope-bottle'));assert.equal(bottle.children[0].visible,false);assert.equal(bottle.children[1].visible,true);
-    assert.ok(bottle.children[1].scale.x>0&&bottle.children[1].scale.x<=5.5);
-    fx.update([data[0]],data[0].endsAt-1e-6);assert.ok(bottle.children[1].scale.x>5.49,'The burst reaches the strengthened5.5m radius');
+    assert.ok(bottle.children[1].scale.x>0&&bottle.children[1].scale.x<=8);
+    fx.update([data[0]],data[0].endsAt-1e-6);assert.ok(bottle.children[1].scale.x>7.99,'The burst reaches the strengthened8m radius');
     fx.update(data,Math.max(...data.map(event=>event.endsAt)));assert.equal(fx.group.children.length,0);assert.equal(fx.group.visible,false);fx.dispose();fx.dispose();assert.equal(camera.children.length,0);
   });
 

@@ -1,0 +1,16 @@
+# しばくでジャパン / twelfth character
+
+Human reference: cork map board, colored Japan silhouette and raised white lettering. Rebuild original polygon islands with seven regional colors, wooden backing, white 日本 lettering, jointed limbs and red sun crest. Do not import the photo or external artwork. Shared standing rig and 52 hit surfaces remain.
+
+Compared before implementation against all11: duelist fog/lift/dash/knives; NOPE bomb/flash/decoy; MEND slow/fog/heal; IAGNU fixed reveal/flash/speed; grass fog/slow/speed; ember bomb/flash mitigation/reload; frost ring slow/fog/slow relief; duck seal/bullet shield/silent steps/lethal guard; cat bookmark/ammo extraction/gun recovery/clock pause; car push/smoke removal/moving accuracy/refill; nobi vulnerability/fire interval/objective acceleration/hit-region conversion.
+
+|Key|Distinct mechanism and operation|Counterplay and authority|
+|---|---|---|
+|C 国境線|Equip/aim real floor up to40m, left confirm/right cancel. A visible10m-wide,2.8m-high line arms after1s for14s. Each enemy crossing once takes1000 damage.2x100.|Not slow, explosion, reveal, shield or solid wall. Crossing needed; stand still, go around, wait or jump over. Short segment-to-actor LOS/floor height prevents through-wall/floor damage. Only host-owned crossing samples cause damage.|
+|Q 装甲接収|Equip/aim visible enemy40m, left confirm/right cancel. Remove up to50 actual enemy armor; grant10 times that amount to self, capped at500 self armor.1x100.|No HP damage/heal, ammo theft or resource refill. Only actual missing armor can be transferred; full self/no enemy armor rejects without charge. Wall/smoke/blindness block targeting.|
+|E 弾丸返送|Free20s CD,5s self status.650% of actual HP+armor removed by enemy firearm hits is returned to the shooter as damage.|Not damage immunity, health regeneration or vulnerability. Original hit still hurts, reflected damage cannot reflect again. No grenade/knife/zone reflection. Dead shooter receives nothing; no location marker.|
+|X 総動員|7pt. All currently dead teammates revive at their own safe start positions,1000HP/0armor/classic only/empty C/Q/E/retained ultimate points. No dead teammate rejects without points.|Entirely new death-state reversal, not heal, rewind, resource refill or clock pause. Does not revive caster, move living allies, reclaim bomber or re-award points/kills. Only live phase; host performs reset once; no spawn invulnerability.|
+
+Twenty-event rejection rolls back all stock/points before mutation. Guest predicts resources only. Strict event fields and JSON; crossing history is bounded host-local state, not hidden enemy tracking broadcast. Death/team/round/menu clears personal effects. Revived remote clients use one authoritative position correction and discard pre-revival inputs. Existing eleven models/skills, floors, map and audio gun/step samples remain unchanged. Strong performance is presented through concrete skill descriptions, without superiority claims in player UI.
+
+Cycle81: human explicitly requested tenfold power of this existing kit. Primary damage/armor gain/reflection/revival HP multiplied by10; ranges, prices, periods and distinct mechanics retained. All skill families accept living revived actors through1000HP, reject values above1000; ordinary100HP healing never reduces overhealth. Host/guest JSON has no extra fields.

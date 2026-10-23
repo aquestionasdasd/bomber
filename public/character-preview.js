@@ -10,7 +10,7 @@ export function createCharacterPreview(THREE, {
   cancelFrame = id => globalThis.cancelAnimationFrame(id),
   observeResize, pixelRatio = () => globalThis.devicePixelRatio || 1,
   reducedMotion = () => globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches,
-  onError = () => {},
+  onError = () => {}, dancing = false,
 } = {}) {
   let renderer = null, model = null, frameId = null, active = false, disposed = false, failed = false, contextLost = false;
   let character = 'duelist', team = 'blue', previous = null, lastRender = -Infinity, clock = 0;
@@ -41,7 +41,7 @@ export function createCharacterPreview(THREE, {
     const distance = Math.max(size.y / (2 * tangent), size.x / (2 * tangent * camera.aspect)) * 1.12 + size.z * .35;
     // A raised three-quarter view exposes the block's grass top as well as
     // its soil sides; the other completed characters keep their portrait view.
-    camera.position.set(center.x, center.y + (character === 'veil' ? distance * .42 : .035), center.z + distance);
+    camera.position.set(center.x, center.y + (character === 'veil' || character === 'car' ? distance * .42 : .035), center.z + distance);
     camera.lookAt(center.x, center.y, center.z);
   }
   function resize() {
@@ -53,8 +53,8 @@ export function createCharacterPreview(THREE, {
   function buildModel() {
     model?.dispose();
     model = modelFactory(THREE, { team, character, variant:0 });
-    model.group.rotation.y = character === 'veil' ? -.56 : -.24; scene.add(model.group);
-    model.update(0, { alive:true, character, weapon:'vandal' }); fitCamera();
+    model.group.rotation.y = character === 'veil' || character === 'car' ? -.56 : -.24; scene.add(model.group);
+    model.update(0, { alive:true, character, weapon:'vandal', dancing, danceTime:0 }); fitCamera();
   }
   function ensureRenderer() {
     if (renderer) return true;
@@ -74,8 +74,8 @@ export function createCharacterPreview(THREE, {
     if (now - lastRender >= 1000 / 30 - .5) {
       const dt = previous === null ? 0 : Math.min(.08, Math.max(0, (now - previous) / 1000));
       previous = now; lastRender = now; clock += dt;
-      model.group.rotation.y = (character === 'veil' ? -.56 : -.24) + (reducedMotion() ? 0 : Math.sin(clock * .45) * .09);
-      model.update(dt, { alive:true, time:reducedMotion() ? 0 : clock, character, weapon:'vandal' });
+      model.group.rotation.y = (character === 'veil' || character === 'car' ? -.56 : -.24) + (reducedMotion() ? 0 : Math.sin(clock * .45) * .09);
+      model.update(dt, { alive:true, time:reducedMotion() ? 0 : clock, character, weapon:'vandal', dancing, danceTime:reducedMotion() ? 0 : clock });
       renderer.render(scene, camera);
     }
     schedule();

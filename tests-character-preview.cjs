@@ -39,9 +39,9 @@ async function main() {
   const visibleBounds=model=>{const box=new THREE.Box3();model.group.updateMatrixWorld(true);model.group.traverse(object=>{if(!object.isMesh)return;for(let parent=object;parent;parent=parent.parent)if(!parent.visible)return;box.expandByObject(object);});return box;};
   for(const id of Object.keys(CHARACTER_DEFS)){
     preview.setCharacter(id);tick(1450);const model=liveModels.at(-1);assert.equal(model.group.userData.character,id,'The renderer uses the real model for every choice');
-    assert.ok(Math.abs(model.group.rotation.y-(id==='veil'?-.56:-.24))<=.09+1e-10,'The first animation frame retains the selected grass/other-six view angle');
+    assert.ok(Math.abs(model.group.rotation.y-(id==='veil'||id==='car'?-.56:-.24))<=.09+1e-10,'The first animation frame retains the selected grass/car/grass and portrait view angles');
     preview.resize();const box=visibleBounds(model),center=box.getCenter(new THREE.Vector3()),size=box.getSize(new THREE.Vector3()),tangent=Math.tan(THREE.MathUtils.degToRad(lastCamera.fov*.5)),distance=Math.max(size.y/(2*tangent),size.x/(2*tangent*lastCamera.aspect))*1.12+size.z*.35;
-    if(id!=='veil')assert.ok(lastCamera.position.distanceTo(new THREE.Vector3(center.x,center.y+.035,center.z+distance))<1e-10,'The other six retain their original camera framing');
+    if(id!=='veil'&&id!=='car')assert.ok(lastCamera.position.distanceTo(new THREE.Vector3(center.x,center.y+.035,center.z+distance))<1e-10,'The portrait characters retain their original camera framing');
     lastCamera.updateMatrixWorld(true);
     model.group.traverseVisible(mesh=>{if(!mesh.isMesh)return;const positions=mesh.geometry.getAttribute('position');for(let i=0;i<positions.count;i++){const p=new THREE.Vector3().fromBufferAttribute(positions,i).applyMatrix4(mesh.matrixWorld).project(lastCamera);assert.ok(Math.abs(p.x)<1&&Math.abs(p.y)<1&&p.z>-1&&p.z<1,'The actual head, feet and held equipment fit inside the character picker');}});framedCharacters++;
     if(id==='veil'){
@@ -54,8 +54,8 @@ async function main() {
   }
   preview.dispose();preview.dispose();assert.equal(frames.size,0);assert.equal(modelsDisposed,modelsCreated);assert.equal(rendererDisposed,1);assert.equal(contextReleased,1);assert.equal(observerDisposed,1);assert.equal(doc.listenerCount()+view.listenerCount()+canvas.listenerCount(),0);
   preview.setActive(true);tick(1500);assert.equal(rendererCount,1,'Disposed previews cannot recreate resources');
-  console.log('PASS: real seven-character model lifecycle, visibility, bounded renderer, context restore and final resource ownership');
-  console.log(JSON.stringify({framedCharacters,grassTopProjection:+grassTopProjection.toFixed(5),oldCameraFramingsPreserved:6}));
+  console.log('PASS: real ten-character model lifecycle, visibility, bounded renderer, context restore and final resource ownership');
+  console.log(JSON.stringify({framedCharacters,grassTopProjection:+grassTopProjection.toFixed(5),oldCameraFramingsPreserved:8}));
 
   const nodes=new Map(),documentView=events(),document=events({defaultView:documentView,getElementById:id=>nodes.get(id)});
   const node=id=>{const value=events({id,hidden:false,value:'',textContent:'',attributes:{},setAttribute(key,value){this.attributes[key]=value;},append(child){child.parentNode=this;}});nodes.set(id,value);return value;};

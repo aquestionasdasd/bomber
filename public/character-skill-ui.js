@@ -1,4 +1,4 @@
-import { CHARACTER_DEFS, DUELIST, normalizeCharacter, getCharacterSkill, getSkillState } from './abilities.js';
+import { CHARACTER_DEFS, DUELIST, normalizeCharacter, getCharacterSkill, getCharacterUltimate, getSkillState } from './abilities.js';
 
 const KEYS = ['c', 'q', 'e'];
 const MOBILE = { c: 'mobile-smoke', q: 'mobile-dash', e: 'mobile-scan' };
@@ -25,9 +25,13 @@ export function createCharacterSkillUI({ document: doc = globalThis.document } =
         text(`${prefix}-${skill.key}-meta`, cost(skill));
       }
     }
+    const ultimate=getCharacterUltimate(id);
+    for(const prefix of ['character-skill','online-character-skill','mobile-character-skill']){
+      text(`${prefix}-x-name`,ultimate.name);text(`${prefix}-x-description`,ultimate.description);text(`${prefix}-x-meta`,`${ultimate.points} ULTポイント`);
+    }
     text('guide-skill-cq', `C：${skills[0].shortName} / Q：${skills[1].shortName}`);
-    text('guide-skill-ex', `E：${skills[2].shortName} / X：キャラ固有ULT`);
-    text('mobile-skill-summary', `C：${skills[0].name}、Q：${skills[1].name}、E：${skills[2].name}。X：キャラ固有アルティメット。`);
+    text('guide-skill-ex', `E：${skills[2].shortName} / X：${ultimate.name}`);
+    text('mobile-skill-summary', `C：${skills[0].name}、Q：${skills[1].name}、E：${skills[2].name}。X：${ultimate.name}。${ultimate.description}`);
   }
 
   function updateHUD(kit, now, { alive = true } = {}) {
@@ -66,13 +70,15 @@ export function createCharacterSkillUI({ document: doc = globalThis.document } =
       text(`${prefix}-name`, definition.name);
       text(`${prefix}-key`, `${key.toUpperCase()} / ${definition.shortName}`);
       text(`${prefix}-description`, definition.description);
-      text(`${prefix}-count`, `所持 ${count}/${definition.max} · 1回分を購入`);
+      text(`${prefix}-count`, `所持 ${count}/${definition.max} · ${count?'左クリックで1回分売却（当R購入分）':'左クリックで1回分購入'}`);
       text(`${prefix}-price`, `SC ${definition.price.toLocaleString()}`);
       icon(`${prefix}-glyph`, definition);
       attr(prefix, 'data-skill-id', definition.id);
-      attr(prefix, 'aria-label', `${key.toUpperCase()} ${definition.name}、所持${count}/${definition.max}、1回分 SC ${definition.price}`);
+      attr(prefix, 'aria-label', `${key.toUpperCase()} ${definition.name}、所持${count}/${definition.max}、${count?'1回分を売却（このラウンドの購入分のみ）':'1回分を購入'} SC ${definition.price}`);
+      const add=get(`${prefix}-add`);
+      if(add){add.disabled=!alive||phase!=='buy'||count>=definition.max||credits<definition.price;add.hidden=definition.max<=1;add.textContent=`＋1回分購入 · SC ${definition.price}`;}
       if (card) {
-        card.disabled = !alive || phase !== 'buy' || count >= definition.max || credits < definition.price;
+        card.disabled = !alive || phase !== 'buy' || (!count && credits < definition.price);
         card.classList?.toggle('owned', count >= definition.max);
       }
     }

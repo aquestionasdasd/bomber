@@ -76,6 +76,72 @@ async function main() {
   async function test(name, fn) { await fn(); passed++; console.log(`PASS: ${name}`); }
 
   try {
+    await test('TRC can be selected, joined and started as an authoritative ten-seat room',async()=>{
+      const created=await api('',{method:'POST',body:{name:'TRC HOST',mapId:'trc',format:'swift'}});
+      assert.equal(created.status,201);const host=created.value,guest=await join(host);
+      assert.equal(guest.settings.mapId,'trc');assert.equal(guest.settings.maxPlayers,10);
+      const playing=await start(host,guest);assert.equal(playing.settings.mapId,'trc');assert.equal(playing.status,'playing');
+    });
+    await test('lobby map and format are host-owned, persisted before start, and visible to joins/polls/resume',async()=>{
+      const created=await api('',{method:'POST',body:{name:'MAP HOST',mapId:'hirakata',format:'standard'}});
+      assert.equal(created.status,201);const host=created.value,guest=await join(host);
+      assert.equal(guest.settings.mapId,'hirakata');assert.equal(guest.settings.format,'standard');
+      const change=(member,body)=>api(`/${host.code}/settings`,{method:'POST',member,body});
+      assert.equal((await change(guest,{mapId:'hashimoto',format:'swift'})).status,403);
+      assert.equal((await change(null,{mapId:'hashimoto',format:'swift'})).status,401);
+      for(const body of [{mapId:'bad',format:'swift'},{mapId:'hashimoto',format:'explore'},{mapId:'hashimoto'},{mapId:null,format:null}])assert.equal((await change(host,body)).status,400);
+      assert.equal((await getMessages(guest)).value.room.settings.mapId,'hirakata');
+      const saved=await change(host,{mapId:'hashimoto',format:'swift',maxPlayers:999,lobbyRevision:999});
+      assert.equal(saved.status,200);assert.equal(saved.value.settings.maxPlayers,10);assert.equal(saved.value.settings.lobbyRevision,1);
+      assert.deepEqual((await getMessages(guest)).value.room.settings,saved.value.settings);
+      assert.deepEqual((await api(`/${host.code}?resume=1`,{member:guest})).value.settings,saved.value.settings);
+      await ready(host);await ready(guest);
+      const started=await api(`/${host.code}/start`,{method:'POST',member:host,body:{format:'swift'}});assert.equal(started.status,200);assert.equal(started.value.settings.mapId,'hashimoto');
+      assert.equal((await change(host,{mapId:'hirakata',format:'standard'})).status,409);
+      assert.equal((await api(`/${host.code}`,{member:guest})).value.settings.mapId,'hashimoto');
+      await api(`/${host.code}/leave`,{method:'POST',member:host,body:{}});
+      assert.equal((await change(host,{mapId:'hirakata',format:'standard'})).status,401);
+      assert.equal((await change(guest,{mapId:'hirakata',format:'standard'})).status,410);
+    });
+    await test('invalid create choices never allocate rooms and legacy lobby revision upgrades without migration',async()=>{
+      const count=()=>db.prepare('SELECT COUNT(*) AS n FROM online_rooms').get().n,before=count();
+      for(const body of [{name:'HOST',mapId:'invalid'},{name:'HOST',format:'explore'}])assert.equal((await api('',{method:'POST',body})).status,400);
+      assert.equal(count(),before);
+      const host=await create();db.prepare('UPDATE online_rooms SET settings=? WHERE code=?').run(JSON.stringify({format:'swift',mapId:'hashimoto',maxPlayers:10}),host.code);
+      const saved=await api(`/${host.code}/settings`,{method:'POST',member:host,body:{format:'standard',mapId:'hirakata'}});
+      assert.equal(saved.status,200);assert.equal(saved.value.settings.lobbyRevision,1);assert.equal(saved.value.settings.mapId,'hirakata');
+      const guest=await join(host);await ready(host);await ready(guest);
+      const results=await Promise.all([
+        api(`/${host.code}/start`,{method:'POST',member:host,body:{format:'standard',mapId:'hirakata'}}),
+        api(`/${host.code}/settings`,{method:'POST',member:host,body:{format:'swift',mapId:'hashimoto'}}),
+      ]);
+      assert.equal(results[0].status,200);assert.ok([200,409].includes(results[1].status));
+      const final=(await api(`/${host.code}`,{member:guest})).value;
+      assert.equal(final.status,'playing');assert.equal(final.settings.mapId,'hirakata');assert.equal(final.settings.format,'standard');
+    });
+    await test('real RoomClient blocks stale lobby polls, pending starts, failed saves, and callbacks after leave',async()=>{
+      const {RoomClient}=await import(pathToFileURL(path.join(__dirname,'public/online.js')).href);
+      const updates=[],room={code:'MAPTEST2',status:'lobby',settings:{mapId:'hashimoto',format:'swift',lobbyRevision:0}};
+      let resolve,reject,requests=0;
+      const client=Object.assign(Object.create(RoomClient.prototype),{room,host:true,closed:false,settingsPending:false,onRoom:r=>updates.push(r),api:()=>{requests++;return new Promise((yes,no)=>{resolve=yes;reject=no;});}});
+      const pending=client.configure('standard','hirakata');assert.equal(client.settingsPending,true);
+      await assert.rejects(client.start('swift','hashimoto'),/保存/);await assert.rejects(client.configure('swift','hashimoto'),/保存/);assert.equal(requests,1);
+      resolve({...room,settings:{mapId:'hirakata',format:'standard',lobbyRevision:1}});await pending;
+      assert.equal(client.settingsPending,false);client.acceptRoom(room);assert.equal(client.room.settings.mapId,'hirakata');
+      const failed=client.configure('swift','hashimoto');reject(Error('offline'));await assert.rejects(failed,/offline/);
+      assert.equal(client.settingsPending,false);assert.equal(client.room.settings.mapId,'hirakata');
+      client.acceptRoom({...client.room,status:'playing'});client.acceptRoom({...room,settings:{lobbyRevision:99}});assert.equal(client.room.status,'playing');
+      client.room=room;const abandoned=client.configure('standard','hirakata'),before=updates.length;client.closed=true;
+      resolve({...room,settings:{mapId:'hirakata',lobbyRevision:1}});await abandoned;assert.equal(updates.length,before);assert.equal(client.room.settings.mapId,'hashimoto');
+      client.closed=false;client.host=false;await assert.rejects(client.configure('standard','hirakata'),/ホスト/);
+    });
+    await test('host chooses map at start; invalid/guest maps never mutate room, reconnect retains map',async()=>{
+      const host=await create(),guest=await join(host);await ready(host);await ready(guest);
+      assert.equal((await api(`/${host.code}/start`,{method:'POST',member:guest,body:{format:'swift',mapId:'hirakata'}})).status,403);
+      assert.equal((await api(`/${host.code}/start`,{method:'POST',member:host,body:{format:'swift',mapId:'invalid'}})).status,400);
+      assert.equal((await api(`/${host.code}`,{member:host})).value.status,'lobby');
+      const started=await api(`/${host.code}/start`,{method:'POST',member:host,body:{format:'swift',mapId:'hirakata'}});assert.equal(started.status,200);assert.equal(started.value.settings.mapId,'hirakata');assert.equal((await api(`/${host.code}`,{member:guest})).value.settings.mapId,'hirakata');
+    });
     await test('room creation issues private hashed credentials and protects every member read', async () => {
       const host = await create('  ホスト  ');
       assert.match(host.code, /^[A-HJ-NP-Z2-9]{8}$/);
@@ -257,7 +323,7 @@ async function main() {
         z: i ? 5.34567890123456 + (i - 1) * .2345678901234 : 0, y: 0, yaw: 0, vx: 0, vz: 0,
         hp: 100, armor: 50, alive: true, grounded: true, weaponId: 'phantom', ammo: 30, reserve: 90, netWeapon: 'phantom', netAmmo: 30, netReserve: 90, netReload: .7234567890123457,
         serviceReload: { eventId: `skill-ember-service-${999999999999999-i}`, weaponId: 'phantom', endsAt: now + .7234567890123457 },
-        remoteId: i ? record.memberId : null, netYaw: 1.2345678901234567, group: { rotation: { y: 0 } },
+        remoteId: i ? record.memberId : null, netPurchaseAck: [Number.MAX_SAFE_INTEGER,1,'updraft'], netYaw: 1.2345678901234567, group: { rotation: { y: 0 } },
         netPositionAck: { seq: 100, connection: '10000000-0000-4000-8000-000000000000', round: 1,
           x: -20.123456789012345 + (i - 1) * 4.3210987654321, z: 5.34567890123456 + (i - 1) * .2345678901234 } }));
       const player = actors[0], bots = actors.slice(1), teamAbilities = createTeamAbilities(), zoneAbilities = createZoneAbilities(), ordinarySkills = createCharacterSkills();
@@ -280,7 +346,7 @@ async function main() {
       // store with all grass/EMBER/FROST events, MEND fields and target-bearing heals.
       // Roots use two bounded endpoints, never an unbounded terrain-point array.
       for (let i = 0; i < 20; i++) {
-        const type = ['mend-seeds','mend-pollen','veil-dust','veil-roots','veil-turf','ember-solder','ember-shade','ember-service','frost-stitch','frost-mist','frost-unravel','duelist-comet','duelist-lift'][i] || 'mend-heal';
+        const type = ['mend-seeds','mend-pollen','veil-dust','veil-roots','veil-turf','ember-solder','ember-shade','ember-service','frost-stitch','frost-mist','frost-unravel','duelist-comet','duelist-lift','duck-seal','duck-shield','duck-hush','duck-egg'][i] || 'mend-heal';
         const target = { x: .123456789012345, y: type === 'mend-pollen' ? 1.7 : type === 'mend-seeds' ? .12 : 0, z: -5.23456789012345 };
         if(type==='veil-dust'||type==='veil-turf')Object.assign(target,{x:player.x,y:type==='veil-dust'?player.y+1.25:player.y,z:player.z});
         if(type==='ember-shade'||type==='ember-service')Object.assign(target,{x:player.x,y:player.y,z:player.z});
@@ -290,6 +356,9 @@ async function main() {
         if(type==='frost-mist')target.y=1.4;
         if(type==='frost-unravel')Object.assign(target,{x:player.x,y:player.y,z:player.z});
         if(type==='duelist-comet')Object.assign(target,{x:player.x,y:player.y+4.7,z:player.z-10});
+        if(type==='duck-seal')target.targetId='s'.repeat(64);
+        if(type==='duck-shield')target.yaw=1.2345678901234567;
+        if(type==='duck-hush'||type==='duck-egg')Object.assign(target,{x:player.x,y:player.y,z:player.z});
         if(type==='duelist-lift')Object.assign(target,{x:player.x,y:player.y,z:player.z});
         if (type === 'mend-heal') target.targetId = `heal-${String(i).padStart(2, '0')}-${'t'.repeat(56)}`;
         assert.ok(ordinarySkills.cast(type, player, target, now, 1));
@@ -299,10 +368,10 @@ async function main() {
       const smokes = Array.from({ length: 20 }, (_, i) => ({ id: i + 1, x: -10.123456789012345 + i, y: 1.7, z: 10.23456789012345 + i, expires: now + 4.5, kind: 'smoke', radius: 3.6 }));
       const drops = Array.from({ length: 32 }, (_, i) => { const actor = actors[i % 10]; return { id: i + 1, weapon: 'phantom', x: actor.x, z: actor.z, yaw: 1.2345678901234567, ammo: 30, reserve: 90 }; });
       const nopeDecoys=createNopeDecoys();
-      assert.equal(nopeDecoys.start(player,Array.from({length:30},(_,i)=>({x:-999.99+i*.01,y:-999.99,z:999.99-i*.01,yaw:3.1415})),now,1),true);
+      assert.equal(nopeDecoys.start(player,Array.from({length:30},(_,i)=>({x:-999.99+i*.01,y:-999.99,z:999.99-i*.01,yaw:3.1415,walkLength:36})),now,1),true);
       const nopeState=nopeDecoys.snapshot();nopeState.id='nope-wave-1-999999999999999';assert.equal(nopeDecoys.restore(nopeState,now,1),true);
       const serializeNopePops=()=>Array.from({length:8},(_,i)=>[Number.MAX_SAFE_INTEGER-7+i,-999.1234567890123,-999.1234567890123,-999.1234567890123,now]);
-      const sent = [], sandbox = { player, bots, roster, match, elapsed: now, teamAbilities, zoneAbilities, ordinarySkills, nopeDecoys, serializeNopePops, onlinePlaying: true,
+      const sent = [], sandbox = { map:{id:"hirakata",traffic:{service:{snapshot:()=>[]}}}, fitTrafficSnapshot:(await import(pathToFileURL(path.join(__dirname,"public/traffic-state.js")).href)).fitTrafficSnapshot, player, bots, roster, match, elapsed: now, teamAbilities, zoneAbilities, ordinarySkills, nopeDecoys, serializeNopePops, onlinePlaying: true,
         online: { host: true, send: (packet, options) => sent.push({ packet, team: options?.team }) }, netClock: 0, netSequence: 0, netHostPaused: false,
         inventory: { active: 'phantom', primary: 'phantom', secondary: 'ghost' }, reloading: 1.2345678901234567, shotSequence: 0, lastShot: now,
         serializeNetCues: () => cues, serializeSmokes: () => smokes, serializeDrops: () => drops,
@@ -313,7 +382,7 @@ async function main() {
       const capture = source.slice(source.indexOf('function captureNetActor('), source.indexOf('function applyNetSnapshot('));
       const tick = source.slice(source.indexOf('function tickOnline('), source.indexOf("$('online-open')"));
       assert.ok(capture.length > 500 && tick.length > 500, 'Exercise the saved game serializers');
-      vm.createContext(sandbox); vm.runInContext(`${capture}\n${tick}\ntickOnline(.1)`, sandbox);
+      vm.createContext(sandbox); vm.runInContext(`${source.slice(source.indexOf('function carMotionActive('),source.indexOf('function beginCarMotion('))}\n${capture}\n${tick}\ntickOnline(.1)`, sandbox);
       assert.deepEqual(sent.map(entry => entry.team), ['blue', 'red'], 'The actual host serializer must make two private team packets');
       assert.equal(sent[0].packet.seq, sent[1].packet.seq, 'A team split is one logical host frame');
       assert.equal(sent[0].packet.ordinarySkills.markers.length, 0); assert.equal(sent[0].packet.teamAbilities.pings.length, 0);
@@ -326,7 +395,7 @@ async function main() {
       const ordinaryReplica = createCharacterSkills();
       assert.equal(ordinaryReplica.restore(snapshot.ordinarySkills, now, 1), true);
       assert.deepEqual(ordinaryReplica.snapshot(), snapshot.ordinarySkills, 'Every airborne mascot comet/lift, FROST ring/mist/ribbon, grass endpoint, EMBER weapon/resisted blind and MEND heal target must survive strict JSON restore');
-      assert.deepEqual([...new Set(snapshot.ordinarySkills.events.map(event => event.type))].sort(), ['duelist-comet','duelist-lift','ember-service','ember-shade','ember-solder','frost-mist','frost-stitch','frost-unravel','mend-heal','mend-pollen','mend-seeds','veil-dust','veil-roots','veil-turf']);
+      assert.deepEqual([...new Set(snapshot.ordinarySkills.events.map(event => event.type))].sort(), ['duck-egg','duck-hush','duck-seal','duck-shield','duelist-comet','duelist-lift','ember-service','ember-shade','ember-solder','frost-mist','frost-stitch','frost-unravel','mend-heal','mend-pollen','mend-seeds','veil-dust','veil-roots','veil-turf']);
       assert.ok(snapshot.ordinarySkills.events.filter(event=>event.type.startsWith('duelist-')).every(event=>Object.keys(event).length===16),'Comet/lift must keep their bounded canonical shape without transmitting impulse or a client-controlled smoke size');
       assert.ok(snapshot.ordinarySkills.events.filter(event=>event.type.startsWith('frost-')).every(event=>Object.keys(event).length===16),'FROST must retain the bounded canonical shape without client-controlled mitigation/ring fields');
       assert.equal(snapshot.ordinarySkills.events.find(event=>event.type==='ember-service').weaponId,'phantom');assert.ok(snapshot.ordinarySkills.blinds.every(blind=>blind.resisted===true),'The bounded budget must carry all twenty explicit resisted flags');
@@ -337,12 +406,114 @@ async function main() {
       assert.ok(snapshot.ordinarySkills.events.filter(event => event.type === 'mend-heal').every(event => event.targetId.length === 64), 'The transport budget must include complete legal heal target IDs');
       const bytes = Buffer.byteLength(JSON.stringify(snapshot), 'utf8');
       assert.equal(snapshot.nopeDecoys.points.length,30);assert.equal(snapshot.nopePops.length,8);
+      assert.equal(snapshot.actors.filter(a=>a.purchaseAck).length,0,'Purchase receipts must not consume the full live effect budget');
       const nopeReplica=createNopeDecoys();assert.equal(nopeReplica.restore(snapshot.nopeDecoys,now,1),true);assert.equal(nopeReplica.events(now).length,30);
       assert.ok(bytes > 40 * 1024 && bytes <= 64 * 1024, `The complete conservative snapshot must exceed the former limit and fit the new cap, got ${bytes}B`);
       assert.equal((await send(host, 'team:red', 'game', snapshot)).status, 201);
       const delivered = (await getMessages(guest)).value.messages;
       assert.equal(delivered.length, 1); assert.deepEqual(delivered[0].data, snapshot, 'HTTP fallback must preserve every state/effect/cue/marker/drop without truncation');
+      for(const type of ['duck-pad','duck-seal','duck-shield','cat-pluck','car-bumper','nobi-tag','nobi-brake','japan-levy','japan-border','cap-lock','cap-clean','urchin-lance','urchin-jam','urchin-disarm']){
+        clock+=200; // Model the existing relay cadence while testing more roster payloads.
+        const worst=JSON.parse(JSON.stringify(snapshot)),pool=createCharacterSkills();
+        for(let i=0;i<20;i++)assert.ok(pool.cast(type,player,{x:player.x,y:0,z:player.z-3,targetId:'s'.repeat(64),yaw:1.2345678901234567},now,1));
+        worst.ordinarySkills.events=pool.snapshot().events.map((e,i)=>({...e,id:`skill-${type}-${999999999999980+i}`}));
+        assert.ok(createCharacterSkills().restore(worst.ordinarySkills,now,1));
+        if(type==='car-bumper'){
+          const ram=JSON.parse(JSON.stringify(worst));for(const a of ram.actors)a.carMove=['skill-car-bumper-999999999999999',2,now+.987654321,16.970562748,16.970562748,5.87654321];
+          const fitRam=(await import(pathToFileURL(path.join(__dirname,'public/traffic-state.js')).href)).fitTrafficSnapshot,bounded=fitRam(ram);assert.ok(bounded);assert.deepEqual(bounded.actors,ram.actors);assert.deepEqual(bounded.ordinarySkills,ram.ordinarySkills);assert.ok(Buffer.byteLength(JSON.stringify(bounded))<=65536);assert.equal((await send(host,'team:red','game',bounded)).status,201);console.log(`CAR10 MOTION CAPACITY: ${Buffer.byteLength(JSON.stringify(bounded))}B /65536B`);clock+=200;
+        }
+        const size=Buffer.byteLength(JSON.stringify(worst),'utf8');assert.ok(size<=65536,`${type} full snapshot ${size}B`);
+        assert.equal((await send(host,'team:red','game',worst)).status,201);console.log(`DUCK SNAPSHOT CAPACITY: ${type} ${size}B / 65536B`);
+      }
+      const catPacket=JSON.parse(JSON.stringify(snapshot)),catPool=createCharacterSkills();
+      for(const type of ['cat-bookmark','cat-return','cat-pluck','cat-fetch','cat-clock']){const target={x:player.x,y:player.y,z:player.z,...(type==='cat-pluck'?{targetId:'s'.repeat(64)}:{})};assert.ok(catPool.cast(type,player,target,now,1));}
+      catPacket.ordinarySkills.events=catPool.snapshot().events;assert.ok(createCharacterSkills().restore(catPacket.ordinarySkills,now,1));assert.equal((await send(host,'team:red','game',catPacket)).status,201);
+      const carPacket=JSON.parse(JSON.stringify(snapshot)),carPool=createCharacterSkills();
+      for(const type of ['car-bumper','car-wash','car-gyro','car-pit'])assert.ok(carPool.cast(type,player,{...player,...(type==='car-bumper'?{targetId:'s'.repeat(64)}:{})},now,1));
+      carPacket.ordinarySkills.events=carPool.snapshot().events;assert.ok(createCharacterSkills().restore(carPacket.ordinarySkills,now,1));assert.equal((await send(host,'team:red','game',carPacket)).status,201);
+      const nobiPacket=JSON.parse(JSON.stringify(snapshot)),nobiPool=createCharacterSkills();
+      for(const type of ['nobi-tag','nobi-brake','nobi-tool','nobi-legend'])assert.ok(nobiPool.cast(type,player,{...player,...(['nobi-tag','nobi-brake'].includes(type)?{targetId:'s'.repeat(64)}:{})},now,1));
+      nobiPacket.ordinarySkills.events=nobiPool.snapshot().events;assert.ok(createCharacterSkills().restore(nobiPacket.ordinarySkills,now,1));assert.equal((await send(host,'team:red','game',nobiPacket)).status,201);
+      const japanPacket=JSON.parse(JSON.stringify(snapshot)),japanPool=createCharacterSkills();
+      for(const type of ['japan-border','japan-levy','japan-return','japan-muster'])assert.ok(japanPool.cast(type,player,{...player,...(type==='japan-levy'?{targetId:'s'.repeat(64)}:{}),...(type==='japan-border'?{yaw:1}: {})},now,1));
+      japanPacket.ordinarySkills.events=japanPool.snapshot().events;assert.ok(createCharacterSkills().restore(japanPacket.ordinarySkills,now,1));assert.equal((await send(host,'team:red','game',japanPacket)).status,201);
+      clock+=200;
+      const capPacket=JSON.parse(JSON.stringify(snapshot)),capPool=createCharacterSkills();
+      for(const type of ['cap-lock','cap-clean','cap-bank','cap-magazine'])assert.ok(capPool.cast(type,player,{...player,...(['cap-lock','cap-clean'].includes(type)?{targetId:'s'.repeat(64)}:{})},now,1));
+      capPacket.ordinarySkills.events=capPool.snapshot().events;assert.ok(createCharacterSkills().restore(capPacket.ordinarySkills,now,1));assert.equal((await send(host,'team:red','game',capPacket)).status,201);
+      clock+=200;
+      const urchinPacket=JSON.parse(JSON.stringify(snapshot)),urchinPool=createCharacterSkills();
+      for(const type of ['urchin-lance','urchin-jam','urchin-disarm','urchin-pearl','urchin-trident'])assert.ok(urchinPool.cast(type,player,{...player,...(['urchin-jam','urchin-disarm'].includes(type)?{targetId:'s'.repeat(64)}:{})},now,1));
+      urchinPacket.ordinarySkills.events=urchinPool.snapshot().events;assert.ok(createCharacterSkills().restore(urchinPacket.ordinarySkills,now,1));assert.equal((await send(host,'team:red','game',urchinPacket)).status,201);
+      for(const type of ['onnara-tax','onnara-orb','onnara-hover','onnara-chain']){
+        clock+=200;const worst=JSON.parse(JSON.stringify(snapshot)),pool=createCharacterSkills();
+        for(let i=0;i<20;i++){const source={...player,id:'o'.repeat(62)+String(i).padStart(2,'0'),y:1.2345678901234567,grounded:false},target={x:source.x,y:source.y,z:source.z,...(type==='onnara-tax'?{targetId:'t'.repeat(62)+String(i).padStart(2,'0')}:{yaw:1.2345678901234567})};assert.ok(pool.cast(type,source,target,now,1));if(type==='onnara-chain')pool.recordConstellation(source.id,{x:123.456,y:7.891,z:-123.456},{x:124.456,y:7.891,z:-123.456},now);}
+        worst.ordinarySkills.events=pool.snapshot().events.map((e,i)=>({...e,id:`skill-${type}-${999999999999980+i}`}));
+        if(type==='onnara-tax'){const effectsPacket={...worst,cues:worst.cues.map(c=>({...c,type:'skill-heal',weapon:'duelist'}))};const fitSkill=(await import(pathToFileURL(path.join(__dirname,'public/traffic-state.js')).href)).fitTrafficSnapshot;const skillPacket=fitSkill(effectsPacket);assert.ok(skillPacket);assert.deepEqual(skillPacket.actors,effectsPacket.actors);assert.deepEqual(skillPacket.ordinarySkills,effectsPacket.ordinarySkills);assert.deepEqual(skillPacket.cues,effectsPacket.cues.slice(-skillPacket.cues.length));assert.ok(Buffer.byteLength(JSON.stringify(skillPacket))<=65536);assert.equal((await send(host,'team:red','game',skillPacket)).status,201);console.log(`SKILL IMPACT live64cue capacity ${Buffer.byteLength(JSON.stringify(skillPacket))}B /65536B`);worst.rules.phase='post';worst.rules.phaseTime=5;worst.rules.lastRound={team:'blue',reason:'elimination',won:true,reward:3000,round:1,side:'attack',fullCombo:0};const fit=(await import(pathToFileURL(path.join(__dirname,'public/traffic-state.js')).href)).fitTrafficSnapshot;const bounded=fit(worst);assert.ok(bounded);assert.ok(bounded.cues.length<worst.cues.length);assert.deepEqual(bounded.rules,worst.rules);assert.deepEqual(bounded.actors,worst.actors);assert.deepEqual(bounded.ordinarySkills,worst.ordinarySkills);assert.equal(worst.cues.length,64);worst.cues=bounded.cues;}
+        assert.ok(createCharacterSkills().restore(worst.ordinarySkills,now,1));const bytes=Buffer.byteLength(JSON.stringify(worst),'utf8');assert.ok(bytes<=65536,`${type} full snapshot ${bytes}B`);assert.equal((await send(host,'team:red','game',worst)).status,201);console.log(`ONNARA SNAPSHOT CAPACITY: ${type} ${bytes}B /65536B`);
+      }
+      clock+=200;
+      const arsenalPacket=JSON.parse(JSON.stringify(snapshot));
+      for(const actor of arsenalPacket.actors)Object.assign(actor,{weapon:'forge',primary:'forge',ammo:60,reserve:120});
+      for(const record of arsenalPacket.roster)record.primary='forge';
+      const arsenalBytes=Buffer.byteLength(JSON.stringify(arsenalPacket));assert.ok(arsenalBytes<=65536);
+      assert.equal((await send(host,'team:red','game',arsenalPacket)).status,201);
+      console.log(`ARSENAL 10 machine guns with full reserve ${arsenalBytes}B /65536B`);
+      clock+=200;const mixedPacket=JSON.parse(JSON.stringify(snapshot)),mixedPool=createCharacterSkills();
+      for(let i=0;i<10;i++){const source={...actors[i],x:-81.123456+i*.01,y:10.987654,z:-81.123456+i*.01},target={x:source.x+1,y:source.y,z:source.z,targetId:actors[(i+5)%10].id};assert.ok(mixedPool.cast('onnara-tax',source,target,now,1));assert.ok(mixedPool.cast('onnara-orb',source,{...source,yaw:1.2345678901234567},now,1));}
+      mixedPacket.ordinarySkills.events=mixedPool.snapshot().events;assert.ok(createCharacterSkills().restore(mixedPacket.ordinarySkills,now,1));const mixedBytes=Buffer.byteLength(JSON.stringify(mixedPacket),'utf8');assert.ok(mixedBytes<=65536);assert.equal((await send(host,'team:red','game',mixedPacket)).status,201);console.log(`ONNARA LIVE-MAP MIX:20 effects/10 actual roster IDs/negative boundary coordinates ${mixedBytes}B /65536B`);
       console.log(`SNAPSHOT CAPACITY: ${bytes}B / 65536B;20 team events,50 private pings,20 zones,20 ordinary events,20 blinds,20 private tags,20 smoke,32 gear,64 cues,10 actors`);
+      const{fitTrafficSnapshot}=await import(pathToFileURL(path.join(__dirname,'public/traffic-state.js')).href);
+      const full=JSON.parse(JSON.stringify(snapshot));for(const actor of full.actors)actor.trafficHit=[99999,now+.8,17.123456,16.123456,5.6];
+      full.cues.push(...Array.from({length:30},(_,i)=>({...full.cues[0],seq:100+i})));
+      const gloomy=JSON.parse(JSON.stringify(full)),gloomPool=createCharacterSkills();
+      for(let i=0;i<20;i++)assert.ok(gloomPool.cast('urchin-gloom',{...player,id:'g'.repeat(62)+String(i).padStart(2,'0')},{x:player.x,y:(player.y||0)+1.7,z:player.z-36},now,1));
+      gloomy.ordinarySkills.events=gloomPool.snapshot().events.map((e,i)=>({...e,id:`skill-urchin-gloom-${999999999999980+i}`}));
+      gloomy.ordinarySkills.blinds=gloomy.ordinarySkills.blinds.map((b,i)=>({...b,eventId:`skill-urchin-gloom-${999999999999980+i}`,startedAt:now,endsAt:now+3}));
+      for(const b of gloomy.ordinarySkills.blinds)delete b.resisted;
+      assert.ok(createCharacterSkills().restore(gloomy.ordinarySkills,now,1));const gloomFit=fitTrafficSnapshot(gloomy);assert.ok(gloomFit);assert.deepEqual(gloomFit.ordinarySkills,gloomy.ordinarySkills);assert.deepEqual(gloomFit.actors,gloomy.actors);assert.ok(Buffer.byteLength(JSON.stringify(gloomFit))<=65536);clock+=200;assert.equal((await send(host,'team:red','game',gloomFit)).status,201);console.log(`GLOOM20 +NEARSIGHT20 capacity ${Buffer.byteLength(JSON.stringify(gloomFit))}B /65536B; authority retained`);
+      const limited=fitTrafficSnapshot(full);assert.ok(limited);assert.ok(limited.cues.length<full.cues.length);assert.deepEqual(limited.actors,full.actors);assert.deepEqual(limited.ordinarySkills,full.ordinarySkills);assert.deepEqual(limited.rules,full.rules);assert.ok(Buffer.byteLength(JSON.stringify(limited))<=65536);clock+=200;assert.equal((await send(host,'team:red','game',limited)).status,201);console.log(`HIRAKATA simultaneous10 launches full wire ${Buffer.byteLength(JSON.stringify(limited))}B /65536B; only old cosmetic cues reduced`);
+      const trcFull=JSON.parse(JSON.stringify(full));trcFull.mapId='trc';delete trcFull.busTransit;delete trcFull.busDamage;trcFull.trcDoors=[['D1',180,false],['D2',179,true],['D3',0,true]];
+      for(const actor of trcFull.actors)Object.assign(actor,{trcLadder:'L1',crouch:1,hp:1000,armor:500});
+      const trcFit=fitTrafficSnapshot(trcFull);assert.ok(trcFit);for(const field of ['trcDoors','actors','rules','roster','ordinarySkills','teamAbilities','zoneAbilities','drops'])assert.deepEqual(trcFit[field],trcFull[field]);
+      const trcBytes=Buffer.byteLength(JSON.stringify(trcFit));assert.ok(trcBytes<=65536);clock+=200;assert.equal((await send(host,'team:red','game',trcFit)).status,201);console.log(`TRC10 climbers/doors/boostedactors bounded wire ${trcBytes}B /65536B; authority retained`);
+      const driven={...full,busTransit:[[0,0,0,now+25,29.123,-35.789,-1.571,17,[0,1,2]],[1,0,3,now+25,1.234,32.456,1.571,17,[3,4,5]],[2,0,6,now+25,31.456,-36.123,1.571,17,[6,7]],[3,0,8,now+25,3.456,33.123,1.571,17,[8,9]]]};
+      for(const actor of driven.actors)Object.assign(actor,{hp:1000,armor:500});
+      const busFit=fitTrafficSnapshot(driven);assert.ok(busFit);assert.deepEqual(busFit.busTransit,driven.busTransit);assert.deepEqual(busFit.actors,driven.actors);assert.deepEqual(busFit.ordinarySkills,driven.ordinarySkills);assert.ok(Buffer.byteLength(JSON.stringify(busFit))<=65536);clock+=200;assert.equal((await send(host,'team:red','game',busFit)).status,201);console.log(`BUS4 /10 riders / full skills capacity ${Buffer.byteLength(JSON.stringify(busFit))}B /65536B`);
+      const queued={...driven,busDamage:'ff'.repeat(10)+'03',busTransit:driven.busTransit.map((v,i)=>[i,100,-1,0,v[4],v[5],v[6],0,v[8],now-12.345])};
+      const queuedFit=fitTrafficSnapshot(queued);assert.ok(queuedFit);assert.deepEqual(queuedFit.busDamage,queued.busDamage);assert.deepEqual(queuedFit.busTransit,queued.busTransit);assert.deepEqual(queuedFit.actors,queued.actors);assert.deepEqual(queuedFit.ordinarySkills,queued.ordinarySkills);clock+=200;assert.equal((await send(host,'team:red','game',queuedFit)).status,201);console.log(`BUS4 QUEUED /82 destroyed props /10 boosted riders ${Buffer.byteLength(JSON.stringify(queuedFit))}B /65536B; authority retained`);
+      const allBays={...queued,busDamage:'ff'.repeat(32)};const allBaysFit=fitTrafficSnapshot(allBays);assert.ok(allBaysFit);assert.equal(allBaysFit.busDamage,allBays.busDamage);assert.deepEqual(allBaysFit.actors,allBays.actors);assert.deepEqual(allBaysFit.busTransit,allBays.busTransit);assert.deepEqual(allBaysFit.ordinarySkills,allBays.ordinarySkills);clock+=200;assert.equal((await send(host,'team:red','game',allBaysFit)).status,201);console.log(`BUS4 queued /max256 demolition bits /10 boosted actors ${Buffer.byteLength(JSON.stringify(allBaysFit))}B /65536B`);
+      const impactFull={...allBays,cues:Array.from({length:64},(_,i)=>({seq:99900+i,round:1,type:'bus-break',weapon:'vandal',id:'bus-break:north-1',x:29.123456,y:1.35,z:-33.123456,time:now}))};
+      const impactFit=fitTrafficSnapshot(impactFull);assert.ok(impactFit);assert.deepEqual(impactFit.actors,impactFull.actors);assert.deepEqual(impactFit.ordinarySkills,impactFull.ordinarySkills);assert.deepEqual(impactFit.busTransit,impactFull.busTransit);assert.equal(impactFit.busDamage,impactFull.busDamage);assert.ok(impactFit.cues.length>0);assert.deepEqual(impactFit.cues,impactFull.cues.slice(-impactFit.cues.length));assert.ok(Buffer.byteLength(JSON.stringify(impactFit))<=65536);clock+=200;assert.equal((await send(host,'team:red','game',impactFit)).status,201);console.log(`BUS BREAK64 cues /4 queued /all bays /10 actors ${Buffer.byteLength(JSON.stringify(impactFit))}B /65536B; authoritative fields intact`);
+
+      // Ten crouched actors must still fit with the full bus/effect state.
+      for(const actor of actors)actor.crouch=.987654321;
+      sent.length=0;sandbox.map={id:'hashimoto'};vm.runInContext('tickOnline(.1)',sandbox);
+      assert.equal(sent.length,2);assert.ok(sent.every(s=>s.packet.actors.every(a=>a.crouch===.988)));
+      const crouched=fitTrafficSnapshot({...allBays,actors:sent[1].packet.actors.map(a=>({...a,hp:1000,armor:500,trafficHit:[99999,now+.8,17.123456,16.123456,5.6]}))});
+      assert.ok(crouched);assert.ok(crouched.actors.every(a=>a.crouch===.988));assert.deepEqual(crouched.ordinarySkills,queued.ordinarySkills);assert.deepEqual(crouched.busTransit,queued.busTransit);
+      assert.ok(Buffer.byteLength(JSON.stringify(crouched))<=65536);clock+=200;assert.equal((await send(host,'team:red','game',crouched)).status,201);
+      console.log(`CROUCH10 /4queued buses /max256 destroyed /full skills ${Buffer.byteLength(JSON.stringify(crouched))}B /65536B; authoritative posture retained`);
+
+      // Buy-only previous-round reports do not grow a live combat snapshot.
+      assert.equal(snapshot.damageReport,undefined);
+      const {createRoundDamageTracker}=await load('combat-report.js');
+      const reports=createRoundDamageTracker();reports.begin(1,roster);
+      for(const victim of roster)for(const killer of [null,...roster])reports.record(1,victim.id,killer?.id,10000000);
+      reports.finish(1);sandbox.roundDamage=reports;sandbox.match.phase='buy';sandbox.match.round=2;
+      sent.length=0;vm.runInContext('tickOnline(.1)',sandbox);
+      assert.equal(sent.length,2);assert.ok(sent.every(s=>s.packet.damageReport[1].length===80));
+      for(const {packet}of sent){assert.ok(Buffer.byteLength(JSON.stringify(packet))<=65536);assert.equal(packet.rules.phase,'buy');}
+      const buyFull={...crouched,rules:{...crouched.rules,phase:'buy',round:2},damageReport:reports.snapshot('red',2)};
+      const buyFit=fitTrafficSnapshot(buyFull);assert.ok(buyFit);assert.deepEqual(buyFit.damageReport,buyFull.damageReport);assert.deepEqual(buyFit.actors,buyFull.actors);assert.deepEqual(buyFit.ordinarySkills,buyFull.ordinarySkills);assert.deepEqual(buyFit.busTransit,buyFull.busTransit);
+      assert.ok(createRoundDamageTracker().restore(buyFit.damageReport,roster,2,'red'));
+      clock+=200;assert.equal((await send(host,'team:red','game',buyFit)).status,201);
+      const damageDelivery=await getMessages(guest);assert.deepEqual(damageDelivery.value.messages.at(-1).data.damageReport,buyFit.damageReport);
+      console.log(`DAMAGE REPORT80 /10actors /4queued /full effects buy ${Buffer.byteLength(JSON.stringify(buyFit))}B /65536B; no authority/report removed`);
+
+
+
+
     });
 
     await test('competing joins and team changes cannot overfill a ten-person room or five-person team', async () => {

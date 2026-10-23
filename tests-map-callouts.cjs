@@ -77,7 +77,7 @@ async function main() {
   const map={bounds,mapShapes:[roof,angled],sites:[],callouts:metadata.callouts,landmarks:metadata.landmarks};
   const actor={x:0,y:0,z:0,yaw:0,alive:false,team:'red'},watched={x:5,y:3.2,z:6,alive:true,team:'red',group:{rotation:{y:.5}}};
   const markerTeams=[];
-  const sandbox={map,player:actor,spectatedBot:watched,target,elapsed:4,bots:[{alive:true,team:'blue',x:10,z:10,spottedUntil:0},{alive:true,team:'red',x:12,z:12},{alive:true,team:'blue',x:14,z:14,spottedUntil:5}],teamAbilities:{markers:team=>{markerTeams.push(team);return[];}},ordinarySkills:{markers:team=>{markerTeams.push(team);return[];}},IAGNU_SKILLS:{tagRevealDuration:1.25},match:null,scanTime:0,clamp:(value,min,max)=>Math.min(max,Math.max(min,value)),resolveMapCallout,drawMapShapes,getMapCalloutLabels};
+  const sandbox={map,activeArenaBounds:()=>map.bounds,exploring:false,player:actor,spectatedBot:watched,target,elapsed:4,bots:[{alive:true,team:'blue',x:10,z:10,spottedUntil:0},{alive:true,team:'red',x:12,z:12},{alive:true,team:'blue',x:14,z:14,spottedUntil:5}],teamAbilities:{markers:team=>{markerTeams.push(team);return[];}},ordinarySkills:{markers:team=>{markerTeams.push(team);return[];}},IAGNU_SKILLS:{tagRevealDuration:1.25},match:null,scanTime:0,clamp:(value,min,max)=>Math.min(max,Math.max(min,value)),resolveMapCallout,drawMapShapes,getMapCalloutLabels};
   vm.createContext(sandbox);vm.runInContext(`${source.slice(begin,end)}\ndrawMinimap(target,true);`,sandbox);
   const scale=640/164,px=x=>40+(x+82)*scale;
   const arcs=renderContext.calls.filter(call=>call.op==='arc');
@@ -92,6 +92,19 @@ async function main() {
   assert.ok(!renderContext.calls.some(call=>call.op==='fillText'&&call.args[0]==='warp only'));
   assert.match(source,/const zone=resolveMapCallout\(map,!player\.alive&&spectatedBot\?spectatedBot:player\)/);
   pass('actual game minimap preserves enemy/ping visibility, spectator pose and roof legend');
+
+  const {HIRAKATA_INDOOR_SITES,addHirakataTactical}=await load('hirakata-tactical.js');
+  const tactical=addHirakataTactical({part:()=>{},solid:()=>{},sign:()=>{}});
+  map.tactical=tactical;renderContext.calls.length=0;
+  vm.runInContext('drawMinimap(target,true);',sandbox);
+  const flankLines=renderContext.calls.filter(call=>call.op==='stroke'&&call.strokeStyle==='#8bc9bd'&&call.dash.length);
+  assert.equal(flankLines.length,2);
+  for(let i=0;i<2;i++)assert.deepEqual(flankLines[i].points,tactical.flanks[i].points.map(([x,z])=>[px(x),px(z)]));
+  assert.equal(renderContext.calls.filter(call=>call.op==='arc').length,2,'Route guidance cannot reveal an unspotted enemy');
+  renderContext.calls.length=0;vm.runInContext('drawMinimap(target,false);',sandbox);
+  assert.ok(!renderContext.calls.some(call=>call.op==='stroke'&&call.strokeStyle==='#8bc9bd'),'Small radar remains uncluttered');
+  assert.deepEqual(HIRAKATA_INDOOR_SITES.map(site=>site.id),['A','B']);
+  pass('real indoor flank routes appear only on the overview without changing enemy visibility');
 
   const helperSource=fs.readFileSync(path.join(__dirname,'public/map-callouts.js'),'utf8');
   const mutations=[

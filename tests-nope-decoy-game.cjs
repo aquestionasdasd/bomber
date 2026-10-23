@@ -260,6 +260,9 @@ async function main() {
   const capacityEnd = httpSource.indexOf('      assert.equal((await send(host, \'team:red\'', capacityStart);
   assert.ok(capacityStart >= 0 && capacityEnd > capacityStart, 'The bounded transport fixture must remain available');
   let capacityBody = httpSource.slice(capacityStart, capacityEnd);
+  // The shared transport fixture now loads the traffic fitter asynchronously;
+  // this synchronous replay already receives that binding from saved game imports.
+  capacityBody=capacityBody.replace('fitTrafficSnapshot:(await import(pathToFileURL(path.join(__dirname,"public/traffic-state.js")).href)).fitTrafficSnapshot','fitTrafficSnapshot');
   capacityBody = capacityBody.replace('vm.createContext(sandbox);', `
     const wave=createNopeDecoys();
     const points=Array.from({length:30},(_,i)=>({x:-999.99+i*.01,y:-999.99,z:999.99-i*.01,yaw:3.1415}));

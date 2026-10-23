@@ -1,4 +1,6 @@
 import { createCollisionIndex } from './collision.js';
+import { createTrafficNavigation } from './traffic-navigation.js';
+import { createTrcNavigation } from './trc-navigation.js';
 
 // One-metre cells preserve narrow footways. Cells and safe edges are evaluated only when used.
 function createGridNavigation(map, CELL = 1) {
@@ -159,9 +161,12 @@ function createGridNavigation(map, CELL = 1) {
 }
 
 export function createNavigation(map) {
+  if(map.id==='trc')return createTrcNavigation(map);
+  const traffic = map.traffic?.poses ? createTrafficNavigation(map) : null;
+  if (traffic) map = { ...map, collision: traffic.collision };
   const fine = createGridNavigation(map), area = (map.bounds.maxX - map.bounds.minX) * (map.bounds.maxZ - map.bounds.minZ);
   let roads;
-  return { ...fine, path(fromX, fromZ, toX, toZ) {
+  return { ...fine, ...(traffic ? { updateTraffic: traffic.updateTraffic, trafficStep: traffic.trafficStep, trafficEscape: traffic.trafficEscape } : {}), path(fromX, fromZ, toX, toZ) {
     // Long trips first try a sparse road-scale grid; every edge still checks the exact footprint.
     // Narrow footways retain the one-metre fallback rather than being erased by a coarse raster.
     if (area > 120000 && Math.hypot(toX - fromX, toZ - fromZ) > 70) {

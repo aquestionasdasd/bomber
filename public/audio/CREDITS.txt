@@ -1,3 +1,64 @@
+現在のゲーム内効果音 / Current runtime audio — 2026-10-24
+
+効果音：効果音ラボ / OtoLogic / On-Jin ～音人～
+スキル・通知・TRCの操作音に、この3サイトの編集済み音源を使用します。
+所有者の指定により、銃声・足音・着地は従来のKenney素材と再生処理を維持。
+車両命中・壁破壊はユーザー提供MP3を使用します。
+銃声・足音・着地の既存fallback以外は、読取失敗時に無音となります。
+
+OtoLogic — https://otologic.jp/
+Copyright OtoLogic. Licensed under Creative Commons Attribution 4.0:
+https://creativecommons.org/licenses/by/4.0/
+Terms: https://otologic.jp/free/license.html
+使用素材：サイバー21-1 / 21-2、サイバー19-1 / 19-2、天使01-1。
+変更：先頭無音と長さの調整、モノラル化、音量調整、フェード、OGG変換。
+ゲーム内では音量・速度・フィルターを場面に応じて調整しています。
+
+On-Jin ～音人～ — https://on-jin.com/
+著作権はOn-Jin ～音人～に帰属します。音源の二次配布・無断利用禁止。
+Terms: https://on-jin.com/kiyaku.php
+個人制作ゲームへの組み込みとして使用。音源単体の素材配布は不可。
+企業・営利事業（個人事業を含む）として利用する場合は、同サイトへの
+利用詳細の連絡と許諾が必要です。ゲームの商用展開時は再確認してください。
+変更：先頭無音と長さの調整、モノラル化、音量調整、フェード、OGG変換。
+
+効果音ラボ — https://soundeffect-lab.info/
+Terms: https://soundeffect-lab.info/agreement/
+FAQ: https://soundeffect-lab.info/faq/
+音源単体の再配布・直リンク・AI学習・他者に影響するContent ID登録は禁止。
+ゲーム組み込み・編集・GitHubでのゲーム公開については公式FAQを確認済み。
+
+出典・原音名・取得日・編集内容・SHA-256：
+  soundeffect-lab-manifest.json （先行16音源）
+  extra-sources-manifest.json （追加14音源）
+いずれも音源単体の配布を目的としたファイルではありません。
+
+
+--- Kenney素材の出典と同梱履歴（銃声・足音・着地の保護音を含む） ---
+
+Current audio revision: cycle71 / 2026-10-23
+Kenney CC0 recorded foley and pizzicato effects replace synthesized skill/UI/result
+beeps and the procedural explosion tail. 82 non-gun cue recipes use recorded
+buffers only; unavailable/undecoded cues stay silent and never replay late.
+Original gunfire/footstep/landing behavior and existing8 OGG bytes are retained.
+New22 assets are exact original OGG bytes (renamed only), no audio audition.
+Commercial use confirmed at https://kenney.nl/support and included pack licenses.
+LICENSE-rpg-audio.txt, LICENSE-impact-sounds.txt and LICENSE-music-jingles.txt
+contain the exact source License.txt. manifest.json lists original paths, source
+URLs, SHA-256, durations and sizes. All assets are served locally in gameplay.
+
+Added from RPG Audio: knifeSlice/knifeSlice2, bookOpen/bookClose/bookFlip1/
+bookPlace1, handleCoins/handleCoins2, cloth1/cloth2, dropLeather, doorClose_1,
+handleSmallLeather and creak1 (14 files).
+Added from Impact Sounds: impactGlass_light_000, impactGlass_heavy_000,
+impactWood_heavy_000, impactSoft_medium_000 and impactBell_heavy_000 (5 files).
+Added from Music Jingles: Pizzicato jingles/jingles_PIZZI00, PIZZI07 and PIZZI16
+(3 files). Source: https://kenney.nl/assets/music-jingles (CC0).
+All22 were decoded offline and inspected numerically; listening was not performed.
+
+Historical adoption notes below describe earlier revisions. Their synthesized
+fallbacks and procedural collapse tail no longer apply to non-gun effects.
+
 Bundled sound effects / ボンバーディフューザー3Dオンライン
 Retrieved from the official distribution ZIP files on 2026-10-20.
 
@@ -87,3 +148,13 @@ Included files (original archive path -> bundled filename):
   Audio/forceField_001.ogg -> scifi-forceField_001.ogg
   Audio/forceField_004.ogg -> scifi-forceField_004.ogg
   Audio/slime_000.ogg -> scifi-slime_000.ogg
+
+User supplied vehicle impact (cycle99)
+Original attachment: 打撃8.mp3 -> vehicle-impact-user.mp3 (unchanged bytes).
+Included at the user's explicit request for vehicle impacts in this game.
+This file is separate from the Kenney CC0 packs; no CC0 license is claimed.
+
+User supplied bus wall destruction (cycle102)
+Original attachment: 岩が真っ二つに割れる.mp3 -> bus-wall-break-user.mp3 (unchanged bytes).
+Included at the user's explicit request for bus demolition in this game.
+Separate from Kenney CC0 packs; no CC0 license is claimed.

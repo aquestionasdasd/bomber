@@ -132,3 +132,31 @@
   .menu-content .game-title{font-size:30px;max-width:none}.menu-content .menu-description{padding-right:0;min-height:0}
   .online-preparation{position:relative;padding-right:107px}.online-character-preview{position:absolute;right:0;top:0;width:96px;height:224px;display:flex;flex-direction:column;gap:0}.online-character-preview .character-preview-stage{width:94px;flex:1;height:auto;min-height:130px}.online-character-preview .character-preview-caption{padding:5px;text-align:center;flex:0 0 auto;width:100%}.online-character-preview .character-preview-caption h3{font-size:9px}.online-character-preview .character-preview-caption p{font-size:6px}.online-character-preview .character-preview-caption>span{display:none}
 }
+
+/* Victory music stays optional and separate from weapon/footstep volume. */
+#pause-menu{padding:24px;overflow:hidden}
+.pause-panel{max-height:calc(100dvh - 48px);overflow-y:auto;width:min(430px,100%)}
+.victory-music-settings{margin:8px 0 15px;border:1px solid #9eb0b63f;border-radius:3px;font-size:11px}
+.victory-music-settings summary{padding:13px 14px;cursor:pointer;color:var(--mint)}
+.victory-music-controls{padding:0 14px 14px;display:grid;gap:11px}
+.victory-music-controls label{font-size:11px;line-height:1.6}
+.victory-music-controls .music-check{display:flex;align-items:center;gap:8px}
+.victory-music-controls input{accent-color:var(--red);max-width:100%;min-width:0}
+.victory-music-controls input[type=range]{width:100%}
+.victory-music-controls input[type=file]{width:100%;font-size:10px}
+.victory-music-controls input::file-selector-button{background:#233943;color:#f0f7f7;border:1px solid #829da8;border-radius:3px;padding:8px;cursor:pointer;margin-right:8px}
+#victory-music-status{overflow-wrap:anywhere;line-height:1.6;color:#a9dfcf}
+.victory-music-controls .text-button{margin:0;text-align:left}
+.music-note{color:#aabac0;line-height:1.8;font-size:10px}
+@media(max-width:480px){#pause-menu{padding:16px}.pause-panel{max-height:calc(100dvh - 32px)}}
+/* A compact, silent celebration keeps the first-person camera in place. */
+.victory-dance{position:fixed;right:24px;bottom:130px;width:190px;height:280px;z-index:22;pointer-events:none;border:1px solid #d4edb355;border-radius:14px;background:radial-gradient(ellipse at 50% 80%,#9ec77c26,transparent 70%),linear-gradient(155deg,#142c34ed,#09191fec);box-shadow:0 15px 45px #0005;overflow:hidden}
+.victory-dance[hidden]{display:none}
+.victory-dance-heading{display:flex;justify-content:space-between;gap:8px;padding:14px 12px 0;color:#d4efab;font-size:10px;font-weight:800;letter-spacing:.08em}
+#victory-dance-canvas{display:block;width:100%;height:245px}
+#victory-dance-preview{pointer-events:auto;position:absolute;right:44px;top:12px;z-index:2;border:1px solid #d4edb355;background:#132a32cc;border-radius:4px;padding:6px 8px;color:#d4efab;font:inherit;font-size:10px;font-weight:600;cursor:pointer}
+@media(max-height:650px),(max-width:600px){.victory-dance{right:12px;bottom:100px;width:135px;height:210px}.victory-dance-heading{font-size:8px;padding:10px 8px 0}#victory-dance-canvas{height:180px}}
+
+#onnara-orb-label{position:fixed;right:18px;top:50px;width:min(288px,32vw);padding:5px 8px;border:1px solid #e5b64e;background:#251b0fee;color:#ffe19a;text-align:center;font:600 12px system-ui;z-index:19;pointer-events:none}#onnara-orb-label[hidden]{display:none}
+
+.audio-credit{white-space:normal;max-width:34vw}

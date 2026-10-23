@@ -48,7 +48,7 @@ async function main(){
   const moveIds=new Set();
   let meshes=0,instances=0,triangles=0,addedInstances=0,addedTriangles=0;map.world.updateMatrixWorld(true);
   map.world.traverse(object=>{
-    for(let parent=object;parent;parent=parent.parent)if(parent.userData.tacticalLayout)return;
+    for(let parent=object;parent;parent=parent.parent)if(parent.userData.tacticalLayout||parent.userData.stationSurvey)return;
     if(!object.isMesh)return;meshes++;geometries.add(object.geometry);
     const count=object.isInstancedMesh?object.count:1;instances+=object.isInstancedMesh?count:0;triangles+=(object.geometry.index?.count??object.geometry.attributes.position.count)/3*count;
     for(const name of ['position','normal']){const a=object.geometry.attributes[name];hash.update(name);hash.update(Buffer.from(a.array.buffer,a.array.byteOffset,a.array.byteLength));}
@@ -96,9 +96,9 @@ async function main(){
   ],'Only the three portal supports lower and recess to their exact matching rendered slabs');
   const metadata=Object.fromEntries(['bounds','sites','teamSpawns','landmarks','ramps','rangeArea','spawn','enemySpawns','spawnYaw','buyAreas','combatBounds','menuCamera','origin'].map(key=>[key,map[key]]));
   assert.equal(digest(metadata),'226e3d4f421dbf3b3da968d4759de7d6d63e66f721ada225a2b2ffc702d07505','Sites, all team/preview/practice spawns, buy areas, range, stairs/ramps and arena bounds retain the pre-redesign values');
-  assert.deepEqual({meshes,instances,triangles,geometries:geometries.size,materials:materials.size,textures:textures.size},{meshes:118,instances:5151,triangles:91028,geometries:82,materials:77,textures:58});
+  assert.deepEqual({meshes,instances,triangles,geometries:geometries.size,materials:materials.size,textures:textures.size},{meshes:118,instances:5151,triangles:91028,geometries:82,materials:76,textures:57});
   let bytes=0;for(const texture of textures)for(const image of Array.isArray(texture.image)?texture.image:[texture.image])bytes+=image.data?.byteLength??image.width*image.height*4;
-  assert.equal(bytes,55574528+262144,'Only one small 256² RGBA surface image is added');
+  assert.equal(bytes,55574528+262144-1048576,'Survey wordmark shares the same1024×256 texture across both Mewe faces');
 
   const floor=map.world.getObjectByName('Concourse / terrazzo floor'),threshold=map.world.getObjectByName('Concourse / terrazzo threshold');
   assert.ok(floor&&threshold);assert.equal(floor.material,threshold.material,'Both slabs keep the same material and texture');
@@ -130,6 +130,6 @@ async function main(){
   const second=createMap(THREE,new THREE.Scene()),again=second.world.getObjectByName('Concourse / terrazzo floor').material.bumpMap;
   assert.deepEqual(again.image.data,data,'Surface detail is deterministic across reloads');
   let disposals=0;surface.addEventListener('dispose',()=>disposals++);surface.dispose();assert.equal(disposals,1);
-  console.log(`PASS concourse finish: ${meshes} legacy draws / ${instances} instances / ${triangles} triangles; exact old-world hash after six approved prop moves and34 individually verified portal changes;62 normalized original colliders +87 identical rails +27 identical support slabs +3 exact lowered portal supports; protected spawn/site/stair/range metadata and old resources unchanged; shared256² texture, relief ${(reliefMeters*1000).toFixed(2)}mm and both slabs0.60m tile pitch retained`);
+  console.log(`PASS concourse finish: ${meshes} legacy draws / ${instances} instances / ${triangles} triangles; exact old-world hash after six approved prop moves and34 individually verified portal changes;62 normalized original colliders +87 identical rails +27 identical support slabs +3 exact lowered portal supports; protected spawn/site/stair/range metadata unchanged; two Mewe faces now share one texture; shared256² texture, relief ${(reliefMeters*1000).toFixed(2)}mm and both slabs0.60m tile pitch retained`);
 }
 main().catch(error=>{console.error(error);process.exitCode=1;});

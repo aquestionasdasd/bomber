@@ -77,9 +77,8 @@ export function createNopeFaceModel(THREE){
   let disposed=false;return {group,dispose(){if(disposed)return;disposed=true;group.removeFromParent();release();}};
 }
 
-// A planted decoy borrows the character's finishes and expression, but combines
-// its fixed limb pose once. Fifty copies therefore cost seven draws, not fifty
-// animated rigs. This lease never changes the live avatar's source geometry.
+// Armed decoys borrow live finishes. Two pooled leg groups animate a walk
+// without fifty rigs; source geometry and the live character are untouched.
 const decoyCaches=new WeakMap();
 export function acquireNopeDecoyAsset(THREE){
   let cache=decoyCaches.get(THREE);
@@ -96,19 +95,23 @@ export function acquireNopeDecoyAsset(THREE){
     }
     frame('body',0,0,0);frame('head',0,1.62,0);
     for(const [side,sign]of [['R',-1],['L',1]]){
-      segment('arm'+side,[sign*.263,1.325,.004],[sign*.303,1.065,.026],.083);
-      segment('fore'+side,[sign*.303,1.065,.026],[sign*.292,.810,.080],.065);
-      frame('hand'+side,sign*.292,.805,.080,Math.PI/2,sign*-.08,sign*.04);
+      segment('arm'+side,[sign*.263,1.325,.004],[sign*.30,1.12,.18],.083);
+      segment('fore'+side,[sign*.30,1.12,.18],[sign*.10,1.24,sign<0?.30:.59],.065);
+      frame('hand'+side,sign*.10,1.24,sign<0?.30:.59,Math.PI/2,0,0);
       segment('thigh'+side,[sign*.118,.800,0],[sign*.130,.475,.018],.101);
       segment('shin'+side,[sign*.130,.475,.018],[sign*.127,.132,0],.079);
       frame('shoe'+side,sign*.127,.132,0);
     }
     for(const template of source.cache.templates){
       const geometry=template.geometry.clone();geometry.applyMatrix4(frames.get(template.frame));
-      if(!chunks.has(template.material))chunks.set(template.material,[]);chunks.get(template.material).push(geometry);
+      const motion=/^(thigh|shin|shoe)/.test(template.frame)?'leg'+template.frame.slice(-1):'body',key=template.material+'|'+motion;
+      if(!chunks.has(key))chunks.set(key,[]);chunks.get(key).push(geometry);
     }
+    // Receiver, stock, barrel/muzzle, magazine and both grips form one rifle batch.
+    const rifle=[];for(const [x,y,z,w,h,d]of [[0,1.31,.39,.13,.15,.47],[0,1.31,.02,.12,.15,.31],[0,1.33,.79,.055,.055,.35],[0,1.33,.98,.085,.085,.07],[0,1.15,.40,.085,.24,.11],[0,1.19,.22,.07,.19,.08],[0,1.42,.38,.045,.045,.27]]){const g=new THREE.BoxGeometry(w,h,d).toNonIndexed();g.translate(x,y,z);const count=g.attributes.position.count;g.setAttribute('color',new THREE.BufferAttribute(new Float32Array(count*3).fill(1),3));rifle.push(g);}chunks.set('ink|body', [...(chunks.get('ink|body')||[]),...rifle]);
     const parts=[],bounds=new THREE.Box3();
-    for(const [finish,items]of chunks){
+    for(const [key,items]of chunks){
+      const [finish,motion]=key.split('|');
       const geometry=new THREE.BufferGeometry(),count=items.reduce((sum,item)=>sum+item.attributes.position.count,0);
       for(const [name,size]of [['position',3],['normal',3],['uv',2],['color',3]]){
         const values=new Float32Array(count*size);let offset=0;
@@ -117,8 +120,8 @@ export function acquireNopeDecoyAsset(THREE){
       }
       geometry.name=`NOPE decoy static geometry / ${finish}`;geometry.computeBoundingBox();geometry.computeBoundingSphere();
       bounds.union(geometry.boundingBox);geometries.add(geometry);for(const item of items)item.dispose();
-      if(finish==='team')for(const team of ['blue','red'])parts.push(Object.freeze({finish,team,geometry,material:source.cache.materials.get(`team ${team}`)}));
-      else parts.push(Object.freeze({finish,team:null,geometry,material:source.cache.materials.get(finish)}));
+      if(finish==='team')for(const team of ['blue','red'])parts.push(Object.freeze({finish,motion,team,geometry,material:source.cache.materials.get(`team ${team}`)}));
+      else parts.push(Object.freeze({finish,motion,team:null,geometry,material:source.cache.materials.get(finish)}));
     }
     cache={references:0,source,parts:Object.freeze(parts),geometries,bounds};decoyCaches.set(THREE,cache);
   }

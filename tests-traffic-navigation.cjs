@@ -1,0 +1,17 @@
+const assert=require('node:assert/strict'),{pathToFileURL}=require('node:url'),path=require('node:path');
+async function main(){
+ const load=f=>import(pathToFileURL(path.join(__dirname,'public',f)).href);
+ const[{createNavigation},{createTrafficNavigation},{createCollisionIndex}]=await Promise.all([load('navigation.js'),load('traffic-navigation.js'),load('collision.js')]);
+ let groups=0;const check=(name,f)=>{f();groups++;console.log('PASS: '+name)};
+ const body=(x=0,z=0,yaw=0,speed=0)=>({id:'bus',x,z,yaw,speed,diverted:false});
+ function setup(poses=[body()]){const colliders=[],map={bounds:{minX:-30,maxX:30,minZ:-30,maxZ:30},colliders,collision:createCollisionIndex(colliders),traffic:{poses:()=>poses}};const nav=createNavigation(map);nav.updateTraffic(0);return{map,nav,poses};}
+ function validate(nav,from,route){assert.ok(route.length);for(const point of route){assert.ok(nav.clearSegment(from.x,from.z,point.x,point.z),'unsafe route');from=point;}}
+ check('stopped/rotated/queued buses shape exact safe paths without changing real collision',()=>{for(const yaw of[0,.7,Math.PI/2]){const{map,nav}=setup([body(0,0,yaw),body(0,12,yaw)]),from={x:-12,z:0};validate(nav,from,nav.path(from.x,from.z,12,0));assert.equal(map.colliders.length,0);assert.equal(map.collision.blocked(0,0,.42,0),false);assert.equal(nav.isWalkable(0,0),false);}});
+ check('moving bus includes short forward path and updates at bounded frequency',()=>{let calls=0;const{map,nav}=setup();map.traffic.poses=t=>{calls++;return[body(0,t*10,0,10)]};nav.updateTraffic(1);assert.equal(nav.isWalkable(0,20),false);calls=0;for(let i=1;i<25;i++)nav.updateTraffic(1+i*.009);assert.equal(calls,0);nav.updateTraffic(1.26);assert.equal(calls,7);});
+ check('a queued moving route clock is extrapolated even when future poses are frozen',()=>{const{nav}=setup([body(0,0,0,11.2)]);assert.equal(nav.isWalkable(0,12),false);assert.equal(nav.isWalkable(0,-12),true);});
+ check('old bus positions clear after movement and time reset',()=>{const{poses,nav}=setup();assert.equal(nav.clearSegment(-10,0,10,0),false);poses[0]=body(20,20);nav.updateTraffic(.3);assert.equal(nav.clearSegment(-10,0,10,0),true);poses[0]=body();nav.updateTraffic(0);assert.equal(nav.clearSegment(-10,0,10,0),false);});
+ check('destructible static collision revision still invalidates cached paths',()=>{const{map,nav}=setup([body(25,25)]);map.colliders.push({minX:-1,maxX:1,minZ:-29.8,maxZ:29.8,height:3});assert.equal(nav.path(-5,0,5,0).length,0);map.colliders.length=0;map.collision.invalidate();validate(nav,{x:-5,z:0},nav.path(-5,0,5,0));});
+ check('escape only travels outward, never through a wall or into another bus',()=>{const{nav,map}=setup();const escape=nav.trafficEscape(-1.9,0);assert.ok(escape&&escape.x<-2.05);assert.equal(nav.trafficStep(-1.9,0,-2,0),true);assert.equal(nav.trafficStep(-1.9,0,-1.8,0),false);assert.equal(nav.trafficStep(-3,0,-1.9,0),false);map.colliders.push({minX:-4,maxX:-2.1,minZ:-7,maxZ:7,height:3});const other=nav.trafficEscape(-1.9,0);assert.ok(!other||map.collision.segmentClear(-1.9,0,other.x,other.z,.42,0));});
+ check('static-only maps preserve navigation and have no traffic hooks',()=>{const{map}=setup();delete map.traffic;const nav=createNavigation(map);assert.equal(nav.updateTraffic,undefined);assert.deepEqual(nav.path(-8,0,8,0),[{x:8,z:0}]);});
+ console.log('PASS: '+groups+' traffic navigation groups; no audio');
+}main().catch(e=>{console.error(e);process.exitCode=1});

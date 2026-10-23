@@ -7,7 +7,7 @@ const {pathToFileURL}=require('node:url');
 async function main(){
   const started=performance.now();
   const load=file=>import(pathToFileURL(path.join(__dirname,'public',file)).href);
-  const [{createBotTactics,inVisionCone},{createNavigation},{createCollisionIndex},{MatchRules,WEAPONS},THREE,areas,{DuelistKit,NOPE_SKILLS,MEND_SKILLS,IAGNU_SKILLS,VEIL_SKILLS,EMBER_SKILLS,FROST_SKILLS},{selectMendTarget}]=await Promise.all([
+  const [{createBotTactics,inVisionCone,createBotHearing},{createNavigation},{createCollisionIndex},{MatchRules,WEAPONS},THREE,areas,{DuelistKit,NOPE_SKILLS,MEND_SKILLS,IAGNU_SKILLS,VEIL_SKILLS,EMBER_SKILLS,FROST_SKILLS},{selectMendTarget}]=await Promise.all([
     load('bot-tactics.js'),load('navigation.js'),load('collision.js'),load('rules.js'),load('vendor/three.module.js'),load('site-areas.js'),load('abilities.js'),load('character-skills.js')]);
   const sites=[{id:'A',x:-22,z:-12,radius:7,plantPositions:[{id:'A-cover',x:-24,z:-11,style:'cover'},{id:'A-open',x:-20,z:-14,style:'open'}]},
     {id:'B',x:22,z:-12,radius:7,plantPositions:[{id:'B-cover',x:24,z:-11,style:'cover'},{id:'B-open',x:20,z:-14,style:'open'}]}];
@@ -21,8 +21,8 @@ async function main(){
   const tactics=makeTactics(makeMap()),observer=actor('blue-1','blue',0,0),enemy=actor('red-0','red',1,12);
   assert.equal(inVisionCone(observer,enemy,{yaw:0}),true);
   assert.equal(inVisionCone(observer,{x:0,z:-12},{yaw:0}),false,'A bot must not spot a distant enemy behind its back');
-  assert.equal(inVisionCone(observer,{x:0,z:-3},{yaw:0}),true,'A close threat can be noticed without a full turn');
-  assert.equal(inVisionCone(observer,{x:0,z:39},{yaw:0}),false);
+  assert.equal(inVisionCone(observer,{x:0,z:-3},{yaw:0}),false,'A silent close target behind the BOT is not visible');
+  assert.equal(inVisionCone(observer,{x:0,z:120},{yaw:0}),true);
   tactics.observe('blue',observer.id,enemy,1);enemy.x=30;enemy.z=30;
   assert.deepEqual(tactics.contacts('blue',2).map(c=>[c.x,c.z]),[[1,12]],'Hidden movement must not update a last-seen position');
   const copied=tactics.contacts('blue',2);copied[0].x=999;
@@ -30,7 +30,7 @@ async function main(){
   assert.equal(tactics.contacts('red',2).length,0,'Sighting information belongs only to the observing team');
   assert.equal(tactics.contacts('blue',5.01).length,0,'Shared sightings must expire after four seconds');
   tactics.observe('blue',observer.id,enemy,6);tactics.reset(2);assert.equal(tactics.contacts('blue',6).length,0,'Round changes must clear intelligence');
-  console.log('PASS: limited forward vision, close awareness, copied team-only sighting memory and round/TTL expiry');
+  console.log('PASS: forward vision across the map, no silent rear awareness, copied team-only sighting memory and round/TTL expiry');
 
   // Site decisions use the carrier, known map and sightings, never hidden defender coordinates.
   const carrier=actor('player','blue',0,30),hidden=actor('red-0','red',-20,-12),attackers=[1,2,3,4].map(i=>actor(`blue-${i}`,'blue',i-3,30+i,i));
@@ -87,24 +87,24 @@ async function main(){
   const serviceSource=source.slice(source.indexOf('function actorWeaponId('),source.indexOf('function ordinaryActorView('));
   const verticalSource=source.slice(source.indexOf('function updateActorVertical('),source.indexOf('function updatePlay('));
   assert.ok(updateSource.length>5000);
-  function integration({map=makeMap(),player=actor('player','blue',0,0),bots=[],match=new MatchRules(),random=.99,ordinarySkills={blindUntil:()=>0,events:()=>[],markers:()=>[]}}={}){
-    match.startLive();let bulletHits=0,shots=0;const casts=[],traces=[];ordinarySkills={cancelService(){},speedScale:()=>1,...ordinarySkills};
+  function integration({map=makeMap(),player=actor('player','blue',0,0),bots=[],match=new MatchRules(),random=.99,ordinarySkills={interceptShield:()=>null,quiet:()=>false,sealUntil:()=>0,blindUntil:()=>0,events:()=>[],markers:()=>[]}}={}){
+    match.startLive();let bulletHits=0,shots=0;const casts=[],traces=[];ordinarySkills={capMagazine:()=>false,urchinJammed:()=>false,urchinTrident:()=>false,interceptShield:()=>null,quiet:()=>false,sealUntil:()=>0,cancelService(){},carGyro:()=>false,speedScale:()=>1,...ordinarySkills};
     const math=Object.create(Math);math.random=typeof random==='function'?random:()=>random;
-    const sandbox={THREE,WEAPONS,NOPE_SKILLS,IAGNU_SKILLS,VEIL_SKILLS,EMBER_SKILLS,...areas,createBotTactics,inVisionCone,map,navigation:createNavigation(map),player,bots,match,elapsed:0,inventory:{active:'classic'},reloading:0,
+    const sandbox={busSeat:()=>null,busSurfaceVisible:()=>true,applyStarHold:()=>false,crownShot:()=>{},activateCapAbility:()=>null,activateJapanAbility:()=>null,nobiBulletDamage:(_s,_t,d)=>d,THREE,WEAPONS,NOPE_SKILLS,IAGNU_SKILLS,VEIL_SKILLS,EMBER_SKILLS,FROST_SKILLS,...areas,createBotTactics,inVisionCone,createBotHearing,map,navigation:createNavigation(map),player,bots,match,elapsed:0,inventory:{active:'classic'},reloading:0,
       levels:{normal:{interval:1.25,aim:.68,speed:2.1}},difficulty:'normal',Math:math,clamp:(v,a,b)=>Math.max(a,Math.min(b,v)),
-      isGuest:()=>false,ordinarySkills,zoneAbilities:{speedMultiplier:()=>1},actorSpeedScale:()=>1,agentEquipment:()=>({}),selectMendTarget,activePollenFields:()=>[],
+      isGuest:()=>false,botHearing:createBotHearing(),ordinarySkills,zoneAbilities:{speedMultiplier:()=>1},actorSpeedScale:()=>1,frostSlideSpeed:()=>0,agentEquipment:()=>({}),selectMendTarget,activePollenFields:()=>[],
       ordinaryActorView:value=>({...value,grounded:sandbox.actorGrounded(value)}),ordinaryGroundHeight:()=>0,rampFloor:()=>null,
       ordinaryReachable:(event,value)=>map.collision.rayClear(event.x,(event.y||0)+.18,event.z,value.x,(value.y||0)+.18,value.z),
       actorGrounded:actor=>actor.alive&&Math.abs(actor.y||0)<1e-8&&Math.abs(actor.vy||0)<1e-8,
       activeOrdinarySmokeFields:()=>ordinarySkills.events(sandbox.elapsed).filter(event=>event.type==='veil-dust'&&sandbox.elapsed>=event.triggerAt),
-      updateRemoteActor(){},sound(){},tracer(from,to){shots++;traces.push({from:from.clone(),to:to.clone()});},separateBots(){},
+      allNopeDecoys:()=>ordinarySkills.events(sandbox.elapsed).filter(e=>e.type==='nope-decoy'),raycastNopeDecoy:()=>null,hitNopeDecoy(){},updateRemoteActor(){},sound(){},tracer(from,to){shots++;traces.push({from:from.clone(),to:to.clone()});},separateBots(){},
       mendReachable:(a,b)=>a===b||map.collision.rayClear(a.x,(a.y||0)+1.45,a.z,b.x,(b.y||0)+1.45,b.z),
       activateAbility(actor,key,options){const effect=actor.kit.activate(key,sandbox.elapsed);if(!effect)return;casts.push({actorId:actor.id,key,effect,options});if(effect.type==='mend-heal'){const selected=selectMendTarget(actor,[player,...bots],sandbox.mendReachable),target=[player,...bots].find(value=>value.id===selected?.id);if(target)target.hp=Math.min(100,target.hp+effect.healing);}if(effect.type==='ember-service')sandbox.beginServiceReload(actor,{id:'bot-service-'+casts.length,weaponId:sandbox.actorWeaponId(actor),endsAt:sandbox.elapsed+EMBER_SKILLS.serviceDuration});return effect;},
       damageEntity(target,damage){bulletHits++;target.hp-=damage;if(target.hp<=0){target.alive=false;match.dropSpike(target.id,target.x,target.z);}},
       visibleBetween:(a,b)=>map.collision.rayClear(a.x,(a.y||0)+1.45,a.z,b.x,(b.y||0)+1.45,b.z),
       moveEntity(entity,dx,dz,r){const x=entity.x+dx,z=entity.z+dz;if(!map.collision.blocked(x,entity.z,r,0))entity.x=x;if(!map.collision.blocked(entity.x,z,r,0))entity.z=z;},
-      direction:new THREE.Vector3(),raycaster:{set(){},intersectObject:()=>[],far:190},environment:new THREE.Group()};
-    vm.createContext(sandbox);vm.runInContext(`${serviceSource}\n${verticalSource}\n${updateSource}`,sandbox);
+      urchinTridentShot:()=>[],direction:new THREE.Vector3(),raycaster:{set(){},intersectObject:()=>[],far:190},environment:new THREE.Group()};
+    vm.createContext(sandbox);vm.runInContext(`${source.slice(source.indexOf('function carMotionActive('),source.indexOf('function beginCarMotion('))}\n${source.slice(source.indexOf('function duckFlight('),source.indexOf('function duckFlap('))}\n${source.slice(source.indexOf('function actorBodyHeight('),source.indexOf('function canStand('))}\n${serviceSource}\n${verticalSource}\n${updateSource}`,sandbox);
     return {sandbox,casts,traces,step(count=1){for(let i=0;i<count;i++){sandbox.elapsed+=.05;vm.runInContext('updateBots(.05)',sandbox);}},get shots(){return shots;},get hits(){return bulletHits;}};
   }
   const sightMap=makeMap(),watcher=actor('red-0','red',0,10),target=actor('player','blue',0,25);watcher.group.rotation.y=0;
@@ -133,7 +133,7 @@ async function main(){
 
   const distracted=actor('red-decoy','red',0,0),hiddenPlayer={...actor('player','blue',0,30),alive:false};
   const decoys=[{id:'skill-nope-decoy-1',type:'nope-decoy',team:'blue',x:5,y:0,z:0},{id:'skill-nope-decoy-2',type:'nope-decoy',team:'blue',x:-5,y:0,z:0}];
-  const decoyGame=integration({player:hiddenPlayer,bots:[distracted],ordinarySkills:{blindUntil:()=>0,events:now=>now<6?decoys:[],markers:()=>[]}});
+  const decoyGame=integration({player:hiddenPlayer,bots:[distracted],ordinarySkills:{interceptShield:()=>null,quiet:()=>false,sealUntil:()=>0,blindUntil:()=>0,events:now=>now<6?decoys:[],markers:()=>[]}});
   decoyGame.step();const firstDeadline=distracted.decoySeen.get(decoys[0].id);
   assert.equal(firstDeadline,1.55);assert.equal(distracted.goal.x,5,'The first visible enemy face may draw an investigation');
   decoyGame.sandbox.elapsed=firstDeadline+.001;decoyGame.step();const secondDeadline=distracted.decoySeen.get(decoys[1].id);
@@ -197,14 +197,14 @@ async function main(){
   assert.equal(buyContext.frostBuyer.kit.smoke,2);assert.equal(buyContext.frostBuyer.kit.updraft,1);assert.equal(buyContext.frostBuyer.credits,700,'Two100-credit rings and one100-credit mist must be bought from real finite credits');assert.equal(buyContext.frostBuyer.primary,'vandal');assert.equal(buyContext.frostBuyer.armor,50);
   for(const [key,type]of [['c','frost-stitch'],['q','frost-mist'],['e','frost-unravel']]){
     const doll=actor(`red-doll-${key}`,'red',0,0),visible=key==='e'?noEnemy:actor('player','blue',0,10);doll.kit=new DuelistKit({character:'frost'});doll.kit.smoke=key==='c'?2:0;doll.kit.updraft=key==='q'?1:0;doll.kit.dash=key==='e'?1:0;doll.hp=key==='q'?50:100;
-    const game=integration({player:visible,bots:[doll],ordinarySkills:{blindUntil:()=>0,events:()=>[],markers:()=>[],speedScale:()=>key==='e'?.55:1}});game.step();
+    const game=integration({player:visible,bots:[doll],ordinarySkills:{interceptShield:()=>null,quiet:()=>false,sealUntil:()=>0,blindUntil:()=>0,events:()=>[],markers:()=>[],speedScale:()=>key==='e'?.55:1}});game.step();
     assert.equal(game.casts[0]?.effect.type,type,`Actual FROST BOT policy must select its distinct${key.toUpperCase()} skill`);assert.equal(doll.dashTimer||0,0);
     if(key==='c')assert.equal(Math.hypot(game.casts[0].options.zonePoint.x-visible.x,game.casts[0].options.zonePoint.z-visible.z),2,'A ring must offset its safe centre from the known target rather than place that enemy inside the hole');
     if(key==='e')assert.equal(doll.kit.nextSignatureAt,FROST_SKILLS.signatureCooldown+.05);
     const before=game.casts.length;game.step(10);assert.equal(game.casts.length,before,'Stock/cooldown must prevent casting every think tick');
   }
-  const safeDoll=actor('red-doll-safe','red',0,0);safeDoll.kit=new DuelistKit({character:'frost'});const unSlowed=integration({player:noEnemy,bots:[safeDoll]});unSlowed.step();assert.equal(unSlowed.casts.some(cast=>cast.key==='e'),false,'A normal-speed BOT must preserve mitigation instead of treating E as a travel boost');
-  const airDoll=actor('red-doll-air','red',0,0);airDoll.kit=new DuelistKit({character:'frost'});airDoll.y=1;const airDollGame=integration({player:actor('player','blue',0,10),bots:[airDoll],ordinarySkills:{blindUntil:()=>0,events:()=>[],markers:()=>[],speedScale:()=>.55}});airDollGame.step();assert.equal(airDollGame.casts.length,0,'An airborne BOT may not spend a ground-only mitigation or plan a ground ring');
+  const safeDoll=actor('red-doll-safe','red',0,0);safeDoll.kit=new DuelistKit({character:'frost'});const unSlowed=integration({player:noEnemy,bots:[safeDoll]});unSlowed.step();assert.equal(unSlowed.casts.some(cast=>cast.key==='e'),true,'A real route now permits the authorized short entry slide without requiring enemy slow');
+  const airDoll=actor('red-doll-air','red',0,0);airDoll.kit=new DuelistKit({character:'frost'});airDoll.y=1;const airDollGame=integration({player:actor('player','blue',0,10),bots:[airDoll],ordinarySkills:{interceptShield:()=>null,quiet:()=>false,sealUntil:()=>0,blindUntil:()=>0,events:()=>[],markers:()=>[],speedScale:()=>.55}});airDollGame.step();assert.equal(airDollGame.casts.length,0,'An airborne BOT may not spend a ground-only mitigation or plan a ground ring');
   console.log('PASS: real FROST economy buys2rings/1mist for300, BOT offset-ring/wounded-mist/actually-slowed ribbon choices, cooldown and normal/air rejection');
 
   vm.runInContext(`var mascotBuyer={kit:new DuelistKit({character:'duelist'}),primary:'vandal',secondary:'ghost',armor:50,credits:1000,team:'red'};autoBuyBot(mascotBuyer)`,buyContext);
@@ -235,7 +235,7 @@ async function main(){
 
   // Read real map geometry and ensure tactical plant goals remain physically reachable.
   global.document={createElement:()=>({width:0,height:0,getContext:()=>new Proxy({measureText:t=>({width:String(t).length*8}),createLinearGradient:()=>({addColorStop(){}}),createRadialGradient:()=>({addColorStop(){}})},{get:(target,key)=>target[key]||(()=>{})})})};
-  const {createMap}=await load('map.js'),arena=createMap(THREE,new THREE.Group()),nav=createNavigation(arena);
+  const {createMap}=await load('map.js'),arena=createMap(THREE,new THREE.Group(),process.argv.includes('--hirakata')?'hirakata':'hashimoto'),nav=createNavigation({...arena,bounds:arena.combatBounds||arena.bounds});
   const real=createBotTactics({sites:arena.sites,navigation:nav,collision:arena.collision,lanes:arena.lanes});
   for(const side of ['attack','defend'])for(const spawn of arena.teamSpawns[side])for(const site of arena.sites){
     const point=real.plantPosition(site,spawn,0);assert.ok(point,`${side} spawn must have a reachable planting candidate at ${site.id}`);

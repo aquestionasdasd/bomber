@@ -14,6 +14,7 @@
   <canvas id="game" aria-label="橋本駅前をモチーフにした3D競技マップ"></canvas>
   <div class="scene-grain" aria-hidden="true"></div>
   <div id="detonation-flash" aria-hidden="true"></div>
+  <div id="skill-nearsight-overlay" aria-hidden="true" hidden></div>
   <div id="skill-blind-overlay" aria-hidden="true" hidden><svg viewBox="0 0 80 70" focusable="false"><path d="m16 17 14 14m0-14L16 31m34-14 14 14m0-14L50 31M21 46q19 16 38 0"/></svg></div>
 
   <main id="menu" class="menu-screen screen">
@@ -35,27 +36,28 @@
     </header>
 
     <section class="menu-content">
-      <div class="eyebrow"><span class="signal-dot"></span> 橋本駅前 <span class="dim">//</span> TACTICAL ARENA</div>
+      <div class="eyebrow"><span class="signal-dot"></span> <span id="menu-map-name">橋本駅前</span> <span class="dim">//</span> TACTICAL ARENA</div>
       <h1 class="game-title" aria-label="ボンバーディフューザー3Dオンライン"><span>ボンバー</span><span>ディフューザー</span><span>3Dオンライン</span></h1>
       <div class="title-jp"><span>FRIENDS + BOTS / TACTICAL FPS</span><span class="title-rule"></span><span class="edition">01</span></div>
       <p class="menu-description">駅舎のコンコースから、駅前広場へ。<br>2つのサイトを巡る、5対5の攻防。</p>
 
       <div class="mission-select">
-        <div class="mission-mode"><span class="mode-icon">⌖</span><div><span class="label-mini">BOMBER / 5V5</span><strong>橋本駅 爆破・電源オフ作戦</strong></div><span id="mission-tag" class="mission-tag">SOLO + BOTS</span></div>
-        <div class="match-options"><label for="match-format"><span>試合形式</span><select id="match-format"><option value="standard" selected>STANDARD / 13ラウンド先取</option><option value="swift">SWIFT / 5ラウンド先取</option><option value="explore">マップ練習（時間制限なし）</option><option value="range">射撃訓練 / 60秒</option><option value="plant">設置練習</option><option value="defuse">電源オフ練習</option></select></label><label for="starting-side"><span>開始サイド</span><select id="starting-side"><option value="attack" selected>ATTACK / 攻撃</option><option value="defend">DEFEND / 防衛</option></select></label></div>
+        <div class="mission-mode"><span class="mode-icon">⌖</span><div><span class="label-mini">BOMBER / 5V5</span><strong id="mission-map">橋本駅 爆破・電源オフ作戦</strong></div><span id="mission-tag" class="mission-tag">SOLO + BOTS</span></div>
+        <label class="difficulty-row" for="map-select"><span>マップ<span class="label-en">BATTLEFIELD</span></span><select id="map-select"><option value="hashimoto">橋本駅</option><option value="hirakata">枚方市駅 / 南北ロータリー</option><option value="trc">TRC 同人音楽即売会 / 屋外侵入</option></select></label><div class="match-options"><label for="match-format"><span>試合形式</span><select id="match-format"><option value="standard" selected>STANDARD / 13ラウンド先取</option><option value="swift">SWIFT / 5ラウンド先取</option><option value="explore">マップ練習（時間制限なし）</option><option value="range">射撃訓練 / 60秒</option><option value="plant">設置練習</option><option value="defuse">電源オフ練習</option></select></label><label for="starting-side"><span>開始サイド</span><select id="starting-side"><option value="attack" selected>ATTACK / 攻撃</option><option value="defend">DEFEND / 防衛</option></select></label></div>
         <label class="difficulty-row" for="difficulty"><span>作戦難易度<span class="label-en">DIFFICULTY</span></span><span class="select-wrap"><select id="difficulty"><option value="easy">EASY — 入門</option><option value="normal" selected>NORMAL — 標準</option><option value="hard">HARD — 精鋭</option></select><svg viewBox="0 0 12 8" aria-hidden="true"><path d="m1 1 5 5 5-5"/></svg></span></label>
       </div>
-      <label class="agent-select" for="agent-select"><span>CHARACTER / キャラクター</span><select id="agent-select" aria-describedby="agent-description"><option value="duelist">ちぬつてのとのへめほ / X：投げナイフ5本</option><option value="nope">NOPE / X：ロゴ化＋デコイ30体（12秒）</option><option value="mend">丱凵してね / X：最大75HP回復</option><option value="echo">IAGNU / X：30m・3回索敵</option><option value="veil">草ブロック / X：半径9m・視界遮断12秒</option><option value="ember">はんだごて握り太郎 / X：爆撃30×3回</option><option value="frost">尾野 / X：減速フィールド10秒</option></select><small id="agent-description">C：空中に短い流れ星の幕 / Q：アンテナリフトで上昇 / E：2段階のダッシュ。X：ナイフ5本・撃破で補充（7pt）。</small></label>
+      <label class="agent-select" for="agent-select"><span>CHARACTER / キャラクター</span><select id="agent-select" aria-describedby="agent-description"><option value="duelist">ちぬつてのとのへめほ / X：投げナイフ5本</option><option value="nope">NOPE / X：ロゴ化＋デコイ30体（12秒）</option><option value="mend">丱凵してね / X：最大75HP回復</option><option value="echo">IAGNU / X：30m・3回索敵</option><option value="veil">草ブロック / X：半径9m・視界遮断12秒</option><option value="ember">はんだごて握り太郎 / X：爆撃30×3回</option><option value="frost">尾野 / X：減速フィールド10秒</option><option value="duck">🦆 / 跳躍・防護</option><option value="cat">猫の画像 / 回収・時制</option><option value="car">トミカ / 排除・補給</option><option value="nobi">のび / 弱点・工作</option><option value="japan">しばくでジャパン / 国境・総動員</option><option value="cap">キャップは？ / 光学・解除</option><option value="urchin">青ウニ / 棘・弾道</option><option value="onnara">おんなら / 星冠・裁定</option></select><small id="agent-description">C：空中に短い流れ星の幕 / Q：アンテナリフトで上昇 / E：2段階のダッシュ。X：ナイフ5本・撃破で補充（7pt）。</small></label>
       <details class="mobile-selected-skills"><summary>選択中の C / Q / E を確認 <span>＋</span></summary><div class="character-skills">
         <div class="skill-detail"><kbd>C</kbd><div><strong id="mobile-character-skill-c-name">煙幕</strong><p id="mobile-character-skill-c-description">視線を遮る煙を展開</p><small id="mobile-character-skill-c-meta">最大2回 · SC 200/回</small></div></div>
         <div class="skill-detail"><kbd>Q</kbd><div><strong id="mobile-character-skill-q-name">上昇</strong><p id="mobile-character-skill-q-description">上空へ跳び上がる</p><small id="mobile-character-skill-q-meta">最大1回 · SC 150/回</small></div></div>
         <div class="skill-detail"><kbd>E</kbd><div><strong id="mobile-character-skill-e-name">ダッシュ</strong><p id="mobile-character-skill-e-description">構えてから再入力で高速移動</p><small id="mobile-character-skill-e-meta">最大1回 · 無料</small></div></div>
+        <div class="skill-detail skill-ultimate"><kbd>X</kbd><div><strong id="mobile-character-skill-x-name">ブレードストーム</strong><p id="mobile-character-skill-x-description">ナイフ5本・撃破で補充。</p><small id="mobile-character-skill-x-meta">7 ULTポイント</small></div></div>
       </div></details>
       <div class="rules-summary"><span>5 vs 5 <i>プレイヤー＋味方4体 / 敵5体</i></span><span id="format-summary">13先取 <i>12Rで攻守交代</i></span><span>100秒 <i>設置4秒 / 電源オフ7秒</i></span></div>
       <button id="start" class="primary-button deploy-button" type="button"><span class="button-index">01</span><span id="start-title">出撃する<small id="start-subtitle">DEPLOY TO HASHIMOTO</small></span><svg viewBox="0 0 32 24" aria-hidden="true"><path d="M1 12h27M18 2l10 10-10 10"/></svg></button>
       <button id="online-open" class="online-open-button" type="button"><svg viewBox="0 0 32 28" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M3 24v-3a9 9 0 0 1 18 0v3M22 5a4 4 0 0 1 0 8m2 4a7 7 0 0 1 5 7"/></svg><span>友達と遊ぶ<small>部屋を作る / コードで参加</small></span><span class="online-entry-tag">最大 10 人 <i>↗</i></span></button>
       <div class="practice-modes" role="group" aria-label="練習モード">
-        <button id="explore-start" class="explore-button" type="button"><span class="explore-icon" aria-hidden="true">⌖</span><span>マップ練習<small>MAP / 時間制限なし</small></span><span class="explore-arrow" aria-hidden="true">↗</span></button>
+          <button id="explore-start" class="explore-button" type="button"><span class="explore-icon" aria-hidden="true">⌖</span><span>マップ練習<small>MAP / 時間制限なし</small></span><span class="explore-arrow" aria-hidden="true">↗</span></button>
         <button id="range-start" class="explore-button range-button" type="button"><span class="explore-icon" aria-hidden="true">◎</span><span>射撃訓練<small>RANGE / 60秒</small></span><span class="explore-arrow" aria-hidden="true">↗</span></button>
       </div>
       <div class="ready-status"><span class="signal-dot"></span> SYSTEM READY<span class="ready-separator">/</span><span>クリックして作戦開始</span></div>
@@ -67,7 +69,7 @@
           <div><kbd>W A S D</kbd><span>移動</span></div><div><kbd>MOUSE</kbd><span>視点</span></div>
           <div><kbd>LMB</kbd><span>射撃</span></div><div><kbd>RMB</kbd><span>ADS / 精密照準</span></div>
           <div><kbd>R / G</kbd><span>装填 / 武器・ボンバーを落とす</span></div><div><kbd>SHIFT / V</kbd><span>歩く / しゃがむ（長押し）</span></div>
-          <div><kbd>1 / 2 / 3</kbd><span>メイン / サブ / ナイフ</span></div><div><kbd>4 / F長押し</kbd><span>ボンバー装備 / 設置・電源オフ</span></div>
+          <div><kbd>1 / 2 / 3</kbd><span>メイン / サブ / ナイフ</span></div><div><kbd>4 長押し</kbd><span>ボンバー装備・設置 / 電源オフ</span></div><div><kbd>F</kbd><span>拾う / ドア・はしご / 乗降</span></div>
           <div><kbd>B / TAB</kbd><span>購入 / スコアボード</span></div><div><kbd>C / Q</kbd><span id="guide-skill-cq">C：煙幕 / Q：上昇</span></div>
           <div><kbd>E / X</kbd><span id="guide-skill-ex">E：ダッシュ / X：キャラ固有ULT</span></div>
           <div><kbd>SPACE</kbd><span>ジャンプ</span></div><div><kbd>M / ESC</kbd><span>マップ / 一時停止</span></div>
@@ -75,7 +77,7 @@
         <p class="practice-manual">しゃがみはV長押しを推奨。Ctrlも代用できますが、使う場合は一時停止画面の「全画面でキー保護」をお試しください。対応状況は状態表示で確認でき、ブラウザーにより一部のショートカットは停止できません。</p>
         <p class="mobile-manual">横向き推奨。左パッドで移動、画面右側をなぞって視点、◎で射撃。「武器」で持ち替え、「ADS」「しゃがむ」はタップで切り替えます。Bで購入、設置・電源オフは専用ボタンを長押し。<span id="mobile-skill-summary">C：煙幕、Q：上昇、E：ダッシュ。X：キャラ固有アルティメット。</span></p>
         <p class="practice-manual">友達と遊ぶときは部屋を作り、パーティーコードをコピーして共有。最大10人、空いている枠はBOTが補充します。</p>
-        <p class="practice-manual">開始前にちぬつてのとのへめほ / NOPE / 丱凵してね / IAGNU / 草ブロック / はんだごて握り太郎 / 尾野の7人から選択。Xは全員7ptで発動。選択中のC/Q/Eはスキル欄で確認できます。</p>
+        <p class="practice-manual">開始前にちぬつてのとのへめほ / NOPE / 丱凵してね / IAGNU / 草ブロック / はんだごて握り太郎 / 尾野 / 🦆 / 猫の画像 / トミカ / のび / しばくでジャパン / キャップは？ / 青ウニ / おんならの15人から選択。Xは全員7ptで発動。選択中のC/Q/Eはスキル欄で確認できます。</p>
         <p class="practice-manual">NOPEのCはボトルグレネード（2回まで、1回100しばくでコイン）。1秒後、半径5.5mの敵へ最大90ダメージ。Qは顔フラッシュ（100コイン）で、12m内の正面・視線が通る相手を最大2.4秒まぶしくします。自身や味方にも有効。Eは12秒間の全身の囮で、敵が撃つと壊れて半径12m内のこちらを見る敵へ最大2.4秒の閃光。味方の弾は無反応で、15秒後に再使用できます。</p>
         <p class="practice-manual">丱凵してねのCはひまわりの種（2回まで、1回100しばくでコイン）。半径4.5mで9秒間、敵の歩く速さを50%にします。Qは花粉のヴェール（100コイン）で、半径4.2mの視界を9秒間遮ります。Eは視線の通る18m内で最もHPの低い味方1人（自身も対象）を60HP回復し、18秒後に再使用。蘇生・アーマー回復はなく、対象がいなければ回数を消費しません。</p>
         <p class="practice-manual">ちぬつてのとのへめほのCは18m以内へ投げる半径2.8m・5秒の流れ星の幕（2回まで、1回100しばくでコイン）。Qはアンテナリフトで上昇（2回まで、1回100コイン）。Eは0.25秒で準備し、12秒以内に再度押すと12mダッシュ。1撃破で再使用できます。</p>
@@ -88,47 +90,59 @@
         <p class="practice-manual">尾野のC「霜のステッチ」は最大16m先へ、内0.9m・外3.8mの円環を8秒展開し、接地した敵の歩く速さを45%にします（2回まで、1回100しばくでコイン）。Q「ドールミスト」は最大18m先へ半径3.5m・9秒の霧（100コイン）。E「ほどけるリボン」は接地中5秒間、減速分を85%軽減し、18秒で再使用。通常の移動速度は増えず、離地・死亡で終了します。</p>
         <p class="practice-manual">尾野のX「クライオフィールド」は、地面に照準を向け、予告リングで指定位置を確認して発動。最大20m先に半径7mの減速場を10秒展開し、0.8秒後から敵の移動速度を55%にします。重複しても減速は強まりません。</p>
         <p class="practice-manual">射撃訓練は60秒。1体ずつ現れる標的を狙い、撃破数・命中率・ヘッド率を磨こう。</p>
-        <p class="practice-manual">設置・電源オフ練習は時間制限なし、BOTなし。Fを4秒長押しで設置、7秒で電源オフ。電源オフは半分の3.5秒まで進めると、中断後もそこから再開できます。MのマップからA・Bサイトを選び、繰り返し練習しよう。</p>
+        <p class="practice-manual">設置・電源オフ練習は時間制限なし、BOTなし。4を4秒長押しで設置、7秒で電源オフ。電源オフは半分の3.5秒まで進めると、中断後もそこから再開できます。MのマップからA・Bサイトを選び、繰り返し練習しよう。</p>
         <details class="match-rules" style="margin-top:16px;font-size:8px;line-height:1.9;color:#8fa8b1"><summary style="cursor:pointer;letter-spacing:1px;color:#b9cbc9">ROUND RULES / 試合ルールを確認</summary><p style="margin-top:9px">STANDARD：13ラウンド先取。12Rで攻守交代。12–12からは2点差がつくまで延長。</p><p>SWIFT：5ラウンド先取。4Rで攻守交代。4–4は次の1ラウンドで決着。</p><p>各ラウンド中の復活なし。ボンバーは設置4秒、爆発まで45秒。電源オフは7秒、半分の3.5秒までの進行を保持。</p></details>
       </details>
     </section>
 
     <aside class="character-preview-panel" aria-label="選択中のキャラクター">
       <div class="character-preview-heading"><span class="signal-dot"></span><span>CHARACTER / SELECTED</span><span class="preview-live">3D</span></div>
+      <button id="victory-dance-preview" type="button">勝利ダンスを見る ✦</button>
       <div id="character-preview-stage" class="character-preview-stage"><canvas id="character-preview-canvas" width="360" height="420" role="img" aria-label="選択中のキャラクターの3Dモデル"></canvas></div>
       <div class="character-preview-caption"><h2 id="character-preview-name">ちぬつてのとのへめほ</h2><p id="character-preview-role">突入 / ブレードストーム</p><span id="character-preview-note">選択するとモデルが切り替わります</span></div>
-      <section id="character-skills" class="character-skills" aria-label="選択中の通常スキル">
+      <section id="character-skills" class="character-skills" aria-label="選択中のスキルとアルティメット">
         <div class="skill-detail"><kbd>C</kbd><div><strong id="character-skill-c-name">煙幕</strong><p id="character-skill-c-description">視線を遮る煙を展開</p><small id="character-skill-c-meta">最大2回 · SC 200/回</small></div></div>
         <div class="skill-detail"><kbd>Q</kbd><div><strong id="character-skill-q-name">上昇</strong><p id="character-skill-q-description">上空へ跳び上がる</p><small id="character-skill-q-meta">最大1回 · SC 150/回</small></div></div>
         <div class="skill-detail"><kbd>E</kbd><div><strong id="character-skill-e-name">ダッシュ</strong><p id="character-skill-e-description">構えてから再入力で高速移動</p><small id="character-skill-e-meta">最大1回 · 無料</small></div></div>
+        <div class="skill-detail skill-ultimate"><kbd>X</kbd><div><strong id="character-skill-x-name">ブレードストーム</strong><p id="character-skill-x-description">ナイフ5本・撃破で補充。</p><small id="character-skill-x-meta">7 ULTポイント</small></div></div>
       </section>
-      <div class="character-preview-map"><span>橋本駅前</span><span>02 SITES / 03 ROUTES</span></div>
+      <div class="character-preview-map"><span id="character-preview-map">橋本駅前</span><span>02 SITES / 03 ROUTES</span></div>
     </aside>
-    <footer class="menu-footer"><span>35°35′42″N 139°20′42″E</span><span class="footer-note">非公式ファンメイド / 橋本駅前をモチーフにしたオリジナルマップ</span><a class="audio-credit" href="audio/CREDITS.txt" target="_blank" rel="noopener">効果音：Kenney / CC0 ↗</a><span class="footer-version">BD3D—001 <i></i> ARENA BUILD</span></footer>
+    <footer class="menu-footer"><span id="menu-coordinate-copy">35°35′42″N 139°20′42″E</span><span id="menu-map-note" class="footer-note">非公式ファンメイド / 橋本駅前をモチーフにしたオリジナルマップ</span><a class="audio-credit" href="audio/CREDITS.txt" target="_blank" rel="noopener">効果音：OtoLogic / On-Jin / 効果音ラボ ↗</a><span class="footer-version">BD3D—001 <i></i> ARENA BUILD</span></footer>
   </main>
 
   <section id="hud" class="hud" hidden aria-label="ゲーム情報">
     <div class="hud-vignette" aria-hidden="true"></div>
     <div class="hud-top">
-      <div class="top-location"><span class="small-logo">BD / 3D</span><span class="location-divider"></span><div><span class="label-mini">HASHIMOTO STATION</span><strong id="zone">北口広場</strong></div></div>
+      <div class="top-location"><span class="small-logo">BD / 3D</span><span class="location-divider"></span><div><span class="label-mini" id="hud-map-name">HASHIMOTO STATION</span><strong id="zone">北口広場</strong></div></div>
       <div class="match-score-strip"><div class="team-strip allied"><span id="ally-label" class="team-name">YOUR TEAM</span><span id="ally-status" class="alive-count"><span id="ally-alive">5</span> ALIVE</span><strong id="team-score">0</strong></div><div class="round-panel"><span id="round-label">ROUND 01</span><strong id="timer">00:30</strong><span id="phase-label">BUY PHASE</span></div><div class="team-strip enemy"><strong id="enemy-score">0</strong><span id="enemy-status" class="alive-count"><span id="remaining">5</span> ALIVE</span><span id="enemy-label" class="team-name">ENEMY TEAM</span></div></div>
       <div class="hud-top-right"><span id="side-label" class="side-label">ATTACKING</span><button id="map-toggle" class="hud-icon-button" type="button" aria-label="マップを開く"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 5 6-2 6 2 6-2v16l-6 2-6-2-6 2zM9 3v16m6-14v16"/></svg><kbd>M</kbd></button><button id="pause" class="hud-icon-button" type="button" aria-label="一時停止"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14M16 5v14"/></svg><kbd>ESC</kbd></button></div>
     </div>
     <div class="objective-strip"><span id="objective-label">購入フェーズ — 装備を整えよう</span><span id="spike-state">BOMBER / CARRIED</span></div>
+    <div id="bomber-alert" class="bomber-alert" hidden><strong id="bomber-alert-title" role="status" aria-live="assertive"></strong><span id="bomber-alert-time" role="timer" aria-live="off"></span></div>
     <div id="online-session-status" class="online-session-status" role="status" aria-live="polite" hidden></div>
     <div id="status-effects" hidden aria-live="polite"></div>
 
-    <div class="minimap-wrap"><div class="minimap-label"><span class="signal-dot"></span> FIELD RADAR<span>N ↑</span></div><canvas id="minimap" width="240" height="240" aria-label="ミニマップ"></canvas><div class="minimap-footer"><span>HASHIMOTO / 2 SITES</span><span>01</span></div></div>
+    <div class="minimap-wrap"><div class="minimap-label"><span class="signal-dot"></span> FIELD RADAR<span>N ↑</span></div><canvas id="minimap" width="240" height="240" aria-label="ミニマップ"></canvas><div class="minimap-footer"><span id="radar-map-copy">HASHIMOTO / 2 SITES</span><span>01</span></div></div>
     <div id="killfeed" class="killfeed" aria-live="polite"></div>
 
+    <div id="sniper-scope" hidden aria-hidden="true"><i></i></div>
     <div id="crosshair" class="crosshair" aria-hidden="true"><span></span><span></span><span></span><span></span><i></i></div>
     <div id="hitmarker" class="hitmarker" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
     <div id="damage" class="damage-overlay" aria-hidden="true"></div>
     <div id="message" class="field-message" aria-live="polite"></div>
     <div id="reload-state" class="reload-state"></div>
+    <div id="skill-cast-feedback" class="skill-cast-feedback" hidden></div>
+    <div id="skill-hit-feedback" class="skill-hit-feedback" hidden></div>
     <div id="round-banner" class="round-banner" hidden></div>
+    <details id="combat-report" class="combat-report" hidden open aria-label="前ラウンドのダメージレポート">
+      <summary><span id="combat-report-round">前ラウンドのダメージ</span><span class="combat-report-totals"><span>与ダメ <b id="combat-report-given">0</b></span><span>被ダメ <b id="combat-report-received">0</b></span></span></summary>
+      <div class="combat-report-scroll"><table><thead><tr><th>相手</th><th>与ダメ</th><th>被ダメ</th></tr></thead><tbody id="combat-report-body"></tbody></table></div>
+      <small>HP＋装甲の実損失 · 弾とスキルを合計</small>
+    </details>
+    <div id="death-card" class="death-card" role="status" aria-live="polite" hidden><span>ELIMINATED</span><strong>倒されました</strong><small>まもなく味方の観戦へ切り替わります</small></div>
     <div id="spectator-hint" class="spectator-hint" hidden>観戦中 — 次のラウンドで復帰します</div>
-    <div id="interaction" class="interaction" hidden><div><kbd>F</kbd><strong id="interaction-title">ボンバーを設置中</strong></div><div class="interaction-track"><i id="interaction-progress"></i></div></div>
+    <div id="interaction" class="interaction" hidden><div><kbd id="interaction-key">4</kbd><strong id="interaction-title">ボンバーを設置中</strong></div><div class="interaction-track"><i id="interaction-progress"></i></div></div>
 
     <div class="hud-bottom">
       <div class="health-block"><span class="health-icon">✚</span><div class="health-value"><strong id="health">100</strong><span>VITAL STATUS</span></div><div class="armor-value"><svg viewBox="0 0 18 21" aria-hidden="true"><path d="m9 1 7 3v6c0 4-7 9-7 9S2 14 2 10V4z"/></svg><strong id="armor">0</strong></div><div class="health-track"><i id="health-bar"></i></div></div>
@@ -155,17 +169,17 @@
         <button id="mobile-crouch" data-action="crouch" type="button" aria-label="しゃがみを切り替える" aria-pressed="false">しゃがむ<small>切り替え</small></button>
       </div>
       <div class="touch-objective" role="group" aria-label="設置・電源オフと購入">
-        <button id="mobile-interact" data-action="interact" type="button" aria-label="長押しで設置・電源オフ"><span id="mobile-interact-label">F</span><small id="mobile-interact-hint">長押し</small></button>
+        <button id="mobile-interact" data-action="interact" type="button" aria-label="長押しで設置・電源オフ"><span id="mobile-interact-label">4</span><small id="mobile-interact-hint">長押し</small></button>
         <button id="mobile-shop" data-action="shop" type="button">B<small>購入</small></button>
       </div>
     </div>
-    <div class="hud-bottom-line"><span>ボンバーディフューザー3Dオンライン</span><span>C / Q / E スキル <i>·</i> X 固有ULT <i>·</i> B 購入 <i>·</i> F 設置 / 電源オフ</span><span>ONLINE / SOLO + BOTS</span></div>
+    <div class="hud-bottom-line"><span>ボンバーディフューザー3Dオンライン</span><span>C / Q / E スキル <i>·</i> X 固有ULT <i>·</i> B 購入 <i>·</i> 4 長押し 設置 / 電源オフ</span><span>ONLINE / SOLO + BOTS</span></div>
   </section>
 
   <section id="online-overlay" class="overlay-screen online-screen" role="dialog" aria-modal="true" aria-labelledby="online-title" hidden>
     <div class="online-panel">
-      <header class="online-header"><div><div class="dialog-eyebrow"><span class="signal-dot"></span> FRIENDS / HASHIMOTO</div><h2 id="online-title">友達と遊ぶ<span>PRIVATE ROOM / 5 vs 5</span></h2></div><button id="online-close" class="close-button" type="button" aria-label="オンライン画面を閉じる">×</button></header>
-      <p class="online-intro">パーティーコードを共有して、同じ橋本駅前へ。<br>最大10人で参加でき、空いている枠はBOTが補充します。</p>
+      <header class="online-header"><div><div class="dialog-eyebrow"><span class="signal-dot"></span> FRIENDS / ONLINE</div><h2 id="online-title">友達と遊ぶ<span>PRIVATE ROOM / 5 vs 5</span></h2></div><button id="online-close" class="close-button" type="button" aria-label="オンライン画面を閉じる">×</button></header>
+      <p id="online-intro" class="online-intro">パーティーコードを共有して、同じマップへ。<br>最大10人で参加でき、空いている枠はBOTが補充します。</p>
       <p id="online-error" class="online-error" role="alert" aria-live="polite"></p>
       <div id="online-entry" class="online-entry">
         <label class="online-field online-name-field" for="online-name"><span>プレイヤー名<small>18文字まで</small></span><input id="online-name" type="text" maxlength="18" autocomplete="nickname" placeholder="ゲームで使う名前" aria-describedby="online-name-note"><small id="online-name-note">一緒に遊ぶ友達に表示されます。</small></label>
@@ -180,17 +194,18 @@
           <section class="online-members-panel" aria-label="参加者"><div class="online-section-heading"><h3>参加メンバー</h3><span>最大 10 人 / 各チーム 5 人</span></div><ul id="online-members" class="online-members" aria-live="polite"></ul><p class="online-bot-note"><span class="signal-dot"></span>空いている枠はBOTが補充します。</p></section>
           <section class="online-preparation" aria-label="試合の準備">
             <label class="online-field" for="online-team"><span>チーム</span><select id="online-team"><option value="blue">BLUE / ブルー</option><option value="red">RED / レッド</option></select></label>
-            <label class="online-field" for="online-format"><span>試合形式<small>部屋を作った人が選択</small></span><select id="online-format"><option value="swift" selected>SWIFT / 5ラウンド先取</option><option value="standard">STANDARD / 13ラウンド先取</option></select></label>
-            <label class="online-field" for="online-agent"><span>キャラクター</span><select id="online-agent"><option value="duelist">ちぬつてのとのへめほ / 投げナイフ5本</option><option value="nope">NOPE / ロゴ化＋デコイ30体（12秒）</option><option value="mend">丱凵してね / 最大75HP回復</option><option value="echo">IAGNU / 30m・3回索敵</option><option value="veil">草ブロック / 半径9m・視界遮断12秒</option><option value="ember">はんだごて握り太郎 / 爆撃30×3回</option><option value="frost">尾野 / 減速フィールド10秒</option></select></label>
+            <label class="online-field" for="online-format"><span>試合形式<small>部屋を作った人が選択</small></span><select id="online-format"><option value="swift" selected>SWIFT / 5ラウンド先取</option><option value="standard">STANDARD / 13ラウンド先取</option></select></label><label class="online-field">マップ<select id="online-map"><option value="hashimoto">橋本駅</option><option value="hirakata">枚方市駅 / 南北ロータリー</option><option value="trc">TRC 同人音楽即売会 / 屋外侵入</option></select></label>
+            <label class="online-field" for="online-agent"><span>キャラクター</span><select id="online-agent"><option value="duelist">ちぬつてのとのへめほ / 投げナイフ5本</option><option value="nope">NOPE / ロゴ化＋デコイ30体（12秒）</option><option value="mend">丱凵してね / 最大75HP回復</option><option value="echo">IAGNU / 30m・3回索敵</option><option value="veil">草ブロック / 半径9m・視界遮断12秒</option><option value="ember">はんだごて握り太郎 / 爆撃30×3回</option><option value="frost">尾野 / 減速フィールド10秒</option><option value="duck">🦆 / 封印・羽盾・消音・不屈の卵</option><option value="cat">猫の画像 / 回収・時制</option><option value="car">トミカ / 排除・補給</option><option value="nobi">のび / 弱点・工作</option><option value="japan">しばくでジャパン / 国境・総動員</option><option value="cap">キャップは？ / 光学・解除</option><option value="urchin">青ウニ / 棘・弾道</option><option value="onnara">おんなら / 星冠・裁定</option></select></label>
             <aside class="online-character-preview" aria-label="選択中のキャラクターのモデル"><div id="online-character-preview-stage" class="character-preview-stage"></div><div class="character-preview-caption"><h3 id="online-character-preview-name">ちぬつてのとのへめほ</h3><p id="online-character-preview-role">突入 / ブレードストーム</p><span id="online-character-preview-note">選択でモデルを確認</span></div></aside>
             <button id="online-ready" class="secondary-button online-ready-button" type="button">準備完了</button>
             <button id="online-start" class="primary-button online-start-button" type="button"><span>試合を開始<small>START MATCH</small></span><span class="arrow">→</span></button>
             <p class="online-ready-note">全員の準備ができたら、部屋を作った人が試合を開始します。</p>
           </section>
-          <section id="online-character-skills" class="character-skills online-character-skills" aria-label="選択中の通常スキル"><header><span>選択中のスキル</span><strong id="online-skill-character">ちぬつてのとのへめほ</strong></header>
+          <section id="online-character-skills" class="character-skills online-character-skills" aria-label="選択中のスキルとアルティメット"><header><span>選択中のスキル</span><strong id="online-skill-character">ちぬつてのとのへめほ</strong></header>
             <div class="skill-detail"><kbd>C</kbd><div><strong id="online-character-skill-c-name">煙幕</strong><p id="online-character-skill-c-description">視線を遮る煙を展開</p><small id="online-character-skill-c-meta">最大2回 · SC 200/回</small></div></div>
             <div class="skill-detail"><kbd>Q</kbd><div><strong id="online-character-skill-q-name">上昇</strong><p id="online-character-skill-q-description">上空へ跳び上がる</p><small id="online-character-skill-q-meta">最大1回 · SC 150/回</small></div></div>
             <div class="skill-detail"><kbd>E</kbd><div><strong id="online-character-skill-e-name">ダッシュ</strong><p id="online-character-skill-e-description">構えてから再入力で高速移動</p><small id="online-character-skill-e-meta">最大1回 · 無料</small></div></div>
+        <div class="skill-detail skill-ultimate"><kbd>X</kbd><div><strong id="online-character-skill-x-name">ブレードストーム</strong><p id="online-character-skill-x-description">ナイフ5本・撃破で補充。</p><small id="online-character-skill-x-meta">7 ULTポイント</small></div></div>
           </section>
         </div>
         <footer class="online-lobby-footer"><p id="online-status" role="status" aria-live="polite">友達の参加を待っています。</p><button id="online-leave" class="text-button" type="button">部屋を退出する <span>↗</span></button></footer>
@@ -200,7 +215,7 @@
   </section>
 
   <section id="pause-menu" class="overlay-screen" hidden>
-    <div class="dialog-panel pause-panel"><div class="dialog-eyebrow"><span class="signal-dot"></span> OPERATION ON HOLD</div><h2>PAUSED<span>一時停止</span></h2><p id="pause-note" class="dialog-description">準備ができたら、作戦を再開しよう。</p><button id="resume" class="primary-button" type="button"><span>作戦を再開する<small>RESUME OPERATION</small></span><span class="arrow">→</span></button><div class="settings-group"><label for="sensitivity"><span>マウス感度<small>SENSITIVITY · <output id="sensitivity-value" for="sensitivity">0.35</output></small></span><input id="sensitivity" type="range" min="0.05" max="1.5" step="0.01" value="0.35"></label><label for="volume"><span>音量<small>MASTER VOLUME</small></span><input id="volume" type="range" min="0" max="1" step="0.05" value="0.45"></label></div><button id="keyboard-protect" class="secondary-button keyboard-protect-button" type="button" aria-describedby="keyboard-protection-status">全画面でキー保護</button><p id="keyboard-protection-status" class="keyboard-protection-status" role="status" aria-live="polite">しゃがみは V 長押し。ブラウザーにより一部のショートカットは停止できません。</p><button id="restart" class="secondary-button" type="button">作戦をやり直す <span>RESTART ↻</span></button><button id="pause-back-menu" class="text-button" type="button">メインメニューへ <span>↗</span></button><p class="dialog-footnote">ESC でも作戦に復帰できます</p></div>
+    <div class="dialog-panel pause-panel"><div class="dialog-eyebrow"><span class="signal-dot"></span> OPERATION ON HOLD</div><h2>PAUSED<span>一時停止</span></h2><p id="pause-note" class="dialog-description">準備ができたら、作戦を再開しよう。</p><button id="resume" class="primary-button" type="button"><span>作戦を再開する<small>RESUME OPERATION</small></span><span class="arrow">→</span></button><div class="settings-group"><label for="sensitivity"><span>マウス感度<small>SENSITIVITY · <output id="sensitivity-value" for="sensitivity">0.35</output></small></span><input id="sensitivity" type="range" min="0.05" max="1.5" step="0.01" value="0.35"></label><label for="volume"><span>音量<small>MASTER VOLUME</small></span><input id="volume" type="range" min="0" max="1" step="0.05" value="0.45"></label></div><details id="victory-music-settings" class="victory-music-settings"><summary>ラウンド勝利BGMを設定</summary><div class="victory-music-controls"><label class="music-check"><input id="victory-music-enabled" type="checkbox" checked>勝利したときにBGMを流す</label><label for="victory-music-volume">BGM音量 <output id="victory-music-value">60%</output></label><input id="victory-music-volume" type="range" min="0" max="1" step="0.05" value="0.6"><label for="victory-music-file" class="music-file-label">音源を選ぶ（MP3 / WAV / OGGなど・40MBまで）</label><input id="victory-music-file" type="file" accept="audio/*,.mp3,.wav,.ogg,.m4a,.aac,.webm,.flac"><p id="victory-music-status" role="status" aria-live="polite">音源は未設定です。後から追加できます。</p><button id="victory-music-clear" class="text-button" type="button" disabled>選んだ音源を解除</button><p class="music-note">自分のチームの勝利時だけ再生。マスター音量・SOUND OFFに連動します。次ラウンド・一時停止で終了します。<br>選んだファイルはアップロードされず、このページ内だけで使用します。</p></div></details><button id="keyboard-protect" class="secondary-button keyboard-protect-button" type="button" aria-describedby="keyboard-protection-status">全画面でキー保護</button><p id="keyboard-protection-status" class="keyboard-protection-status" role="status" aria-live="polite">しゃがみは V 長押し。ブラウザーにより一部のショートカットは停止できません。</p><button id="restart" class="secondary-button" type="button">作戦をやり直す <span>RESTART ↻</span></button><button id="pause-back-menu" class="text-button" type="button">メインメニューへ <span>↗</span></button><p class="dialog-footnote">ESC でも作戦に復帰できます</p></div>
   </section>
 
   <section id="result" class="overlay-screen result-screen" hidden>
@@ -217,7 +232,7 @@
   <section id="shop-overlay" class="overlay-screen shop-screen" hidden aria-label="武器購入">
     <div class="shop-panel">
       <header class="shop-header"><div><div class="dialog-eyebrow"><span class="signal-dot"></span> PREPARE FOR THE NEXT ROUND</div><h2>ARSENAL<span>装備購入</span></h2></div><div class="shop-wallet"><span>しばくでコイン</span><strong>SC <span id="shop-credits">800</span></strong></div><button id="close-shop" class="close-button" type="button" aria-label="購入画面を閉じる">× <kbd>B</kbd></button></header>
-      <div class="shop-rule"><span class="signal-dot"></span> 購入は購入フェーズ中のみ可能です<span>武器は死亡すると失い、生存時は次のラウンドへ持ち越します。</span></div>
+      <div class="shop-rule"><span class="signal-dot"></span><span id="shop-rule-summary">購入は購入フェーズ中のみ可能です</span><span>武器は死亡すると失い、生存時は次のラウンドへ持ち越します。</span></div>
       <div class="shop-columns">
         <section class="shop-category"><h3><span>01</span> SIDEARMS<small>サイドアーム</small></h3>
           <button class="buy-card" data-buy="classic" type="button"><span class="buy-name">CLASSIC<small>クラシック / サイドアーム</small></span><svg viewBox="0 0 180 70" aria-hidden="true"><path d="M20 19h117l6 7h13v13h-46l-6 22H77l-5-25H20zM34 13h89v7H34z"/></svg><span class="buy-price"><span>STANDARD ISSUE</span><strong>SC 0</strong></span></button>
@@ -237,7 +252,9 @@
         </section>
         <section class="shop-category ability-shop"><h3><span>05</span> ABILITIES<small>能力</small></h3>
           <button id="shop-skill-c" class="buy-card ability-buy-card" data-buy="smoke" data-skill-key="c" type="button"><span class="buy-name"><span id="shop-skill-c-name">煙幕</span><small id="shop-skill-c-key">C / 煙幕</small></span><svg class="ability-buy-icon" viewBox="0 0 36 30" aria-hidden="true"><path id="shop-skill-c-glyph" d="M9 23a6 6 0 0 1-1-12 9 9 0 0 1 17-3 8 8 0 0 1 2 16H9M6 27h24M12 18h12"/></svg><span id="shop-skill-c-description" class="ability-buy-description">視線を遮る煙を展開</span><small id="shop-skill-c-count" class="ability-buy-stock">所持 0/2 · 1回分を購入</small><span class="buy-price"><span>C / SKILL</span><strong id="shop-skill-c-price">SC 200</strong></span></button>
+          <button id="shop-skill-c-add" class="skill-add-button" type="button">＋1回分購入</button>
           <button id="shop-skill-q" class="buy-card ability-buy-card" data-buy="updraft" data-skill-key="q" type="button"><span class="buy-name"><span id="shop-skill-q-name">上昇</span><small id="shop-skill-q-key">Q / 上昇</small></span><svg class="ability-buy-icon" viewBox="0 0 36 30" aria-hidden="true"><path id="shop-skill-q-glyph" d="m10 14 8-9 8 9M18 6v17M7 21l11 6 11-6M5 26l13 3 13-3"/></svg><span id="shop-skill-q-description" class="ability-buy-description">上空へ跳び上がる</span><small id="shop-skill-q-count" class="ability-buy-stock">所持 0/1 · 1回分を購入</small><span class="buy-price"><span>Q / SKILL</span><strong id="shop-skill-q-price">SC 150</strong></span></button>
+          <button id="shop-skill-q-add" class="skill-add-button" type="button">＋1回分購入</button>
         </section>
       </div>
       <footer class="shop-footer"><div><p id="shop-status" role="status" aria-live="polite">装備を選択してください。</p><span>クリックして購入 <i>·</i> B で閉じる <i>·</i> ラウンド中の購入はできません</span></div><button id="start-round" class="primary-button" type="button"><span>準備完了<small>START ROUND / SOLO</small></span><span class="arrow">→</span></button></footer>
@@ -250,17 +267,20 @@
 
   <section id="map-overlay" class="overlay-screen map-screen" hidden>
     <div class="tactical-map-panel">
-      <header><div><div class="dialog-eyebrow">TACTICAL OVERVIEW / 2 SITES · 3 ROUTES</div><h2>橋本駅前 <span>HASHIMOTO / ARENA</span></h2></div><button id="close-map" class="close-button" type="button" aria-label="マップを閉じる">× <kbd>M</kbd></button></header>
+      <header><div><div class="dialog-eyebrow">TACTICAL OVERVIEW / 2 SITES · 3 ROUTES</div><h2 id="map-title">橋本駅前 / 戦術マップ</h2></div><button id="close-map" class="close-button" type="button" aria-label="マップを閉じる">× <kbd>M</kbd></button></header>
       <div class="map-content">
-        <div class="large-map-wrap"><canvas id="large-minimap" width="720" height="720" aria-label="橋本駅前の戦術マップ"></canvas><span class="map-north">N ↑</span><span class="map-area-label">HASHIMOTO / TACTICAL ARENA</span></div>
-        <aside class="map-intel"><span class="label-mini">PLAN YOUR NEXT MOVE</span><h3>サイトと進行ルート</h3><div class="map-sites"><span><i>A</i><strong>北口コンコース</strong></span><span><i>B</i><strong>ミウィ前広場</strong></span></div><p>バス通り / 中央連絡路 / ミウィ通り。<br>3つのルートを使い分けて、設置地点を制圧しよう。</p><div class="practice-nav-title">PRACTICE <span>練習モードでエリアへ移動</span></div><div id="landmark-travel" class="landmark-travel"></div><div class="map-legend" id="map-legend"><span><i class="legend-player"></i>あなた / 味方</span><span><i class="legend-enemy"></i>敵BOT</span><span><i class="legend-road"></i>通路</span><span><i class="legend-cover"></i>建物 / 遮蔽物</span><span><i class="legend-site"></i>A・Bサイト</span></div><p id="map-detail" class="map-detail">橋本駅前の景観をもとに、対戦向けに構成したオリジナルマップです。</p><div class="map-coordinate">35°35′42″N / 139°20′42″E</div></aside>
+        <div class="large-map-wrap"><canvas id="large-minimap" width="720" height="720" aria-label="橋本駅前の戦術マップ"></canvas><span class="map-north">N ↑</span><span id="map-area-name" class="map-area-label">HASHIMOTO / TACTICAL ARENA</span></div>
+        <aside class="map-intel"><span class="label-mini">PLAN YOUR NEXT MOVE</span><h3>サイトと進行ルート</h3><div class="map-sites"><span><i>A</i><strong id="map-site-a-name">北口コンコース</strong></span><span><i>B</i><strong id="map-site-b-name">ミウィ前広場</strong></span></div><p id="map-route-copy">バス通り / 中央連絡路 / ミウィ通り</p><div class="practice-nav-title">PRACTICE <span>練習モードでエリアへ移動</span></div><div id="landmark-travel" class="landmark-travel"></div><div class="map-legend" id="map-legend"><span><i class="legend-player"></i>あなた / 味方</span><span><i class="legend-enemy"></i>敵BOT</span><span><i class="legend-road"></i>通路</span><span><i class="legend-cover"></i>建物 / 遮蔽物</span><span><i class="legend-site"></i>A・Bサイト</span></div><p id="map-detail" class="map-detail">橋本駅前の景観をもとに、対戦向けに構成したオリジナルマップです。</p><div id="map-coordinate-copy" class="map-coordinate">35°35′42″N / 139°20′42″E</div></aside>
       </div>
       <footer><span>ボンバーディフューザー3Dオンライン / TACTICAL MAP</span><span>2 SITES <i>·</i> 3 ROUTES <i>·</i> M で閉じる</span></footer>
     </div>
   </section>
 
+  <aside id="victory-dance" class="victory-dance" aria-label="勝利ダンス" hidden><div class="victory-dance-heading"><span id="victory-dance-label">開米 / VICTORY DANCE</span><span aria-hidden="true">✦</span></div><canvas id="victory-dance-canvas" aria-label="勝ったキャラクターの全身ダンス"></canvas></aside>
+
   <div id="loading" class="loading-screen"><div class="loading-mark">BD<span>/</span>3D</div><span class="label-mini">INITIALIZING OPERATION</span><strong class="loading-game-title" aria-label="ボンバーディフューザー3Dオンライン"><span>ボンバー</span><span>ディフューザー</span><span>3Dオンライン</span></strong><div class="loading-progress"><i></i></div><p id="loading-text">橋本駅前の競技マップを読み込んでいます…</p><span class="loading-coordinate">35°35′42″N / 139°20′42″E</span></div>
   <div id="error" class="error-banner" role="alert" hidden></div>
   <script type="module" src="game.js"></script>
+<div id="onnara-orb-label" hidden aria-live="polite"></div>
 </body>
 </html>

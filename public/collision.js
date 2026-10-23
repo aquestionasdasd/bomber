@@ -85,10 +85,10 @@ export function createCollisionIndex(colliders, cellSize = 20) {
     }
     return [...result];
   }
-  const blocksAtHeight = (c, feet) => c.height > feet + EPS && (c.base || 0) < feet + 1.7 - EPS;
-  function blocked(x, z, r = .34, feet = 0) {
-    if (!Number.isFinite(x) || !Number.isFinite(z) || !Number.isFinite(r) || !Number.isFinite(feet) || r < 0) return true;
-    return query(x, z, r).some(c => blocksAtHeight(c, feet) && overlaps(c, x, z, r));
+  const blocksAtHeight = (c, feet, height) => !c.disabled && c.height > feet + EPS && (c.base || 0) < feet + height - EPS;
+  function blocked(x, z, r = .34, feet = 0, height = 1.7) {
+    if (![x, z, r, feet, height].every(Number.isFinite) || r < 0 || height <= 0) return true;
+    return query(x, z, r).some(c => blocksAtHeight(c, feet, height) && overlaps(c, x, z, r));
   }
   function segmentCandidates(ax, az, bx, bz, r) {
     if (Math.abs(bx - ax) < cellSize && Math.abs(bz - az) < cellSize) {
@@ -114,10 +114,10 @@ export function createCollisionIndex(colliders, cellSize = 20) {
     }
     return result;
   }
-  function segmentClear(ax, az, bx, bz, r = .42, feet = 0) {
-    if (![ax, az, bx, bz, r, feet].every(Number.isFinite) || r < 0) return false;
+  function segmentClear(ax, az, bx, bz, r = .42, feet = 0, height = 1.7) {
+    if (![ax, az, bx, bz, r, feet, height].every(Number.isFinite) || r < 0 || height <= 0) return false;
     for (const c of segmentCandidates(ax, az, bx, bz, r)) {
-      if (!blocksAtHeight(c, feet) || !segmentIntersectsBox(ax, az, bx, bz, c.minX - r, c.minZ - r, c.maxX + r, c.maxZ + r)) continue;
+      if (!blocksAtHeight(c, feet, height) || !segmentIntersectsBox(ax, az, bx, bz, c.minX - r, c.minZ - r, c.maxX + r, c.maxZ + r)) continue;
       if (overlaps(c, ax, az, r) || overlaps(c, bx, bz, r)) return false;
       for (const ring of rings(c)) for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
         if (segmentsDistanceSquared(ax, az, bx, bz, ...ring[j], ...ring[i]) <= r * r + 1e-12) return false;
@@ -131,6 +131,7 @@ export function createCollisionIndex(colliders, cellSize = 20) {
     if (![ax, ay, az, bx, by, bz].every(Number.isFinite)) return false;
     const dx=bx-ax,dy=by-ay,dz=bz-az;
     for(const c of segmentCandidates(ax,az,bx,bz,0)){
+      if(c.disabled)continue;
       let low=0,high=1;
       for(const [start,delta,min,max] of [[ax,dx,c.minX,c.maxX],[ay,dy,c.base||0,c.height],[az,dz,c.minZ,c.maxZ]]){
         if(Math.abs(delta)<1e-12){if(start<min||start>max){low=1;high=0;break;}}
@@ -144,5 +145,5 @@ export function createCollisionIndex(colliders, cellSize = 20) {
     return true;
   }
   refresh();
-  return { query, blocked, segmentClear, rayClear, overlaps, get revision() { refresh(); return revision; } };
+  return { query, blocked, segmentClear, rayClear, overlaps, invalidate() { indexedLength=-1; refresh(); }, get revision() { refresh(); return revision; } };
 }

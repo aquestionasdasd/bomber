@@ -41,7 +41,7 @@ async function main() {
         if (!this.listeners.has(type)) this.listeners.set(type, []);
         this.listeners.get(type).push(listener);
       }, getContext: () => context2d,
-      attributes: {}, setAttribute(name, value) { this.attributes[name] = value; }, setPointerCapture() {}, requestPointerLock() { document.pointerLockElement = e; },
+      attributes: {}, dataset: {}, setAttribute(name, value) { this.attributes[name] = value; }, setPointerCapture() {}, requestPointerLock() { document.pointerLockElement = e; },
       getBoundingClientRect: () => ({ left: 0, top: 0, width: 100, height: 100 }),
       replaceChildren(...nodes) { for (const child of this.children) child.parentNode = null; this.children = nodes; for (const child of nodes) child.parentNode = this; },
       append(node) { this.children.push(node); node.parentNode = this; }, prepend(node) { this.children.unshift(node); node.parentNode = this; },
@@ -497,7 +497,7 @@ async function main() {
   run('for(let i=0;i<6;i++)updatePlay(.05)');
   assert.ok(run('player.crouch') > .95, 'Holding V while walking must lower the actual player eye');
   assertNear(run('Math.hypot(player.vx,player.vz)'), 1.8, 'V plus W must move at crouch speed');
-  assertNear(run('player.z'), 26 - 1.8 * .3, 'V plus W must walk forward without a browser modifier key');
+  assert.ok(run('player.z')>26-1.8*.3&&run('player.z')<25.5,'V plus W accelerates to crouched walking without a browser modifier key');
   shortcutUp('KeyV'); run('for(let i=0;i<6;i++)updatePlay(.05)');
   assert.ok(run('player.crouch') < .01, 'Releasing V must restore the standing pose');
   assertNear(run('Math.hypot(player.vx,player.vz)'), (5.4*1.15), 'Releasing V while W stays held must restore normal rifle/sidearm speed');
@@ -522,6 +522,8 @@ async function main() {
     assert.ok(shortcutKey('KeyW', { ctrlKey: true }) > 0, 'A delivered Ctrl+W must cancel its browser default');
     run('updatePlay(.05)');
     assert.ok(run('player.crouch') > .5, `${control} must retain compatible held crouching`);
+    assert.ok(run('player.vz')<0&&run('player.vz')>-1.8,'A delivered Ctrl+W starts moving during acceleration');
+    run('updatePlay(.05)');
     assertNear(run('player.vz'), -1.8, 'A delivered Ctrl+W must retain crouched forward movement');
     shortcutUp('KeyW'); shortcutUp(control);
   }
@@ -833,6 +835,9 @@ async function main() {
   assert.equal(run('player.alive'), false); assert.equal(run('gun.visible'), false);
   assert.equal(run('mode'), 'play', 'Player death must spectate surviving allies instead of ending the match');
   assert.equal(run('match.phase'), 'live');
+  assert.equal(run('deathView.holding'),true,'Death must be visible before switching to an allied viewpoint');
+  assert.equal(run('spectatedBot'),null,'Death hold must not reveal the ally camera early');
+  for(let frame=0;frame<25;frame++)run('updatePlay(.05)');
   assert.ok(run('spectatedBot?.alive&&spectatedBot.team==="blue"'), 'Death must select a living allied spectator target');
   assert.equal(run('spectatedBot.group.visible'), false, 'The watched ally model must not obstruct a camera inside its own head');
   const firstWatchedId = run('spectatedBot.id');
@@ -998,8 +1003,9 @@ async function main() {
   assert.equal(run('match.phase'), 'live'); assert.equal(run('match.round'), 1);
   assert.equal(run('match.score.blue+match.score.red'), 0, 'A practice session must not award elimination rounds');
   assert.equal(document.getElementById('timer').textContent, '∞');
-  keyDown('KeyB'); assert.equal(run('inventory.active'), 'phantom', 'B must change rifles during practice');
-  keyUp('KeyB'); keyDown('KeyB'); keyUp('KeyB');
+  keyDown('KeyB'); assert.equal(run('mode'), 'shop', 'B opens the complete free practice arsenal');
+  keyUp('KeyB');run("buy('atlas')");assert.equal(run('inventory.active'),'atlas');assert.equal(run('player.ammo'),5);
+  run("buy('vandal')");keyDown('KeyB');keyUp('KeyB');
   assert.equal(run('inventory.active'), 'vandal'); assert.equal(run('player.ammo'), 25);
   run('player.reserve=0;updatePlay(.05)'); assert.equal(run('player.reserve'), 75, 'Practice must replenish reserve ammunition');
   run('pauseGame(true)');
@@ -1045,8 +1051,8 @@ async function main() {
   assert.equal(run('bots[0].rangeTarget'), true);
   assert.equal(run('inventory.active'), 'vandal');
   assert.ok(document.getElementById('landmark-travel').children.every(button => button.disabled), 'A timed drill must disable practice teleport shortcuts');
-  keyDown('KeyB'); keyUp('KeyB'); assert.equal(run('inventory.active'), 'phantom');
-  keyDown('KeyB'); keyUp('KeyB'); assert.equal(run('inventory.active'), 'vandal');
+  keyDown('KeyB'); keyUp('KeyB');assert.equal(run('mode'),'shop');run("buy('phantom')");assert.equal(run('inventory.active'),'phantom');
+  run("buy('vandal')");keyDown('KeyB'); keyUp('KeyB'); assert.equal(run('inventory.active'), 'vandal');
   const firstRangeTarget = run('bots[0]');
   const aimRangeShot = height => run(`player.yaw=Math.atan2(player.x-bots[0].x,player.z-bots[0].z);player.pitch=Math.atan2(${height}-(1.7-player.crouch*.55+player.y),Math.hypot(bots[0].x-player.x,bots[0].z-player.z));player.recoil=0;renderedRecoil=0;shotSequence=0;elapsed+=.2;Math.random=()=>.5;shoot()`);
   // No manual matrix update: a click immediately after target creation must hit its real position.
@@ -1901,7 +1907,8 @@ async function main() {
   assert.equal(cycleRun('player.alive'), false); assert.equal(cycleRun('player.hp'), 0);
   assert.equal(cycleRun('interactionHeld||firing||aiming||keys.has("TouchCrouch")||touchLook!==null||movePointer!==null||touchMove.x!==0||touchMove.y!==0'), false, 'A guest death snapshot must release old desktop and mobile combat input');
   assert.equal(cycleRun('gun.visible'), false, 'A dead guest must lose its first-person weapon');
-  assert.equal(cycleElements.get('spectator-hint').hidden, false);
+  assert.equal(cycleElements.get('spectator-hint').hidden, true);
+  assert.equal(cycleElements.get('death-card').hidden, false,'Guest death must be explicitly announced before spectating');
   assert.equal(cycleRun('roster.find(record=>record.id===player.id).d'), 1, 'Repeated death damage must not count a second death');
   assert.equal(cycleRun('droppedWeapons.length'), 1, 'A remote death must create one synchronized weapon drop');
   assert.equal(cycleRun('droppedWeapons[0].weapon'), 'vandal'); assert.equal(cycleRun('droppedWeapons[0].ammo'), 7); assert.equal(cycleRun('droppedWeapons[0].reserve'), 19);
@@ -1922,7 +1929,7 @@ async function main() {
   assert.equal(cycleRun('detonationState'), null, 'A defused snapshot must never start an explosion on the guest');
   assert.equal(cycleRun('match.phase'), 'post'); assert.equal(cycleRun('match.score.blue'), 1); assert.equal(cycleRun('match.score.red'), 0);
   assert.equal(cycleElements.get('round-banner').hidden, false, 'A guest must see the authoritative post-round result');
-  assert.equal(cycleElements.get('round-banner').textContent, '閉米\nボンバーの電源オフ', 'A red guest must see its own loss when blue defuses');
+  assert.equal(cycleElements.get('round-banner').children.map(e=>e.textContent).join('\n'), '閉米\nボンバーの電源オフ', 'A red guest must see its own loss when blue defuses');
   assert.equal(cycleRun('interactionHeld||firing||reloading>0'), false, 'An authoritative post-round transition must release the guest trigger, F hold and reload');
   assert.equal(cycleElements.get('interaction').hidden, true, 'A completed round must immediately hide the guest interaction panel');
   const frozenPostTime = cycleRun('match.phaseTime'); cycleRun('updatePlay(.5)');
@@ -2017,7 +2024,7 @@ async function main() {
   assert.equal(run('blastSounds.length'), 1, 'A real local detonation must play its explosion sound once');
   const blastPacket = cycleSnapshot();
   assert.equal(cycleElements.get('round-banner').hidden, false);
-  assert.equal(cycleElements.get('round-banner').textContent, '開米\nボンバー起爆', 'A red guest must see its own win when red detonates the spike');
+  assert.equal(cycleElements.get('round-banner').children.map(e=>e.textContent).join('\n'), '開米\nボンバー起爆', 'A red guest must see its own win when red detonates the spike');
   assert.ok(blastPacket.detonation?.id, 'The host snapshot must include a persistent semantic detonation identity');
   assert.equal(blastPacket.detonation.round, blastPacket.rules.round);
   assert.ok(Number.isFinite(blastPacket.detonation.startedAt));
@@ -2200,7 +2207,7 @@ async function main() {
     assert.equal(cycleRun('takeoverState'), null, 'Invalid paint timing, identities and round changes must fail closed');
   }
   run('match.endRound("blue","elimination");handleMatchEvents()');
-  assert.match(document.getElementById('round-banner').textContent, /^開米/);
+  assert.match(document.getElementById('round-banner').children[0].textContent, /^開米/);
   run('match.nextRound();handleMatchEvents()'); cycleSnapshot();
   assert.equal(run('takeoverState'), null); assert.equal(cycleRun('takeoverState'), null, 'The next round must clear the shared NOPE effect');
   assert.equal(run('stationTakeover.group.visible'), false); assert.equal(cycleRun('stationTakeover.group.visible'), false);
@@ -2363,7 +2370,7 @@ async function main() {
     assert.equal(run('JSON.stringify({x:player.x,y:player.y,z:player.z,vy:player.vy,dashTimer:player.dashTimer})'), run('decoyOrigin'), 'NOPE E must place a face without moving or launching the caster');
     assert.equal(run('player.kit.armReadyAt'), null); assert.equal(run('player.kit.nextSignatureAt'), 10+NOPE_SKILLS.signatureCooldown);
     run("var secondDecoy=ordinarySkills.cast('nope-decoy',player,{x:2,y:0,z:15},elapsed,match.round)");
-    run(`Object.assign(player,{x:35,z:35});bots.filter(bot=>bot.team==='blue').forEach(bot=>{bot.x=-35;bot.z=35});
+    run(`Object.assign(player,{x:35,z:-35});bots.filter(bot=>bot.team==='blue').forEach(bot=>{bot.x=-35;bot.z=-35});
       ordinaryEnemy=bots.find(bot=>bot.id==='red-0');Object.assign(ordinaryEnemy,{x:0,z:10,rangeTarget:false,target:null,lastSeen:null,fire:999});ordinaryEnemy.group.rotation.y=0;
       elapsed=10.1;updateBots(.05);`);
     assert.equal(run('ordinaryEnemy.decoySeen.has(firstDecoy.id)'), true);
@@ -2855,7 +2862,7 @@ async function main() {
     assert.equal(run('unravelCast.type'),'frost-unravel');assertNear(run('player.kit.nextSignatureAt'),10.8+FROST_SKILLS.signatureCooldown);assertNear(run('actorSpeedScale(player)'),(1-(1-Math.min(.55,MEND_SKILLS.seedsSpeedScale,VEIL_SKILLS.rootsSpeedScale))*FROST_SKILLS.unravelSlowFraction),'Combined55/65/75% slows must first take their minimum, then receive one mitigation');
     run('updateOrdinarySkills();updateOrdinarySkills()');assertNear(run('actorSpeedScale(player)'),(1-(1-Math.min(.55,MEND_SKILLS.seedsSpeedScale,VEIL_SKILLS.rootsSpeedScale))*FROST_SKILLS.unravelSlowFraction),'Repeated frames must not compound mitigation into88.75%');assert.equal(run('ordinarySkills.movementScale(ordinaryActorView(player),elapsed)'),1,'Ribbon may not turn into an independent speed buff');
     run('elapsed=10.8+FROST_SKILLS.unravelDuration-.001;updateOrdinarySkills()');assertNear(run('actorSpeedScale(player)'),(1-(1-Math.min(.55,MEND_SKILLS.seedsSpeedScale,VEIL_SKILLS.rootsSpeedScale))*FROST_SKILLS.unravelSlowFraction));run('elapsed=10.8+FROST_SKILLS.unravelDuration;updateOrdinarySkills()');assertNear(run('actorSpeedScale(player)'),Math.min(.55,MEND_SKILLS.seedsSpeedScale,VEIL_SKILLS.rootsSpeedScale),'Mitigation must end exactly two seconds after casting even while slow fields remain');run('frostSlowSetup();activateAbility(player,"e")');
-    run('player.vz=-(5.4*1.15)*actorSpeedScale(player);keys.add("KeyW");frostAdvance(.4);keys.clear()');assertNear(20-run('player.z'),(5.4*1.15)*.4*(1-(1-Math.min(.55,MEND_SKILLS.seedsSpeedScale,VEIL_SKILLS.rootsSpeedScale))*FROST_SKILLS.unravelSlowFraction),'Steady normal walking must use the single mitigated speed rather than a dash or double mitigation');
+    run('elapsed+=FROST_SKILLS.slideDuration+.01;updateOrdinarySkills();player.vz=-(5.4*1.15)*actorSpeedScale(player);keys.add("KeyW");frostAdvance(.4);keys.clear()');assertNear(20-run('player.z'),(5.4*1.15)*.4*(1-(1-Math.min(.55,MEND_SKILLS.seedsSpeedScale,VEIL_SKILLS.rootsSpeedScale))*FROST_SKILLS.unravelSlowFraction),'Steady normal walking must use the single mitigated speed rather than a dash or double mitigation');
     run('player.y=.5;player.vy=0;actorSpeedScale(player);player.y=0;player.vy=0');assertNear(run('actorSpeedScale(player)'),Math.min(.55,MEND_SKILLS.seedsSpeedScale,VEIL_SKILLS.rootsSpeedScale),'Leaving support must end mitigation immediately and permanently');run('updateOrdinarySkills()');assertNear(run('actorSpeedScale(player)'),Math.min(.55,MEND_SKILLS.seedsSpeedScale,VEIL_SKILLS.rootsSpeedScale));
     run('frostOrdinarySetup();activateAbility(player,"e")');assert.equal(run('actorSpeedScale(player)'),1,'An unaffected runner must stay at100%, never130%');assert.equal(run('player.dashTimer'),0);assert.equal(run('player.vy'),0);
     for(const key of ['c','q','e']){run(`frostOrdinarySetup();for(let i=0;i<20;i++)ordinarySkills.cast('echo-tag',ordinaryActorView(player),{x:0,y:.12,z:13},elapsed,match.round);var frostCapKit=JSON.stringify(player.kit.snapshot());activateAbility(player,'${key}',{zonePoint:{x:0,y:0,z:12}})`);assert.equal(run('JSON.stringify(player.kit.snapshot())'),run('frostCapKit'),'The20-field bound must roll back C/Q stock and E cooldown atomically');assert.equal(run('ordinarySkills.events(elapsed).length'),20);}
@@ -2870,7 +2877,7 @@ async function main() {
     const relayFrost=()=>{cycleRun('tickOnline(.1)');sandbox.frostInput=JSON.parse(JSON.stringify(cycleRun('online.sent.at(-1)')));run('receiveNetPacket("friend",frostInput);updateRemoteActor(remoteFrost,.05)');return sandbox.frostInput;};
     const frostEInput=relayFrost();assertNear(run('actorSpeedScale(remoteFrost)'),(1-(1-Math.min(.55,MEND_SKILLS.seedsSpeedScale))*FROST_SKILLS.unravelSlowFraction));const frostApproved=positionSnapshot();assertNear(cycleRun('actorSpeedScale(player)'),(1-(1-Math.min(.55,MEND_SKILLS.seedsSpeedScale))*FROST_SKILLS.unravelSlowFraction));assert.equal(cycleRun('netActions.length'),0);
     sandbox.frostRepeated={...frostEInput,seq:frostEInput.seq+1};run('receiveNetPacket("friend",frostRepeated);updateRemoteActor(remoteFrost,.05)');cycleRun(`netSequence=${frostEInput.seq+1}`);assert.equal(run('ordinarySkills.events(elapsed).filter(event=>event.type==="frost-unravel").length'),1);assertNear(run('remoteFrost.kit.nextSignatureAt'),10.8+FROST_SKILLS.signatureCooldown);
-    run('netInputs.set("friend",{seq:101,connection:"frost-cap",round:match.round,received:elapsed,input:{x:10,z:20,y:0,yaw:0,pitch:0},actions:[]});updateRemoteActor(remoteFrost,.1)');assertNear(run('remoteFrost.x'),7*1.15*(1-(1-Math.min(.55,MEND_SKILLS.seedsSpeedScale))*FROST_SKILLS.unravelSlowFraction)*.1,'The actual host movement cap must apply one mitigation, not predictive guest speed');run('remoteFrost.x=0;netInputs.clear();elapsed=11');cycleRun('netHasSnapshot=false');positionSnapshot();assertNear(cycleRun('actorSpeedScale(player)'),(1-(1-Math.min(.55,MEND_SKILLS.seedsSpeedScale))*FROST_SKILLS.unravelSlowFraction),'A fresh guest restores the original remaining mitigation without recasting');
+    run('netInputs.set("friend",{seq:101,connection:"frost-cap",round:match.round,received:elapsed,input:{x:10,z:20,y:0,yaw:0,pitch:0},actions:[]});updateRemoteActor(remoteFrost,.1)');assertNear(run('remoteFrost.x'),FROST_SKILLS.slideStartSpeed*(1-(1-Math.min(.55,MEND_SKILLS.seedsSpeedScale))*FROST_SKILLS.unravelSlowFraction)*.1,'The actual host movement cap must apply one mitigation, not predictive guest speed');run('remoteFrost.x=0;netInputs.clear();elapsed=11');cycleRun('netHasSnapshot=false');positionSnapshot();assertNear(cycleRun('actorSpeedScale(player)'),(1-(1-Math.min(.55,MEND_SKILLS.seedsSpeedScale))*FROST_SKILLS.unravelSlowFraction),'A fresh guest restores the original remaining mitigation without recasting');
     cycleRun('player.y=.5;player.vy=0;actorSpeedScale(player);player.y=0;player.vy=0');assertNear(cycleRun('actorSpeedScale(player)'),Math.min(.55,MEND_SKILLS.seedsSpeedScale));positionSnapshot();assertNear(cycleRun('actorSpeedScale(player)'),Math.min(.55,MEND_SKILLS.seedsSpeedScale),'A stale host event may not revive locally ended ribbon after landing');
     cycleRun('netHasSnapshot=false');positionSnapshot();assertNear(cycleRun('actorSpeedScale(player)'),Math.min(.55,MEND_SKILLS.seedsSpeedScale),'A same-round fresh rejoin must not forget a locally ended ribbon ID');
     run('netInputs.set("friend",{seq:102,connection:"frost-air",round:match.round,received:elapsed,input:{x:10,z:20,y:.5,yaw:0,pitch:0},actions:[]});updateRemoteActor(remoteFrost,.1)');assert.equal(run('ordinarySkills.events(elapsed).some(event=>event.type==="frost-unravel")'),false,'The first authoritative airborne input must permanently end resistance');run('remoteFrost.x=0;remoteFrost.y=0;netInputs.clear();updateOrdinarySkills()');positionSnapshot();assertNear(cycleRun('actorSpeedScale(player)'),Math.min(.55,MEND_SKILLS.seedsSpeedScale));
@@ -2969,6 +2976,8 @@ async function main() {
       showMessage=function(title,description,seconds){if(title.includes('再使用可能'))feedbackReadyMessages.push({title,description,time:elapsed});return feedbackMessageOriginal(title,description,seconds)};
       function feedbackSetup(character){if(online)leaveOnline();onlinePlaying=false;mode='menu';$('agent-select').value=character;$('match-format').value='standard';startGame();startRound();
         elapsed=10;clearCombatInput();Object.assign(player,{x:0,z:20,y:0,vy:0,yaw:0,pitch:-.2,hp:40,alive:true,dashTimer:0});player.kit=new DuelistKit({character});inventory.primary='vandal';equip('vandal',true);player.ammo=4;player.reserve=5;
+        if(character==='onnara'){player.y=1;player.vy=2;}
+        if(character==='cat')addDrop({id:++dropSequence,weapon:'ghost',x:player.x,z:player.z-6,yaw:0,ammo:9,reserve:12});
         Object.assign(dashFeedback,{round:null,state:null,expires:0,charge:null,signatureAt:0});feedbackReadySounds.length=0;feedbackReadyMessages.length=0;updateAbilityFeedback();
       }`;
     run(feedbackInstrumentation);cycleRun(feedbackInstrumentation);
@@ -3043,7 +3052,7 @@ async function main() {
   // independent host/guest JSON state, rather than sharing actors or effects.
   {
     const characterHTML = fs.readFileSync(path.join(__dirname, 'public/play.html'), 'utf8');
-    const characterIds = ['duelist', 'nope', 'mend', 'echo', 'veil', 'ember', 'frost'];
+    const characterIds = ['duelist', 'nope', 'mend', 'echo', 'veil', 'ember', 'frost', 'duck', 'cat', 'car', 'nobi', 'japan', 'cap', 'urchin', 'onnara'];
     for (const id of ['agent-select', 'online-agent']) {
       const options = characterHTML.match(new RegExp(`<select[^>]*id="${id}"[^>]*>([\\s\\S]*?)</select>`))?.[1];
       assert.ok(options, `${id} must remain present`);

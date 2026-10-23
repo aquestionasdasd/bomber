@@ -8,7 +8,7 @@ const coordinate=value=>Number.isFinite(value)&&Math.abs(value)<=1000;
 const clock=value=>Number.isFinite(value)&&value>=0;
 const roundNumber=value=>Number.isSafeInteger(value)&&value>0;
 const position=actor=>actor&&coordinate(actor.x)&&coordinate(actor.z)&&(actor.y===undefined||coordinate(actor.y));
-const living=actor=>position(actor)&&identifier(actor.id)&&team(actor.team)&&actor.alive===true&&Number.isFinite(actor.hp)&&actor.hp>0&&actor.hp<=100;
+const living=actor=>position(actor)&&identifier(actor.id)&&team(actor.team)&&actor.alive===true&&Number.isFinite(actor.hp)&&actor.hp>0&&actor.hp<=1000;
 const copy=value=>({...value});
 const distance=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
 const pingKey=ping=>`${ping.eventId}:${ping.pulse}:${ping.targetId}`;

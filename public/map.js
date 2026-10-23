@@ -1,9 +1,17 @@
 import { createCollisionIndex } from './collision.js';
 import { SITE_AREAS } from './site-areas.js';
 import { TACTICAL_BUILDINGS, TACTICAL_PROP_MOVES, createTacticalMetadata } from './tactical-layout.js';
+import {createHirakataMap} from './hirakata-map.js';
+import {addHashimotoSurvey} from './station-survey-details.js';
+import {createTrcMap} from './trc-map.js';
+
+export const MAP_CATALOG=Object.freeze([{id:'hashimoto',name:'橋本駅'},{id:'hirakata',name:'枚方市駅'},{id:'trc',name:'TRC 同人音楽即売会'}]);
+export function normalizeMapId(id){return ['hirakata','trc'].includes(id)?id:'hashimoto';}
 
 // Hand-built two-site Hashimoto station arena. East +X, north -Z.
-export function createMap(THREE, scene) {
+export function createMap(THREE, scene, id='hashimoto') {
+  if(id==='trc')return createTrcMap(THREE,scene);
+  if(id==='hirakata')return createHirakataMap(THREE,scene);
   const world = new THREE.Group(); world.name = 'HASHIMOTO / North Exit Arena'; scene.add(world);
   const bounds = { minX: -82, maxX: 82, minZ: -82, maxZ: 82 };
   const colliders = [], railingColliders = [], surfaceColliders = [], mapShapes = [], ramps = [], batches = new Map();
@@ -19,6 +27,7 @@ export function createMap(THREE, scene) {
     metal: standard('#405965', .45, .42), edge: standard('#72888c', .48, .32), glass: standard('#345d70', .25, .36),
     glassLight: standard('#6c929f', .27, .3), glassShade: standard('#284957', .3, .26), teal: standard('#498d88'), green: standard('#3f8269'),
     coral: standard('#ed5968', .65), mutedCoral: standard('#bb6762'), yellow: standard('#e6c57d'), wood: standard('#9c8060'),
+    busYellow: standard('#dfbb61', .65), busRed: standard('#b54832', .6),
     terracotta: standard('#ab7767'), soil: standard('#4a5b4c'), leaf: standard('#5b7e62'), leafLight: standard('#81976c'), leafDark: standard('#416952'), trunk: standard('#7d6d56'),
     light: new THREE.MeshStandardMaterial({ color: '#fff1c7', emissive: '#ffe4a6', emissiveIntensity: .5, roughness: .6 }),
   };
@@ -317,7 +326,8 @@ export function createMap(THREE, scene) {
   for(const x of [49.1,56.8,64.5,74.7]){solid(x,1.45,-15.9,.72,2.9,.72,M.stone,{kind:'column',minimap:false});box(x,.18,-15.9,.98,.36,.98,M.concrete);}
 
   box(62,3.15,-16.6,28.6,.4,5.2,M.metal);box(62,3.4,-16.6,28.9,.1,5.4,M.teal);box(62,2.87,-14.1,26.8,.08,.15,M.light);
-  label('mewe','ミウィ橋本 / SHOPPING & DINING',62,17.3,-18.31,21.8,4.6,'#f1f0df','#294653');label('mewe','HASHIMOTO',47.51,16.9,-42,17.5,4.5,'#f1f0df','#294653',-Math.PI/2);
+  const meweSign=textMaterial((ctx,w,h)=>{ctx.fillStyle='#eeeae1';ctx.fillRect(0,0,w,h);ctx.textBaseline='middle';ctx.font='700 140px Arial';ctx.textAlign='right';ctx.fillStyle='#a53449';ctx.fillText('me',w/2,106);ctx.textAlign='left';ctx.fillStyle='#493c85';ctx.fillText('we',w/2,106);ctx.textAlign='center';ctx.fillStyle='#344653';ctx.font='32px "Meiryo",sans-serif';ctx.fillText('ミウィ橋本 / SHOPPING & DINING',w/2,210);});
+  plane(62,17.3,-18.31,21.8,4.6,meweSign).name='Survey / Mewe two-color wordmark';plane(47.51,16.9,-42,17.5,4.5,meweSign,0,-Math.PI/2);
   label('CAFE / 02','COFFEE · BAKERY',55.1,2.35,-18.25,6.5,.9,'#e7e8d2','#3f7770');label('DAILY GOODS','LIFE & STYLE',68.1,2.35,-18.25,6.5,.9,'#f1e4d7','#9b515a');banner(47.44,10.5,-49,3.6,7.8,-Math.PI/2);banner(71.5,11.5,-18.25,2.7,7.5);
   // Asymmetric retail islands establish three distinct fighting routes.
   solid(-30,3.3,25,26,6.6,34,brick,{kind:'building'});solid(-29,10.2,24,23.5,7.2,30,M.plaster,{kind:'building'});
@@ -406,7 +416,7 @@ export function createMap(THREE, scene) {
   for(const z of [-7,3,13,23]){solid(-66,2,z,.42,4,.42,M.metal,{kind:'column',minimap:false});box(-62.5,3.95,z,8.5,.08,.2,M.light);}label('橋本駅北口 1 · 2','BUS TERMINAL / NORTH EXIT',-62.3,3.6,25.33,9,1.2,'#ecedda','#3e6964');
   const wheelGeo=new THREE.CylinderGeometry(1,1,1,12);wheelGeo.rotateZ(Math.PI/2);
   function bus(x,z){solid(x,1.45,z,3.15,2.9,11.8,M.ivory,{kind:'vehicle'});box(x,2.95,z-.3,3,.3,10.8,M.ivory);box(x,1.03,z,3.22,.38,11.9,M.teal);box(x,.55,z,3.22,.22,11.9,M.metal);for(const side of [-1,1]){box(x+side*1.6,2.12,z-.2,.06,1.1,9.8,M.glassShade);for(let dz=-4.7;dz<5;dz+=1.8)box(x+side*1.65,2.1,z+dz,.08,1.15,.1,M.edge);for(const dz of [-3.6,3.7]){box(x+side*1.6,.64,z+dz,.3,.64,.64,M.black,0,0,wheelGeo);box(x+side*1.78,.64,z+dz,.05,.3,.3,M.edge,0,0,wheelGeo);}}box(x,2.05,z+5.96,2.8,1.25,.09,M.glassShade);box(x,2.95,z+5.94,2.6,.34,.1,M.black);for(const dx of [-1.1,1.1]){box(x+dx,.85,z+5.99,.4,.24,.1,M.light);box(x+dx,.85,z-5.99,.35,.2,.1,M.coral);}box(x,1.2,z+6.04,1.1,.22,.08,M.dark);label('橋本駅','HASHIMOTO',x,2.95,z+6.03,2.2,.3,'#e8d89e','#233b43');}
-  bus(-62.5,14.5);
+  const parkedBus={x:-62.5,z:14.5};bus(parkedBus.x,parkedBus.z);
   // Close cover has cap strips, inset panels and hardware rather than unadorned cubes.
   const assetStamp=textMaterial((ctx,w,h)=>{ctx.fillStyle='#415a64';ctx.fillRect(0,0,w,h);ctx.fillStyle='#c4d0c4';ctx.font='700 37px Arial';ctx.fillText('HASHIMOTO / TRANSIT',22,58);ctx.font='500 22px Arial';ctx.fillText('NORTH EXIT     HP–017',22,99);for(let x=w-138;x<w-24;x+=5){ctx.fillStyle='#d0d7c5';ctx.fillRect(x,22,2+(x%3),80);}},768,128),stampGeo=new THREE.PlaneGeometry(1,1);
   function crate(x,z,w=3.4,h=2,d=3,ry=0,mat=M.dark){
@@ -704,6 +714,13 @@ export function createMap(THREE, scene) {
     const mesh=new THREE.InstancedMesh(geometry,mat,entries.length);entries.forEach((matrix,index)=>mesh.setMatrixAt(index,matrix));
     mesh.instanceMatrix.needsUpdate=true;mesh.computeBoundingSphere();mesh.castShadow=mat!==wayfinding;mesh.receiveShadow=true;mesh.userData.solid=true;tacticalWorld.add(mesh);
   }
+  // Observed facade/ceiling trim has its own group and batches so the original
+  // walkable station and all existing mesh transforms remain independently auditable.
+  const surveyWorld=new THREE.Group();surveyWorld.name='Station survey / facade details';surveyWorld.userData.stationSurvey=true;world.add(surveyWorld);
+  const surveyBatches=new Map();batchTarget=surveyBatches;
+  const surveyDetails=addHashimotoSurvey({box,label:(...args)=>{const p=label(...args);p.userData.solid=false;p.raycast=()=>{};surveyWorld.add(p);return p;},M,parkedBus});
+  for(const{mat,geometry,entries}of surveyBatches.values()){const mesh=new THREE.InstancedMesh(geometry,mat,entries.length);entries.forEach((matrix,index)=>mesh.setMatrixAt(index,matrix));mesh.instanceMatrix.needsUpdate=true;mesh.computeBoundingSphere();mesh.castShadow=false;mesh.receiveShadow=true;mesh.userData.solid=false;mesh.raycast=()=>{};surveyWorld.add(mesh);}
+  batchTarget=batches;
   // The overhead station slab is still physical above the concourse, but the
   // plan now shows its outline rather than painting the ground passage shut.
   for(let i=0;i<colliders.length;i++){
@@ -716,5 +733,5 @@ export function createMap(THREE, scene) {
   world.updateMatrixWorld(true);
   const collision=createCollisionIndex(colliders);
   const rangeArea={spawn:{x:-20.75,z:-25.5,yaw:0},targets:[{x:-25.2,z:-38},{x:-20.75,z:-39},{x:-16.4,z:-40},{x:-23.7,z:-44.5},{x:-17.6,z:-45.5},{x:-25.2,z:-49.5},{x:-20.7,z:-50.5},{x:-16.4,z:-52.2}]};
-  return {world,bounds,colliders,collision,mapShapes,sites,teamSpawns,lanes,landmarks,zones,callouts,ramps,rangeArea,layout,spawn:{x:0,z:65,yaw:0},enemySpawns:teamSpawns.defend,spawnYaw:{attack:0,defend:1.93878},buyAreas:{attack:{x:0,z:65,radius:12},defend:{x:0,z:-72,radius:10}},combatBounds:bounds,menuCamera:{position:[-47,10,-4],target:[-31,6,-37]},origin:{lat:35.5949,lon:139.34497},stats:{mode:'arena',width:164,depth:164,area:26896,buildings:16+TACTICAL_BUILDINGS.length,sites:2,routes:3,collisionShapes:colliders.length,renderBatches:batches.size+tacticalBatches.size}};
+  return {world,bounds,colliders,collision,mapShapes,surveyDetails,sites,teamSpawns,lanes,landmarks,zones,callouts,ramps,rangeArea,layout,spawn:{x:0,z:65,yaw:0},enemySpawns:teamSpawns.defend,spawnYaw:{attack:0,defend:1.93878},buyAreas:{attack:{x:0,z:65,radius:12,minX:-82,maxX:82,minZ:18,maxZ:82},defend:{x:0,z:-72,radius:10,minX:-82,maxX:82,minZ:-82,maxZ:-2}},combatBounds:bounds,menuCamera:{position:[-47,10,-4],target:[-31,6,-37]},origin:{lat:35.5949,lon:139.34497},stats:{mode:'arena',width:164,depth:164,area:26896,buildings:16+TACTICAL_BUILDINGS.length,sites:2,routes:3,collisionShapes:colliders.length,renderBatches:batches.size+tacticalBatches.size+surveyBatches.size}};
 }

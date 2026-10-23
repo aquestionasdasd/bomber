@@ -48,7 +48,7 @@ async function main(){
     assert.equal(get('ability-q-count').textContent,'2/2');assert.equal(get('ability-e-count').textContent,'0/1');
     assert.ok(get('mobile-scan').attributes['aria-label'].endsWith('0/1'));
     kit.awardKill();ui.updateHUD(kit,1);assert.equal(get('ability-e-count').textContent,'READY');
-    for(const character of Object.keys(CHARACTER_DEFS).filter(id=>id!=='duelist')){const timed=new DuelistKit({character});assert.ok(timed.activate('e',0));ui.updateHUD(timed,1);assert.equal(get('ability-e-count').textContent,`${(character==='nope'||character==='veil'?15:18)-1}s`);}
+    for(const character of Object.keys(CHARACTER_DEFS).filter(id=>id!=='duelist')){const timed=new DuelistKit({character});assert.ok(timed.activate('e',0));ui.updateHUD(timed,1);assert.equal(get('ability-e-count').textContent,`${(character==='cap'?22:character==='duck'||character==='japan'?20:character==='nope'||character==='veil'?15:18)-1}s`);}
   });
   test('a long-range sunflower heal restores60HP and keeps the100HP cap',()=>heal(createCharacterSkills()));
   test('larger roots and outer frost annulus actually catch enemies beyond their old footprint, with walls and safe hole preserved',()=>{
@@ -85,7 +85,7 @@ async function main(){
   for(const [current,old,check]of variants){
     assert.ok(source.includes(current),`Expected mutation anchor ${current}`);
     const url='data:text/javascript;base64,'+Buffer.from(source.replace(current,old)).toString('base64');
-    const code=engineSource.replace("'./abilities.js'",JSON.stringify(url));const altered=await import('data:text/javascript;base64,'+Buffer.from(code).toString('base64'));
+    const code=engineSource.replace("'./abilities.js'",JSON.stringify(url)).replace("'./rules.js'",JSON.stringify(pathToFileURL(path.join(__dirname,'public/rules.js')).href));const altered=await import('data:text/javascript;base64,'+Buffer.from(code).toString('base64'));
     assert.throws(()=>check(altered.createCharacterSkills()),assert.AssertionError,`${old} must fail the actual gameplay assertion`);
   }
   const used=process.cpuUsage(cpu);console.log(JSON.stringify({groups,negativeControls:3,wallMs:performance.now()-started,cpuMs:(used.user+used.system)/1000}));

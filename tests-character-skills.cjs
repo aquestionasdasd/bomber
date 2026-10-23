@@ -17,13 +17,13 @@ async function main() {
   test('casts use canonical bounded data, unique IDs, strict actors, and separate six-meter decoy range', () => {
     const skills = createCharacterSkills(), owner = actor();
     const bottle = skills.cast({ type: 'nope-bottle', radius: 900 }, owner, target(0, -20), 5, 1);
-    assert.ok(bottle); assert.equal(bottle.radius, 5.5); assert.equal(bottle.flight, .55); assert.equal(bottle.triggerAt, 6); near(bottle.endsAt, 6.6);
+    assert.ok(bottle); assert.equal(bottle.radius, 8); assert.equal(bottle.flight, .55); assert.equal(bottle.triggerAt, 6); near(bottle.endsAt, 6.6);
     assert.equal(bottle.fromY, 1.7); assert.equal(bottle.round, 1); assert.equal(bottle.sourceId, owner.id);
-    assert.equal(skills.cast('nope-bottle', owner, target(0, -20.001), 5, 1), null);
+    assert.equal(skills.cast('nope-bottle', owner, target(0, -40.001), 5, 1), null);
     assert.equal(skills.cast('nope-decoy', owner, target(0, -6.001), 5, 1), null);
     const decoy = skills.cast('nope-decoy', owner, target(0, -6), 5, 1); assert.ok(decoy); assert.notEqual(decoy.id, bottle.id);
     assert.equal(decoy.endsAt, 17); assert.equal(decoy.flight, 0); assert.equal(decoy.radius, 0);
-    for (const bad of [{ ...owner, alive: false }, { ...owner, hp: 0 }, { ...owner, hp: 101 }, { ...owner, hp: '100' },
+    for (const bad of [{ ...owner, alive: false }, { ...owner, hp: 0 }, { ...owner, hp: 1000.01 }, { ...owner, hp: '100' },
       { ...owner, team: 'enemy' }, { ...owner, id: '' }, { ...owner, id: 'x'.repeat(65) }, { ...owner, x: NaN }, { ...owner, y: Infinity }]) {
       assert.equal(skills.cast('nope-bottle', bad, target(), 5, 1), null);
     }
@@ -52,7 +52,7 @@ async function main() {
 
   test('bottle fuse samples once, falls off with distance, respects cover and height, and never damages friends or dead actors', () => {
     const skills = createCharacterSkills(), owner = actor(); skills.cast('nope-bottle', owner, target(0, -5), 0, 1);
-    const enemies = [actor('center', 'red', 0, -5), actor('half', 'red', 2.75, -5), actor('edge', 'red', 5.5, -5),
+    const enemies = [actor('center', 'red', 0, -5), actor('half', 'red', 4, -5), actor('edge', 'red', 8, -5),
       actor('above', 'red', 0, -5, { y: 2.5 }), actor('too-high', 'red', 0, -5, { y: 2.501 }),
       actor('blocked', 'red', 0, -5), actor('dead', 'red', 0, -5, { hp: 0, alive: false }), actor('friend', 'blue', 0, -5)];
     assert.deepEqual(skills.update(enemies, .999999, 1, allReach), []);
@@ -75,7 +75,7 @@ async function main() {
   test('flash needs visible facing eyes but intentionally includes the caster and teammates', () => {
     const skills = createCharacterSkills(), owner = actor(), flash = skills.cast('nope-flash', owner, target(0, -5, 1.7), 0, 1);
     const observers = [owner, actor('enemy', 'red'), actor('friend', 'blue'), actor('away', 'red', 0, 0, { yaw: Math.PI }),
-      actor('blocked', 'red'), actor('edge', 'red', 0, 7), actor('too-far', 'red', 0, 7.001),
+      actor('blocked', 'red'), actor('edge', 'red', 0, 25), actor('too-far', 'red', 0, 25.001),
       actor('dead', 'red', 0, 0, { alive: false, hp: 0 }), actor('side', 'red', 0, 0, { yaw: Math.PI / 2 })];
     assert.deepEqual(skills.update(observers, .449, 1, allReach), []);
     const hits = skills.update(observers, .45, 1, { reachable: (_, other) => other.id !== 'blocked' });
@@ -182,7 +182,7 @@ async function main() {
       assert.equal(selectMendTarget(owner, allies, reach), null);
       const self = { ...owner, hp: 40 }; assert.equal(selectMendTarget(self, allies, reach).id, 'caster', 'Self healing requires no wall query');
     }
-    for (const bad of [{ ...owner, alive: false }, { ...owner, hp: 0 }, { ...owner, hp: 101 }, { ...owner, x: NaN }, { ...owner, id: '' }]) assert.equal(selectMendTarget(bad, allies, () => true), null);
+    for (const bad of [{ ...owner, alive: false }, { ...owner, hp: 0 }, { ...owner, hp: 1000.01 }, { ...owner, x: NaN }, { ...owner, id: '' }]) assert.equal(selectMendTarget(bad, allies, () => true), null);
   });
 
   test('MEND no-target precheck preserves the free signature, while a valid cast consumes exactly one eighteen-second charge', () => {
@@ -706,7 +706,7 @@ async function main() {
     assert.equal(elevated.speedScale({ ...enemy, y: 3.2 }, .8, flat(3.2)), .45); assert.equal(elevated.speedScale(enemy, .8, flat(0)), 1, 'An upstairs ring cannot slow the floor below');
     assert.equal(elevated.speedScale({ ...enemy, y: 3.2 }, .8, flat(0)), 1, 'An airborne pose above lower support is not considered on the upper floor');
   });
-  test('FROST unravel leaves only fifteen percent of the already combined slowdown and never creates movement acceleration or changes actor state', () => {
+  test('FROST mitigation leaves fifteen percent of combined slowdown without changing the separate normal movement scale or actor state', () => {
     const owner = actor('doll', 'blue', 2, -5, { grounded: true }), engine = createCharacterSkills(), before = json(owner);
     engine.cast('frost-unravel', owner, target(2, -5), 0, 1);
     for (const [raw, expected] of [[1, 1], [.55, .9325], [.65, .9475], [.75, .9625], [0, .85]]) near(engine.mitigateSlow(owner, raw, .1), expected);
@@ -835,7 +835,7 @@ async function main() {
   const actualSource = fs.readFileSync(path.join(__dirname, 'public/character-skills.js'), 'utf8');
   async function memoryEngine(before, after) {
     assert.ok(actualSource.includes(before), 'The negative control must change an actual source expression');
-    const source = actualSource.replace(before, after).replace("from './abilities.js'", `from ${JSON.stringify(pathToFileURL(path.join(__dirname, 'public/abilities.js')).href)}`);
+    const source = actualSource.replace(before, after).replace(/from '(\.\/[a-z-]+\.js)'/g, (_, file) => `from ${JSON.stringify(pathToFileURL(path.join(__dirname, 'public', file)).href)}`);
     return import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'));
   }
   const arcMutant = await memoryEngine("event.type === 'duelist-comet' ? 0 :", "event.type === 'duelist-comet' ? .8 :");
