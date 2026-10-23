@@ -5,6 +5,7 @@ const faults=[
  ['old incomplete tick','function advanceMeasuredRound(dt){updatePlay(dt);}','function advanceMeasuredRound(dt){elapsed+=dt;for(const bot of bots)bot.kit.tick(elapsed);updateTeamAbilities();updateBots(dt);updateTraffic(dt);}'],
  ['double simulation clock','function advanceMeasuredRound(dt){updatePlay(dt);}','function advanceMeasuredRound(dt){elapsed+=dt;updatePlay(dt);}'],
  ['lost hit attribution','stat.ramHits++;stat.ramDamage+=actual;','stat.ramHits+=0;stat.ramDamage+=0;'],
+ ['lost actual solder damage','stat.solderDamage=(stat.solderDamage||0)+actual;','stat.solderDamage=(stat.solderDamage||0)+0;'],
  ['lost objective accounting',"if(e.type==='planted'){bench.plants++;","if(e.type==='planted'){bench.plants+=0;"],
 ];
 const source=fs.readFileSync('scripts/bot-balance.cjs','utf8');

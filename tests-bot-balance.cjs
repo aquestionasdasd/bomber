@@ -68,6 +68,13 @@ const suite=String.raw`
    assert.equal(h.run("activateAbility(player,'x')"),undefined);
    assert.equal(h.run('bench.actors.player.clockCasts'),undefined);assert.equal(h.run('player.kit.ultPoints'),7);
  });
+ check('EMBER C counts actual armor and HP loss once, separating ultimate and requested overkill',()=>{
+   setup();h.run("player.kit=new DuelistKit({character:'ember'});player.kit.smoke=2;enemy.z=-16;enemy.armor=50;enemy.hp=30;bench.actors.player.character='ember';activateAbility(player,'c',{zonePoint:{x:0,z:-16},aim:{yaw:0,pitch:0}})");
+   tick(84);near(h.run('bench.actors.player.solderDamage'),75,'real C armor+HP loss');assert.equal(h.run('bench.actors.player.solderHits'),1);assert.equal(h.run('bench.actors.player.solderKills||0'),0);
+   h.run("damageEntity(enemy,1000,player,{skill:'ember'})");near(h.run('bench.actors.player.solderDamage'),75,'non-ordinary damage excluded');assert.equal(h.run('bench.actors.player.solderHits'),1);
+   setup();h.run("player.kit=new DuelistKit({character:'ember'});player.kit.smoke=2;enemy.z=-16;enemy.hp=10;bench.actors.player.character='ember';activateAbility(player,'c',{zonePoint:{x:0,z:-16},aim:{yaw:0,pitch:0}})");tick(84);near(h.run('bench.actors.player.solderDamage'),10,'overkill excluded');assert.equal(h.run('bench.actors.player.solderKills'),1);
+   setup();h.run("player.kit=new DuelistKit({character:'ember'});bench.disabled='c';activateAbility(player,'c',{zonePoint:{x:0,z:-16},aim:{yaw:0,pitch:0}})");tick(84);assert.equal(h.run('bench.actors.player.solderHits'),undefined);
+ });
  console.log('PASS: '+groups+' measurement pipeline/clock/contact/ablation/collision/accounting/objective groups; audio inert');
 }
 main().catch(e=>{console.error(e);process.exitCode=1;});

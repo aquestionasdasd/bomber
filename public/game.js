@@ -53,7 +53,7 @@ import { createBuildingCollapse } from './building-collapse.js';
 import { createStationTakeover } from './station-takeover.js';
 import { createKeyboardProtection } from './keyboard-protection.js';
 import { getCharacterSkill } from './abilities.js';
-import { createCharacterSkills, skillProjectilePosition, selectMendTarget } from './character-skills.js';
+import { CHARACTER_SKILLS, createCharacterSkills, skillProjectilePosition, selectMendTarget } from './character-skills.js';
 import { createCharacterSkillUI } from './character-skill-ui.js';
 import { createNopeSkillFX } from './nope-skill-fx.js';
 import { createNopeDecoys } from './nope-decoys.js';
@@ -2492,7 +2492,15 @@ function updateBots(dt){
         const dist=distance(bot,known),aim={yaw:Math.atan2(bot.x-known.x,bot.z-known.z),pitch:0};
         const seenFlash=ordinarySkills.events(elapsed).some(event=>['nope-flash','echo-glint'].includes(event.type)&&event.team!==bot.team&&event.triggerAt>elapsed&&distance(bot,event)<9&&map.collision.rayClear(bot.x,(bot.y||0)+1.6,bot.z,event.x,event.y,event.z));
         if(bot.kit.updraft>0&&(seenFlash||enemy&&dist<12&&bot.hp<70))cast=activateAbility(bot,'q');
-        if(!cast&&dist>=3&&dist<=14&&bot.kit.smoke>0)cast=activateAbility(bot,'c',{zonePoint:known,aim});
+        if(!cast&&dist>0&&dist<=EMBER_SKILLS.solderRange&&bot.kit.smoke>0){
+          // Judge the real clipped arc, not just the enemy's distance. A wall
+          // or another floor can leave the molten burst unable to reach them.
+          const spot={x:known.x,y:known.y??bot.y??0,z:known.z};
+          const landing=getSkillTarget(bot,'ember-solder',spot,aim);
+          if(landing&&distance(landing,spot)<EMBER_SKILLS.solderRadius&&
+            Math.abs(spot.y-(landing.y-EMBER_SKILLS.solderGroundOffset))<=CHARACTER_SKILLS.heightTolerance&&
+            ordinaryReachable({type:'ember-solder',...landing},spot))cast=activateAbility(bot,'c',{zonePoint:spot,aim});
+        }
       }
       bot.nextSkillAt=elapsed+(cast?2:.4);
     }
