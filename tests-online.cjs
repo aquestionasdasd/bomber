@@ -482,6 +482,23 @@ async function main() {
       assert.ok(Buffer.byteLength(JSON.stringify(crouched))<=65536);clock+=200;assert.equal((await send(host,'team:red','game',crouched)).status,201);
       console.log(`CROUCH10 /4queued buses /82 destroyed /full skills ${Buffer.byteLength(JSON.stringify(crouched))}B /65536B; authoritative posture retained`);
 
+      // Buy-only previous-round reports do not grow a live combat snapshot.
+      assert.equal(snapshot.damageReport,undefined);
+      const {createRoundDamageTracker}=await load('combat-report.js');
+      const reports=createRoundDamageTracker();reports.begin(1,roster);
+      for(const victim of roster)for(const killer of [null,...roster])reports.record(1,victim.id,killer?.id,10000000);
+      reports.finish(1);sandbox.roundDamage=reports;sandbox.match.phase='buy';sandbox.match.round=2;
+      sent.length=0;vm.runInContext('tickOnline(.1)',sandbox);
+      assert.equal(sent.length,2);assert.ok(sent.every(s=>s.packet.damageReport[1].length===80));
+      for(const {packet}of sent){assert.ok(Buffer.byteLength(JSON.stringify(packet))<=65536);assert.equal(packet.rules.phase,'buy');}
+      const buyFull={...crouched,rules:{...crouched.rules,phase:'buy',round:2},damageReport:reports.snapshot('red',2)};
+      const buyFit=fitTrafficSnapshot(buyFull);assert.ok(buyFit);assert.deepEqual(buyFit.damageReport,buyFull.damageReport);assert.deepEqual(buyFit.actors,buyFull.actors);assert.deepEqual(buyFit.ordinarySkills,buyFull.ordinarySkills);assert.deepEqual(buyFit.busTransit,buyFull.busTransit);
+      assert.ok(createRoundDamageTracker().restore(buyFit.damageReport,roster,2,'red'));
+      clock+=200;assert.equal((await send(host,'team:red','game',buyFit)).status,201);
+      const damageDelivery=await getMessages(guest);assert.deepEqual(damageDelivery.value.messages.at(-1).data.damageReport,buyFit.damageReport);
+      console.log(`DAMAGE REPORT80 /10actors /4queued /full effects buy ${Buffer.byteLength(JSON.stringify(buyFit))}B /65536B; no authority/report removed`);
+
+
 
 
     });
