@@ -41,9 +41,9 @@ async function main(){
   console.log('PASS: actual settings bindings/defaults/percentage/selection/status/clear; all media mocked, no sound');
   let saved;
   const saveStart=source.indexOf('function saveSettings()'),saveEnd=source.indexOf('\nfor(const id of',saveStart);
-  const settingsContext=vm.createContext({sensitivity:.35,volume:.45,victoryMusicEnabled:false,victoryMusicVolume:.25,selectedCharacter:()=> 'nope',localStorage:{setItem(key,value){assert.equal(key,'hashimoto-settings');saved=JSON.parse(value);}}});
+  const settingsContext=vm.createContext({map:{id:"hashimoto"},sensitivity:.35,volume:.45,victoryMusicEnabled:false,victoryMusicVolume:.25,selectedCharacter:()=> 'nope',localStorage:{setItem(key,value){assert.equal(key,'hashimoto-settings');saved=JSON.parse(value);}}});
   vm.runInContext(source.slice(saveStart,saveEnd)+'\nsaveSettings();',settingsContext);
-  assert.deepEqual(saved,{sensitivity:.35,volume:.45,victoryMusicEnabled:false,victoryMusicVolume:.25,lookVersion:2,character:'nope'});
+  assert.deepEqual(saved,{mapId:"hashimoto",sensitivity:.35,volume:.45,victoryMusicEnabled:false,victoryMusicVolume:.25,lookVersion:2,character:'nope'});
   assert.doesNotMatch(JSON.stringify(saved),/blob:|\.mp3|\.ogg/,'Only preferences persist, never selected file data or local URLs');
   console.log('PASS: actual settings serialization retains sensitivity/character and stores only BGM preferences');
 }

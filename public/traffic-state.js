@@ -4,7 +4,7 @@ export function trafficMarker(value,now){
  return{seq:value[0],endsAt:value[1],vx:value[2],vz:value[3],vy:value[4]};
 }
 // Keep authoritative game state intact. Only old, repeatable sound/flash cues
-// may be omitted if ten simultaneous environmental launches fill the wire cap.
+// may be omitted if environmental launches or a post-round result fill the cap.
 export function fitTrafficSnapshot(packet){
  const bytes=p=>new TextEncoder().encode(JSON.stringify(p)).length;
  if(bytes(packet)<=65536)return packet;

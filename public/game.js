@@ -1,3 +1,4 @@
+import { createFullComboTracker, renderRoundBanner } from './full-combo.js';
 import { ONNARA_SKILLS } from './abilities.js';
 import { createOnnaraSkillFX } from './onnara-skill-fx.js';
 import { createOrbView } from './onnara-orb-view.js';
@@ -155,6 +156,7 @@ player.kit=new DuelistKit();
 const smokes=[];let smokeSequence=0,netHostPaused=false;
 let match = null;
 let lastRoundAudio='';
+const fullComboTracker=createFullComboTracker();
 let exploring = false;
 let rangeSession=null,rangeRespawn=0;
 let objectivePractice=null;
@@ -665,6 +667,7 @@ function damageEntity(entity,amount,killer,{firearm=false,returned=false,chain=t
   if(returnScale){const actual=Math.max(0,healthBefore-entity.hp)+Math.max(0,armorBefore-entity.armor);if(actual>0)damageEntity(killer,actual*returnScale,entity,{returned:true});}
   if(firearm&&chain&&!returned&&killer?.alive&&ordinarySkills.onnaraEvent?.('onnara-chain',killer.id,elapsed)){const actual=Math.max(0,healthBefore-entity.hp)+Math.max(0,armorBefore-entity.armor);const next=actual>0?constellationTarget(entity,killer,[player,...bots],visibleBetween):null;if(next){const from=new THREE.Vector3(entity.x,(entity.y||0)+1.2,entity.z),to=new THREE.Vector3(next.x,(next.y||0)+1.2,next.z);ordinarySkills.recordConstellation(killer.id,from,to,elapsed);damageEntity(next,actual*ONNARA_SKILLS.chainScale,killer,{chain:false});}}
   if(entity.hp>0)return;
+  fullComboTracker.record(match.round,entity,killer);
   entity.alive=false;cancelServiceReload(entity);entity.kit?.awardPoint();const record=recordOf(entity);if(record)record.d++;
   match.dropSpike(entity.id,entity.x,entity.z);match.cancelPlant(entity.id);match.cancelDefuse(entity.id);
   const item=entity===player?inventory.primary:record?.primary;dropItem(item,entity);
@@ -677,13 +680,12 @@ function showRoundResult(team,reason,{audible=true}={}){
   syncVictoryMusic();victoryMusic.result({key,won:team===player.team,audible:audible&&match?.phase==='post'&&!netHostPaused&&mode!=='pause'});
   if(lastRoundAudio!==key){lastRoundAudio=key;if(audible&&match?.phase==='post'&&!match.winner)sound(team===player.team?'round-win':'round-loss');}
   const banner=$('round-banner');if(!banner)return;
-  const reasons={elimination:'相手チームを全滅',timeout:'設置前にラウンド時間終了',detonation:'ボンバー起爆',defuse:'ボンバーの電源オフ'},won=team===player.team;
-  banner.textContent=`${won?'開米':'閉米'}\n${reasons[reason]||''}`;banner.classList.toggle('defeat',!won);setVisible('round-banner',true);
+  renderRoundBanner(banner,{document,match,roster,viewerTeam:player.team,team,reason});setVisible('round-banner',true);
 }
 function handleMatchEvents(){
   if(!match)return;
   for(const event of match.drainEvents()){
-    if(event.type==='live'){buyBarrier.visible=false;if(mode==='shop')resumeGame();showMessage(sideNames[match.side],match.side==='attack'?'A/Bサイトで F を4秒長押しして設置':'設置を阻止 · 設置されたら F を7秒長押しで電源オフ',3);}
+    if(event.type==='live'){if(!exploring&&!rangeSession&&!objectivePractice)fullComboTracker.begin(match.round,[player,...bots]);buyBarrier.visible=false;if(mode==='shop')resumeGame();showMessage(sideNames[match.side],match.side==='attack'?'A/Bサイトで F を4秒長押しして設置':'設置を阻止 · 設置されたら F を7秒長押しで電源オフ',3);}
     if(event.type==='planted'){
       const planter=event.actorId==='player'?player:bots.find(b=>b.id===event.actorId);planter?.kit?.awardPoint();
       showMessage('BOMBER PLANTED',`${event.site}サイト · 起爆まで45秒`,3);sound('plant',{entity:match.spike});lastSpikeBeep=0;
@@ -693,6 +695,8 @@ function handleMatchEvents(){
     if(event.type==='defused'){sound('defuse',{entity:match.spike});const defuser=event.actorId==='player'?player:bots.find(b=>b.id===event.actorId);defuser?.kit?.awardPoint();}
     if(event.type==='detonated')startDetonation({id:`${match.round}:${elapsed.toFixed(6)}`,round:match.round,startedAt:elapsed,x:match.spike.x,z:match.spike.z,seed:(Math.imul(match.round,16807)+Math.floor(elapsed*1000))>>>0});
     if(event.type==='round-end'){
+      const comboId=fullComboTracker.winner(match.round,event.team),comboSeat=roster.findIndex(r=>r.id===comboId);
+      if(match.lastRound&&comboSeat>=0)match.lastRound.fullCombo=comboSeat;
       clearCombatInput();reloading=0;
       resetZoneAbilities();
       showRoundResult(event.team,event.reason);
@@ -733,6 +737,7 @@ function spawnRound(reset=false) {
   deathView.reset();syncDeathUI();
   resetTraffic();
   victoryMusic.stop();lastRoundAudio='';
+  fullComboTracker.reset();delete $('round-banner').dataset.roundResult;
   clearCombatInput();
   resetDetonation();
   resetTakeover();
@@ -895,6 +900,7 @@ function resumeGame() {
   clearCombatInput();mode='play';for(const id of ['pause-menu','map-overlay','shop-overlay','scoreboard'])setVisible(id,false);audioInit();requestLock();
 }
 function backMenu() {
+  fullComboTracker.reset();
   deathView.reset();syncDeathUI();
   resetTraffic();victoryMusic.reset();
   if(online){leaveOnline();return;}
@@ -2811,8 +2817,9 @@ function tickOnline(dt){
   if(!onlinePlaying||!online||!match)return;netClock+=dt;if(netClock<.065)return;netClock=0;
   if(online.host){
     const rules={format:match.format,startingSide:match.startingSide,round:match.round,score:{...match.score},phase:match.phase,phaseTime:match.phaseTime,roundTime:match.roundTime,winner:match.winner,lastRound:match.lastRound?{...match.lastRound}:null,spike:{...match.spike}};
+    if(rules.lastRound&&match.phase!=='post')delete rules.lastRound.fullCombo;
     const teamState=teamAbilities.snapshot(),packet={type:'snapshot',mapId:map.id||'hashimoto',seq:++netSequence,time:elapsed,paused:netHostPaused,cues:serializeNetCues(),smokes:serializeSmokes(),drops:serializeDrops(),detonation:detonationState?{...detonationState}:null,takeover:takeoverState?{...takeoverState}:null,zoneAbilities:zoneAbilities.snapshot(),rules,roster:roster.map(r=>({...r,kit:r.kit?.snapshot()})),actors:[player,...bots].map(captureNetActor),acks:Object.fromEntries(netApplied),positionAcks:Object.fromEntries(bots.filter(b=>b.remoteId&&b.netPositionAck).map(b=>[b.remoteId,{...b.netPositionAck}]))};
-    for(const team of ['blue','red']){let state={...packet,teamAbilities:{...teamState,pings:teamState.pings.filter(ping=>ping.observerTeam===team)},ordinarySkills:ordinarySkills.snapshot(team),nopeDecoys:nopeDecoys.snapshot(),nopePops:serializeNopePops()};if(map.traffic)state=fitTrafficSnapshot(state);if(state)online.send(state,{team});}
+    for(const team of ['blue','red']){let state={...packet,teamAbilities:{...teamState,pings:teamState.pings.filter(ping=>ping.observerTeam===team)},ordinarySkills:ordinarySkills.snapshot(team),nopeDecoys:nopeDecoys.snapshot(),nopePops:serializeNopePops()};if(map.traffic||match.phase==='post')state=fitTrafficSnapshot(state);if(state)online.send(state,{team});}
   }else if(netHasSnapshot){
     const seq=++netSequence,input={x:player.x,z:player.z,y:player.y,yaw:player.yaw,pitch:player.pitch,crouch:player.crouch,quiet:keys.has('ShiftLeft')||keys.has('ShiftRight'),interact:mode==='play'&&interactionHeld};
     netPositionHistory.set(seq,{x:input.x,z:input.z,correctionX:netPositionCorrectionX,correctionZ:netPositionCorrectionZ});while(netPositionHistory.size>128)netPositionHistory.delete(netPositionHistory.keys().next().value);
