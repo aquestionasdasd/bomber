@@ -2187,9 +2187,18 @@ function updateBots(dt){
       const known=enemy||(bot.lastSeen&&elapsed-bot.lastSeen.seenAt<1?bot.lastSeen:null),watch=known||role?.watch||goal;
       const rawSlow=Math.min(zoneAbilities.speedMultiplier(bot,elapsed),ordinarySkills.speedScale(ordinaryActorView(bot),elapsed,{reachable:ordinaryReachable,groundHeight:ordinaryGroundHeight}));let cast=null;
       if(rawSlow<1&&goal&&distance(bot,goal)>2&&bot.kit.dash>0)cast=activateAbility(bot,'e');
-      if(!cast&&known&&bot.kit.updraft>0&&(bot.hp<65||role?.urgent)){
-        const dist=distance(bot,known),screen={x:bot.x+(known.x-bot.x)*.6,z:bot.z+(known.z-bot.z)*.6},aim={yaw:Math.atan2(bot.x-known.x,bot.z-known.z),pitch:0};
-        if(dist>5&&dist<20&&!activeOrdinarySmokeFields().some(event=>event.team===bot.team&&distance(event,screen)<event.radius))cast=activateAbility(bot,'q',{zonePoint:screen,aim});
+      if(!cast&&known&&bot.kit.updraft>0){
+        const dist=distance(bot,known),goalDistance=goal?distance(bot,goal):0;
+        // Cover a nearby plant/recovery/defuse location, not every long-range
+        // duel: indiscriminate forward fog also cuts off supporting gunfire.
+        // Only a live sighting can request this objective use; memory alone
+        // retains the existing short-range wounded/emergency behaviour.
+        const advancing=enemy&&!(bot.aiReload>0)&&goal&&['plant','recover','defuse'].includes(role?.role)&&goalDistance>2.5&&goalDistance<=FROST_SKILLS.mistRange&&(role?.urgent||dist>25);
+        const emergency=dist<20&&(bot.hp<65||role?.urgent);
+        const reach=Math.min(dist*.6,FROST_SKILLS.mistRange-.5),fraction=dist>0?reach/dist:0;
+        const screen=advancing?{x:goal.x,z:goal.z}:{x:bot.x+(known.x-bot.x)*fraction,z:bot.z+(known.z-bot.z)*fraction},aim={yaw:Math.atan2(bot.x-screen.x,bot.z-screen.z),pitch:0};
+        const covered=ordinarySkills.events(elapsed).some(event=>event.team===bot.team&&['mend-pollen','veil-dust','frost-mist','duelist-comet'].includes(event.type)&&distance(event,screen)<event.radius);
+        if(dist>5&&!covered&&(emergency||advancing&&navigation.nearest(goal.x,goal.z)&&navigation.path(bot.x,bot.z,goal.x,goal.z).length))cast=activateAbility(bot,'q',{zonePoint:screen,aim});
       }
       if(!cast&&watch&&bot.kit.smoke>0){
         const dist=distance(bot,watch),aim={yaw:Math.atan2(bot.x-watch.x,bot.z-watch.z),pitch:0};
