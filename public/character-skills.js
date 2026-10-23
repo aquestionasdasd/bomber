@@ -37,7 +37,7 @@ const specs = Object.freeze({
  'cat-clock':Object.freeze({flight:0,delay:0,tail:CAT_SKILLS.clockDuration,radius:0}),
   'duck-seal':Object.freeze({flight:0,delay:0,tail:DUCK_SKILLS.sealDuration,radius:0}),
   'duck-shield':Object.freeze({flight:0,delay:0,tail:DUCK_SKILLS.shieldDuration,radius:0}),
-  'duck-hush':Object.freeze({flight:0,delay:0,tail:DUCK_SKILLS.hushDuration,radius:0}),
+  'duck-hush':Object.freeze({flight:0,delay:0,tail:DUCK_SKILLS.flightDuration,radius:0}),
   'duck-egg':Object.freeze({flight:0,delay:0,tail:DUCK_SKILLS.eggDuration,radius:0}),
   'duelist-comet': Object.freeze({ flight: DUELIST_SKILLS.cometFlight, delay: DUELIST_SKILLS.cometFlight, tail: DUELIST_SKILLS.cometDuration, radius: DUELIST_SKILLS.cometRadius }),
   'duelist-lift': Object.freeze({ flight: 0, delay: 0, tail: DUELIST_SKILLS.liftVisualDuration, radius: 0 }),
@@ -480,7 +480,7 @@ export function createCharacterSkills() {
   function cancelCatEvent(id){if(!owned.has(id)||!active.get(id)?.type.startsWith('cat-'))return false;active.delete(id);owned.delete(id);return true;}
   function clockFrozen(now){return !!viewTime(now)&&[...active.values()].some(e=>e.type==='cat-clock');}
   function sealUntil(actorId,now){if(!identifier(actorId)||!viewTime(now))return 0;let until=0;for(const e of active.values())if(e.type==='duck-seal'&&e.targetId===actorId)until=Math.max(until,e.endsAt);return until;}
-  function quiet(actorId,now){return identifier(actorId)&&viewTime(now)&&[...active.values()].some(e=>e.type==='duck-hush'&&e.sourceId===actorId);}
+  function quiet(actorId,now){return identifier(actorId)&&viewTime(now)&&[...active.values()].some(e=>e.type==='duck-hush'&&e.sourceId===actorId&&currentTime<e.startedAt+DUCK_SKILLS.hushDuration);}
   function guardLethal(actorId,now,round){
     if(!identifier(actorId)||!advance(now,round))return false;
     for(const[id,e]of active)if(e.type==='duck-egg'&&e.sourceId===actorId&&owned.has(id)&&e.power>0){if(--e.power===0){active.delete(id);owned.delete(id);}return true;}return false;

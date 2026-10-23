@@ -15,6 +15,8 @@ export function createDuckSkillFX(THREE){
       mesh(root,ring,gold,[0,1,0],[1.5,2.2,1]);
     }else if(e.type==='duck-seal'){
       for(const side of[-1,1]){const f=mesh(root,ball,gold,[0,1.95,0],[.045,.21,.025]);f.rotation.z=side*.65;}
+     }else if(e.type==='duck-hush'){
+      for(const side of[-1,1]){const wing=mesh(root,ball,gold,[side*.52,1.25,0],[.48,.055,.2]);wing.name='Duck flight wing';wing.userData.side=side;}
     }else for(const side of[-1,1])mesh(root,ring,green,[side*.13,.07,0],[.35,.35,.35]).rotation.x=Math.PI/2;
     return{root,meter,owned:[...root.children].map(o=>o.material).filter(m=>m!==green&&m!==gold)};
   }
@@ -23,6 +25,7 @@ export function createDuckSkillFX(THREE){
     const a=actors.find(a=>a.id===(e.type==='duck-seal'?e.targetId:e.sourceId));
     v.root.position.set(e.type==='duck-shield'?e.x:a?.x??e.x,e.type==='duck-shield'?e.y:a?.y??e.y,e.type==='duck-shield'?e.z:a?.z??e.z);v.root.rotation.y=e.yaw||0;
     if(v.meter)v.meter.scale.x=1.5*e.power/180;
+    if(e.type==='duck-hush')for(const wing of v.root.children)wing.rotation.z=wing.userData.side*Math.sin((now-e.startedAt)*18)*.65;
   }for(const[id,v]of visuals)if(!ids.has(id)){v.root.removeFromParent();for(const m of v.owned){m.dispose();materials.delete(m);}visuals.delete(id);}}
   function reset(){previewRing.visible=false;for(const v of visuals.values()){v.root.removeFromParent();for(const m of v.owned){m.dispose();materials.delete(m);}}visuals.clear();}
   return{group,update,reset,dispose(){reset();group.removeFromParent();for(const g of geometries)g.dispose();for(const m of materials)m.dispose();}};
