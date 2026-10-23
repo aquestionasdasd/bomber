@@ -797,7 +797,7 @@ function updateMapLabels(){
   copies['map-coordinate-copy']=copies['menu-coordinate-copy']=map.id==='hirakata'?'34.815°N / 135.649°E':'35°35′42″N / 139°20′42″E';copies['menu-map-note']=map.id==='hirakata'?'枚方市駅 / 南北広場・自由通路・駅周辺街区':'非公式ファンメイド / 橋本駅前をモチーフにしたオリジナルマップ';copies['radar-map-copy']=short+' / 2 SITES';
   canvas.setAttribute('aria-label',name+'の3D競技マップ');$('large-minimap')?.setAttribute('aria-label',name+'の戦術マップ');
   for(const[id,text]of Object.entries(copies))if($(id))$(id).textContent=text;
-  for(const id of ['map-select','online-map'])if($(id)&&(!onlinePlaying||id==='map-select'))$(id).value=map.id||'hashimoto';
+  for(const id of ['map-select','online-map'])if($(id)&&(!online||id==='map-select'))$(id).value=map.id||'hashimoto';
   if($('start-subtitle'))$('start-subtitle').textContent=(['explore','range','plant','defuse'].includes($('match-format')?.value)?'PRACTICE IN ':'DEPLOY TO ')+short;
 }
 function resetTraffic(){map.traffic?.reset();for(const actor of [player,...bots])actor.trafficLaunch=null;}
@@ -2424,6 +2424,7 @@ function leaveOnline(notify=true){
   const client=online;online=null;onlinePlaying=false;netHasSnapshot=false;netHostPaused=false;
   netSeenCueSequence=0;netCues.length=0;
   client?.close(notify);netActions=[];netInputs.clear();netApplied.clear();netParticipants.clear();player.id='player';player.team='blue';
+  $('online-intro').textContent='パーティーコードを共有して、同じマップへ。最大10人で参加でき、空いている枠はBOTが補充します。';
   setVisible('online-overlay',false);backMenu();
 }
 function updateRoom(room){
@@ -2435,8 +2436,14 @@ function updateRoom(room){
   const me=room.members.find(m=>m.id===online.session.memberId);
   $('online-ready').textContent=me?.ready?'準備を取り消す':'準備完了';$('online-team').value=me?.team||'red';$('online-team').disabled=online.host;
   characterPicker.sync();
-  $('online-start').hidden=!online.host;$('online-format').disabled=!online.host;
-  if($('online-map')){$('online-map').disabled=!online.host;if(!online.host||room.status==='playing')$('online-map').value=normalizeMapId(room.settings.mapId);}
+  const saving=online.settingsPending,locked=!online.host||saving||room.status!=='lobby';
+  $('online-start').hidden=!online.host;$('online-start').disabled=!!saving;
+  $('online-format').disabled=locked;$('online-map').disabled=locked;
+  if(!saving||room.status==='playing'){
+    $('online-map').value=normalizeMapId(room.settings.mapId);$('online-format').value=room.settings.format;
+  }
+  const roomMap=room.settings.mapId==='hirakata'?'枚方市駅 / 南北ロータリー':'橋本駅';
+  $('online-intro').textContent=saving?'マップと試合形式を保存しています…':`${roomMap} · ${room.settings.format==='standard'?'STANDARD / 13ラウンド先取':'SWIFT / 5ラウンド先取'}。最大10人、空き枠にはBOTが参加します。`;
   if(room.status==='playing'&&!onlinePlaying){
     onlinePlaying=true;netSequence=0;netLastSnapshot=0;netActionSequence=0;netActions=[];netApplied.clear();netInputs.clear();netRound=0;netClock=0;netSeenCueSequence=0;netCues.length=0;
     $('match-format').value=room.settings.format;setVisible('online-overlay',false);startGame();
@@ -2475,7 +2482,7 @@ async function enterRoom(join=false){
   $('online-error').textContent='接続しています…';
   try{
     const name=$('online-name').value.trim(),code=normalizePartyCode($('online-code').value);
-    const session=await RoomClient.open(join?`/${encodeURIComponent(code)}/join`:'',{name,team:join?'red':'blue'});
+    const session=await RoomClient.open(join?`/${encodeURIComponent(code)}/join`:'',{name,team:join?'red':'blue',...(!join?{mapId:map.id||'hashimoto',format:$('online-format').value}:{})});
     online?.close();online=new RoomClient(session,{onRoom:updateRoom,onData:receiveNetPacket,onStatus:text=>{$('online-status').textContent=text;},onError:text=>{$('online-error').textContent=text;}});
     $('online-error').textContent='';setVisible('online-entry',false);setVisible('online-lobby',true);updateRoom(session);
     if(!join)await online.ready(true,'blue');
@@ -2773,6 +2780,14 @@ $('online-room-code')?.addEventListener('click',selectPartyCode);
 $('online-code')?.addEventListener('paste',event=>{const code=normalizePartyCode(event.clipboardData?.getData('text')||'');if(/^[A-Z2-9]{8}$/.test(code)){event.preventDefault();$('online-code').value=code;}});
 $('online-ready')?.addEventListener('click',async()=>{try{const me=online.room.members.find(m=>m.id===online.session.memberId);await online.ready(!me.ready,$('online-team').value);}catch(error){$('online-error').textContent=error.message;}});
 $('online-team')?.addEventListener('change',()=>online?.ready(false,$('online-team').value).catch(error=>{$('online-error').textContent=error.message;}));
+async function saveLobbySettings(){
+  const client=online;if(!client?.host||client.room.status!=='lobby'||client.settingsPending)return;
+  $('online-error').textContent='';
+  const saving=client.configure($('online-format').value,normalizeMapId($('online-map').value));updateRoom(client.room);
+  try{await saving;if(online===client&&!onlinePlaying){selectArena(client.room.settings.mapId);saveSettings();}}
+  catch(error){if(online===client)$('online-error').textContent=error.message;}
+}
+for(const id of ['online-map','online-format'])$(id)?.addEventListener('change',saveLobbySettings);
 $('online-start')?.addEventListener('click',()=>online?.start($('online-format').value,normalizeMapId($('online-map')?.value)).catch(error=>{$('online-error').textContent=error.message;}));
 $('online-leave')?.addEventListener('click',()=>leaveOnline());
 restoreRoomSession();
@@ -2913,7 +2928,7 @@ function saveSettings(){try{localStorage.setItem('hashimoto-settings',JSON.strin
 for(const id of ['agent-select','online-agent'])if($(id)){$(id).value=normalizeCharacter(settings.character);$(id).addEventListener('change',e=>{const value=normalizeCharacter(e.target.value);for(const other of ['agent-select','online-agent'])if($(other))$(other).value=value;updateCharacterDescription();saveSettings();});}
 updateCharacterDescription();
 function updateSensitivityLabel(){if($('sensitivity-value'))$('sensitivity-value').textContent=sensitivity.toFixed(2);}
-for(const id of ['map-select','online-map'])if($(id))$(id).addEventListener('change',e=>{if(mode!=='menu'||onlinePlaying)return;selectArena(e.target.value);saveSettings();});
+if($('map-select'))$('map-select').addEventListener('change',e=>{if(mode!=='menu'||onlinePlaying)return;selectArena(e.target.value);saveSettings();});
 selectArena(settings.mapId);
 if($('sensitivity')){$('sensitivity').value=sensitivity;$('sensitivity').addEventListener('input',e=>{const value=Number(e.target.value);if(Number.isFinite(value))sensitivity=clamp(value,.05,1.5);updateSensitivityLabel();saveSettings();});updateSensitivityLabel();}
 if($('volume')){$('volume').value=volume;$('volume').addEventListener('input',e=>{volume=Number(e.target.value);syncVictoryMusic();saveSettings();});}

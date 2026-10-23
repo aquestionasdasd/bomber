@@ -8,7 +8,7 @@ export class RoomClient {
   constructor(session,{onRoom=()=>{},onData=()=>{},onStatus=()=>{},onError=()=>{}}={}){
     this.session=session;this.room=session;this.onRoom=onRoom;this.onData=onData;this.onStatus=onStatus;this.onError=onError;
     this.host=session.hostId===session.memberId;this.cursor=session.resumeCursor||0;this.peers=new Map();this.closed=false;this.pollTimer=null;this.pendingState=null;this.pendingTeamStates=new Map();this.lastRelay=0;this.relayBusy=false;
-    this.connectionId=crypto.randomUUID();RoomClient.saveSession(session);
+    this.settingsPending=false;this.connectionId=crypto.randomUUID();RoomClient.saveSession(session);
     if(session.resumed&&!this.host)this.api('/messages',{to:'host',kind:'signal',data:{reconnect:true}}).catch(()=>{});
     this.poll();
   }
@@ -58,7 +58,7 @@ export class RoomClient {
     if(this.closed)return;
     try{
       const result=await this.api(`/messages?after=${this.cursor}`);if(this.closed)return;
-      this.cursor=result.cursor;this.room=result.room;this.onRoom(result.room);
+      this.cursor=result.cursor;this.acceptRoom(result.room);
       if(result.room.status==='closed'){this.onStatus('部屋が閉じられました');this.close(false);return;}
       for(const message of result.messages){if(message.kind==='signal')await this.signal(message.from,message.data);else this.receive(message.from,message.data);}
       if(this.host)for(const member of result.room.members)if(member.id!==this.session.memberId&&member.connected&&!this.peers.has(member.id))this.connect(member.id,true).catch(()=>{});
@@ -107,8 +107,25 @@ export class RoomClient {
     this.relayBusy=true;this.lastRelay=Date.now();
     try{await Promise.all(batch.map(async message=>{try{await this.api('/messages',{...message,kind:'game'});}catch(error){if(!this.closed)this.onError(error.message);}}));}finally{this.relayBusy=false;}
   }
-  async ready(ready,team){this.room=await this.api('/ready',{ready,...(team?{team}:{})});this.onRoom(this.room);}
-  async start(format,mapId='hashimoto'){this.room=await this.api('/start',{format,mapId});this.onRoom(this.room);}
+  acceptRoom(room){
+    if(this.closed)return;
+    // An earlier poll/ready response may arrive after the host's saved choice.
+    if(room.status==='lobby'&&(this.room.status==='playing'||this.room.status==='closed'||
+      (room.settings?.lobbyRevision||0)<(this.room.settings?.lobbyRevision||0)))return;
+    this.room=room;this.onRoom(room);
+  }
+  async configure(format,mapId){
+    if(this.closed||!this.host||this.room.status!=='lobby')throw Error('ホストだけが待機中に設定を変更できます。');
+    if(this.settingsPending)throw Error('選択を保存しています。少し待ってください。');
+    this.settingsPending=true;
+    try{this.acceptRoom(await this.api('/settings',{format,mapId}));}
+    finally{this.settingsPending=false;if(!this.closed)this.onRoom(this.room);}
+  }
+  async ready(ready,team){this.acceptRoom(await this.api('/ready',{ready,...(team?{team}:{})}));}
+  async start(format,mapId=this.room.settings?.mapId||'hashimoto'){
+    if(this.settingsPending)throw Error('選択を保存しています。少し待ってください。');
+    this.acceptRoom(await this.api('/start',{format,mapId}));
+  }
   close(notify=true){
     if(notify||this.room.status==='closed')RoomClient.clearSession(this.session.memberId);
     if(this.closed)return;this.closed=true;clearTimeout(this.pollTimer);this.pendingState=null;this.pendingTeamStates.clear();for(const peer of this.peers.values())peer.pc.close();this.peers.clear();
