@@ -1,4 +1,4 @@
-// Recorded effects: Kenney CC0 plus the separately credited user vehicle impact. Gunfire and step/landing traces retain their original graph.
+// Recorded effects: Kenney CC0 plus separately credited user vehicle and wall impacts. Gunfire and step/landing traces retain their original graph.
 const layer=(file,gain=.15,length=.35,delay=0,rate=1)=>Object.freeze({file,gain,length,delay,rate});
 const cloth=(gain=.18,length=.28,delay=0)=>layer('rpg-cloth1.ogg',gain,length,delay);
 const air=(gain=.18,length=.28,delay=0)=>layer('rpg-knifeSlice.ogg',gain,length,delay);
@@ -11,6 +11,7 @@ const liquid=(gain=.17,length=.4,delay=0)=>layer('scifi-slime_000.ogg',gain,leng
 const pluck=(id,gain=.14,length=.65,delay=0)=>layer('jingle-PIZZI'+id+'.ogg',gain,length,delay);
 export const SAMPLE_CUES=Object.freeze({
  'vehicle-hit':[layer('vehicle-impact-user.mp3',.65,1.1)],
+ 'bus-break':[layer('bus-wall-break-user.mp3',.55,5.55)],
  reload:[cloth(.24,.24),layer('rpg-beltHandle1.ogg',.18,.24,.06)],hit:[soft(.23,.14)],
  spike:[layer('rpg-handleCoins2.ogg',.42,.18),bell(.18,.12)],plant:[bell(.34,.8),layer('rpg-bookClose.ogg',.25,.30),layer('rpg-handleCoins.ogg',.12,.30,.20)],defuse:[layer('rpg-bookOpen.ogg',.2,.26),cloth(.18,.25,.08)],
  buy:[layer('rpg-handleCoins.ogg',.20,.3),layer('rpg-beltHandle1.ogg',.12,.22,.05)],scan:[page(.15,.18),bell(.07,.3,.06)],

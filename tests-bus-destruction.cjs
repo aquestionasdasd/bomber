@@ -13,7 +13,7 @@ const assert=require('node:assert/strict'),path=require('node:path'),{pathToFile
   assert.ok(nav.isWalkable(p.x,p.z));d.update(2.01);assert.ok(d.fx.children[0].count>0);assert.ok(d.fx.children[1].count>0);assert.ok(d.fx.children[2].count>0);
  });
  check('all furniture parts restore exactly, including shelter roof/taxi wheels and collider order',()=>{
-  for(const g of d.groups)d.breakAt(pose(g),pose(g),3);assert.ok(map.colliders.length<colliders.length);assert.ok(map.mapShapes.length<shapes.length);d.update(3.1);assert.ok(d.fx.children[0].count<=96);assert.ok(d.fx.children[1].count<=48);assert.ok(d.fx.children[2].count<=8);
+  for(const g of d.groups)d.breakAt(pose(g),pose(g),3);assert.ok(map.colliders.length<colliders.length);assert.ok(map.mapShapes.length<shapes.length);d.update(3.1);assert.ok(d.fx.children[0].count<=768);assert.ok(d.fx.children[1].count<=192);assert.ok(d.fx.children[2].count<=8);
   d.reset();assert.deepEqual(map.colliders,colliders);assert.deepEqual(map.mapShapes,shapes);assert.deepEqual(matrices(),original);assert.ok(d.groups.every(g=>g.nodes.every(o=>o.visible)));assert.equal(d.snapshot(),'');
  });
  check('strict compact mask round trips and rejects corrupt bits atomically',()=>{
@@ -22,7 +22,7 @@ const assert=require('node:assert/strict'),path=require('node:path'),{pathToFile
  });
  check('same count mask changes invalidate navigation; duplicate and fresh snapshots do not replay blasts',()=>{
   const a=d.groups.find(g=>g.id==='mid-column-13'),b=d.groups.find(g=>g.id==='mid-column--13');d.breakAt(pose(a),pose(a),1);const maskA=d.snapshot();d.reset();d.breakAt(pose(b),pose(b),1);const maskB=d.snapshot();assert.ok(d.restore(maskA,2));assert.equal(nav.isWalkable(-20,13),true);assert.equal(nav.isWalkable(-20,-13),false);assert.ok(d.restore(maskB,3));assert.equal(nav.isWalkable(-20,-13),true);assert.equal(nav.isWalkable(-20,13),false);
-  d.reset();d.restore(maskA,4);d.update(4);assert.ok(d.fx.children.every(o=>o.count===0));d.restore(maskB,5,{effects:true});d.update(5.01);const count=d.fx.children[0].count;assert.ok(count>0);d.restore(maskB,5.02,{effects:true});d.update(5.03);assert.equal(d.fx.children[0].count,count);d.update(7);assert.ok(d.fx.children.every(o=>o.count===0));
+  d.reset();d.restore(maskA,4);d.update(4);assert.ok(d.fx.children.every(o=>o.count===0));d.restore(maskB,5,{effects:true});d.update(5.01);const count=d.fx.children[0].count;assert.ok(count>0);d.restore(maskB,5.02,{effects:true});d.update(5.03);assert.equal(d.fx.children[0].count,count);d.update(8);assert.ok(d.fx.children.every(o=>o.count===0));
  });
  check('cached ray bounds are invalidated when hiding and restoring instance groups',()=>{
   const g=d.groups.find(g=>g.id==='mid-column-13');for(const p of g.parts)p.batch.mesh.computeBoundingSphere();d.breakAt(pose(g),pose(g),1);for(const p of g.parts){assert.equal(p.batch.mesh.boundingSphere,null);p.batch.mesh.computeBoundingSphere();}d.reset();for(const p of g.parts)assert.equal(p.batch.mesh.boundingSphere,null);

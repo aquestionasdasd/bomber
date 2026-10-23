@@ -178,7 +178,7 @@ const netPositionHistory=new Map();
 let netPositionAck=0,netPositionCorrectionX=0,netPositionCorrectionZ=0;
 let netActions=[],netParticipants=new Map(),netApplied=new Map(),netInputs=new Map();
 let netCueSequence=0,netSeenCueSequence=0,skillImpactSequence=0;const netCues=[];
-const actionCueTypes=new Set(['vehicle-hit','shot','enemy','smoke','frost','updraft','dash-armed','dash','knives','heal','recon','veil','ember-warning']);
+const actionCueTypes=new Set(['vehicle-hit','bus-break','shot','enemy','smoke','frost','updraft','dash-armed','dash','knives','heal','recon','veil','ember-warning']);
 const dashFeedback={round:null,state:null,expires:0,charge:null,signatureAt:0};
 const signatureReadyNotices=new Set();
 let signatureFeedbackMatch=null;
@@ -562,6 +562,9 @@ function skillImpact(target,source,character,kind='hit'){
   if(onlinePlaying&&online?.host){netCues.push({seq:++netCueSequence,round:match.round,type:kind==='heal'?'skill-heal':'skill-hit',weapon:character,id:source.id,...point,time:elapsed});if(netCues.length>64)netCues.splice(0,netCues.length-64);}
 }
 function serializeNetCues(){return netCues.filter(c=>c.round===match?.round&&c.time>=elapsed-1.5);}
+function validBusBreakCue(cue,packet){
+ return cue?.type==='bus-break'&&Number.isSafeInteger(cue.seq)&&cue.seq>0&&cue.round===packet.rules?.round&&packet.rules?.phase==='live'&&[cue.x,cue.y,cue.z,cue.time].every(Number.isFinite)&&Math.max(Math.abs(cue.x),Math.abs(cue.z))<=82&&cue.y>=0&&cue.y<=30&&packet.time>=cue.time&&packet.time-cue.time<=.65;
+}
 function applyNetCues(packet,fresh,ownId){
   const cues=Array.isArray(packet.cues)?packet.cues.slice(-64):[],previous=netSeenCueSequence,seen=new Set();
   for(const cue of cues){
@@ -569,6 +572,7 @@ function applyNetCues(packet,fresh,ownId){
     netSeenCueSequence=Math.max(netSeenCueSequence,cue.seq);
     if(fresh||cue.round!==packet.rules.round||packet.time-cue.time>1||packet.time<cue.time||![cue.x,cue.z].every(Number.isFinite))continue;
     if(['skill-hit','skill-heal'].includes(cue.type)){if(!Object.hasOwn(SKILL_LOOKS,cue.weapon)||!Number.isFinite(cue.y)||Math.max(Math.abs(cue.x),Math.abs(cue.y),Math.abs(cue.z))>1000||packet.time-cue.time>.65||packet.rules.phase!=='live')continue;const kind=cue.type==='skill-heal'?'heal':'hit';skillSpectacle.impact(cue.weapon,cue,cue.time,{kind});if(cue.id===ownId)skillFeedback.note(kind,'receipt:'+cue.round+':'+cue.seq,cue.weapon,cue.time);continue;}
+    if(cue.type==='bus-break'){if(validBusBreakCue(cue,packet))sound('bus-break',{entity:cue,localOnly:true});continue;}
     // Vehicle contact is host-confirmed even when this guest is the victim.
     if(cue.id===ownId&&cue.type!=='vehicle-hit'||!actionCueTypes.has(cue.type))continue;
     sound(cue.type,{weapon:cue.weapon,entity:cue,localOnly:cue.type==='vehicle-hit'});
@@ -917,6 +921,7 @@ function updateMapLabels(){
   for(const id of ['map-select','online-map'])if($(id)&&(!online||id==='map-select'))$(id).value=map.id||'hashimoto';
   if($('start-subtitle'))$('start-subtitle').textContent=(['explore','range','plant','defuse'].includes($('match-format')?.value)?'PRACTICE IN ':'DEPLOY TO ')+short;
 }
+const busBreakAudioAt=new Map();
 function busSeat(actor=player){return map.traffic?.service.seat(actor.id)||null;}
 function busDriving(actor=player){return busSeat(actor)?.driving===true;}
 function busCanExit(p){return canStand(p.x,p.z,.34,0)&&getZoneFloor(p.x,p.z,.6)<.45;}
@@ -928,7 +933,13 @@ function busCanDrive(p,old,context){
  // Check the full body and arena limits before demolition. A moving owned
  // bus may remove catalogued walls/roofs; unknown solids still stop it safely.
  for(const c of map.collision.query(p.x,p.z,5.6))if(!(smash&&destruction?.damageable.has(c))&&busHitsBox(p,c))return false;
- if(smash)destruction?.breakAt(p,old,elapsed);
+ if(smash){
+  const hit=destruction?.breakAt(p,old,elapsed),id=context.busId||'local';
+  if(hit?.length&&elapsed-(busBreakAudioAt.get(id)??-Infinity)>=.75){
+   const point=destruction.impactPoints()[0];
+   if(point){busBreakAudioAt.set(id,elapsed);sound('bus-break',{entity:{id:'bus-break:'+id,...point}});}
+  }
+ }
  return true;
 }
 function busControls(id){
@@ -956,7 +967,7 @@ function shootBusDriver(hit,actor,damage,{visualOnly=false}={}){
  }
  burst(hit.point,'#e9c586',3);return true;
 }
-function resetTraffic(){map.traffic?.reset();map.destruction?.reset();for(const actor of [player,...bots]){actor.trafficLaunch=null;delete actor.busFrameYaw;}}
+function resetTraffic(){busBreakAudioAt.clear();map.traffic?.reset();map.destruction?.reset();for(const actor of [player,...bots]){actor.trafficLaunch=null;delete actor.busFrameYaw;}}
 function updateTraffic(dt){
   if(!map.traffic)return;
   const actors=[player,...bots];
@@ -2937,7 +2948,7 @@ function applyNetSnapshot(packet){
   applyNetCues(packet,fresh,ownId);
   Object.assign(match,packet.rules);match.events=[];match.credits=self.credits;elapsed=packet.time;roster=packet.roster;
   if(match.phase==='buy'){if(packet.damageReport!==undefined)roundDamage.restore(packet.damageReport,roster,match.round,self.team);else roundDamage.reset();}
-if(map.destruction){if(fresh||!packet.busDamage)map.destruction.reset();map.destruction.restore(packet.busDamage??'',elapsed,{effects:!fresh&&match.phase==='live'});map.destruction.update(elapsed);}
+if(map.destruction){if(fresh||!packet.busDamage)map.destruction.reset();map.destruction.restore(packet.busDamage??'',elapsed,{effects:!fresh&&match.phase==='live',impacts:map.traffic?.poses(elapsed)||[],contacts:Array.isArray(packet.cues)?packet.cues.filter(c=>validBusBreakCue(c,packet)):[]});map.destruction.update(elapsed);}
   const stopped=fresh||wasAlive&&!self.alive||previousPhase!==match.phase&&['post','match'].includes(match.phase);
   if(stopped||wasPaused!==Boolean(packet.paused))clearCombatInput();
   if(mode==='shop'&&match.phase!=='buy')resumeGame();
