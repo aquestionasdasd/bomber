@@ -33,6 +33,6 @@ export function createDuckAvatar(THREE,{rig,upper,head,rightArm,leftArm,leftLeg,
     for(let i=-1;i<=1;i++)ellipsoid(foot,'web toes',[i*.055,-.071,.175],[.037,.026,.072],'web',12);
   }
   let disposed=false;
-  function update(){if(disposed)return;for(const[f,s]of frames){s.updateMatrix();f.matrix.copy(s.matrix);f.matrixWorldNeedsUpdate=true;}}
+  function update(){if(disposed)return;for(const[f,s]of frames){s.updateMatrix();if(s===head){upper.updateMatrix();f.matrix.multiplyMatrices(upper.matrix,s.matrix);}else f.matrix.copy(s.matrix);f.matrixWorldNeedsUpdate=true;}}
   update();return{group,update,setVisible(value){group.visible=!!value;},dispose(){if(disposed)return;disposed=true;group.removeFromParent();for(const g of geometries)g.dispose();for(const m of materials.values())m.dispose();}};
 }

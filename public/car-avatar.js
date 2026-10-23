@@ -23,6 +23,6 @@ export function createCarAvatar(THREE,{rig,upper,head,rightArm,leftArm,leftLeg,r
   box(frame(arm.upperArm),'suspension arm',[0,0,0],[1.1,6,1.1],'paint');box(frame(arm.forearm),'mechanical forearm',[0,0,0],[1,6,1],'rim');box(frame(arm.palm),'steering glove',[0,0,0],[.11,.065,.14],'roof');
   box(frame(leg.thigh),'white rear linkage',[0,0,0],[1.1,6,1.1],'paint');box(frame(leg.shin),'silver rear suspension',[0,0,0],[.75,6,.75],'rim');const foot=frame(leg.boot);wheel(foot,'rear wheel',[side*.035,-.005,.04],.13);box(foot,'rear wheel fender',[0,.058,.035],[.18,.06,.27],'paint');
  }
- let disposed=false;function update(dt=0,state={}){if(disposed)return;for(const[f,s]of frames){s.updateMatrix();f.matrix.copy(s.matrix);f.matrixWorldNeedsUpdate=true;}if(state.moving)for(const w of wheels)w.rotation.x-=Math.min(.1,Math.max(0,dt))*8;}
+ let disposed=false;function update(dt=0,state={}){if(disposed)return;for(const[f,s]of frames){s.updateMatrix();if(s===head){upper.updateMatrix();f.matrix.multiplyMatrices(upper.matrix,s.matrix);}else f.matrix.copy(s.matrix);f.matrixWorldNeedsUpdate=true;}if(state.moving)for(const w of wheels)w.rotation.x-=Math.min(.1,Math.max(0,dt))*8;}
  update();return{group,update,setVisible(v){group.visible=!!v;},dispose(){if(disposed)return;disposed=true;group.removeFromParent();for(const g of gs)g.dispose();for(const m of ms.values())m.dispose();}};
 }

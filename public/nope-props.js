@@ -50,6 +50,26 @@ export function acquireNopeArtwork(THREE) {
   return {texture:cache.texture,release(){if(released)return;released=true;if(--cache.references===0){cache.texture.dispose();artworkCaches.delete(THREE);}}};
 }
 
+// Original station edition: silver fascia, north/south chevrons and a pink
+// station line surround the mascot. No photographed signage is redistributed.
+const hirakataArtworkCaches=new WeakMap();
+export function acquireHirakataNopeArtwork(THREE){
+  let cache=hirakataArtworkCaches.get(THREE);
+  if(!cache){
+    const texture=rasterArtwork(THREE),data=texture.image.data,size=512;
+    const rect=(x,y,w,h,color)=>{for(let yy=y;yy<y+h;yy++)for(let xx=x;xx<x+w;xx++){const i=(yy*size+xx)*4;data.set(color,i);}};
+    rect(18,15,476,49,[211,220,221,255]);rect(18,18,476,5,[252,26,152,255]);
+    rect(18,465,476,32,[32,61,74,255]);
+    const letters={H:['101','101','111','101','101'],I:['111','010','010','010','111'],R:['110','101','110','101','101'],A:['010','101','111','101','101'],K:['101','110','100','110','101'],T:['111','010','010','010','010'],S:['111','100','111','001','111']};
+    for(const [n,ch]of [...'HIRAKATASHI'].entries())for(let y=0;y<5;y++)for(let x=0;x<3;x++)if(letters[ch][y][x]==='1')rect(80+n*36+x*8,29+y*5,7,4,[32,61,74,255]);
+    for(let i=0;i<5;i++){rect(32+i*5,477-i*2,5,4,[255,240,220,255]);rect(455+i*5,469+i*2,5,4,[255,240,220,255]);}
+    for(let x=93;x<431;x+=35)rect(x,477,22,4,[250,21,159,255]);
+    texture.name='NOPE / HIRAKATASHI north-south station edition';texture.colorSpace=THREE.SRGBColorSpace;texture.needsUpdate=true;
+    cache={texture,references:0};hirakataArtworkCaches.set(THREE,cache);
+  }
+  cache.references++;let released=false;return {texture:cache.texture,release(){if(released)return;released=true;if(--cache.references===0){cache.texture.dispose();hirakataArtworkCaches.delete(THREE);}}};
+}
+
 function acquireBottle(THREE){
   let cache=bottleCaches.get(THREE);
   if(!cache){

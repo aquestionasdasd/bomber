@@ -1,3 +1,4 @@
+import { nopeWalkPose } from './nope-walk.js';
 import { ONNARA_SKILLS, URCHIN_SKILLS, CAP_SKILLS, JAPAN_SKILLS, NOBI_SKILLS, CAR_SKILLS, CAT_SKILLS, DUCK_SKILLS, DUELIST_SKILLS, NOPE_SKILLS, MEND_SKILLS, IAGNU_SKILLS, VEIL_SKILLS, EMBER_SKILLS, FROST_SKILLS } from './abilities.js';
 import { WEAPONS } from './rules.js';
 
@@ -90,7 +91,7 @@ const withinCastRange = (type, actor, target, sourceEyeY = eyeY(actor)) => type.
   : personal(type) || type === 'duelist-lift' ? feetDistance(actor, target) <= 1e-8
   : type === 'veil-dust' ? Math.hypot(target.x - actor.x, target.z - actor.z) <= 1e-8 && close(target.y, (actor.y || 0) + VEIL_SKILLS.dustCenterOffset)
   : type === 'veil-roots' ? Math.hypot(target.x - actor.x, target.z - actor.z) >= VEIL_SKILLS.rootsMinRange - 1e-8 && Math.hypot(target.x - actor.x, target.z - actor.z) <= VEIL_SKILLS.rootsRange + 1e-8
-  : Math.hypot(target.x - actor.x, target.z - actor.z) <= (type === 'nope-decoy' ? CHARACTER_SKILLS.decoyDistance : type === 'echo-tag' ? IAGNU_SKILLS.tagRange : type === 'ember-solder' ? EMBER_SKILLS.solderRange : type === 'frost-stitch' ? FROST_SKILLS.stitchRange : type === 'frost-mist' ? FROST_SKILLS.mistRange : CHARACTER_SKILLS.castDistance) + 1e-8;
+  : Math.hypot(target.x - actor.x, target.z - actor.z) <= (type === 'nope-bottle' ? NOPE_SKILLS.bottleRange : type === 'nope-decoy' ? CHARACTER_SKILLS.decoyDistance : type === 'echo-tag' ? IAGNU_SKILLS.tagRange : type === 'ember-solder' ? EMBER_SKILLS.solderRange : type === 'frost-stitch' ? FROST_SKILLS.stitchRange : type === 'frost-mist' ? FROST_SKILLS.mistRange : CHARACTER_SKILLS.castDistance) + 1e-8;
 const flashDuration = eventId => idSequence(eventId, 'nope-flash') ? NOPE_SKILLS.flashDuration : idSequence(eventId, 'echo-glint') ? IAGNU_SKILLS.glintDuration : 0;
 const safeReach = (reachable, source, target) => {
   if (typeof reachable !== 'function') return false;
@@ -157,6 +158,7 @@ export function createCharacterSkills() {
     if(type==='cat-pluck'&&(!identifier(target.targetId)||target.targetId===actor.id))return null;
     if (type === 'duck-seal' && (!identifier(target.targetId) || target.targetId===actor.id)) return null;
     if (type === 'duck-shield' && (!Number.isFinite(target.yaw) || Math.abs(target.yaw)>Math.PI)) return null;
+    if(type==='nope-decoy'&&(target.yaw!==undefined||target.walkLength!==undefined)&&(!Number.isFinite(target.yaw)||Math.abs(target.yaw)>Math.PI||!Number.isFinite(target.walkLength)||target.walkLength<0||target.walkLength>NOPE_SKILLS.decoyWalkRange))return null;
     if (type === 'mend-heal' && !identifier(target.targetId)) return null;
     if (type === 'ember-service' && (!serviceWeapon(target.weaponId) || actor.weaponId !== target.weaponId)) return null;
     if(type==='onnara-hover'&&actor.grounded!==false)return null;
@@ -169,6 +171,7 @@ export function createCharacterSkills() {
       fromX: actor.x, fromY: feetSource(type) ? actor.y || 0 : eyeY(actor), fromZ: actor.z, x: target.x, y: target.y, z: target.z,
       startedAt: now, flight: spec.flight, triggerAt: now + spec.delay, endsAt, radius: spec.radius };
     if(['onnara-tax','urchin-jam','urchin-disarm','cap-lock','cap-clean'].includes(type))event.targetId=target.targetId;
+    if(type==='nope-decoy'&&target.walkLength!==undefined){event.yaw=target.yaw;event.walkLength=target.walkLength;}
     if(type==='onnara-tax')event.power=ONNARA_SKILLS.taxBudget;
     if(type==='onnara-orb')event.yaw=target.yaw;
     if(type==='japan-border')event.yaw=target.yaw;
@@ -202,7 +205,7 @@ export function createCharacterSkills() {
     if (!team(shooterTeam) || !advance(now, round)) return null;
     const event = active.get(id);
     if (!event || event.type !== 'nope-decoy' || !decoyOwners.has(id) || event.team === shooterTeam) return null;
-    active.delete(id); decoyOwners.delete(id); return copy(event);
+    active.delete(id); decoyOwners.delete(id); return nopeWalkPose(event,now);
   }
   // The game calls this only after its authoritative, wall-occluded shot has
   // consumed an E decoy or one compact ultimate-wave member. The reaction
@@ -406,6 +409,7 @@ export function createCharacterSkills() {
   function validEvent(value, now, round) {
     if (!value || typeof value !== 'object' || Array.isArray(value) || !isType(value.type) || !team(value.team) || !identifier(value.sourceId) || !point(value)
       || ![value.fromX, value.fromY, value.fromZ].every(coordinate) || value.round !== round || !clock(value.startedAt) || value.startedAt > now || !clock(value.triggerAt) || !clock(value.endsAt) || !idSequence(value.id, value.type)) return false;
+    if(value.type==='nope-decoy'&&(!Object.keys(value).every(key=>eventFields.includes(key)||['yaw','walkLength'].includes(key))||(value.walkLength!==undefined||value.yaw!==undefined)&&(!Number.isFinite(value.yaw)||Math.abs(value.yaw)>Math.PI||!Number.isFinite(value.walkLength)||value.walkLength<0||value.walkLength>NOPE_SKILLS.decoyWalkRange)))return false;
     const spec = specs[value.type];
     if ((value.type.startsWith('onnara-') || value.type.startsWith('urchin-') || value.type.startsWith('cap-') || value.type.startsWith('japan-') || value.type.startsWith('nobi-') || value.type.startsWith('car-') || value.type.startsWith('cat-') || value.type.startsWith('duck-') || value.type.startsWith('duelist-') || value.type.startsWith('veil-') || value.type.startsWith('ember-') || value.type.startsWith('frost-')) && !Object.keys(value).every(key => eventFields.includes(key) || value.type==='onnara-chain'&&key==='link' || value.type==='onnara-tax'&&key==='power' || value.type==='onnara-orb'&&key==='yaw' || value.type==='japan-border'&&key==='yaw' || ['onnara-tax','urchin-jam','urchin-disarm','cap-lock','cap-clean','japan-levy'].includes(value.type)&&key==='targetId' || ['nobi-tag','nobi-brake'].includes(value.type)&&key==='targetId' || value.type==='car-bumper'&&key==='targetId' || value.type==='cat-pluck'&&key==='targetId' || value.type === 'duck-seal' && key === 'targetId' || value.type === 'duck-shield' && ['yaw','power'].includes(key) || value.type === 'duck-egg' && key === 'power' || value.type === 'ember-service' && key === 'weaponId')) return false;
     if (['onnara-tax','urchin-jam','urchin-disarm','cap-lock','cap-clean','japan-levy','nobi-tag','nobi-brake','mend-heal','duck-seal','cat-pluck','car-bumper'].includes(value.type) ? !identifier(value.targetId) : value.targetId !== undefined) return false;
@@ -445,6 +449,7 @@ export function createCharacterSkills() {
       const clean = { id: event.id, type: event.type, team: event.team, sourceId: event.sourceId, round, fromX: event.fromX, fromY: event.fromY, fromZ: event.fromZ,
         x: event.x, y: event.y, z: event.z, startedAt: event.startedAt, flight: event.flight, triggerAt: event.triggerAt, endsAt: event.endsAt, radius: event.radius };
       if(event.type==='onnara-chain'&&event.link)clean.link=[...event.link];
+      if(event.type==='nope-decoy'&&event.walkLength!==undefined){clean.yaw=event.yaw;clean.walkLength=event.walkLength;}
       if(event.type==='onnara-tax')clean.power=event.power;
       if(event.type==='onnara-orb')clean.yaw=event.yaw;
       if(event.type==='japan-border')clean.yaw=event.yaw;

@@ -165,7 +165,7 @@ async function main() {
   const actual = fs.readFileSync(path.join(__dirname, 'public/nope-decoys.js'), 'utf8');
   async function mutant(before, after) {
     assert.ok(actual.includes(before));
-    const code = actual.replace(before, after).replace("from './abilities.js'", `from ${JSON.stringify(pathToFileURL(path.join(__dirname, 'public/abilities.js')).href)}`);
+    const code = actual.replace(before, after).replace("'./nope-walk.js'", JSON.stringify(pathToFileURL(path.join(__dirname,'public/nope-walk.js')).href)).replace("from './abilities.js'", `from ${JSON.stringify(pathToFileURL(path.join(__dirname, 'public/abilities.js')).href)}`);
     return (await import('data:text/javascript;base64,' + Buffer.from(code).toString('base64'))).createNopeDecoys;
   }
   const allowFriendly = await mutant('|| shooterTeam === wave.team', '|| false');

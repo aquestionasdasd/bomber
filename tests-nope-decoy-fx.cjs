@@ -19,14 +19,14 @@ async function main(){
   const disposed=(counts,expected)=>{for(const [item,n]of counts)assert.equal(n,expected,`${item.name||item.type} disposal`);};
   const rawRay=(fx,x,y,z=2)=>{fx.group.updateMatrixWorld(true);const ray=new THREE.Raycaster(new THREE.Vector3(x,y,z),new THREE.Vector3(0,0,-1)),hits=[];for(const mesh of meshes(fx))if(mesh.count)THREE.InstancedMesh.prototype.raycast.call(mesh,ray,hits);return hits.sort((a,b)=>a.distance-b.distance);};
   const assertCap=fx=>{fx.update(Array.from({length:60},(_,i)=>event(i+1,{team:i%2?'blue':'red'})),1);assert.equal(fx.group.userData.activeEvents,50);assert.equal(meshes(fx).find(mesh=>mesh.name==='NOPE decoy / cloth').count,50);};
-  const assertFeet=fx=>{fx.update([event()],1);const mesh=meshes(fx).find(mesh=>mesh.name==='NOPE decoy / rubber'),world=mesh.geometry.boundingBox.clone().applyMatrix4(pose(mesh).matrix);close(world.min.y,0);};
+  const assertFeet=fx=>{fx.update([event()],1);const mesh=meshes(fx).find(mesh=>mesh.name==='NOPE decoy / rubber legR'),world=mesh.geometry.boundingBox.clone().applyMatrix4(pose(mesh).matrix);close(world.min.y,0);};
   const assertNonhit=fx=>{fx.update([event()],1);fx.group.updateMatrixWorld(true);const ray=new THREE.Raycaster(new THREE.Vector3(0,1.62,2),new THREE.Vector3(0,0,-1));assert.equal(ray.intersectObject(fx.group,true).length,0);};
 
-  await test('the real curved NOPE expression and rounded body form a planted1.95m full mascot in seven batches',()=>{
+  await test('the real curved NOPE expression and rounded body form a planted1.95m full mascot in twelve batches',()=>{
     const fx=createNopeDecoyFX(THREE),asset=acquireNopeDecoyAsset(THREE),face=createNopeFaceModel(THREE);fx.update([event()],1);
-    assert.equal(meshes(fx).length,7);assert.equal(new Set(meshes(fx).map(mesh=>mesh.geometry)).size,6);
+    assert.equal(meshes(fx).length,12);assert.equal(new Set(meshes(fx).map(mesh=>mesh.geometry)).size,11);
     close(asset.bounds.min.y,0);close(asset.bounds.max.y,1.95,1e-5);
-    const size=asset.bounds.getSize(new THREE.Vector3());assert.ok(size.x>.58&&size.x<.8);assert.ok(size.z>.30&&size.z<.50);
+    const size=asset.bounds.getSize(new THREE.Vector3());assert.ok(size.x>.58&&size.x<.8);assert.ok(size.z>1.2&&size.z<1.3);
     for(const [x,y,label]of [[0,1.65,'head'],[0,1.08,'torso'],[-.3,1.10,'left arm'],[.3,1.10,'right arm'],[-.127,.31,'left leg'],[.127,.31,'right leg'],[-.127,.06,'left shoe'],[.127,.06,'right shoe']])assert.ok(rawRay(fx,x,y).length,label);
     assert.equal(rawRay(fx,0,.30).length,0,'Two distinct legs retain the open space between them');
     for(const part of face.group.children){
@@ -38,8 +38,8 @@ async function main(){
     assertFeet(fx);face.dispose();asset.dispose();fx.dispose();
   });
 
-  await test('thirtyX plus twenty ordinary detached decoys have a strict50 cap and constant seven draws',()=>{
-    const fx=createNopeDecoyFX(THREE);assertCap(fx);assert.equal(meshes(fx).filter(mesh=>mesh.visible).length,7);
+  await test('thirtyX plus twenty ordinary detached decoys have a strict50 cap and constant twelve draws',()=>{
+    const fx=createNopeDecoyFX(THREE);assertCap(fx);assert.equal(meshes(fx).filter(mesh=>mesh.visible).length,12);
     assert.equal(meshes(fx).find(mesh=>mesh.name.endsWith('team red')).count,25);assert.equal(meshes(fx).find(mesh=>mesh.name.endsWith('team blue')).count,25);
     for(const mesh of meshes(fx)){assert.equal(mesh.instanceMatrix.count,50);assert.ok(mesh.count<=50);}
     fx.update([event(),event(),event(2)],1);assert.equal(fx.group.userData.activeEvents,2);assert.equal(meshes(fx).find(mesh=>mesh.name==='NOPE decoy / cloth').count,2);
@@ -81,7 +81,7 @@ async function main(){
     const fx=createNopeDecoyFX(instrumented),data=Array.from({length:50},(_,i)=>event(i+1)),before=new Map(allocations),assets=resources(fx),released=watch(assets),buffers=meshes(fx).map(mesh=>mesh.instanceMatrix.array.buffer);
     for(let i=0;i<500;i++){fx.update(data,1+i/1000,{reducedMotion:i%2===0});if(i%7===0)fx.reset();}
     assert.deepEqual(allocations,before);assert.deepEqual(resources(fx),assets);meshes(fx).forEach((mesh,i)=>assert.equal(mesh.instanceMatrix.array.buffer,buffers[i]));disposed(released,0);
-    fx.reset();assert.equal(fx.group.visible,false);assert.equal(meshes(fx).length,7);fx.dispose();disposed(released,1);
+    fx.reset();assert.equal(fx.group.visible,false);assert.equal(meshes(fx).length,12);fx.dispose();disposed(released,1);
   });
 
   await test('shared merged assets survive otherFX/main-face borrowers and release exactly once for the final owner',()=>{

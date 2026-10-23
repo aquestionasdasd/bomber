@@ -6,7 +6,7 @@ export const CHARACTER_DEFS = Object.freeze({
   duelist: Object.freeze({ id: 'duelist', label: 'ちぬつてのとのへめほ', role: '突入', ultName: 'ブレードストーム', ultShortName: 'ナイフ', ultimatePoints: 7,
     description: 'C：空中に短い流れ星の幕 / Q：アンテナリフトで上昇 / E：2段階のダッシュ。X：ナイフ5本・撃破で補充（7pt）。', color: '#a7e3e7', ultIcon: 'm24 3 5 2-13 17-6 4 1-7L24 3M11 19l5 3M9 23l-4 5M22 7l4 3M4 7l4-3m21 18 4 2' }),
   nope: Object.freeze({ id: 'nope', label: 'NOPE', role: '特殊', ultName: 'ノープ・テイクオーバー', ultShortName: 'ノープ', ultimatePoints: 7,
-    description: 'C：瓶グレネード / Q：顔フラッシュ / E：撃たれると閃光を放つ全身の囮。X：駅をロゴ柄にし、街中へ30体の囮を12秒展開（7pt）。', color: '#d7a8f1', ultIcon: 'M7 25V5l22 20V5M7 5l22 20M14 5h7M15 25h7' }),
+    description: 'C：瓶グレネード / Q：顔フラッシュ / E：銃を持って歩く全身の囮。撃たれると閃光。X：駅ごとのロゴ柄と、銃を持って歩く囮30体を12秒展開（7pt）。', color: '#d7a8f1', ultIcon: 'M7 25V5l22 20V5M7 5l22 20M14 5h7M15 25h7' }),
   mend: Object.freeze({ id: 'mend', label: '丱凵してね', role: '支援', ultName: 'リカバリーウェーブ', ultShortName: '回復', ultimatePoints: 7,
     description: 'C：足止めの種 / Q：花粉の煙幕 / E：単体60回復。X：視線内18mの生存味方と自身を最大75回復（7pt）。', color: '#8fe2b5', ultIcon: 'M13 3h10v7h8v10h-8v7H13v-7H5V10h8Z' }),
   echo: Object.freeze({ id: 'echo', label: 'IAGNU', role: '索敵', ultName: 'リコンパルス', ultShortName: '索敵', ultimatePoints: 7,
@@ -34,8 +34,8 @@ export const DUELIST = Object.freeze({ smokeMax: 2, smokePrice: 100, smokeDurati
   dashArmDelay: .25, dashWindow: 12, dashDistance: 12, dashDuration: .18,
   signatureKills: 1, ultimatePoints: 7, knives: 5 });
 export const DUELIST_SKILLS = Object.freeze({ cometRange: 18, cometFlight: .25, cometRadius: 2.8, cometDuration: 5, liftVisualDuration: .45 });
-export const NOPE_SKILLS = Object.freeze({ bottleFuse: 1, bottleFlight: .55, bottleRadius: 5.5, bottleDamage: 90,
-  flashFlight: .45, flashRadius: 12, flashDuration: 2.4, decoyDuration: 12, signatureCooldown: 15 });
+export const NOPE_SKILLS = Object.freeze({ bottleFuse: 1, bottleFlight: .55, bottleRadius: 8, bottleDamage: 90, bottleRange: 40,
+  flashFlight: .45, flashRadius: 30, flashDuration: 2.4, decoyDuration: 12, signatureCooldown: 15, decoyWalkSpeed: 3, decoyWalkRange: 36 });
 export const MEND_SKILLS = Object.freeze({ seedsFlight: .65, seedsRadius: 4.5, seedsDuration: 9, seedsSpeedScale: .5, seedsGroundOffset: .12,
   pollenFlight: .55, pollenRadius: 4.2, pollenDuration: 9, healAmount: 60, healRange: 18, healVisualDuration: .8, signatureCooldown: 18 });
 export const IAGNU_SKILLS = Object.freeze({ tagFlight: .55, tagArmDelay: .5, tagDuration: 12, tagRadius: 4.5, tagRange: 18,
@@ -43,7 +43,7 @@ export const IAGNU_SKILLS = Object.freeze({ tagFlight: .55, tagArmDelay: .5, tag
   kerningDuration: 4, kerningSpeedScale: 1.35, signatureCooldown: 18 });
 export const VEIL_SKILLS = Object.freeze({ dustArmDelay: .2, dustRadius: 3.5, dustDuration: 7, dustCenterOffset: 1.25,
   rootsRange: 10, rootsMinRange: .5, rootsWidth: 3.2, rootsArmDelay: .25, rootsDuration: 8, rootsSpeedScale: .45, rootsHeightTolerance: .45,
-  turfDuration: 3, turfSpeedScale: 1.5, signatureCooldown: 15 });
+  turfDuration: 3, turfSpeedScale: 1.5, signatureCooldown: 15, decoyWalkSpeed: 3, decoyWalkRange: 36 });
 export const EMBER_SKILLS = Object.freeze({ solderRange: 18, solderFlight: .45, solderArmDelay: .2, solderRadius: 3.2,
   solderDamage: 75, solderTail: .35, solderGroundOffset: .12, shadeDuration: 8, shadeFlashScale: .15,
   serviceDuration: .8, signatureCooldown: 18 });
@@ -72,9 +72,9 @@ const baseSkills = {
   e: { name: 'テイルウィンド', shortName: 'ダッシュ', description: `Eで準備し、${DUELIST.dashArmDelay}秒後から再Eで${DUELIST.dashDistance}m移動。準備開始から${DUELIST.dashWindow}秒以内に使う。`, max: 1, price: 0, type: 'dash', icon: 'm14 5-8 10h12l-6 10L31 10H18l4-5' },
 };
 const nopeSkills = {
-  c: { name: 'NOPEボトル', shortName: '瓶', description: `${NOPE_SKILLS.bottleFuse}秒後に半径${NOPE_SKILLS.bottleRadius}mで爆発。敵へ最大${NOPE_SKILLS.bottleDamage}ダメージ、壁と距離で防げる。`, max: 2, price: DUELIST.smokePrice, type: 'nope-bottle', icon: 'M14 3h8v5l3 5v13H11V13l3-5ZM14 3v5h8M11 16h14M15 19l6 4m0-4-6 4' },
+  c: { name: 'NOPEボトル', shortName: '瓶', description: `最大${NOPE_SKILLS.bottleRange}mへ投げ、${NOPE_SKILLS.bottleFuse}秒後に半径${NOPE_SKILLS.bottleRadius}mで爆発。敵へ最大${NOPE_SKILLS.bottleDamage}ダメージ、壁と距離で防げる。`, max: 2, price: DUELIST.smokePrice, type: 'nope-bottle', icon: 'M14 3h8v5l3 5v13H11V13l3-5ZM14 3v5h8M11 16h14M15 19l6 4m0-4-6 4' },
   q: { name: 'NOPEフェイスフラッシュ', shortName: '顔閃光', description: `半径${NOPE_SKILLS.flashRadius}m内で正面から顔が見えると最大${NOPE_SKILLS.flashDuration}秒まぶしくなる。味方と自身にも有効。`, max: 1, price: DUELIST.updraftPrice, type: 'nope-flash', icon: 'M18 2v4M3 15h4m22 0h4M7 4l3 3m16 16 3 3M29 4l-3 3M9 10l5 5m0-5-5 5m13-5 5 5m0-5-5 5M11 21q7 7 14 0' },
-  e: { name: 'NOPEボディデコイ', shortName: '全身の囮', description: `${NOPE_SKILLS.decoyDuration}秒の全身の囮。敵が撃つと壊れ、半径${NOPE_SKILLS.flashRadius}m内でこちらを見る敵へ最大${NOPE_SKILLS.flashDuration}秒の閃光。味方の弾は無反応。${NOPE_SKILLS.signatureCooldown}秒で再使用。`, max: 1, price: 0, type: 'nope-decoy', icon: 'M5 8h20v16H5ZM10 12l4 4m0-4-4 4m8-4 4 4m0-4-4 4M10 20q6 4 11 0M28 9q7 7 0 14' },
+  e: { name: 'NOPEボディデコイ', shortName: '全身の囮', description: `ライフルを構え、最大${NOPE_SKILLS.decoyDuration}秒前進する全身の囮。壁や段差の前で止まる。敵が撃つと壊れ、半径${NOPE_SKILLS.flashRadius}m内でこちらを見る敵へ最大${NOPE_SKILLS.flashDuration}秒の閃光。味方の弾は無反応。${NOPE_SKILLS.signatureCooldown}秒で再使用。`, max: 1, price: 0, type: 'nope-decoy', icon: 'M5 8h20v16H5ZM10 12l4 4m0-4-4 4m8-4 4 4m0-4-4 4M10 20q6 4 11 0M28 9q7 7 0 14' },
 };
 const mendSkills = {
   c: { name: 'ひまわりの足止め種', shortName: '足止め種', description: `着地から${MEND_SKILLS.seedsDuration}秒、半径${MEND_SKILLS.seedsRadius}mの敵の歩く速さを${MEND_SKILLS.seedsSpeedScale*100}%にする。壁で遮られる。`, max: 2, price: DUELIST.smokePrice, type: 'mend-seeds', icon: 'M18 4v25M18 16C5 17 4 6 5 5c10 0 13 5 13 11ZM18 22c0-9 5-12 13-12 0 8-4 12-13 12Z' },
