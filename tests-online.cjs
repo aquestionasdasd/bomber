@@ -460,6 +460,12 @@ async function main() {
       const{fitTrafficSnapshot}=await import(pathToFileURL(path.join(__dirname,'public/traffic-state.js')).href);
       const full=JSON.parse(JSON.stringify(snapshot));for(const actor of full.actors)actor.trafficHit=[99999,now+.8,17.123456,16.123456,5.6];
       full.cues.push(...Array.from({length:30},(_,i)=>({...full.cues[0],seq:100+i})));
+      const gloomy=JSON.parse(JSON.stringify(full)),gloomPool=createCharacterSkills();
+      for(let i=0;i<20;i++)assert.ok(gloomPool.cast('urchin-gloom',{...player,id:'g'.repeat(62)+String(i).padStart(2,'0')},{x:player.x,y:(player.y||0)+1.7,z:player.z-36},now,1));
+      gloomy.ordinarySkills.events=gloomPool.snapshot().events.map((e,i)=>({...e,id:`skill-urchin-gloom-${999999999999980+i}`}));
+      gloomy.ordinarySkills.blinds=gloomy.ordinarySkills.blinds.map((b,i)=>({...b,eventId:`skill-urchin-gloom-${999999999999980+i}`,startedAt:now,endsAt:now+3}));
+      for(const b of gloomy.ordinarySkills.blinds)delete b.resisted;
+      assert.ok(createCharacterSkills().restore(gloomy.ordinarySkills,now,1));const gloomFit=fitTrafficSnapshot(gloomy);assert.ok(gloomFit);assert.deepEqual(gloomFit.ordinarySkills,gloomy.ordinarySkills);assert.deepEqual(gloomFit.actors,gloomy.actors);assert.ok(Buffer.byteLength(JSON.stringify(gloomFit))<=65536);clock+=200;assert.equal((await send(host,'team:red','game',gloomFit)).status,201);console.log(`GLOOM20 +NEARSIGHT20 capacity ${Buffer.byteLength(JSON.stringify(gloomFit))}B /65536B; authority retained`);
       const limited=fitTrafficSnapshot(full);assert.ok(limited);assert.ok(limited.cues.length<full.cues.length);assert.deepEqual(limited.actors,full.actors);assert.deepEqual(limited.ordinarySkills,full.ordinarySkills);assert.deepEqual(limited.rules,full.rules);assert.ok(Buffer.byteLength(JSON.stringify(limited))<=65536);clock+=200;assert.equal((await send(host,'team:red','game',limited)).status,201);console.log(`HIRAKATA simultaneous10 launches full wire ${Buffer.byteLength(JSON.stringify(limited))}B /65536B; only old cosmetic cues reduced`);
       const driven={...full,busTransit:[[0,0,0,now+25,29.123,-35.789,-1.571,17,[0,1,2]],[1,0,3,now+25,1.234,32.456,1.571,17,[3,4,5]],[2,0,6,now+25,31.456,-36.123,1.571,17,[6,7]],[3,0,8,now+25,3.456,33.123,1.571,17,[8,9]]]};
       for(const actor of driven.actors)Object.assign(actor,{hp:1000,armor:500});

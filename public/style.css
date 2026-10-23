@@ -407,3 +407,5 @@
 .skill-add-button{color:#d9f8e9;border:1px solid #87b7a466;border-radius:3px;background:#152e27;padding:9px 6px;font:inherit;font-size:11px;cursor:pointer}.skill-add-button:disabled{opacity:.4;cursor:default}.skill-add-button[hidden]{display:none}.skill-add-button:focus-visible{outline:2px solid #d9f8e9;outline-offset:2px}
 @media(max-width:600px){.bomber-alert{top:128px;max-width:60vw;padding:8px 12px}.bomber-alert strong{font-size:14px}.bomber-alert span{font-size:14px}}
 @media(max-height:500px) and (orientation:landscape){.bomber-alert{top:88px;padding:5px 14px}.bomber-alert strong,.bomber-alert span{font-size:13px}}
+
+#skill-nearsight-overlay{position:fixed;inset:0;z-index:5;pointer-events:none;contain:strict;background:radial-gradient(ellipse at 50% 48%,transparent 12%,#06243166 42%,#04151ff2 78%);box-shadow:inset 0 0 10vw #51d5ce55}

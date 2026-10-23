@@ -11,6 +11,7 @@ const specs = Object.freeze({
  'onnara-orb':Object.freeze({flight:0,delay:0,tail:ONNARA_SKILLS.orbDuration,radius:0}),
  'onnara-hover':Object.freeze({flight:0,delay:0,tail:ONNARA_SKILLS.hoverDuration,radius:0}),
  'onnara-chain':Object.freeze({flight:0,delay:0,tail:ONNARA_SKILLS.chainDuration,radius:0}),
+ 'urchin-gloom':Object.freeze({flight:URCHIN_SKILLS.gloomRange/URCHIN_SKILLS.gloomSpeed,delay:URCHIN_SKILLS.gloomDelay,tail:URCHIN_SKILLS.gloomRange/URCHIN_SKILLS.gloomSpeed+.2,radius:URCHIN_SKILLS.gloomRadius}),
  'urchin-lance':Object.freeze({flight:0,delay:URCHIN_SKILLS.lanceDelay,tail:URCHIN_SKILLS.lanceTail,radius:URCHIN_SKILLS.lanceRadius}),
  'urchin-jam':Object.freeze({flight:0,delay:0,tail:URCHIN_SKILLS.jamDuration,radius:0}),
  'urchin-disarm':Object.freeze({flight:0,delay:0,tail:.8,radius:0}),
@@ -84,15 +85,16 @@ const serviceWeapon = value => typeof value === 'string' && Object.hasOwn(WEAPON
   && ['primary', 'secondary'].includes(WEAPONS[value].slot) && WEAPONS[value].mag > 0;
 const personal = type => ['onnara-orb','onnara-hover','onnara-chain','urchin-pearl','urchin-trident','cap-bank','cap-magazine','japan-return','nobi-tool','nobi-legend','car-gyro','cat-bookmark','cat-clock','duck-hush', 'duck-egg', 'echo-kerning', 'veil-turf', 'ember-shade', 'ember-service', 'frost-unravel'].includes(type);
 const groundedPersonal = type => type === 'veil-turf' || type === 'frost-unravel';
-const feetSource = type => type.startsWith('onnara-') || type.startsWith('urchin-')&&type!=='urchin-lance' || type.startsWith('cap-') || type.startsWith('japan-') || type.startsWith('nobi-') || type.startsWith('car-') || type.startsWith('cat-') || type === 'mend-heal' || type === 'duelist-lift' || personal(type) || type.startsWith('veil-');
+const feetSource = type => type.startsWith('onnara-') || type.startsWith('urchin-')&&!['urchin-lance','urchin-gloom'].includes(type) || type.startsWith('cap-') || type.startsWith('japan-') || type.startsWith('nobi-') || type.startsWith('car-') || type.startsWith('cat-') || type === 'mend-heal' || type === 'duelist-lift' || personal(type) || type.startsWith('veil-');
 const eventFields = ['id', 'type', 'team', 'sourceId', 'round', 'fromX', 'fromY', 'fromZ', 'x', 'y', 'z', 'startedAt', 'flight', 'triggerAt', 'endsAt', 'radius'];
-const withinCastRange = (type, actor, target, sourceEyeY = eyeY(actor)) => type.startsWith('onnara-') ? feetDistance(actor,target)<=(type==='onnara-tax'?ONNARA_SKILLS.taxRange+.002:type==='onnara-orb'?ONNARA_SKILLS.orbRange+.002:1e-8)+1e-8 : type==='urchin-lance' ? Math.hypot(target.x-actor.x,target.y-sourceEyeY,target.z-actor.z)<=URCHIN_SKILLS.lanceRange+1e-8 : type.startsWith('urchin-') ? feetDistance(actor,target)<=(type==='urchin-jam'?URCHIN_SKILLS.jamRange:type==='urchin-disarm'?URCHIN_SKILLS.disarmRange:1e-8)+1e-8 : type.startsWith('cap-') ? feetDistance(actor,target)<=(type==='cap-lock'?CAP_SKILLS.lockRange:type==='cap-clean'?CAP_SKILLS.cleanRange:1e-8)+1e-8 : type.startsWith('japan-') ? feetDistance(actor,target)<=(type==='japan-border'?JAPAN_SKILLS.borderRange:type==='japan-levy'?JAPAN_SKILLS.levyRange:1e-8)+1e-8 : type.startsWith('nobi-') ? feetDistance(actor,target)<=(type==='nobi-tag'?NOBI_SKILLS.tagRange:type==='nobi-brake'?NOBI_SKILLS.brakeRange:1e-8)+1e-8 : type.startsWith('car-') ? feetDistance(actor,target)<=(type==='car-bumper'?CAR_SKILLS.bumperRange:type==='car-wash'?CAR_SKILLS.washRange:1e-8)+1e-8 : type.startsWith('cat-') ? feetDistance(actor,target) <= (type==='cat-return'?CAT_SKILLS.returnRange:type==='cat-pluck'?CAT_SKILLS.pluckRange:type==='cat-fetch'?CAT_SKILLS.fetchRange:1e-8)+1e-8 : type === 'duck-pad' || type === 'duck-seal' || type === 'duck-shield' ? Math.hypot(target.x-actor.x,target.y-sourceEyeY,target.z-actor.z) <= (type === 'duck-seal' ? DUCK_SKILLS.sealRange : type === 'duck-pad'?DUCK_SKILLS.padRange:DUCK_SKILLS.shieldRange)+1e-8 : type === 'duelist-comet' ? Math.hypot(target.x - actor.x, target.y - sourceEyeY, target.z - actor.z) <= DUELIST_SKILLS.cometRange + 1e-8
+const withinCastRange = (type, actor, target, sourceEyeY = eyeY(actor)) => type.startsWith('onnara-') ? feetDistance(actor,target)<=(type==='onnara-tax'?ONNARA_SKILLS.taxRange+.002:type==='onnara-orb'?ONNARA_SKILLS.orbRange+.002:1e-8)+1e-8 : type==='urchin-gloom' ? close(Math.hypot(target.x-actor.x,target.y-sourceEyeY,target.z-actor.z),URCHIN_SKILLS.gloomRange) : type==='urchin-lance' ? Math.hypot(target.x-actor.x,target.y-sourceEyeY,target.z-actor.z)<=URCHIN_SKILLS.lanceRange+1e-8 : type.startsWith('urchin-') ? feetDistance(actor,target)<=(type==='urchin-jam'?URCHIN_SKILLS.jamRange:type==='urchin-disarm'?URCHIN_SKILLS.disarmRange:1e-8)+1e-8 : type.startsWith('cap-') ? feetDistance(actor,target)<=(type==='cap-lock'?CAP_SKILLS.lockRange:type==='cap-clean'?CAP_SKILLS.cleanRange:1e-8)+1e-8 : type.startsWith('japan-') ? feetDistance(actor,target)<=(type==='japan-border'?JAPAN_SKILLS.borderRange:type==='japan-levy'?JAPAN_SKILLS.levyRange:1e-8)+1e-8 : type.startsWith('nobi-') ? feetDistance(actor,target)<=(type==='nobi-tag'?NOBI_SKILLS.tagRange:type==='nobi-brake'?NOBI_SKILLS.brakeRange:1e-8)+1e-8 : type.startsWith('car-') ? feetDistance(actor,target)<=(type==='car-bumper'?CAR_SKILLS.bumperRange:type==='car-wash'?CAR_SKILLS.washRange:1e-8)+1e-8 : type.startsWith('cat-') ? feetDistance(actor,target) <= (type==='cat-return'?CAT_SKILLS.returnRange:type==='cat-pluck'?CAT_SKILLS.pluckRange:type==='cat-fetch'?CAT_SKILLS.fetchRange:1e-8)+1e-8 : type === 'duck-pad' || type === 'duck-seal' || type === 'duck-shield' ? Math.hypot(target.x-actor.x,target.y-sourceEyeY,target.z-actor.z) <= (type === 'duck-seal' ? DUCK_SKILLS.sealRange : type === 'duck-pad'?DUCK_SKILLS.padRange:DUCK_SKILLS.shieldRange)+1e-8 : type === 'duelist-comet' ? Math.hypot(target.x - actor.x, target.y - sourceEyeY, target.z - actor.z) <= DUELIST_SKILLS.cometRange + 1e-8
   : type === 'mend-heal' ? feetDistance(actor, target) <= MEND_SKILLS.healRange + 1e-8
   : personal(type) || type === 'duelist-lift' ? feetDistance(actor, target) <= 1e-8
   : type === 'veil-dust' ? Math.hypot(target.x - actor.x, target.z - actor.z) <= 1e-8 && close(target.y, (actor.y || 0) + VEIL_SKILLS.dustCenterOffset)
   : type === 'veil-roots' ? Math.hypot(target.x - actor.x, target.z - actor.z) >= VEIL_SKILLS.rootsMinRange - 1e-8 && Math.hypot(target.x - actor.x, target.z - actor.z) <= VEIL_SKILLS.rootsRange + 1e-8
   : Math.hypot(target.x - actor.x, target.z - actor.z) <= (type === 'nope-bottle' ? NOPE_SKILLS.bottleRange : type === 'nope-decoy' ? CHARACTER_SKILLS.decoyDistance : type === 'echo-tag' ? IAGNU_SKILLS.tagRange : type === 'ember-solder' ? EMBER_SKILLS.solderRange : type === 'frost-stitch' ? FROST_SKILLS.stitchRange : type === 'frost-mist' ? FROST_SKILLS.mistRange : CHARACTER_SKILLS.castDistance) + 1e-8;
-const flashDuration = eventId => idSequence(eventId, 'nope-flash') ? NOPE_SKILLS.flashDuration : idSequence(eventId, 'echo-glint') ? IAGNU_SKILLS.glintDuration : 0;
+const isGloomBlind = value => !!idSequence(value?.eventId, 'urchin-gloom');
+const flashDuration = eventId => idSequence(eventId,'urchin-gloom') ? URCHIN_SKILLS.gloomDuration : idSequence(eventId, 'nope-flash') ? NOPE_SKILLS.flashDuration : idSequence(eventId, 'echo-glint') ? IAGNU_SKILLS.glintDuration : 0;
 const safeReach = (reachable, source, target) => {
   if (typeof reachable !== 'function') return false;
   try { return reachable(source, target) === true; } catch { return false; }
@@ -115,7 +117,13 @@ export function selectMendTarget(actor, actors, reachable) {
   const target = eligible[0]; return target ? { id: target.id, team: target.team, x: target.x, y: target.y || 0, z: target.z, hp: target.hp, alive: true } : null;
 }
 
+export function urchinGloomPosition(event,now){
+  if(!event||event.type!=='urchin-gloom'||!clock(now)||![event.fromX,event.fromY,event.fromZ,event.x,event.y,event.z,event.triggerAt,event.flight].every(Number.isFinite)||event.flight<=0)return null;
+  const t=Math.max(0,Math.min(1,(now-event.triggerAt)/event.flight));
+  return {x:event.fromX+(event.x-event.fromX)*t,y:event.fromY+(event.y-event.fromY)*t,z:event.fromZ+(event.z-event.fromZ)*t};
+}
 export function skillProjectilePosition(event, now) {
+  if(event?.type==='urchin-gloom')return urchinGloomPosition(event,now);
   if (!event || !isType(event.type) || !point(event) || !clock(now)) return null;
   if (specs[event.type].flight === 0) return { x: event.x, y: event.y, z: event.z };
   if (![event.fromX, event.fromY, event.fromZ].every(coordinate) || !clock(event.startedAt) || !Number.isFinite(event.flight) || event.flight <= 0) return null;
@@ -128,12 +136,12 @@ export function skillProjectilePosition(event, now) {
 
 export function createCharacterSkills() {
   let currentRound = null, currentTime = -Infinity, lastRestoreTime = -Infinity, sequence = 0;
-  const active = new Map(), owned = new Set(), blinds = new Map(), detections = new Map(), decoyOwners = new Set(), decoyReactions = new Map(), borderHistory=new Map();
-  function clear() { borderHistory.clear(); active.clear(); owned.clear(); blinds.clear(); detections.clear(); decoyOwners.clear(); decoyReactions.clear(); }
+  const active = new Map(), owned = new Set(), blinds = new Map(), detections = new Map(), decoyOwners = new Set(), decoyReactions = new Map(), borderHistory=new Map(), nearsights=new Map(), waveSamples=new Map();
+  function clear() { nearsights.clear();waveSamples.clear();borderHistory.clear(); active.clear(); owned.clear(); blinds.clear(); detections.clear(); decoyOwners.clear(); decoyReactions.clear(); }
   function prune(now) {
-    for (const [id, event] of active) if (event.endsAt <= now) { active.delete(id); owned.delete(id); decoyOwners.delete(id); borderHistory.delete(id); }
+    for (const [id, event] of active) if (event.endsAt <= now) { active.delete(id); owned.delete(id); decoyOwners.delete(id); borderHistory.delete(id);waveSamples.delete(id); }
     for (const [id, endsAt] of decoyReactions) if (endsAt <= now) decoyReactions.delete(id);
-    for (const [id, blind] of blinds) if (blind.endsAt <= now) blinds.delete(id);
+    for(const collection of [blinds,nearsights])for(const[id,blind]of collection)if(blind.endsAt<=now)collection.delete(id);
     for (const [id, marker] of detections) if (marker.endsAt <= now) detections.delete(id);
   }
   function advance(now, round = currentRound) {
@@ -188,6 +196,15 @@ export function createCharacterSkills() {
     active.set(event.id, event); if (type === 'nope-decoy') decoyOwners.add(event.id);
     if (['nope-bottle', 'nope-flash', 'mend-heal', 'echo-tag', 'echo-glint', 'ember-solder'].includes(type)) owned.add(event.id); return copy(event);
   }
+  function storeBlind(blind,near=false){
+    const collection=near?nearsights:blinds;
+    if(collection.has(blind.targetId)&&collection.get(blind.targetId).endsAt>=blind.endsAt)return;
+    while(!collection.has(blind.targetId)&&blinds.size+nearsights.size>=CHARACTER_SKILLS.maxBlinds){
+      const first=[...blinds.values(),...nearsights.values()].sort((a,b)=>a.endsAt-b.endsAt)[0];
+      (isGloomBlind(first)?nearsights:blinds).delete(first.targetId);
+    }
+    collection.set(blind.targetId,blind);
+  }
   function canReach(reachable, event, actor) {
     return safeReach(reachable, event, actor);
   }
@@ -227,10 +244,7 @@ export function createCharacterSkills() {
       const duration = NOPE_SKILLS.flashDuration * (resisted ? EMBER_SKILLS.shadeFlashScale : 1);
       const blind = { eventId: event.id, targetId: actor.id, sourceId: event.sourceId, team: event.team, round, startedAt: now, endsAt: now + duration };
       if (resisted) blind.resisted = true;
-      if (!blinds.has(actor.id) || blinds.get(actor.id).endsAt < blind.endsAt) {
-        while (!blinds.has(actor.id) && blinds.size >= CHARACTER_SKILLS.maxBlinds) blinds.delete(blinds.keys().next().value);
-        blinds.set(actor.id, blind);
-      }
+      storeBlind(blind);
       effects.push({ type: 'blind', targetId: actor.id, sourceId: event.sourceId, duration });
     }
     return effects;
@@ -238,6 +252,7 @@ export function createCharacterSkills() {
   function update(actors, now, round, { reachable } = {}) {
     if (!advance(now, round)) return [];
     const effects = [], list = Array.isArray(actors) ? actors : [];
+    for(const[id,b]of nearsights)if(!list.some(a=>living(a)&&a.id===id))nearsights.delete(id);
     // A placed tag remains after its source dies. A personal movement effect
     // ends permanently on death/removal, rather than reviving with the actor.
     // Grounded personal effects end at the first airborne sample, permanently.
@@ -259,6 +274,22 @@ export function createCharacterSkills() {
         history.get(actor.id).hit=true;effects.push({type:'damage',targetId:actor.id,sourceId:e.sourceId,amount:JAPAN_SKILLS.borderDamage});
       }
     }
+    // A host-owned traveling volume hits each actor once. The wall-piercing
+    // wave never reads enemy coordinates at cast or acquires authority on restore.
+    for(const id of owned){const e=active.get(id);if(e?.type!=='urchin-gloom'||now<e.triggerAt)continue;
+      let sample=waveSamples.get(id);if(!sample){sample={at:e.triggerAt,hit:new Set()};waveSamples.set(id,sample);}
+      const a=urchinGloomPosition(e,sample.at),b=urchinGloomPosition(e,now),dx=b.x-a.x,dy=b.y-a.y,dz=b.z-a.z,len2=dx*dx+dy*dy+dz*dz;
+      for(const actor of list){if(!living(actor)||actor.id===e.sourceId||sample.hit.has(actor.id))continue;
+        const along=((actor.x-e.fromX)*(e.x-e.fromX)+(eyeY(actor)-e.fromY)*(e.y-e.fromY)+(actor.z-e.fromZ)*(e.z-e.fromZ))/URCHIN_SKILLS.gloomRange;
+        if(along<0||along>URCHIN_SKILLS.gloomRange)continue;
+        const x=actor.x-a.x,y=eyeY(actor)-a.y,z=actor.z-a.z,t=len2?Math.max(0,Math.min(1,(x*dx+y*dy+z*dz)/len2)):0;
+        if(Math.hypot(x-dx*t,y-dy*t,z-dz*t)>e.radius)continue;
+        sample.hit.add(actor.id);storeBlind({eventId:e.id,targetId:actor.id,sourceId:e.sourceId,team:e.team,round,startedAt:now,endsAt:now+URCHIN_SKILLS.gloomDuration},true);
+        effects.push({type:'nearsight',targetId:actor.id,sourceId:e.sourceId,duration:URCHIN_SKILLS.gloomDuration});
+      }
+      sample.at=now;if(now>=e.triggerAt+e.flight)owned.delete(id);
+    }
+    for(const id of waveSamples.keys())if(!active.has(id))waveSamples.delete(id);
     // A locally cast lane resolves once at the advertised time. Restored lanes
     // are visual only, and never gain hit authority or follow an actor.
     for(const id of owned){const e=active.get(id);if(e?.type!=='urchin-lance'||now+1e-8<e.triggerAt)continue;
@@ -309,10 +340,7 @@ export function createCharacterSkills() {
           const blind = { eventId: event.id, targetId: actor.id, sourceId: event.sourceId, team: event.team, round,
             startedAt: now, endsAt: now + duration };
           if (resisted) blind.resisted = true;
-          if (!blinds.has(actor.id) || blinds.get(actor.id).endsAt < blind.endsAt) {
-            while (!blinds.has(actor.id) && blinds.size >= CHARACTER_SKILLS.maxBlinds) blinds.delete(blinds.keys().next().value);
-            blinds.set(actor.id, blind);
-          }
+          storeBlind(blind);
           effects.push({ type: 'blind', targetId: actor.id, sourceId: event.sourceId, duration });
         }
       }
@@ -329,6 +357,8 @@ export function createCharacterSkills() {
   const viewTime = now => clock(now) && advance(Math.max(now, currentTime));
   function events(now) { return viewTime(now) ? [...active.values()].map(copy) : []; }
   function blindUntil(actorId, now) { return identifier(actorId) && viewTime(now) ? blinds.get(actorId)?.endsAt || 0 : 0; }
+  function nearsightUntil(actorId,now){return identifier(actorId)&&viewTime(now)?nearsights.get(actorId)?.endsAt||0:0;}
+  function sightRange(actorId,now){return nearsightUntil(actorId,now)>now?URCHIN_SKILLS.gloomSight:Infinity;}
   function markers(observerTeam, now) { return team(observerTeam) && viewTime(now) ? [...detections.values()].filter(marker => marker.team === observerTeam).map(copy) : []; }
   function movementScale(actor, now) {
     if (!viewTime(now)) return 1;
@@ -404,7 +434,7 @@ export function createCharacterSkills() {
   function nobiInterval(id,now){return nobiActive('nobi-brake',id,now,true)?NOBI_SKILLS.fireIntervalScale:1;}
   function nobiWork(id,now){return nobiActive('nobi-tool',id,now)?NOBI_SKILLS.toolScale:1;}
   function nobiLegend(id,now){return nobiActive('nobi-legend',id,now);}
-  function snapshot(observerTeam) { return { events: [...active.values()].map(copy), blinds: [...blinds.values()].map(copy),
+  function snapshot(observerTeam) { return { events: [...active.values()].map(copy), blinds: [...blinds.values(),...nearsights.values()].map(copy),
     markers: [...detections.values()].filter(marker => observerTeam === undefined || marker.team === observerTeam).map(copy) }; }
   function validEvent(value, now, round) {
     if (!value || typeof value !== 'object' || Array.isArray(value) || !isType(value.type) || !team(value.team) || !identifier(value.sourceId) || !point(value)
@@ -427,8 +457,9 @@ export function createCharacterSkills() {
   function validBlind(value, now, round) {
     return value && typeof value === 'object' && !Array.isArray(value)
       && Object.keys(value).every(key => ['eventId', 'targetId', 'sourceId', 'team', 'round', 'startedAt', 'endsAt', 'resisted'].includes(key))
-      && (!Object.hasOwn(value, 'resisted') || value.resisted === true)
+      && (!Object.hasOwn(value, 'resisted') || value.resisted === true&&!isGloomBlind(value))
       && flashDuration(value.eventId) > 0 && identifier(value.targetId) && identifier(value.sourceId) && team(value.team)
+      && (!isGloomBlind(value)||value.targetId!==value.sourceId)
       && value.round === round && clock(value.startedAt) && value.startedAt <= now && clock(value.endsAt)
       && close(value.endsAt, value.startedAt + flashDuration(value.eventId) * (value.resisted === true ? EMBER_SKILLS.shadeFlashScale : 1));
   }
@@ -463,11 +494,12 @@ export function createCharacterSkills() {
       nextEvents.set(clean.id, clean); nextSequence = Math.max(nextSequence, idSequence(clean.id, clean.type));
     }
     for (const blind of value.blinds) {
-      if (!validBlind(blind, now, round) || nextBlinds.has(blind.targetId)) return false;
+      const key=JSON.stringify([blind.targetId,isGloomBlind(blind)]);
+      if (!validBlind(blind, now, round) || nextBlinds.has(key)) return false;
       const clean = { eventId: blind.eventId, targetId: blind.targetId, sourceId: blind.sourceId, team: blind.team, round, startedAt: blind.startedAt, endsAt: blind.endsAt };
       if (blind.resisted === true) clean.resisted = true;
-      nextBlinds.set(blind.targetId, clean);
-      nextSequence = Math.max(nextSequence, idSequence(blind.eventId, 'nope-flash'), idSequence(blind.eventId, 'echo-glint'));
+      nextBlinds.set(key, clean);
+      nextSequence = Math.max(nextSequence, idSequence(blind.eventId, 'nope-flash'), idSequence(blind.eventId, 'echo-glint'),idSequence(blind.eventId,'urchin-gloom'));
     }
     for (const marker of value.markers || []) {
       if (!validMarker(marker, now, round) || nextMarkers.has(marker.eventId) || nextEvents.has(marker.eventId)) return false;
@@ -480,7 +512,7 @@ export function createCharacterSkills() {
     currentTime = round === currentRound ? Math.max(currentTime, now) : now; currentRound = round; lastRestoreTime = now; sequence = nextSequence;
     clear();
     for (const [id, event] of nextEvents) if (event.endsAt > currentTime) active.set(id, event);
-    for (const [id, blind] of nextBlinds) if (blind.endsAt > currentTime) blinds.set(id, blind);
+    for (const blind of nextBlinds.values()) if (blind.endsAt > currentTime) (isGloomBlind(blind)?nearsights:blinds).set(blind.targetId,blind);
     for (const [id, marker] of nextMarkers) if (marker.endsAt > currentTime) detections.set(id, marker);
     return true;
   }
@@ -526,12 +558,12 @@ export function createCharacterSkills() {
   }
   function resetActor(id){
     for(const[key,e]of active)if(e.sourceId===id&&(personal(e.type)||/^(onnara|urchin|cap|japan|nobi|car|cat|duck)-/.test(e.type))||e.targetId===id&&/^(onnara|urchin|cap|japan|nobi|duck)-/.test(e.type)){active.delete(key);owned.delete(key);borderHistory.delete(key);}
-    blinds.delete(id);
+    blinds.delete(id);nearsights.delete(id);
   }
   function reset() { clear(); currentRound = null; currentTime = -Infinity; lastRestoreTime = -Infinity; }
   const hostileDebuff = (e,id,ownTeam) => e.team!==ownTeam&&e.targetId===id&&['onnara-tax','urchin-jam','cap-lock','duck-seal','nobi-tag','nobi-brake'].includes(e.type);
-  function hasImpairment(id,ownTeam,now){return [...blinds.values()].some(b=>b.targetId===id&&b.endsAt>now)||events(now).some(e=>hostileDebuff(e,id,ownTeam));}
-  function cleanse(id,ownTeam,now){let removed=0;for(const[k,b]of blinds)if(b.targetId===id&&b.endsAt>now){blinds.delete(k);removed++;}for(const[k,e]of active)if(hostileDebuff(e,id,ownTeam)){active.delete(k);owned.delete(k);removed++;}return removed;}
+  function hasImpairment(id,ownTeam,now){return [...blinds.values(),...nearsights.values()].some(b=>b.targetId===id&&b.endsAt>now)||events(now).some(e=>hostileDebuff(e,id,ownTeam));}
+  function cleanse(id,ownTeam,now){let removed=0;for(const collection of[blinds,nearsights])for(const[k,b]of collection)if(b.targetId===id&&b.endsAt>now){collection.delete(k);removed++;}for(const[k,e]of active)if(hostileDebuff(e,id,ownTeam)){active.delete(k);owned.delete(k);removed++;}return removed;}
   const capState=(type,id,now,target=false)=>events(now).some(e=>e.type===type&&(target?e.targetId:e.sourceId)===id);
   function consumeCrownTax(id,now,credits){
     if(!Number.isSafeInteger(credits)||credits<0)return 0;
@@ -539,5 +571,5 @@ export function createCharacterSkills() {
     if(!e)return 0;const stored=active.get(e.id),step=Math.min(ONNARA_SKILLS.taxPerShot,stored.power),paid=Math.min(credits,step);stored.power-=step;return paid;
   }
   const onnaraEvent=(type,id,now)=>events(now).find(e=>e.type===type&&e.sourceId===id)||null;
-  return {duckPad,recordConstellation(sourceId,from,to,now){const e=events(now).find(e=>e.type==='onnara-chain'&&e.sourceId===sourceId&&owned.has(e.id));if(!e||!point(from)||!point(to)||Math.hypot(from.x-to.x,from.y-to.y,from.z-to.z)>ONNARA_SKILLS.chainRange+.001)return false;active.get(e.id).link=[from.x,from.y,from.z,to.x,to.y,to.z,now].map(n=>Math.round(n*1000)/1000);active.get(e.id).link[6]=now;return true;},cancelOnnaraEvent(id,sourceId){const e=active.get(id);if(e?.type.startsWith('onnara-')&&e.sourceId===sourceId&&owned.has(id)){active.delete(id);owned.delete(id);return true;}return false;},consumeCrownTax,onnaraTax:(id,now)=>events(now).find(e=>e.type==='onnara-tax'&&e.targetId===id)||null,onnaraEvent,urchinJammed:(id,now)=>capState('urchin-jam',id,now,true),urchinTrident:(id,now)=>capState('urchin-trident',id,now),hasImpairment,cleanse,capLocked:(id,now)=>capState('cap-lock',id,now,true),capBank:(id,now)=>capState('cap-bank',id,now),capMagazine:(id,now)=>capState('cap-magazine',id,now),resetActor,japanReturn:(id,now)=>events(now).some(e=>e.type==='japan-return'&&e.sourceId===id)?JAPAN_SKILLS.returnScale:0,nobiVulnerability,nobiInterval,nobiWork,nobiLegend,carGyro,disperseSmoke,cancelCarEvent,catBookmark,returnToCatBookmark,cancelCatEvent,clockFrozen, sealUntil,quiet,guardLethal,interceptShield,cast, update, events, snapshot, restore, reset, blindUntil, speedScale, markers, movementScale, mitigateSlow, frostSlideSpeed, cancelService, consumeDecoy, flashDecoy };
+  return {nearsightUntil,sightRange,duckPad,recordConstellation(sourceId,from,to,now){const e=events(now).find(e=>e.type==='onnara-chain'&&e.sourceId===sourceId&&owned.has(e.id));if(!e||!point(from)||!point(to)||Math.hypot(from.x-to.x,from.y-to.y,from.z-to.z)>ONNARA_SKILLS.chainRange+.001)return false;active.get(e.id).link=[from.x,from.y,from.z,to.x,to.y,to.z,now].map(n=>Math.round(n*1000)/1000);active.get(e.id).link[6]=now;return true;},cancelOnnaraEvent(id,sourceId){const e=active.get(id);if(e?.type.startsWith('onnara-')&&e.sourceId===sourceId&&owned.has(id)){active.delete(id);owned.delete(id);return true;}return false;},consumeCrownTax,onnaraTax:(id,now)=>events(now).find(e=>e.type==='onnara-tax'&&e.targetId===id)||null,onnaraEvent,urchinJammed:(id,now)=>capState('urchin-jam',id,now,true),urchinTrident:(id,now)=>capState('urchin-trident',id,now),hasImpairment,cleanse,capLocked:(id,now)=>capState('cap-lock',id,now,true),capBank:(id,now)=>capState('cap-bank',id,now),capMagazine:(id,now)=>capState('cap-magazine',id,now),resetActor,japanReturn:(id,now)=>events(now).some(e=>e.type==='japan-return'&&e.sourceId===id)?JAPAN_SKILLS.returnScale:0,nobiVulnerability,nobiInterval,nobiWork,nobiLegend,carGyro,disperseSmoke,cancelCarEvent,catBookmark,returnToCatBookmark,cancelCatEvent,clockFrozen, sealUntil,quiet,guardLethal,interceptShield,cast, update, events, snapshot, restore, reset, blindUntil, speedScale, markers, movementScale, mitigateSlow, frostSlideSpeed, cancelService, consumeDecoy, flashDecoy };
 }
