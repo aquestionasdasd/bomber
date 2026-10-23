@@ -384,5 +384,17 @@
     "bytes": 15761,
     "license": "CC0-1.0",
     "adopted_cycle": 71
+  },
+  {
+    "file": "vehicle-impact-user.mp3",
+    "original": "打撃8.mp3",
+    "bytes": 27072,
+    "sha256": "ae00f7eee68c22f65d1800f52b545ec73930b30f4253d4b54bc877fa3b21cc01",
+    "seconds": 1.0644166666666666,
+    "format": "mp3",
+    "pack": "user-provided",
+    "source": "User supplied attachment; requested vehicle-hit use in this game",
+    "license": "User-provided; no CC0 or third-party license claim",
+    "adopted_cycle": 99
   }
 ]

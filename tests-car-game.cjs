@@ -62,10 +62,11 @@ async function main() {
       constructor() { this.shadowMap = {}; this.info = { render: { calls: 0 } }; this.capabilities = { getMaxAnisotropy: () => 8 }; }
       setPixelRatio() {} setSize() {} render() {} getContext() { return {}; }
     }
-    const sandbox = { ...imported, THREE: { ...THREE, WebGLRenderer: Renderer },
+    const audioEvents=[];
+    const sandbox = { audioEvents, ...imported, THREE: { ...THREE, WebGLRenderer: Renderer },
       createMap: realMap ? actualCreateMap : fixtureMap, document,
       // Never instantiate AudioContext or fetch/decode/play any recording.
-      createGameAudio: () => ({ init() {}, play() {}, unlock() {}, resume() {}, setVolume() {}, dispose() {} }),
+      createGameAudio: () => ({ init() {}, play(type,options) {audioEvents.push({type,options});}, unlock() {}, resume() {}, setVolume() {}, dispose() {} }),
       window: { addEventListener() {} }, navigator: { maxTouchPoints: 0 }, matchMedia: () => ({ matches: false }),
       localStorage: { getItem: () => null, setItem() {} }, performance: { now: () => 0 },
       devicePixelRatio: 1, innerWidth: 1440, innerHeight: 900,
@@ -123,6 +124,7 @@ async function main() {
   check('team change/exit stop forced motion and new front enemy intercepts body instead of targeting through it',()=>{setup();local.run(`activateAbility(player,'c',{aim:{yaw:0,pitch:-.04}});player.team='red'`);advance(local,.5);assert.equal(local.run('player.carMotion'),null);assert.equal(local.run('enemy.hp'),100);setup();local.run(`activateAbility(player,'c',{aim:{yaw:0,pitch:-.04}});makeBot({x:0,z:-5},1,'red',{id:'interceptor',team:'red',armor:0,secondary:'classic',kit:new DuelistKit({character:'nope'})});var interceptor=bots.find(b=>b.id==='interceptor')`);advance(local,.5);assert.equal(local.run('enemy.hp'),100);assert.equal(local.run('interceptor.hp'),25);local.run(`backMenu()`);assert.equal(local.run('player.carMotion'),null);assert.equal(local.run('interceptor.carMotion'),null);});
   check('strict six-field movement markers reject malformed/expired/too fast/nonfinite and long launch',()=>{setup();for(const value of[null,[],['skill-car-bumper-1',2,11,24,0,6,1],['skill-car-bumper-1',2,12,24,0,6],['skill-car-bumper-1',2,10,24,0,6],['skill-car-bumper-1',3,11,24,0,6],['skill-car-bumper-1',2,11,100,0,6],['skill-car-bumper-1',2,11,24,0,NaN],['wrong',2,11,24,0,6]]){local.sandbox.marker=value;assert.equal(local.run('carMotionMarker(marker,elapsed)'),null);}local.sandbox.marker=['skill-car-bumper-1',2,11,24,0,6];assert.ok(local.run('carMotionMarker(marker,elapsed)'));});
   check('death/round/menu resets personal gyro and effect resources; friendly bumper never selected',()=>{setup();local.run(`enemy.team=player.team`);assert.equal(local.run(`activateAbility(player,'c',{aim:{yaw:0,pitch:-.04}})`),undefined);local.run(`activateAbility(player,'e');player.alive=false;player.hp=0;updateOrdinarySkills()`);assert.equal(local.run('ordinarySkills.carGyro(player.id,elapsed)'),false);setup();local.run(`activateAbility(player,'e');ordinarySkills.update([],elapsed,match.round+1)`);assert.equal(local.run('ordinarySkills.events(elapsed).length'),0);});
+  check('ram sound uses user cue only on confirmed contact, never cast or miss',()=>{setup();local.run(`soundEnabled=true;volume=.5;audioEvents.length=0;activateAbility(player,'c',{aim:{yaw:0,pitch:-.04}})`);assert.equal(local.run("audioEvents.filter(e=>e.type==='vehicle-hit').length"),0);advance(local,.4);assert.equal(local.run("audioEvents.filter(e=>e.type==='vehicle-hit').length"),1);advance(local,1);assert.equal(local.run("audioEvents.filter(e=>e.type==='vehicle-hit').length"),1);setup();local.run(`soundEnabled=true;audioEvents.length=0;activateAbility(player,'c',{aim:{yaw:0,pitch:-.04}});enemy.x=3`);advance(local,1.5);assert.equal(local.run("audioEvents.filter(e=>e.type==='vehicle-hit').length"),0);});
   console.log(`PASS: ${groups} actual-game car groups; AudioContext never created`);
 }
 main().catch(error=>{console.error(error);process.exitCode=1;});
