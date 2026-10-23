@@ -943,6 +943,10 @@ export function createAgentModel(THREE, { bot = null, team = 'red', variant = 0,
     const danceTime = Number.isFinite(state.danceTime) ? state.danceTime : time;
     moveBlend += ((state.moving ? 1 : 0) - moveBlend) * smooth;
     const interacting = state.planting || state.defusing;
+    const sliding = state.sliding === true && state.alive !== false && !dancing && !interacting;
+    // Bend the shared skeleton and its hit faces together. Sliding already
+    // lowers the whole rig; applying crouch again would put its head underground.
+    const crouch = state.alive === false || dancing || sliding ? 0 : Math.max(0, Math.min(1, Number(state.crouch) || 0));
     interactBlend += ((interacting ? 1 : 0) - interactBlend) * smooth;
     ultimate = Boolean(state.ultimate) && state.alive !== false;
     selectWeapon(ultimate ? 'knife' : state.weapon || defaultWeapon);
@@ -970,7 +974,7 @@ export function createAgentModel(THREE, { bot = null, team = 'red', variant = 0,
     if (weapon.knife || state.alive === false) flashTimer = 0;
     wasFiring = firing; fireKick *= Math.exp(-dt * 18);
     const gait = time * 10 + variant * 1.7, cycle = Math.sin(gait);
-    const drop = -interactBlend * .19 + Math.cos(gait * 2) * .012 * moveBlend;
+    const drop = -crouch * .55 - interactBlend * .19 * (1 - crouch) + Math.cos(gait * 2) * .012 * moveBlend;
     upper.position.y = drop;
     upper.rotation.z = cycle * .016 * moveBlend;
     head.rotation.x = .04 + interactBlend * .27;
@@ -993,7 +997,6 @@ export function createAgentModel(THREE, { bot = null, team = 'red', variant = 0,
     } else { deathTime = 0; rig.rotation.set(0, 0, 0); rig.position.y = 0; ring.visible = true; }
     // A slide changes the visible whole-body silhouette, including hit faces.
     // Restore the normal rig every frame so death/next round never keep it low.
-    const sliding = state.sliding === true && state.alive !== false && !dancing && !interacting;
     rig.scale.y = sliding ? .65 : 1;
     if (sliding) { rig.rotation.x = -.12; upper.rotation.z = -.09; }
     if (dancing) {
