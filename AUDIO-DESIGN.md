@@ -1,3 +1,12 @@
+## 第109巡 — 銃弾の命中・キル確認音
+
+- 人間指定により、実銃弾で敵のHP/装甲が減った本人へ短い打撃の確認音、致死弾には別の打撃＋短いピチカートのキル音を追加。致死弾で通常命中音を二重に鳴らさず、散弾は既存の1標的/1カートリッジ集約後に1回。
+- 既存収録素材 lab-punch-light1（効果音ラボ）と jingle-PIZZI07（Kenney CC0）を再利用。機械音生成なし。通常の銃声/敵銃声/足音/着地の保護70voice traceと元8素材、指定車両MP3は保持。
+- hostの実ダメージ確定点から発行し、guest予測では鳴らさない。既存cueのseq/round/idを使い本人だけ無定位/距離減衰なしで再生、最後の撃破のpost snapshotも受理。重複/旧R/古い・未来・不正/fresh再参加は無音。消音/volume0/読込中は消費し後で鳴らし直さない。通信fieldとHTTP頻度は追加せず、容量超過時は既存の古いcosmetic cue削減のみ。
+- 実savedgame8群/全10銃/独立hostguest JSON/3メモリ故障検出、録音mock4群（全96cue、保護70voice cold/ready/failed exact）、実SQLite21群、既存arsenal12/演出8/フルコンボ7/購入ACK9が成功。専用2素材はoffline decode/有限PCM/長さ/peak/RMS/SHAを確認。64確認cue＋4待機バス＋構造破壊＋10人は63919B/65536、既存最大65522Bを保持。
+- 最初のguard fixtureはHP1→HP1で実損失0だったため期待が誤り。HP50→HP1の実損失を持つ標本へ修正し製品判定は変更していない。初回停止logを保持。全main反復なし、旧床ボンバー/4キーfixture債務は未解消。
+- 音再生/試聴/ブラウザー/server起動なし。音質の聴感、実2タブ/実端末は未確認。公開・共有の確定SHA/結果はworkspaceのcycle109記録を正本とする。
+
 ## 第103巡 / 共同開発音源の統合
 
 PR54内のPR49の録音skill/UIと専用jump/羽ばたき/TRC音を統合。旧gun/step/landの保護graphと8素材、ユーザーの2MP3は維持し、94非銃cueを使用。PR49の銃声・足音差し替え部分は既存の所有者指定に従って採用しない。30同梱素材はmanifest SHA照合とoffline decodeで有限PCM/最大peak.785未満を確認し試聴しない。

@@ -158,3 +158,8 @@ User supplied bus wall destruction (cycle102)
 Original attachment: 岩が真っ二つに割れる.mp3 -> bus-wall-break-user.mp3 (unchanged bytes).
 Included at the user's explicit request for bus demolition in this game.
 Separate from Kenney CC0 packs; no CC0 license is claimed.
+
+Combat confirmation use (cycle109)
+- gun-hit: existing lab-punch-light1.ogg, Sound Effect Lab recording; terms and SHA remain in soundeffect-lab-manifest.json.
+- gun-kill: the same impact plus existing jingle-PIZZI07.ogg, Kenney Music Jingles, CC0; original license and SHA remain bundled.
+No new recording downloads, synthesized layers, gunshot/footstep changes or user-impact MP3 edits.

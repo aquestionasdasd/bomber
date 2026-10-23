@@ -10,6 +10,8 @@ const wood=(gain=.18,length=.28,delay=0)=>layer('lab-landing1.ogg',gain,length,d
 const liquid=(gain=.17,length=.4,delay=0)=>layer('lab-liquid.ogg',gain,length,delay);
 const pluck=(id,gain=.14,length=.65,delay=0)=>layer((id==='00'?'oto-angel01-1.ogg':id==='07'?'lab-success1.ogg':'lab-cancel2.ogg'),gain,length,delay);
 export const SAMPLE_CUES=Object.freeze({
+ 'gun-hit':[soft(.48,.12)],
+ 'gun-kill':[soft(.38,.14),layer('jingle-PIZZI07.ogg',.30,.65,.025)],
  'vehicle-hit':[layer('vehicle-impact-user.mp3',.65,1.1)],
  'bus-break':[layer('bus-wall-break-user.mp3',.55,5.55)],
  'duct-step':[layer('onjin-latch.ogg',.14,.16,0,.82)],

@@ -80,6 +80,8 @@ async function main(){
   for(const entry of adopted){const bytes=fs.readFileSync(path.join(__dirname,'public/audio',entry.file));assert.equal(sha(bytes),entry.sha256);assert.equal(bytes.length,entry.bytes);}
   assert.ok([...files].every(file=>[...adopted,...manifests].some(entry=>entry.file===file)),'Every active cue has documented provenance');
   assert.deepEqual(SAMPLE_CUES.jump.map(cue=>cue.file),['lab-cloth.ogg']);assert.ok(SAMPLE_CUES.jump[0].length<=.2);
+  assert.deepEqual(SAMPLE_CUES['gun-hit'].map(l=>l.file),['lab-punch-light1.ogg']);assert.ok(SAMPLE_CUES['gun-hit'][0].length<=.14);assert.ok(SAMPLE_CUES['gun-hit'][0].gain>SAMPLE_CUES.hit[0].gain);
+  assert.deepEqual(SAMPLE_CUES['gun-kill'].map(l=>l.file),['lab-punch-light1.ogg','jingle-PIZZI07.ogg']);assert.ok(SAMPLE_CUES['gun-kill'][1].length<=.7);
   assert.ok(types.length>=70);assert.ok(![...files].some(f=>f.startsWith('interface-')||f.includes('forceField')||f.includes('doorClose_001')));
   assert.equal(manifests.filter(e=>e.adopted_cycle===102).length,1);assert.equal(SAMPLE_CUES['bus-break'][0].file,'bus-wall-break-user.mp3');assert.equal(SAMPLE_CUES['bus-break'][0].rate,1);
   assert.equal(manifests.filter(e=>e.adopted_cycle===99).length,1);assert.equal(SAMPLE_CUES['vehicle-hit'].length,1);assert.equal(SAMPLE_CUES['vehicle-hit'][0].file,'vehicle-impact-user.mp3');assert.equal(SAMPLE_CUES['vehicle-hit'][0].rate,1);assert.equal(manifests.find(e=>e.adopted_cycle===99).sha256,'ae00f7eee68c22f65d1800f52b545ec73930b30f4253d4b54bc877fa3b21cc01');
