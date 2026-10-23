@@ -2305,7 +2305,7 @@ function updateBots(dt){
         if(bot.kit.ultPoints>=7)cast=activateAbility(bot,'x');
         if(!cast&&ordinarySkills.sealUntil(enemy.id,elapsed)<=elapsed)cast=activateAbility(bot,'c',{aim});
         if(!cast&&bot.hp<70)cast=activateAbility(bot,'q',{aim:{...aim,pitch:-.5}});
-      }else if(bot.moving&&!ordinarySkills.quiet(bot.id,elapsed))cast=activateAbility(bot,'e');
+      }
       if(cast)bot.nextSkillAt=elapsed+1;
     }
     if(bot.kit?.character==='duck'&&!interactPlant&&!interactDefuse&&enemy&&visibleBetween(bot,enemy)&&ordinarySkills.blindUntil(bot.id,elapsed)<=elapsed&&!(bot.aiReload>0)&&bot.vy<=0)duckFlap(bot);
@@ -2421,6 +2421,12 @@ function updateBots(dt){
       }
     }else if(bot.aiReload>0&&bot.reloadGoal&&!role?.urgent)bot.moving=advance(bot,bot.reloadGoal,'reload');
     else if(goal)bot.moving=advance(bot,goal,search?'search':heard?'heard':role?.role||'objective');
+    // Spend hush on the final approach after this frame really advanced,
+    // not at every spawn or from the cleared animation flag above. The
+    // known objective/investigation goal never supplies a hidden actor.
+    if(bot.kit?.character==='duck'&&!enemy&&!decoyTarget&&goal&&distance(bot,goal)>2&&distance(bot,goal)<=18&&bot.moving&&actorGrounded(bot)&&!interactPlant&&!interactDefuse&&!(bot.aiReload>0)&&ordinarySkills.blindUntil(bot.id,elapsed)<=elapsed&&bot.kit.dash>0&&!duckFlight(bot)&&elapsed>=(bot.nextHushAt||0)){
+      const hush=activateAbility(bot,'e');bot.nextHushAt=elapsed+(hush?1:.5);
+    }
     if(!enemy&&!bot.moving&&!bot.planting&&!bot.defusing){
       const remembered=bot.lastSeen&&elapsed-bot.lastSeen.seenAt<2.8?bot.lastSeen:null;
       const shared=tactics.contacts(bot.team,elapsed).filter(c=>distance(bot,c)<32).sort((a,b)=>b.seenAt-a.seenAt)[0];
@@ -2433,7 +2439,7 @@ function updateBots(dt){
     bot.group.position.y=bot.y||0;
     bot.visual.update(dt,{...agentEquipment(bot),time:elapsed,moving:bot.moving,planting:bot.planting,defusing:bot.defusing,firing:bot.flash>0,alive:bot.alive});
     bot.stepClock=bot.moving&&actorGrounded(bot)?(bot.stepClock||0)+dt:0;
-    if(bot.stepClock>.41){bot.stepClock=0;if(distance(bot,player)<19)sound('step',{entity:bot});else botHearing.emit(bot,'step',elapsed);}
+    if(bot.stepClock>.41){bot.stepClock=0;if(!ordinarySkills.quiet(bot.id,elapsed)){if(distance(bot,player)<19)sound('step',{entity:bot});else botHearing.emit(bot,'step',elapsed);}}
   }
   separateBots(dt);
 }
