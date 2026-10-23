@@ -4,6 +4,15 @@ async function roomFetch(url,options={}){
   const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),8000);
   try{return await fetch(url,{...options,signal:controller.signal});}finally{clearTimeout(timer);}
 }
+// Relay deadlines include response bodies: receiving headers alone is not
+// delivery. A stalled body must not hold the one relay batch indefinitely.
+async function roomJSON(url,options,deadline=Infinity){
+  const controller=new AbortController();let timer;
+  try{return await Promise.race([
+    (async()=>{const response=await fetch(url,{...options,signal:controller.signal});return{response,data:await response.json()};})(),
+    new Promise((_,reject)=>{timer=setTimeout(()=>{controller.abort();reject(Error('通信がタイムアウトしました。'));},Math.min(8000,Math.max(0,deadline-Date.now())));}),
+  ]);}finally{clearTimeout(timer);}
+}
 export class RoomClient {
   constructor(session,{onRoom=()=>{},onData=()=>{},onStatus=()=>{},onError=()=>{}}={}){
     this.session=session;this.room=session;this.onRoom=onRoom;this.onData=onData;this.onStatus=onStatus;this.onError=onError;
@@ -47,10 +56,11 @@ export class RoomClient {
     const response=await roomFetch(`/api/rooms${action}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     const data=await response.json();if(!response.ok)throw Error(data.message||'部屋に接続できませんでした。');return data;
   }
-  async api(action,body){
-    const response=await roomFetch(`/api/rooms/${this.session.code}${action}`,{method:body===undefined?'GET':'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${this.session.token}`,'X-Member-Id':this.session.memberId},...(body===undefined?{}:{body:JSON.stringify(body)})});
-    const data=await response.json();if(!response.ok){
-      if(['unauthorized','room_not_found','room_closed'].includes(data.error)){RoomClient.clearSession(this.session.memberId);this.room={...this.room,status:'closed'};if(!this.closed)this.onRoom(this.room);this.close(false);}
+  async api(action,body,{deadline}={}){
+    const session=this.session,connection=this.connectionId,token=session.token,code=session.code,memberId=session.memberId;
+    const {response,data}=await roomJSON(`/api/rooms/${code}${action}`,{method:body===undefined?'GET':'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`,'X-Member-Id':memberId},...(body===undefined?{}:{body:JSON.stringify(body)})},deadline);
+    if(!response.ok){
+      if(!this.closed&&this.session===session&&this.session.code===code&&this.session.memberId===memberId&&this.session.token===token&&this.connectionId===connection&&['unauthorized','room_not_found','room_closed'].includes(data.error)){RoomClient.clearSession(memberId);this.room={...this.room,status:'closed'};this.onRoom(this.room);this.close(false);}
       const error=Error(data.message||'接続を確認してください。');error.status=response.status;throw error;
     }return data;
   }
@@ -94,25 +104,84 @@ export class RoomClient {
   send(data,{team}={}){
     if(this.closed||this.room.status!=='playing')return;
     if(team!==undefined&&(!this.host||!['blue','red'].includes(team)||data?.type!=='snapshot'))return;
+    this.ensureRelay();
     const packet={...data,room:this.session.code,connection:this.connectionId};const encoded=JSON.stringify(packet);let needsRelay=false;
+    const slot=team||'default',old=this.relayLatest.get(slot);
+    if(Number.isSafeInteger(packet.seq)&&Number.isSafeInteger(old?.packet.seq)&&packet.seq<old.packet.seq)return;
+    // Advance even for direct-only sends, so a failed older HTTP packet cannot
+    // reappear after direct connectivity resumes. Same seq keeps its budget.
+    const state=old&&Number.isSafeInteger(packet.seq)&&packet.seq===old.packet.seq?old:
+      {slot,packet:JSON.parse(encoded),attempts:0,created:Date.now(),nextAt:0,identity:this.relayIdentity,pauseEpoch:this.pauseRelayEpoch};
+    this.relayLatest.set(slot,state);
+    if(old!==state){if(team)this.pendingTeamStates.delete(team);else this.pendingState=null;}
     const recipients=this.host?this.room.members.filter(m=>m.id!==this.session.memberId&&(team===undefined||m.team===team)&&(m.connected||this.peers.get(m.id)?.channel?.readyState==='open')).map(m=>m.id):[this.session.hostId];
     for(const id of recipients){const channel=this.peers.get(id)?.channel;if(channel?.readyState==='open'&&channel.bufferedAmount<128000){try{channel.send(encoded);}catch{needsRelay=true;}}else needsRelay=true;}
-    if(needsRelay){if(team===undefined)this.pendingState=packet;else this.pendingTeamStates.set(team,packet);this.flushRelay();}
+    if(needsRelay&&!state.done&&!state.cancelled){this.queueRelay(state);this.flushRelay();}else this.scheduleRelay();
+  }
+  ensureRelay(){
+    const s=this.session,key=[s.code,s.memberId,s.token,this.connectionId];
+    if(this.relayIdentity&&key.every((value,i)=>value===this.relayIdentity[i]))return;
+    this.clearRelay();this.relayIdentity=key;this.relayLatest=new Map();this.pauseRelayEpoch=0;
+  }
+  relayCurrent(state){
+    const s=this.session;
+    return !this.closed&&this.room.status==='playing'&&state.identity===this.relayIdentity&&
+      [s.code,s.memberId,s.token,this.connectionId].every((value,i)=>value===state.identity[i])&&
+      this.relayLatest?.get(state.slot)===state&&!state.cancelled&&
+      (!state.packet.paused||state.pauseEpoch===this.pauseRelayEpoch);
+  }
+  queueRelay(state){if(state.slot==='default')this.pendingState=state.packet;else this.pendingTeamStates.set(state.slot,state.packet);}
+  clearRelay(){
+    clearTimeout(this.relayTimer);this.relayTimer=null;this.pendingState=null;this.pendingTeamStates?.clear();this.relayLatest?.clear();
+  }
+  cancelPausedRelay(){
+    this.ensureRelay();this.pauseRelayEpoch++;
+    for(const state of this.relayLatest.values())if(state.packet.paused===true){state.cancelled=true;if(state.slot==='default')this.pendingState=null;else this.pendingTeamStates.delete(state.slot);}
+    this.scheduleRelay();
+  }
+  relayPending(){
+    const slots=[...(this.pendingState?['default']:[]),...this.pendingTeamStates.keys()],result=[];
+    for(const slot of slots){const state=this.relayLatest?.get(slot);
+      if(!state||!this.relayCurrent(state)||state.done||(state.packet.paused===true&&Date.now()-state.created>=25000)){
+        if(state)state.done=true;if(slot==='default')this.pendingState=null;else this.pendingTeamStates.delete(slot);
+      }else result.push(state);
+    }return result;
+  }
+  scheduleRelay(){
+    clearTimeout(this.relayTimer);this.relayTimer=null;
+    if(this.closed||this.room.status!=='playing'||this.relayBusy)return;
+    const pending=this.relayPending();if(!pending.length)return;
+    const next=Math.min(...pending.map(s=>Math.max(s.nextAt,this.lastRelay+200)));
+    this.relayTimer=setTimeout(()=>{this.relayTimer=null;this.flushRelay();},Math.max(0,next-Date.now()));
+    this.relayTimer?.unref?.();
   }
   async flushRelay(){
-    if(this.closed||this.relayBusy||(!this.pendingState&&!this.pendingTeamStates.size)||Date.now()-this.lastRelay<200)return;
-    const batch=[];
-    if(this.pendingState){batch.push({to:this.host?'all':'host',data:this.pendingState});this.pendingState=null;}
-    for(const [team,data] of this.pendingTeamStates){if(batch.length===2)break;batch.push({to:`team:${team}`,data});this.pendingTeamStates.delete(team);}
+    if(this.closed||this.room.status!=='playing')return;
+    this.ensureRelay();
+    if(this.relayBusy)return;
+    const pending=this.relayPending();
+    if(Date.now()-this.lastRelay<200){this.scheduleRelay();return;}
+    const batch=pending.filter(s=>s.nextAt<=Date.now()).slice(0,2);
+    if(!batch.length){this.scheduleRelay();return;}
+    clearTimeout(this.relayTimer);this.relayTimer=null;
+    for(const state of batch){if(state.slot==='default')this.pendingState=null;else this.pendingTeamStates.delete(state.slot);state.attempts++;}
     this.relayBusy=true;this.lastRelay=Date.now();
-    try{await Promise.all(batch.map(async message=>{try{await this.api('/messages',{...message,kind:'game'});}catch(error){if(!this.closed)this.onError(error.message);}}));}finally{this.relayBusy=false;}
+    try{await Promise.all(batch.map(async state=>{
+      try{await this.api('/messages',{to:state.slot==='default'?(this.host?'all':'host'):`team:${state.slot}`,data:state.packet,kind:'game'},{deadline:state.packet.paused===true?state.created+25000:undefined});state.done=true;}
+      catch(error){if(!this.relayCurrent(state))return;
+        const transient=!error.status||error.status===408||error.status===429||error.status>=500;
+        const retry=this.host&&state.packet.type==='snapshot'&&state.packet.paused===true&&transient&&state.attempts<3&&Date.now()-state.created<25000;
+        if(retry){state.nextAt=Date.now()+(error.status===429?1000:200*2**(state.attempts-1));this.queueRelay(state);}else state.done=true;
+        this.onError(error.message);
+      }
+    }));}finally{this.relayBusy=false;this.scheduleRelay();}
   }
   acceptRoom(room){
     if(this.closed)return;
     // An earlier poll/ready response may arrive after the host's saved choice.
     if(room.status==='lobby'&&(this.room.status==='playing'||this.room.status==='closed'||
       (room.settings?.lobbyRevision||0)<(this.room.settings?.lobbyRevision||0)))return;
-    this.room=room;this.onRoom(room);
+    this.room=room;if(room.status!=='playing')this.clearRelay();this.onRoom(room);
   }
   async configure(format,mapId){
     if(this.closed||!this.host||this.room.status!=='lobby')throw Error('ホストだけが待機中に設定を変更できます。');
@@ -128,7 +197,7 @@ export class RoomClient {
   }
   close(notify=true){
     if(notify||this.room.status==='closed')RoomClient.clearSession(this.session.memberId);
-    if(this.closed)return;this.closed=true;clearTimeout(this.pollTimer);this.pendingState=null;this.pendingTeamStates.clear();for(const peer of this.peers.values())peer.pc.close();this.peers.clear();
+    if(this.closed)return;this.closed=true;clearTimeout(this.pollTimer);this.clearRelay();for(const peer of this.peers.values())peer.pc.close();this.peers.clear();
     if(notify)return this.api('/leave',{}).catch(()=>{});
   }
 }
