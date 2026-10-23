@@ -1230,10 +1230,10 @@ function shoot(shotTime=elapsed) {
     if(isGuest())queueNetAction('fire',{yaw:player.yaw,pitch:player.pitch+renderedRecoil,ultimate:false,ads:aiming===true});
     fireArsenal(player,camera.position,direction,spec,aiming,{visualOnly:isGuest()});if(!spec.auto)firing=false;updateHUD();return;
   }
-  const moving=Math.hypot(player.vx,player.vz)>1.2;
-  const spread=ultimate?0:spec.spread*(aiming?.65:player.crouch>.5?.8:1)+carMovementSpread({airborne:!actorGrounded(player),moving,gyro:ordinarySkills.carGyro(player.id,elapsed)&&actorGrounded(player)})+Math.min(.04,Math.max(0,shotSequence-3)*.004);
+  const moving=Math.hypot(player.vx,player.vz)>1.2,steadyAir=duckAirAim(player);
+  const spread=ultimate||steadyAir?0:spec.spread*(aiming?.65:player.crouch>.5?.8:1)+carMovementSpread({airborne:!actorGrounded(player),moving,gyro:ordinarySkills.carGyro(player.id,elapsed)&&actorGrounded(player)})+Math.min(.04,Math.max(0,shotSequence-3)*.004);
   direction.x+=(Math.random()-.5)*spread;direction.y+=(Math.random()-.5)*spread;direction.normalize();
-  if(!ultimate&&shotSequence>3)direction.x+=Math.sin(shotSequence*1.8)*.008;
+  if(!ultimate&&!steadyAir&&shotSequence>3)direction.x+=Math.sin(shotSequence*1.8)*.008;
   direction.normalize();if(!melee&&!ultimate)capDistortAim(player,direction);raycaster.set(camera.position,direction);raycaster.far=melee?2.2:120;
   if(isGuest())queueNetAction('fire',{yaw:player.yaw,pitch:player.pitch+renderedRecoil,ultimate});
   // A target can spawn between rendered frames, including while the trigger is held.
@@ -1270,7 +1270,7 @@ function fireArsenal(actor,origin,aim,spec,ads=false,{visualOnly=false}={}){
   botsGroup.updateMatrixWorld(true);
   const targets=[environment,botsGroup];
   let anyHit=false,headHit=false,bounced=false;
-  for(const offset of shotPattern(id,{ads,moving,airborne:!actorGrounded(actor),sequence})){
+  for(const offset of shotPattern(id,{ads,moving,airborne:!actorGrounded(actor),steadyAir:duckAirAim(actor),sequence})){
     const dir=forward.clone().addScaledVector(right,offset.x).addScaledVector(up,offset.y).normalize();
     const ray=new THREE.Raycaster(origin,dir,0,120);
     const hit=ray.intersectObjects(targets,true).find(h=>busSurfaceVisible(h)&&h.object.userData.bot!==actor&&(!h.object.userData.bot||h.object.userData.bot.alive));
@@ -1932,6 +1932,9 @@ function duckFlight(actor){
   if(!actor?.alive||actor.kit?.character!=='duck'||match?.phase!=='live')return null;
   return ordinarySkills.events(elapsed).find(e=>e.type==='duck-hush'&&e.sourceId===actor.id&&e.team===actor.team&&elapsed<e.endsAt)||null;
 }
+// Only approved flight/pad physics grant this accuracy. Client fire packets
+// cannot opt in, and a shared pad grants it to every actual rider.
+function duckAirAim(actor){return match?.phase==='live'&&actor?.alive&&!actorGrounded(actor)&&!!(duckFlight(actor)||duckPadAirborne(actor));}
 function duckFlap(actor){
   const event=duckFlight(actor);if(!event||actor.planting||actor.defusing||actor.trafficLaunch||actor.y>=Math.min(11,event.y+DUCK_SKILLS.flightHeight)-.02)return false;
   if(actor.duckFlapEvent===event.id&&elapsed<(actor.duckFlapAt||0)+DUCK_SKILLS.flapInterval)return false;
@@ -2430,7 +2433,7 @@ function updateBots(dt){
           if(spec.mag>0)bot.fire*=ordinarySkills.nobiInterval?.(bot.id,elapsed)||1;
           let chance=cfg.aim*(enemy===player?.54:.66)*Math.max(.48,1-enemyDistance/65);
           if(enemy===player&&Math.hypot(player.vx||0,player.vz||0)>2.5)chance*=.76;
-          if(bot.moving&&!(ordinarySkills.carGyro(bot.id,elapsed)&&actorGrounded(bot)))chance*=.72;
+          if(bot.moving&&!duckAirAim(bot)&&!(ordinarySkills.carGyro(bot.id,elapsed)&&actorGrounded(bot)))chance*=.72;
           if(spec.mag>0&&!spec.arsenal&&ordinarySkills.capLocked?.(bot.id,elapsed))chance*=CAP_SKILLS.lockAimScale;
           const hit=Math.random()<chance,head=hit&&Math.random()<.065+cfg.aim*.07;
           const from=new THREE.Vector3(bot.x,(bot.y||0)+1.2,bot.z);
@@ -2546,7 +2549,7 @@ function updateActorVertical(actor,dt,radius=.34){
       }
       actor.y=nextFeet;
       if(actor.y>=ceiling){actor.y=ceiling;actor.vy=0;}
-      if(actor.vy<=0&&actor.y<=support){actor.y=support;actor.vy=0;}
+      if(actor.vy<=0&&actor.y<=support){actor.y=support;actor.vy=0;actor.duckPadUntil=0;}
     }
 }
 function tickDuckPads(){

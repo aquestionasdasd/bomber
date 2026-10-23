@@ -9,10 +9,12 @@ export function weaponDamage(id,part='body',distance=0){
 }
 // Fixed bounded pattern: one authoritative trigger consumes one cartridge. The
 // centre plus rotated sunflower rings avoid client-supplied pellet directions.
-export function shotPattern(id,{ads=false,moving=false,airborne=false,sequence=1}={}){
+export function shotPattern(id,{ads=false,moving=false,airborne=false,steadyAir=false,sequence=1}={}){
   const w=WEAPONS[id];if(!w)return [];
   const n=Math.min(12,w.pellets||1),base=ads?(w.adsSpread??w.spread):w.spread;
-  const spread=base+(airborne?.13:moving?.055:0)+(id==='forge'?Math.min(.025,Math.max(0,sequence-4)*.0015):0);
+  // Skill flight centres single bullets on the visible aim. A shotgun keeps
+  // its ordinary pellet cone, without movement/air/burst enlargement.
+  const spread=steadyAir===true?(n===1?0:base):base+(airborne?.13:moving?.055:0)+(id==='forge'?Math.min(.025,Math.max(0,sequence-4)*.0015):0);
   const turn=(sequence*2.399963229728653)%(Math.PI*2);
   if(n===1)return [{x:Math.cos(turn)*spread*.5,y:Math.sin(turn)*spread*.5}];
   return Array.from({length:n},(_,i)=>{const radius=i===0?0:Math.sqrt(i/(n-1))*spread*.5,angle=turn+i*2.399963229728653;return {x:Math.cos(angle)*radius,y:Math.sin(angle)*radius};});

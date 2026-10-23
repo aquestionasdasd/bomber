@@ -1,0 +1,2 @@
+const cp=require('node:child_process');
+for(const fault of ['local','arsenal','landing']){const p=cp.spawnSync(process.execPath,['tests-duck-air-aim.cjs','--fault='+fault],{cwd:__dirname,encoding:'utf8',timeout:90000,windowsHide:true});if(p.status!==1||!p.stderr.includes('AssertionError'))throw Error('Undetected in-memory air aim fault '+fault+' '+p.stderr);console.log('PASS: in-memory air aim fault detected / '+fault);}
