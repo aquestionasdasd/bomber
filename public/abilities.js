@@ -1,6 +1,6 @@
 export const ONNARA_SKILLS=Object.freeze({taxRange:40,taxDuration:8,taxPerShot:30,taxBudget:300,taxHealthPerShot:4,orbRange:40,orbDuration:8,hoverDuration:2,signatureCooldown:18,chainDuration:8,chainRange:12,chainScale:.7});
 export const URCHIN_SKILLS=Object.freeze({jamRange:40,jamDuration:8,disarmRange:32,pearlBullets:5,pearlValue:20,tridentDuration:9,tridentAngle:Math.PI/45,tridentScale:.65,tridentRange:90,signatureCooldown:18});
-export const CAP_SKILLS=Object.freeze({lockRange:40,lockDuration:8,cleanRange:24,bounceDuration:6,bounceScale:.75,bounceRange:90,magazineDuration:9,signatureCooldown:22});
+export const CAP_SKILLS=Object.freeze({lockRange:40,lockDuration:8,lockSpread:.07,lockAimScale:.55,cleanRange:24,bounceDuration:6,bounceScale:.75,bounceRange:90,magazineDuration:9,signatureCooldown:22});
 // Original fan-made tuning inspired by the duelist role; not an exact live-game ruleset.
 export const CHARACTER_DEFS = Object.freeze({
   duelist: Object.freeze({ id: 'duelist', label: 'ちぬつてのとのへめほ', role: '突入', ultName: 'ブレードストーム', ultShortName: 'ナイフ', ultimatePoints: 7,
@@ -23,7 +23,7 @@ export const CHARACTER_DEFS = Object.freeze({
   car: Object.freeze({id:'car',label:'トミカ',role:'排除・補給',ultName:'ピットクルー',ultShortName:'補給',ultimatePoints:7,description:'C：敵を床に沿って押し出す / Q：狙った煙を一つ除去 / E：接地中の移動射撃を安定化。X：視線内24mの味方と自身のC/Q/Eを補給（7pt）。',color:'#e9ece8',ultIcon:'M4 23h28V10H4ZM8 14h8v5H8Zm12 0h8v5h-8ZM12 4v4m12-4v4M9 25v4m18-4v4'}),
   nobi:Object.freeze({id:'nobi',label:'のび',role:'弱点・工作',ultName:'逆転えり',ultShortName:'逆転',ultimatePoints:7,description:'C：敵を銃に弱くする鈴 / Q：敵の連射を遅らせるひげ / E：設置と電源オフを加速。X：8秒、胴・脚への銃撃も頭相当の威力（7pt）。',color:'#f3cb48',ultIcon:'M18 3 3 13l15 15 15-15ZM10 13l8 8 8-8M18 3v11'}),
   japan:Object.freeze({id:'japan',label:'しばくでジャパン',role:'国境・総動員',ultName:'総動員',ultShortName:'総動員',ultimatePoints:7,description:'C：越えた敵へ国境線 / Q：敵の装甲を接収 / E：被銃撃を撃ち手へ返送。X：倒れた味方全員を開始地点へ100HPで呼び戻す（7pt）。',color:'#e8ca91',ultIcon:'M3 15h30M18 2v26M7 4l22 22M29 4 7 26M4 23h28'}),
-  cap:Object.freeze({id:'cap',label:'キャップは？',role:'光学・解除',ultName:'エンドレスマガジン',ultShortName:'無消費',ultimatePoints:7,description:'C：敵のADSを封じる / Q：現在の妨害を解除 / E：壁で弾を一度反射。X：9秒、装填済みの銃弾を消費せず発射（7pt）。',color:'#e36336',ultIcon:'M5 7h26v16H5ZM12 11c-8 0-8 8 0 8s4-8 12-8 8 8 0 8-4-8-12-8'}),
+  cap:Object.freeze({id:'cap',label:'キャップは？',role:'光学・解除',ultName:'エンドレスマガジン',ultShortName:'無消費',ultimatePoints:7,description:'C：敵の銃の照準とADSを妨害 / Q：現在の妨害を解除 / E：壁で弾を一度反射。X：9秒、装填済みの銃弾を消費せず発射（7pt）。',color:'#e36336',ultIcon:'M5 7h26v16H5ZM12 11c-8 0-8 8 0 8s4-8 12-8 8 8 0 8-4-8-12-8'}),
   urchin:Object.freeze({id:'urchin',label:'青ウニ',role:'棘・弾道',ultName:'三叉潮',ultShortName:'三叉',ultimatePoints:7,description:'C：敵の装填を止める / Q：敵の購入主武器を床へ落とす / E：自分の装填弾をコインへ交換。X：9秒、銃弾が三方向へ分かれる（7pt）。',color:'#a9f1e4',ultIcon:'M18 28V4M18 20 5 7M18 20 31 7M2 11 5 7 9 8M27 8 31 7 34 11M14 8 18 4 22 8'}),
   onnara:Object.freeze({id:'onnara',label:'おんなら',role:'星冠・裁定',ultName:'星座裁定',ultShortName:'連鎖',ultimatePoints:7,description:'C：敵の発砲にHPとコインの代償 / Q：遠方を360度見回す宝玉 / E：空中で2秒静止。X：8秒、銃撃した敵から別の敵1人へ実被害の70%を連鎖（7pt）。',color:'#ffc948',ultIcon:'M18 2 22 11 32 12 24 19 27 29 18 23 9 29 12 19 4 12 14 11Z'}),
 });
@@ -111,7 +111,7 @@ const urchinSkills={
  e:{name:'真珠勘定',shortName:'弾→コイン',description:'自分の装填弾を最大5発消費、1発20しばくでコインへ交換。所持9000まで。空弾倉・装填中は使えない。18秒で再使用。',max:1,price:0,type:'urchin-pearl',icon:'M7 5h7v17H7ZM11 26h17M24 6a8 8 0 1 0 0 16 8 8 0 0 0 0-16Z'}
 };
 const capSkills={
- c:{name:'スコープロック',shortName:'ADS封鎖',description:'Cで構え40mの見える敵へ左確定・右取消。8秒、ライフルのADSを封じる。腰撃ち・連射・弾数・スキルは通常通り。',max:2,price:100,type:'cap-lock',icon:'M5 10h26v13H5ZM11 16h5m6 0h4M4 28 32 3'},
+ c:{name:'レンズブレイク',shortName:'照準妨害',description:'Cで構え40mの見える敵へ左確定・右取消。8秒、銃弾の照準が拡散しADSも使えない。BOTの射撃にも有効。近距離の胴撃ちや遮蔽で対処でき、弾数・連射・移動・スキルは変えない。',max:2,price:100,type:'cap-lock',icon:'M5 10h26v13H5ZM11 16h5m6 0h4M4 28 32 3'},
  q:{name:'クリアテイク',shortName:'妨害解除',description:'Qで構え24mの見える味方へ左確定・右取消。味方を狙わなければ自身。現在の閃光・対象指定の妨害を解除。回復や将来の耐性はなく、対象なしでは消費しない。',max:1,price:100,type:'cap-clean',icon:'M7 6h22v20H7ZM11 16l5 5 10-12'},
  e:{name:'バンクレンズ',shortName:'跳弾',description:'6秒、銃弾が縦の壁で一度だけ反射し、通常の75%ダメージ。総経路90mまで。二枚目の壁・盾・囮で止まり、自動追尾はない。22秒で再使用。',max:1,price:0,type:'cap-bank',icon:'M4 25 18 11l14 14M4 7h28M18 11v-6'}
 };
