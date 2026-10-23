@@ -385,3 +385,11 @@
 
 /* Death confirmation stays local and never blocks controls or match timers. */
 .death-card{position:absolute;left:50%;top:55%;transform:translate(-50%,-50%);width:min(420px,82vw);padding:20px 24px;text-align:center;color:#fff;background:linear-gradient(110deg,#250e17ef,#54212aea,#250e17ef);border-block:2px solid #ff6575;box-shadow:0 12px 50px #18000960;pointer-events:none;z-index:12}.death-card[hidden]{display:none}.death-card span{display:block;font-size:11px;letter-spacing:5px;color:#ffadb6}.death-card strong{display:block;font-size:clamp(24px,3vw,38px);margin:8px 0}.death-card small{display:block;font-size:12px;line-height:1.7;color:#f4d3d8}
+
+/* One authoritative round celebration; repeated snapshots do not restart it. */
+.round-banner.full-combo{top:18%;box-sizing:border-box;width:min(920px,calc(100vw - 32px));min-width:0;padding:22px 20px;border-color:#f8d477cc;background:linear-gradient(90deg,#241b0800,#241b08ee 18%,#241b08ee 82%,#241b0800);overflow:hidden;pointer-events:none}
+.round-banner.full-combo .full-combo-title{font-family:Arial,"Noto Sans JP",sans-serif;font-weight:950;font-size:clamp(36px,7vw,92px);line-height:1.25;letter-spacing:.08em;color:#ffe7a0;text-shadow:0 0 26px #ffb52688,0 3px 0 #7b4819;animation:full-combo-enter .48s cubic-bezier(.16,.9,.3,1) both}
+.full-combo-result{display:block;color:var(--mint);font-size:24px;letter-spacing:.35em;margin-top:5px}.round-banner.full-combo small{font-size:clamp(10px,1.15vw,14px);line-height:1.6;letter-spacing:.08em;color:#fcebc9;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@keyframes full-combo-enter{from{opacity:0;transform:scale(.78) translateY(12px)}to{opacity:1;transform:scale(1) translateY(0)}}
+@media(prefers-reduced-motion:reduce){.round-banner.full-combo .full-combo-title{animation:none}}
+@media(max-height:500px) and (orientation:landscape){.round-banner.full-combo{top:17%;padding:10px 18px}.round-banner.full-combo .full-combo-title{font-size:40px}.full-combo-result{font-size:16px;margin-top:0}.round-banner.full-combo small{margin-top:4px}}
