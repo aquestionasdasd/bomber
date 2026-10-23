@@ -23,7 +23,7 @@ export const HIRAKATA_DISTRICT_BUILDINGS = Object.freeze([
  ['west-office',-100,-57,20,26,26,'新町 オフィス街','silver'],
 ].map(([id,x,z,w,d,h,name,material])=>Object.freeze({id,x,z,w,d,h,name,material})));
 
-export function addHirakataDistrict({part,solid,sign,mapShapes}) {
+export function addHirakataDistrict({part,solid,sign,mapShapes,breakable=(id,build)=>build()}) {
  const rect=(x,z,w,d)=>[[x-w/2,z-d/2],[x+w/2,z-d/2],[x+w/2,z+d/2],[x-w/2,z+d/2]];
  // Flat paving and road paint have no invisible raised collisions. Four broad
  // streets join the old plaza through real gaps; side alleys join them twice.
@@ -59,9 +59,9 @@ export function addHirakataDistrict({part,solid,sign,mapShapes}) {
  // Recognisable north-east twin skyline; hospital cross at the north-west edge.
  part(-101,36,-84.93,1.2,5,.08,'red');part(-101,36,-84.9,4,1.2,.08,'red');
  // Low street furniture marks intersections without filling the walking line.
- for(const[x,z]of[[-79,-82],[-79,39],[79,-52],[79,51],[-27,79],[27,-79]]){
+ for(const[x,z]of[[-79,-82],[-79,39],[79,-52],[79,51],[-27,79],[27,-79]])breakable('district-furniture-'+x+'-'+z,()=>{
   solid(x,.45,z,3,.9,1.3,'concrete','cover');part(x,.94,z,2.7,.15,1,'leaf');
   part(x+2.8,3,z,.1,6,.1,'metal');part(x+3.2,6,z,.9,.12,.35,'light');
- }
+ });
  return HIRAKATA_DISTRICT_BUILDINGS;
 }

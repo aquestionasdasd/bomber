@@ -19,7 +19,7 @@ export function createTrafficClock(routes=HIRAKATA_BUS_ROUTES){
   else{const phase=(time-r.first)%r.cycle;door=phase<BUS_SERVICE.dwell;d=r.stopDistance+Math.max(0,phase-BUS_SERVICE.dwell)*BUS_SPEC.speed;eta=door?0:r.cycle-phase;}
   return{...routePose(r,d),speed:door?0:BUS_SPEC.speed,door,eta};});}
  const service=createBusService(schedule),poses=time=>service.poses(time);
- function stops(time){return ['south','north'].map(prefix=>{const related=schedule(time).filter(p=>p.id.startsWith(prefix)),p=routePose(tracks.find(r=>r.id.startsWith(prefix)),tracks.find(r=>r.id.startsWith(prefix)).stopDistance),available=related.filter(p=>!poses(time).find(v=>v.id===p.id)?.diverted);return{...p,id:prefix,eta:available.length?Math.min(...available.map(p=>p.eta)):null,door:available.some(p=>p.door)};});}
+ function stops(time){return ['south','north'].map(prefix=>{const related=poses(time).filter(p=>p.id.startsWith(prefix)),p=routePose(tracks.find(r=>r.id.startsWith(prefix)),tracks.find(r=>r.id.startsWith(prefix)).stopDistance),available=related.filter(p=>!poses(time).find(v=>v.id===p.id)?.diverted);return{...p,id:prefix,eta:available.length?Math.min(...available.map(p=>p.eta)):null,door:available.some(p=>p.door)};});}
  const cooldown=new Map(),previous=new Map();let last=null,sequence=0;
  function reset(time=null){cooldown.clear();previous.clear();last=time;sequence=0;service.reset();}
  function impacts(actors,time,{enabled=true}={}){

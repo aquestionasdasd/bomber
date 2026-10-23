@@ -26,11 +26,14 @@ async function main(){
   assert.equal(hash(upper),'8b16660104e207db881514bbceb11b54133950314c0c211fd691c4ae5b41a05f');
   assert.equal(hash(map.ramps),'95921650c86f0eba516d4d7a23d54ce1f4beec1cd0020de651d253a6bc70da02');
   assert.equal(hash(map.teamSpawns),'aac89d78c0f51c7b3a70aec4d7a4daedb25879aa3b054ce630a91a20ac2a7cb4');
-  assert.equal(hash(map.traffic.poses(12)),'f755bfdae189d50b38b032caa13c953d92a1a2abc65ce1c42781f1b1d0afd3ce');
+  // Cycle80 added boardable bus state. Cycle86 compares this pose exactly
+  // with the deployed prechange source de168a7; route geometry is unchanged.
+  assert.equal(hash(map.traffic.poses(12)),'49bc913ab6a0fede39f7bb4654685d64d16dc9e11977367720be759a4949a712');
  });
  check('old Hashimoto dimensions stay164m; new buildings block actual eye-level sight',()=>{const h=createMap(T,new T.Group(),'hashimoto');assert.equal(h.bounds.maxX-h.bounds.minX,164);for(const b of map.districtBuildings)assert.equal(map.collision.rayClear(b.x-b.w,1.6,b.z,b.x+b.w,1.6,b.z),false);});
  let meshes=0,instances=0,triangles=0;map.world.traverse(o=>{if(o.isMesh){meshes++;const n=o.isInstancedMesh?o.count:1;instances+=n;triangles+=n*(o.geometry.index?.count||o.geometry.attributes.position.count)/3;}});
- check('shared district instancing keeps render count and geometry bounded',()=>{assert.ok(meshes<180);assert.ok(instances<13000);assert.ok(triangles<180000);});
+ // Cycle80 boardable cabins/drivers use237 draws; cycle86 adds3 bounded FX draws.
+ check('shared district instancing keeps render count and geometry bounded',()=>{assert.ok(meshes<=240);assert.ok(instances<13000);assert.ok(triangles<180000);});
  const report={groups,routes,dimensions:[224,224],newBuildings:20,colliders:map.colliders.length,meshes,instances,triangles,wallMs:Math.round(performance.now()-started)};
  fs.writeFileSync(path.join(__dirname,'../cycle61-district-report.json'),JSON.stringify(report,null,2));console.log(JSON.stringify(report));
 }main().catch(e=>{console.error(e);process.exitCode=1;});

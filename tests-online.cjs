@@ -464,6 +464,9 @@ async function main() {
       const driven={...full,busTransit:[[0,0,0,now+25,29.123,-35.789,-1.571,17,[0,1,2]],[1,0,3,now+25,1.234,32.456,1.571,17,[3,4,5]],[2,0,6,now+25,31.456,-36.123,1.571,17,[6,7]],[3,0,8,now+25,3.456,33.123,1.571,17,[8,9]]]};
       for(const actor of driven.actors)Object.assign(actor,{hp:1000,armor:500});
       const busFit=fitTrafficSnapshot(driven);assert.ok(busFit);assert.deepEqual(busFit.busTransit,driven.busTransit);assert.deepEqual(busFit.actors,driven.actors);assert.deepEqual(busFit.ordinarySkills,driven.ordinarySkills);assert.ok(Buffer.byteLength(JSON.stringify(busFit))<=65536);clock+=200;assert.equal((await send(host,'team:red','game',busFit)).status,201);console.log(`BUS4 /10 riders / full skills capacity ${Buffer.byteLength(JSON.stringify(busFit))}B /65536B`);
+      const queued={...driven,busDamage:'ff'.repeat(10)+'03',busTransit:driven.busTransit.map((v,i)=>[i,100,-1,0,v[4],v[5],v[6],0,v[8],now-12.345])};
+      const queuedFit=fitTrafficSnapshot(queued);assert.ok(queuedFit);assert.deepEqual(queuedFit.busDamage,queued.busDamage);assert.deepEqual(queuedFit.busTransit,queued.busTransit);assert.deepEqual(queuedFit.actors,queued.actors);assert.deepEqual(queuedFit.ordinarySkills,queued.ordinarySkills);clock+=200;assert.equal((await send(host,'team:red','game',queuedFit)).status,201);console.log(`BUS4 QUEUED /82 destroyed props /10 boosted riders ${Buffer.byteLength(JSON.stringify(queuedFit))}B /65536B; authority retained`);
+
 
     });
 
