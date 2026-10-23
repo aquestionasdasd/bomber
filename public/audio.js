@@ -10,6 +10,11 @@ const wood=(gain=.18,length=.28,delay=0)=>layer('lab-landing1.ogg',gain,length,d
 const liquid=(gain=.17,length=.4,delay=0)=>layer('lab-liquid.ogg',gain,length,delay);
 const pluck=(id,gain=.14,length=.65,delay=0)=>layer((id==='00'?'oto-angel01-1.ogg':id==='07'?'lab-success1.ogg':'lab-cancel2.ogg'),gain,length,delay);
 export const SAMPLE_CUES=Object.freeze({
+ 'duct-step':[layer('onjin-latch.ogg',.14,.16,0,.82)],
+ 'door-open':[layer('onjin-equipment.ogg',.20,.45),layer('onjin-latch.ogg',.12,.18,.22)],
+ 'door-close':[layer('onjin-equipment.ogg',.18,.35),layer('onjin-latch.ogg',.23,.23,.23)],
+ 'door-hit':[layer('onjin-latch.ogg',.12,.12,0,1.18)],
+ 'door-break':[layer('lab-ice.ogg',.22,.48),layer('lab-landing1.ogg',.27,.36,.04)],
  'duck-pad':[cloth(.22,.25),layer('oto-cyber19-1.ogg',.08,.3,.04)],'urchin-lance':[air(.19,.28),glass(.13,.3,.03)],
  jump:[cloth(.20,.16)],'duck-flap':[cloth(.18,.23)],'duck-launch':[air(.18,.3),cloth(.16,.2)],
  'weapon-classic':[layer('lab-handgun-firing1.ogg',.34,.42)],'weapon-ghost':[layer('lab-handgun-firing1.ogg',.21,.35,0,1.12)],

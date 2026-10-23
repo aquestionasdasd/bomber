@@ -173,7 +173,7 @@ const netPositionHistory=new Map();
 let netPositionAck=0,netPositionCorrectionX=0,netPositionCorrectionZ=0;
 let netActions=[],netParticipants=new Map(),netApplied=new Map(),netInputs=new Map();
 let netCueSequence=0,netSeenCueSequence=0,skillImpactSequence=0;const netCues=[];
-const actionCueTypes=new Set(['shot','enemy','smoke','frost','updraft','dash-armed','dash','knives','heal','recon','veil','ember-warning']);
+const actionCueTypes=new Set(['door-open','door-close','door-break','door-hit','duct-step','shot','enemy','smoke','frost','updraft','dash-armed','dash','knives','heal','recon','veil','ember-warning']);
 const dashFeedback={round:null,state:null,expires:0,charge:null,signatureAt:0};
 const signatureReadyNotices=new Set();
 let signatureFeedbackMatch=null;
@@ -219,7 +219,8 @@ const gameAudio=createGameAudio();
 const botHearing=createBotHearing();
 function audioInit(){gameAudio.init();}
 function sound(type,{weapon:id=inventory.active,entity=null,localOnly=false}={}){
-  if(['step','land'].includes(type)&&ordinarySkills.quiet((entity||player).id,elapsed))return;
+  if(type==='step'&&map.ductAt?.((entity||player).x,(entity||player).z,(entity||player).y))type='duct-step';
+  if(['step','land','duct-step'].includes(type)&&ordinarySkills.quiet((entity||player).id,elapsed))return;
   if(!localOnly&&onlinePlaying&&online?.host&&actionCueTypes.has(type)){
     const actor=entity||player;
     netCues.push({seq:++netCueSequence,round:match?.round,type,weapon:id,id:actor.id,x:actor.x,y:actor.y||0,z:actor.z,time:elapsed});
@@ -230,7 +231,7 @@ function sound(type,{weapon:id=inventory.active,entity=null,localOnly=false}={})
   const dx=entity?entity.x-player.x:0,dz=entity?entity.z-player.z:0,distance=Math.hypot(dx,dz);
   if(!['explosion','plant','spike'].includes(type)&&distance>65)return;
   const pan=distance?(dx*Math.cos(player.yaw)-dz*Math.sin(player.yaw))/distance:0;
-  const occluded=entity&&distance>2&&!map.collision.rayClear(player.x,player.y+1.5,player.z,entity.x,1.3,entity.z);
+  const occluded=entity&&distance>2&&!map.collision.rayClear(player.x,player.y+1.5,player.z,entity.x,(entity.y||0)+1.3,entity.z);
   const plantedNotice=type==='plant',bomberTick=type==='spike';
   gameAudio.play(type,{volume,weapon:id,pan:plantedNotice?0:pan,distance:plantedNotice?0:type==='explosion'?distance*.2:bomberTick?distance*.35:distance,occluded:plantedNotice||bomberTick?false:occluded});
 }
@@ -245,7 +246,7 @@ function actorGrounded(actor){
   if(!actor?.alive||!Number.isFinite(actor.y)||Number.isFinite(actor.vy)&&Math.abs(actor.vy)>1e-5)return false;
   let floor=0;const ramp=rampFloor(actor.x,actor.z);
   if(ramp!==null&&ramp<=actor.y+.001)floor=ramp;
-  for(const c of map.collision.query(actor.x,actor.z,.34))if(c.height<=actor.y+.001&&c.height>floor&&map.collision.overlaps(c,actor.x,actor.z,.34))floor=c.height;
+  for(const c of map.collision.query(actor.x,actor.z,.34))if(!c.disabled&&c.height<=actor.y+.001&&c.height>floor&&map.collision.overlaps(c,actor.x,actor.z,.34))floor=c.height;
   return Math.abs(actor.y-floor)<=.035;
 }
 function transferEmberControl(actor,toRemote){
@@ -559,7 +560,7 @@ function applyNetCues(packet,fresh,ownId){
     netSeenCueSequence=Math.max(netSeenCueSequence,cue.seq);
     if(fresh||cue.round!==packet.rules.round||packet.time-cue.time>1||packet.time<cue.time||![cue.x,cue.z].every(Number.isFinite))continue;
     if(['skill-hit','skill-heal'].includes(cue.type)){if(!Object.hasOwn(SKILL_LOOKS,cue.weapon)||!Number.isFinite(cue.y)||Math.max(Math.abs(cue.x),Math.abs(cue.y),Math.abs(cue.z))>1000||packet.time-cue.time>.65||packet.rules.phase!=='live')continue;const kind=cue.type==='skill-heal'?'heal':'hit';skillSpectacle.impact(cue.weapon,cue,cue.time,{kind});if(cue.id===ownId)skillFeedback.note(kind,'receipt:'+cue.round+':'+cue.seq,cue.weapon,cue.time);continue;}
-    if(cue.id===ownId||!actionCueTypes.has(cue.type))continue;
+    if(cue.id===ownId&&!String(cue.type).startsWith('door-')||!actionCueTypes.has(cue.type))continue;
     sound(cue.type,{weapon:cue.weapon,entity:cue});
   }
 }
@@ -732,7 +733,7 @@ function damageEntity(entity,amount,killer,{firearm=false,returned=false,chain=t
   if(entity.hp>0)return;
   const creditedKiller=killer&&killer.team!==entity.team?killer:null;
   fullComboTracker.record(match.round,entity,creditedKiller);
-  entity.alive=false;cancelServiceReload(entity);entity.kit?.awardPoint();const record=recordOf(entity);if(record)record.d++;
+  entity.alive=false;entity.trcLadder=null;cancelServiceReload(entity);entity.kit?.awardPoint();const record=recordOf(entity);if(record)record.d++;
   match.dropSpike(entity.id,entity.x,entity.z);match.cancelPlant(entity.id);match.cancelDefuse(entity.id);
   const item=entity===player?inventory.primary:record?.primary;dropItem(item,entity);
   if(creditedKiller){killer.kit?.awardKill();const k=recordOf(killer);if(k)k.k++;if(killer===player){totalKills++;match.awardKill();sound('kill');}else if(k)k.credits=Math.min(9000,k.credits+200);feed(`${k?.name||'SENTINEL'}  ⌁  ${record?.name||'YOU'}`);}
@@ -798,6 +799,7 @@ function clearBots() {
   bots.length=0;
 }
 function spawnRound(reset=false) {
+  player.trcStepClock=0;
   deathView.reset();syncDeathUI();
   resetTraffic();
   victoryMusic.stop();lastRoundAudio='';
@@ -865,18 +867,21 @@ function requestLock() {
 }
 function selectArena(id){
   id=normalizeMapId(id);if((map.id||'hashimoto')===id){updateMapLabels();return;}
-  map.traffic?.reset();map.destruction?.reset();map.world?.removeFromParent();
+  map.traffic?.reset();map.destruction?.reset();map.traversal?.reset();player.trcLadder=null;map.world?.removeFromParent();
   if(!arenaCache.has(id))arenaCache.set(id,createMap(THREE,environment,id));
   map=arenaCache.get(id);environment.add(map.world);navigation=createNavigation({...map,bounds:map.combatBounds||map.bounds});updateBots.tactics=null;nopeDecoyTownCandidates=null;
   environment.traverse(object=>{for(const material of Array.isArray(object.material)?object.material:[object.material])if(material?.map)material.map.anisotropy=textureFiltering;});
+  sun.intensity=map.indoor ? .45 : 3;sun.castShadow=!map.indoor;scene.background.set(map.indoor?'#35434a':'#8cbad7');scene.fog=new THREE.Fog(map.indoor?'#657875':'#b7d0dd',map.indoor?65:145,map.indoor?135:380);
   map.world.updateMatrixWorld(true);updateMapLabels();
 }
 function activeArenaBounds(){return exploring&&!onlinePlaying?map.bounds:map.combatBounds||map.bounds;}
 function updateMapLabels(){
   const name=map.name||'橋本駅',short=map.shortName||'HASHIMOTO',viewBounds=activeArenaBounds();
   const copies={'mission-map':name+' 爆破・電源オフ作戦','menu-map-name':name+'前','character-preview-map':name+'前','hud-map-name':short+' STATION','map-title':name+' / 戦術マップ','map-area-name':name+' · '+(viewBounds.maxX-viewBounds.minX)+'m × '+(viewBounds.maxZ-viewBounds.minZ)+'m','map-route-copy':map.id==='hirakata'?'屋内A / 屋内B / MID横挟みルート':'バス通り / 中央連絡路 / ミウィ通り'};
+  if(map.id==='trc')Object.assign(copies,{'menu-map-name':name,'character-preview-map':name,'hud-map-name':'TRC / SOUND MARKET','map-route-copy':'A ロング・ショート / MID / B メイン・舞台裏'});
   copies['map-site-a-name']=map.sites[0].name;copies['map-site-b-name']=map.sites[1].name;copies['map-detail']=map.id==='hirakata'?'対戦は従来の164m四方。マップ練習では周辺224m四方も探索できます。車道の京阪バスに注意。':'橋本駅前の景観をもとに構成したオリジナルマップです。';
   copies['map-coordinate-copy']=copies['menu-coordinate-copy']=map.id==='hirakata'?'34.815°N / 135.649°E':'35°35′42″N / 139°20′42″E';copies['menu-map-note']=map.id==='hirakata'?'枚方市駅 / 南北広場・自由通路・駅周辺街区':'非公式ファンメイド / 橋本駅前をモチーフにしたオリジナルマップ';copies['radar-map-copy']=short+' / 2 SITES';
+  if(map.id==='trc')Object.assign(copies,{'map-detail':'東京流通センターをモチーフに再構成した屋内会場。ダクト・はしご・上層で挟み込み。Fでドア操作、Ctrlでダクト、Shiftで消音。','map-coordinate-copy':'TRC INSPIRED / INDOOR EXHIBITION','menu-coordinate-copy':'TRC INSPIRED / INDOOR EXHIBITION','menu-map-note':'同人音楽即売会 / オリジナル対戦レイアウト'});
   canvas.setAttribute('aria-label',name+'の3D競技マップ');$('large-minimap')?.setAttribute('aria-label',name+'の戦術マップ');
   for(const[id,text]of Object.entries(copies))if($(id))$(id).textContent=text;
   for(const id of ['map-select','online-map'])if($(id)&&(!online||id==='map-select'))$(id).value=map.id||'hashimoto';
@@ -911,8 +916,9 @@ function busInteract(actor=player){
  }
  return true;
 }
-function busSurfaceVisible(hit){if(hit.object.userData.busDebrisHidden||hit.object.userData.busBrokenInstances?.has(hit.instanceId))return false;return !hit.object.userData.busDriver||map.traffic?.poses(elapsed).some(p=>p.id===hit.object.userData.busDriver&&p.driverHP>0);}
+function busSurfaceVisible(hit){if(hit.object.userData.trcBroken)return false;if(hit.object.userData.busDebrisHidden||hit.object.userData.busBrokenInstances?.has(hit.instanceId))return false;return !hit.object.userData.busDriver||map.traffic?.poses(elapsed).some(p=>p.id===hit.object.userData.busDriver&&p.driverHP>0);}
 function shootBusDriver(hit,actor,damage,{visualOnly=false}={}){
+ const door=hit?.object.userData.trcDoor;if(door){if(!visualOnly&&!isGuest()){const cue=map.traversal?.damage(door,damage);if(cue)sound(cue,{entity:actor});}return true;}
  const id=hit?.object.userData.busDriver;if(!id)return false;
  if(!visualOnly){const service=map.traffic?.service,before=service?.poses(elapsed).find(p=>p.id===id)?.driverHP;
   if(service?.damageDriver(id,actor.id,damage,elapsed)){const after=service.poses(elapsed).find(p=>p.id===id)?.driverHP;
@@ -921,7 +927,7 @@ function shootBusDriver(hit,actor,damage,{visualOnly=false}={}){
  }
  burst(hit.point,'#e9c586',3);return true;
 }
-function resetTraffic(){map.traffic?.reset();map.destruction?.reset();for(const actor of [player,...bots]){actor.trafficLaunch=null;delete actor.busFrameYaw;}}
+function resetTraffic(){map.traversal?.reset();player.trcLadder=null;map.traffic?.reset();map.destruction?.reset();for(const actor of [player,...bots]){actor.trafficLaunch=null;delete actor.busFrameYaw;}}
 function updateTraffic(dt){
   if(!map.traffic)return;
   const actors=[player,...bots];
@@ -1076,7 +1082,7 @@ function feed(text) {
 function formatTime(t){return `${String(Math.floor(Math.max(0,t)/60)).padStart(2,'0')}:${String(Math.floor(Math.max(0,t)%60)).padStart(2,'0')}`;}
 function relocate(point){
   const upper=Number.isFinite(point.y)&&point.y>0,safe=upper&&canStand(point.x,point.z,.34,point.y)?point:upper?null:navigation.nearest(point.travelX??point.x,point.travelZ??point.z);if(!safe)return false;
-  player.x=safe.x;player.z=safe.z;player.y=upper?point.y:0;player.vy=0;player.vx=0;player.vz=0;player.trafficLaunch=null;player.pitch=0;player.recoil=0;renderedRecoil=0;
+  player.x=safe.x;player.z=safe.z;player.y=upper?point.y:0;player.vy=0;player.vx=0;player.vz=0;player.trafficLaunch=null;player.trcLadder=null;player.pitch=0;player.recoil=0;renderedRecoil=0;
   if(Number.isFinite(point.yaw))player.yaw=point.yaw;resetMouseLook();return true;
 }
 function resetObjectivePractice(siteId='A'){
@@ -1151,6 +1157,34 @@ function updateTravelButtons(){
   const trial=document.createElement('button');trial.type='button';trial.textContent='キャラ能力を試す';trial.disabled=!exploring||!!rangeSession;
   trial.addEventListener('click',startCharacterTrial);container.append(trial);
 }
+function trcInteract(actor=player,request=null){
+  if(!map.traversal||!actor.alive||match?.phase!=='live'||carMotionActive(actor))return false;
+  const n=request||map.traversal.nearby(actor);if(!n)return false;
+  if(actor===player&&isGuest()){
+    queueNetAction('trc-interact',{kind:n.kind,id:n.id});
+    if(n.kind==='ladder')map.traversal.interact(actor,n,elapsed,[player,...bots]);
+    return true;
+  }
+  const result=map.traversal.interact(actor,n,elapsed,[player,...bots]);
+  if(result?.startsWith('door-'))sound(result,{entity:actor});
+  return true;
+}
+function trcMotionSound(actor,dt,previous,quiet){
+  if(!map.traversal)return;
+  const metal=actor.trcLadder||map.ductAt(actor.x,actor.z,actor.y);
+  const moved=Math.hypot(actor.x-previous.x,(actor.y||0)-(previous.y||0),actor.z-previous.z)>.002;
+  actor.trcStepClock=metal&&moved&&!quiet&&!ordinarySkills.quiet(actor.id,elapsed)?(actor.trcStepClock||0)+dt:0;
+  if(actor.trcStepClock>.36){actor.trcStepClock=0;sound('duct-step',{entity:actor});}
+}
+function trcBotGoal(bot,fallback,attacking,siteId,spike){
+  const slot=Number(bot.id.split('-').pop());
+  if(match.roundTime<30||['planted','dropped'].includes(spike.status)||attacking&&slot!==3||!attacking&&![1,3].includes(slot))return fallback;
+  const key=attacking?'attack'+siteId:'defend'+(slot===1?'A':'B');
+  if(!bot.trcRoute||bot.trcRoute.round!==match.round)bot.trcRoute={key,round:match.round,index:0};
+  const plan=bot.trcRoute,points=map.traversal.routes[plan.key];
+  while(plan.index<points.length-1&&Math.hypot(bot.x-points[plan.index].x,bot.z-points[plan.index].z,bot.y-points[plan.index].y)<.85)plan.index++;
+  return points[plan.index];
+}
 function actorBodyHeight(actor){return 1.7-clamp(Number.isFinite(actor.crouch)?actor.crouch:0,0,1)*.55;}
 function canStand(x,z,r=.34,feet=player.y,height=1.7) {
   const b=activeArenaBounds();
@@ -1164,12 +1198,14 @@ function rampFloor(x,z) {
     if(x<ramp.minX||x>ramp.maxX||z<ramp.minZ||z>ramp.maxZ)continue;
     const along=ramp.axis==='x'?x:z,min=ramp.axis==='x'?ramp.minX:ramp.minZ,max=ramp.axis==='x'?ramp.maxX:ramp.maxZ;
     const fraction=clamp((along-min)/Math.max(.001,max-min),0,1);
-    const height=(ramp.base||0)+ramp.height*(ramp.direction===-1?1-fraction:fraction);
+    const f=ramp.direction===-1?1-fraction:fraction;
+    const height=(ramp.base||0)+ramp.height*(ramp.steps?Math.min(ramp.steps,Math.ceil(Math.max(0,f-1e-7)*ramp.steps))/ramp.steps:f);
     floor=Math.max(floor??0,height);
   }
   return floor;
 }
 function moveEntity(entity,dx,dz,r=.34) {
+  if(entity.trcLadder)return;
   // Substeps prevent sprint/dash from crossing thin cover at a low frame rate.
   const n=Math.max(1,Math.ceil(Math.hypot(dx,dz)/.16));
   for(let i=0;i<n;i++){
@@ -1177,17 +1213,17 @@ function moveEntity(entity,dx,dz,r=.34) {
     const permitted=(x,z)=>!area||Math.hypot(x-area.x,z-area.z)<area.radius-r;
     function attempt(x,z){
       if(!permitted(x,z))return;
-      const controlled=entity===player||!!entity.remoteId;
+      const controlled=entity===player||!!entity.remoteId||!!map.traversal;
       let feet=entity.y||0;
       const ramp=controlled?rampFloor(x,z):null;
-      const followsFloor=entity===player?player.vy===0:!!entity.remoteId;
+      const followsFloor=entity===player?player.vy===0:!!entity.remoteId||!!map.traversal&&!entity.vy;
       // Grounded feet may step up; an airborne actor must clear the slope rather
       // than enter just below it and miss the downward landing intersection.
       if(ramp!==null&&ramp>feet+(followsFloor?.22:.00001))return;
       if(followsFloor){
         if(ramp!==null&&Math.abs(ramp-feet)<=.22)feet=ramp;
         // Only ankle-height ledges can be stepped onto; crates still require jumping.
-        for(const c of map.collision.query(x,z,r))if(c.height>feet&&c.height<=entity.y+.22&&map.collision.overlaps(c,x,z,r))feet=c.height;
+        for(const c of map.collision.query(x,z,r))if(!c.disabled&&c.height>feet&&c.height<=entity.y+.22&&map.collision.overlaps(c,x,z,r))feet=c.height;
       }
       if(canStand(x,z,r,feet,actorBodyHeight(entity))){entity.x=x;entity.z=z;if(followsFloor)entity.y=feet;}
     }
@@ -1344,7 +1380,7 @@ function activeOrdinarySmokeFields(){return match?.phase==='live'?ordinarySkills
 function smokeBlocks(a,b){const start=new THREE.Vector3(a.x,(a.y||0)+1.45,a.z),end=new THREE.Vector3(b.x,(b.y||0)+1.45,b.z),delta=end.clone().sub(start),length=delta.lengthSq();return [...smokes,...activeOrdinarySmokeFields()].some(s=>{const center=new THREE.Vector3(s.x,s.y,s.z),t=length?clamp(center.clone().sub(start).dot(delta)/length,0,1):0;return start.clone().addScaledVector(delta,t).distanceToSquared(center)<s.radius*s.radius;});}
 function getZoneFloor(x,z,ceiling){
   let floor=rampFloor(x,z)||0;
-  for(const collider of map.collision.query(x,z,0))if(collider.height<=ceiling&&collider.height>floor&&map.collision.overlaps(collider,x,z,0))floor=collider.height;
+  for(const collider of map.collision.query(x,z,0))if(!collider.disabled&&collider.height<=ceiling&&collider.height>floor&&map.collision.overlaps(collider,x,z,0))floor=collider.height;
   return floor;
 }
 function ordinaryGroundHeight(x,z,referenceY){
@@ -1943,7 +1979,7 @@ function duckFlap(actor){
   if(actor.duckFlapEvent===event.id&&elapsed<(actor.duckFlapAt||0)+DUCK_SKILLS.flapInterval)return false;
   actor.duckFlapEvent=event.id;actor.duckFlapAt=elapsed;actor.vy=DUCK_SKILLS.flapVelocity;sound('duck-flap',{entity:actor,localOnly:true});return true;
 }
-function jump(){if(carMotionActive(player)||busSeat())return;if(!netHostPaused&&mode==='play'&&player.alive&&!interactionHeld&&duckFlap(player))return;
+function jump(){if(carMotionActive(player)||busSeat())return;if(player.trcLadder){trcInteract(player,{kind:'ladder',id:player.trcLadder});return;}if(!netHostPaused&&mode==='play'&&player.alive&&!interactionHeld&&duckFlap(player))return;
 if(!netHostPaused&&mode==='play'&&player.alive&&player.vy===0&&!ordinarySkills.onnaraEvent?.('onnara-hover',player.id,elapsed)&&!interactionHeld){player.vy=6.552;sound('jump',{localOnly:true});}}
 function updateHUD(){
   if(!match)return;
@@ -2024,7 +2060,7 @@ function updateHUD(){
   if(exploring){
     $('timer').textContent='∞';$('round-label').textContent=(map.shortName||'HASHIMOTO')+' / MAP PRACTICE';$('side-label').textContent='マップ練習';
     $('phase-label').textContent='2 SITES / 3 LANES';$('objective-label').textContent=!rangeSession&&!objectivePractice?'C/Q/E/X 無限 · M：ルート確認・地点移動 · B：武器選択':'M：ルート確認・地点移動 · WASD：移動 · B：武器選択';
-    $('spike-state').textContent=map.id==='hirakata'?'南北自由通路 / バス車道に注意 / 接触100ダメージ':'バス通り / 中央連絡路 / ミウィ通り';$('zone').textContent=zone?.name||((map.name||'橋本駅')+'前');
+    $('spike-state').textContent=map.id==='trc'?'A ロング / MID / B 舞台裏 / 上層・ダクト':map.id==='hirakata'?'南北自由通路 / バス車道に注意 / 接触100ダメージ':'バス通り / 中央連絡路 / ミウィ通り';$('zone').textContent=zone?.name||((map.name||'橋本駅')+'前');
   }
   if($('ally-label'))$('ally-label').textContent=rangeSession?'SCORE':'YOUR TEAM';
   if($('enemy-label'))$('enemy-label').textContent=rangeSession?'HEADSHOT':'ENEMY TEAM';
@@ -2134,16 +2170,22 @@ function updateBots(dt){
     bot.group.rotation.y+=clamp(delta,-speed*dt,speed*dt);return Math.abs(delta)<.24;
   }
   function advance(bot,goal,intent='objective'){
-    const safe=navigation.nearest(goal.x,goal.z);if(!safe)return false;
-    const dist=distance(bot,safe);if(dist<(intent==='bus-escape'?.04:.32)){bot.path=[];return false;}
+    const safe=navigation.nearest(goal.x,goal.z,goal.y||0);if(!safe)return false;
+    const dist=Math.hypot(bot.x-safe.x,bot.z-safe.z,map.traversal?(bot.y||0)-(safe.y||0):0);if(dist<(intent==='bus-escape'?.04:.32)){bot.path=[];return false;}
     bot.pathTime=(bot.pathTime||0)-dt;
     if(bot.pathTime<=0||!bot.path?.length||!bot.goal||distance(bot.goal,safe)>2||bot.pathIntent!==intent){
-      bot.path=intent==='bus-escape'?[safe]:navigation.path(bot.x,bot.z,safe.x,safe.z);bot.pathTime=.8+Math.random()*.15;bot.goal=safe;bot.pathIntent=intent;
+      bot.path=intent==='bus-escape'?[safe]:navigation.path(bot.x,bot.z,safe.x,safe.z,bot.y||0,safe.y||0);bot.pathTime=.8+Math.random()*.15;bot.goal=safe;bot.pathIntent=intent;
     }
-    while(bot.path.length&&distance(bot,bot.path[0])<(intent==='bus-escape'?.04:.22))bot.path.shift();
+    while(bot.path.length&&Math.hypot(bot.x-bot.path[0].x,bot.z-bot.path[0].z,map.traversal?(bot.y||0)-(bot.path[0].y||0):0)<(intent==='bus-escape'?.04:.22))bot.path.shift();
     const point=bot.path[0];if(!point)return false;
+    if(map.traversal){
+      if(point.ladder){const n=map.traversal.nearby(bot);if(n?.id===point.ladder){bot.trcClimbDirection=point.y>(bot.y||0)?1:-1;trcInteract(bot,n);return true;}}
+      const n=map.traversal.nearby(bot);if(n?.kind==='door'&&!map.traversal.doors.find(d=>d.id===n.id).open)trcInteract(bot,n);
+      const duck=!!map.ductAt(bot.x,bot.z,bot.y)||!!point.crouch;
+      if(duck||canStand(bot.x,bot.z,.4,bot.y,1.7))bot.crouch=duck?1:0;
+    }
     const dx=point.x-bot.x,dz=point.z-bot.z,length=Math.hypot(dx,dz)||1;
-    const speed=(frostSlideSpeed(bot)||(3.35+cfg.speed*.25)*1.15)*actorSpeedScale(bot);
+    const speed=(frostSlideSpeed(bot)||(3.35+cfg.speed*.25)*1.15)*actorSpeedScale(bot)*(map.ductAt?.(bot.x,bot.z,bot.y)?.28:1);
     const step=Math.min(length,speed*dt),oldX=bot.x,oldZ=bot.z;
     if(elapsed<(bot.trafficLaunch?.endsAt||0))return false;
     if(navigation.trafficStep&&!navigation.trafficStep(bot.x,bot.z,bot.x+dx/length*step,bot.z+dz/length*step)){bot.pathTime=0;return false;}
@@ -2190,6 +2232,7 @@ function updateBots(dt){
     }
     if(busSeat(bot)){bot.group.position.set(bot.x,bot.y||0,bot.z);continue;}
     if(carMotionActive(bot)){bot.group.position.set(bot.x,bot.y||0,bot.z);bot.visual.update(dt,{...agentEquipment(bot),time:elapsed,moving:true,alive:true});continue;}
+    if(bot.trcLadder){const previous={x:bot.x,y:bot.y,z:bot.z};map.traversal.climb(bot,bot.trcClimbDirection||1,dt);trcMotionSound(bot,dt,previous,false);bot.group.position.set(bot.x,bot.y,bot.z);bot.moving=true;bot.visual.update(dt,{...agentEquipment(bot),time:elapsed,moving:true,alive:true});continue;}
     if(bot.vy||bot.y)updateActorVertical(bot,dt,.4);
     bot.fire=Math.max(0,(bot.fire||0)-dt);
     const weaponId=bot.record?.primary||bot.record?.secondary||'classic';
@@ -2220,6 +2263,7 @@ function updateBots(dt){
     }else if(spike.status==='planted'){
       if(plan?.defuserId===bot.id)shouldDefuse=distance(bot,spike)<2.05;
     }
+    if(map.traversal&&!enemy&&!role?.urgent&&spike.carrier!==bot.id)goal=trcBotGoal(bot,goal,attacking,site.id,spike)||goal;
     const orb=ordinarySkills.onnaraEvent?.('onnara-orb',bot.id,elapsed);
     if(orb&&!enemy&&ordinarySkills.blindUntil(bot.id,elapsed)<=elapsed){const yaw=orbViewYaw(orb,elapsed),forward={x:-Math.sin(yaw),z:-Math.cos(yaw)};
       const observed=[player,...bots].filter(a=>a.alive&&a.team!==bot.team).filter(a=>{const dx=a.x-orb.x,dz=a.z-orb.z,d=Math.hypot(dx,dz);return d>.1&&d<=70&&(dx*forward.x+dz*forward.z)/d>.85&&visibleBetween(orb,a);}).sort((a,b)=>distance(orb,a)-distance(orb,b))[0];
@@ -2245,8 +2289,8 @@ function updateBots(dt){
     const committedPlant=spike.plantActor===bot.id&&spike.plantProgress>0;
     const committedDefuse=spike.defuseActor===bot.id&&spike.defuseProgress>0;
     const trafficEscape=actorGrounded(bot)?navigation.trafficEscape?.(bot.x,bot.z):null;
-    const interactPlant=!trafficEscape&&actorGrounded(bot)&&plantSite&&(enemyDistance>10||committedPlant||role?.urgent);
-    const interactDefuse=!trafficEscape&&actorGrounded(bot)&&shouldDefuse&&(!spike.defuseActor||spike.defuseActor===bot.id)&&(enemyDistance>9||committedDefuse||role?.urgent);
+    const interactPlant=!trafficEscape&&Math.abs(bot.y||0)<.05&&actorGrounded(bot)&&plantSite&&(enemyDistance>10||committedPlant||role?.urgent);
+    const interactDefuse=!trafficEscape&&Math.abs(bot.y||0)<.05&&actorGrounded(bot)&&shouldDefuse&&(!spike.defuseActor||spike.defuseActor===bot.id)&&(enemyDistance>9||committedDefuse||role?.urgent);
     // Arm the work tool immediately before starting a real assigned task.
     // Approaching a site alone must not spend its six-second working window.
     bot.planting=false;bot.defusing=false;bot.moving=false;
@@ -2505,7 +2549,7 @@ function updateBots(dt){
     bot.group.position.y=bot.y||0;
     bot.visual.update(dt,{...agentEquipment(bot),time:elapsed,moving:bot.moving,planting:bot.planting,defusing:bot.defusing,firing:bot.flash>0,alive:bot.alive});
     bot.stepClock=bot.moving&&actorGrounded(bot)?(bot.stepClock||0)+dt:0;
-    if(bot.stepClock>.41){bot.stepClock=0;if(!ordinarySkills.quiet(bot.id,elapsed)){if(distance(bot,player)<19)sound('step',{entity:bot});else botHearing.emit(bot,'step',elapsed);}}
+    if(bot.stepClock>.41){bot.stepClock=0;if(!ordinarySkills.quiet(bot.id,elapsed)){if(distance(bot,player)<19)sound('step',{entity:bot});else botHearing.emit(bot,map.ductAt?.(bot.x,bot.z,bot.y)?'duct-step':'step',elapsed);}}
   }
   separateBots(dt);
 }
@@ -2515,7 +2559,7 @@ function separateBots(dt){
   const movable=actor=>actor!==player&&!actor.planting&&!actor.defusing;
   // Resolve crowded escorts without moving the player or interrupting a committed plant.
   for(let pass=0;pass<2;pass++)for(let i=0;i<actors.length;i++)for(let j=i+1;j<actors.length;j++){
-    const a=actors[i],b=actors[j];if(carMotionActive(a)||carMotionActive(b))continue;let dx=b.x-a.x,dz=b.z-a.z,dist=Math.hypot(dx,dz);
+    const a=actors[i],b=actors[j];if(carMotionActive(a)||carMotionActive(b)||a.trcLadder||b.trcLadder||Math.abs((a.y||0)-(b.y||0))>.7)continue;let dx=b.x-a.x,dz=b.z-a.z,dist=Math.hypot(dx,dz);
     if(dist>=.88||!movable(a)&&!movable(b))continue;
     if(dist<.0001){const angle=(i*2.39+j*1.57);dx=Math.sin(angle);dz=Math.cos(angle);dist=1;}
     else{dx/=dist;dz/=dist;}
@@ -2534,6 +2578,7 @@ function separateBots(dt){
   for(const bot of bots){bot.group.position.x=bot.x;bot.group.position.z=bot.z;}
 }
 function updateActorVertical(actor,dt,radius=.34){
+    if(actor.trcLadder&&actor.alive)return;
     if(applyStarHold(actor))return;
     const flight=duckFlight(actor);
     const verticalSteps=Math.max(1,Math.ceil(dt*120)),verticalDt=dt/verticalSteps;
@@ -2542,6 +2587,7 @@ function updateActorVertical(actor,dt,radius=.34){
       actor.vy-=15*verticalDt;let support=0,ceiling=flight?Math.min(11,flight.y+DUCK_SKILLS.flightHeight):Infinity;
       if(nextFeet>previousFeet){
         for(const c of map.collision.query(actor.x,actor.z,radius)){
+          if(c.disabled)continue;
           const underside=c.base||0;
           if(previousFeet+height>underside+.00001||nextFeet+height<underside)continue;
           if(map.collision.overlaps(c,actor.x,actor.z,radius))ceiling=Math.min(ceiling,underside-height);
@@ -2551,6 +2597,7 @@ function updateActorVertical(actor,dt,radius=.34){
         const ramp=rampFloor(actor.x,actor.z);
         if(ramp!==null&&previousFeet>=ramp-.00001&&nextFeet<=ramp)support=ramp;
         for(const c of map.collision.query(actor.x,actor.z,radius)){
+          if(c.disabled)continue;
           if(c.height<=.02||c.height<=support||previousFeet<c.height-.00001||nextFeet>c.height)continue;
           if(map.collision.overlaps(c,actor.x,actor.z,radius))support=c.height;
         }
@@ -2573,7 +2620,7 @@ function tickDuckPads(){
 }
 function duckPadAirborne(actor){return actor?.alive&&actor.duckPadUntil>elapsed&&actor.duckPadRound===match?.round&&actor.duckPadTeam===actor.team;}
 function updatePlay(dt){
-  if(!match)return;elapsed+=dt;
+  if(!match)return;elapsed+=dt;map.traversal?.update(dt);
   if(isGuest()&&!netHasSnapshot)return;
   refillMapPracticeSkills();tickDuckPads();player.kit.tick(elapsed);for(const bot of bots)bot.kit?.tick(elapsed);updateAbilityFeedback();
   syncSmokes(serializeSmokes().filter(s=>s.expires>elapsed));updateSmokeAppearance(elapsed);
@@ -2592,7 +2639,7 @@ function updatePlay(dt){
   const nextCrouch=THREE.MathUtils.lerp(player.crouch,crouching?1:0,1-Math.exp(-dt*16));
   if(nextCrouch>=player.crouch||canStand(player.x,player.z,.34,player.y,1.7-nextCrouch*.55))player.crouch=nextCrouch;
   const walking=keys.has('ShiftLeft')||keys.has('ShiftRight');
-  const slow=actorSpeedScale(player),speed=(slideSpeed|| (crouching||player.crouch>.5?1.8:(walking?2.8:inventory.active==='knife'?6.3:5.4)*1.15))*(aiming?.78:1)*slow;
+  const slow=actorSpeedScale(player)*(map.ductAt?.(player.x,player.z,player.y)?.6:1),speed=(slideSpeed|| (crouching||player.crouch>.5?1.8:(walking?2.8:inventory.active==='knife'?6.3:5.4)*1.15))*(aiming?.78:1)*slow;
   const desiredX=moveX/Math.max(1,len)*speed,desiredZ=moveZ/Math.max(1,len)*speed;
   if(controlled&&!slideSpeed){
     // Adapted from collaborator PR44: vector acceleration, release inertia,
@@ -2618,11 +2665,14 @@ function updatePlay(dt){
   const velocity=Math.hypot(player.vx,player.vz);if((slow<1||player.turfMovementEnded)&&velocity>speed){player.vx*=speed/velocity;player.vz*=speed/velocity;}player.turfMovementEnded=false;
   const previousY=player.y,previousVy=player.vy,previousX=player.x,previousZ=player.z;
   if(player.alive&&!player.carMotion&&!busSeat()){
+    if(player.trcLadder)map.traversal.climb(player,controlled?forward:0,dt,walking);
+    if(map.ductAt?.(player.x,player.z,player.y))player.dashTimer=0;
     if(player.dashTimer>0){const step=Math.min(dt,player.dashTimer);moveEntity(player,player.dashVec.x*(12/.18)*step,player.dashVec.z*(12/.18)*step);player.dashTimer-=step;player.vx=0;player.vz=0;}else moveEntity(player,player.vx*dt,player.vz*dt);
     updateActorVertical(player,dt);
     const running=controlled&&(slideSpeed>0||!walking&&!crouching&&player.crouch<.5)&&player.vy===0&&Math.hypot(player.x-previousX,player.z-previousZ)>dt*2;
     stepClock=running?stepClock+dt:0;
     if(stepClock>.35){stepClock=0;sound('step');}
+    trcMotionSound(player,dt,{x:previousX,y:previousY,z:previousZ},walking);
     if(previousVy<-.8&&player.vy===0&&previousY>player.y+.005)sound('land');
   }
   if(!player.alive&&!isGuest()&&!player.carMotion&&player.carFallUntil>elapsed&&!player.trafficLaunch&&player.vy)updateActorVertical(player,dt);
@@ -2631,7 +2681,7 @@ function updatePlay(dt){
   player.recoil=Math.max(0,player.recoil-dt*.065);kick=Math.max(0,kick-dt*.4);
   renderedRecoil=THREE.MathUtils.lerp(renderedRecoil,player.recoil,1-Math.exp(-dt*22));
   if(elapsed-lastShot>.3)shotSequence=0;
-  if(map.traffic||!exploring||objectivePractice&&!objectivePractice.completed)updateInteraction(dt,controlled&&Math.hypot(player.x-previousX,player.z-previousZ)<dt*.25&&player.vy===0);
+  if(map.traffic||map.traversal||!exploring||objectivePractice&&!objectivePractice.completed)updateInteraction(dt,controlled&&Math.hypot(player.x-previousX,player.z-previousZ)<dt*.25&&player.vy===0);
   if(objectivePractice)updateObjectivePractice(dt);
   if(ordinarySkills.urchinJammed(player.id,elapsed))urchinCancelReload(player);
   if(!tickServiceReload(player,dt)&&reloading>0){reloading-=dt;if(reloading<=0){const n=Math.min(weapon().mag-player.ammo,player.reserve);player.ammo+=n;player.reserve-=n;reloading=0;sound('reload');}}
@@ -2682,6 +2732,8 @@ function updatePlay(dt){
   if(mode==='shop')updateShop();if(mode==='score')updateScoreboard();
 }
 function updateInteraction(dt,stationary){
+  const trc=match.phase==='live'&&map.traversal?.nearby(player);
+  if(trc){if(!isGuest()){match.cancelPlant(player.id);match.cancelDefuse(player.id);}setVisible('interaction',true);$('interaction-title').textContent=trc.label;$('interaction-progress').style.width='0%';if($('mobile-interact-label'))$('mobile-interact-label').textContent='F';return;}
   const bus=player.alive&&match.phase==='live'?map.traffic?.service.candidate(player,elapsed):null;
   if(bus){setVisible('interaction',bus.available);$('interaction-title').textContent=bus.available?'F · '+(bus.kind==='board'?'乗車':bus.kind==='drive'?'運転席':'降車'):' ';$('interaction-progress').style.width='0%';if($('mobile-interact-label'))$('mobile-interact-label').textContent='F';return;}
 
@@ -2749,7 +2801,7 @@ function updateRoom(room){
   if(!saving||room.status==='playing'){
     $('online-map').value=normalizeMapId(room.settings.mapId);$('online-format').value=room.settings.format;
   }
-  const roomMap=room.settings.mapId==='hirakata'?'枚方市駅 / 南北ロータリー':'橋本駅';
+  const roomMap=room.settings.mapId==='trc'?'TRC 同人音楽即売会':room.settings.mapId==='hirakata'?'枚方市駅 / 南北ロータリー':'橋本駅';
   $('online-intro').textContent=saving?'マップと試合形式を保存しています…':`${roomMap} · ${room.settings.format==='standard'?'STANDARD / 13ラウンド先取':'SWIFT / 5ラウンド先取'}。最大10人、空き枠にはBOTが参加します。`;
   if(room.status==='playing'&&!onlinePlaying){
     onlinePlaying=true;netSequence=0;netLastSnapshot=0;netActionSequence=0;netActions=[];netApplied.clear();netInputs.clear();netRound=0;netClock=0;netSeenCueSequence=0;netCues.length=0;
@@ -2824,7 +2876,7 @@ function receiveNetPacket(from,packet){
 function captureNetActor(actor){
   const local=actor===player,record=local?roster[0]:actor.record;
   return{id:actor.id,team:actor.team,x:actor.x,z:actor.z,y:actor.y||0,yaw:local?player.yaw:actor.remoteId?(actor.netYaw||0):actor.group.rotation.y-Math.PI,
-    hp:actor.hp,armor:actor.armor,alive:actor.alive,...(Number.isFinite(actor.crouch)&&actor.crouch>.0005?{crouch:Math.round(Math.min(1,actor.crouch)*1000)/1000}:{}),moving:local?Math.hypot(player.vx,player.vz)>.5:!!actor.moving,
+    ...(actor.trcLadder?{trcLadder:actor.trcLadder}:{}),hp:actor.hp,armor:actor.armor,alive:actor.alive,...(Number.isFinite(actor.crouch)&&actor.crouch>.0005?{crouch:Math.round(Math.min(1,actor.crouch)*1000)/1000}:{}),moving:local?Math.hypot(player.vx,player.vz)>.5:!!actor.moving,
     weapon:local?inventory.active:actor.netWeapon||record?.primary||record?.secondary||'classic',primary:local?inventory.primary:record?.primary,secondary:local?inventory.secondary:record?.secondary,
     ammo:local?player.ammo:actor.remoteId?actor.netAmmo:actor.aiAmmo,reserve:local?player.reserve:actor.remoteId?actor.netReserve:actor.aiReserve,reloading:local?reloading:actor.remoteId?actor.netReload||0:actor.aiReload||0,credits:local?match.credits:record?.credits||0,
     ...(carMotionActive(actor)?{carMove:[actor.carMotion.id,actor.carMotion.phase,actor.carMotion.endsAt,...[actor.carMotion.vx,actor.carMotion.vz,actor.vy||0].map(n=>Math.round(n*1000)/1000)]}:{}),...(actor.trafficLaunch?{trafficHit:[actor.trafficLaunch.seq,actor.trafficLaunch.endsAt,actor.trafficLaunch.vx,actor.trafficLaunch.vz,actor.vy||0]}:{}),
@@ -2852,8 +2904,10 @@ function applyNetSnapshot(packet){
   if(!packet.rules||!Array.isArray(packet.actors)||packet.actors.length>10||!Array.isArray(packet.roster)||!Number.isFinite(packet.time))return;
   if(packet.actors.some(a=>!a||a.crouch!==undefined&&(!Number.isFinite(a.crouch)||a.crouch<0||a.crouch>1)))return;
   const ownId=netParticipants.get(online.session.memberId),self=packet.actors.find(a=>a.id===ownId);if(!self)return;
+  if(map.traversal&&(!map.traversal.valid(packet.trcDoors)||packet.actors.some(a=>a.trcLadder!==undefined&&!map.traversal.ladders.some(l=>l.id===a.trcLadder))))return;
   if(map.destruction&&!map.destruction.valid(packet.busDamage??''))return;
   if(map.traffic&&!map.traffic.service.restore(packet.busTransit||[],packet.actors.map(a=>a.id),packet.time))return;
+  if(map.traversal)map.traversal.restore(packet.trcDoors);
   const fresh=netRound!==packet.rules.round||!netHasSnapshot,previousPhase=match.phase,previousSpikeStatus=match.spike.status,wasAlive=player.alive,wasPaused=netHostPaused;
   // A same-round reconnect resets rendering, but must not revive a grounded
   // effect already stopped by this player's movement before its host ACK.
@@ -2966,6 +3020,7 @@ if(map.destruction){if(fresh||!packet.busDamage)map.destruction.reset();map.dest
     if(state.kit&&actor.kit)actor.kit.restore(state.kit);
   }
   if(busSeat()){map.traffic.service.place(player,elapsed);player.vx=player.vz=player.vy=0;}
+  if(map.traversal){const pending=netActions.some(a=>a.type==='trc-interact'&&a.kind==='ladder');if(!pending){player.trcLadder=self.trcLadder||null;if(player.trcLadder||Math.abs(player.y-self.y)>.55){player.x=self.x;player.z=self.z;player.y=self.y;player.vy=0;}}}
   netHasSnapshot=true;setVisible('loading',false);setVisible('hud',true);setVisible('spectator-hint',!player.alive&&!deathView.holding);syncDeathUI();buyBarrier.visible=match.phase==='buy';const area=map.buyAreas[ownSide()];if(area){buyBarrier.position.set(area.x,2,area.z);buyBarrier.scale.set(area.radius,1,area.radius);}
   if(!netHostPaused&&!netCharacterRequested&&match.phase==='buy'&&match.round===1){netCharacterRequested=true;queueNetAction('character',{character:selectedCharacter()});player.kit.character=selectedCharacter();}
   if(match.phase==='match'&&mode!=='result')finish(match.winner===player.team);
@@ -2975,14 +3030,15 @@ function updateRemoteActor(actor,dt){
   const data=netInputs.get(actor.remoteId);if(!data){actor.planting=false;actor.defusing=false;match.cancelPlant(actor.id);match.cancelDefuse(actor.id);return;}
   const input=data.input,active=elapsed-data.received<.8&&actor.alive&&data.round===match.round,previousX=actor.x,previousY=actor.y||0,previousZ=actor.z,wasDashing=actor.dashTimer>0;
   if(active&&duckPadAirborne(actor)&&actorGrounded(actor)&&Number.isFinite(input.y)&&Math.abs(input.y-actor.y)<.08)actor.duckPadUntil=0;
-  if(active&&!busSeat(actor)&&Number.isFinite(input.x)&&Number.isFinite(input.z)){
+  const wasClimbing=!!actor.trcLadder;if(wasClimbing){const previous={x:actor.x,y:actor.y,z:actor.z};map.traversal.climb(actor,active&&[-1,0,1].includes(input.climb)?input.climb:0,dt,input.quiet===true);trcMotionSound(actor,dt,previous,input.quiet===true);}
+  if(active&&!wasClimbing&&!busSeat(actor)&&Number.isFinite(input.x)&&Number.isFinite(input.z)){
     // An accepted airborne pose ends turf before applying this input's speed cap.
     const inputFeet=Number.isFinite(input.y)?clamp(input.y,0,11):actor.y;
     const inputGrounded=actorGrounded({...actor,x:input.x,z:input.z,y:inputFeet,vy:0});
     let dx=input.x-actor.x,dz=input.z-actor.z;
     if(actor.dashTimer>0&&actor.dashVec){const step=Math.min(dt,actor.dashTimer)*12/.18;dx=actor.dashVec.x*step;dz=actor.dashVec.z*step;}
     else if(actor.netDashInputSequence===data.seq||carMotionActive(actor)||elapsed<Math.max(actor.carImpulseUntil||0,actor.trafficLaunch?.endsAt||0)){dx=0;dz=0;}
-    const distance=Math.hypot(dx,dz),limit=(actor.dashTimer>0?12/.18:(frostSlideSpeed(actor,inputGrounded)||(input.quiet===true?2.8:7)*1.15)*actorSpeedScale(actor,inputGrounded))*dt;
+    const distance=Math.hypot(dx,dz),limit=(map.ductAt?.(actor.x,actor.z,actor.y)?1.15:actor.dashTimer>0?12/.18:(frostSlideSpeed(actor,inputGrounded)||(input.quiet===true?2.8:7)*1.15)*actorSpeedScale(actor,inputGrounded))*dt;
     if(distance>limit){dx*=limit/distance;dz*=limit/distance;}
     if(match.phase==='buy'){const area=map.buyAreas[actor.team===match.attackerTeam?'attack':'defend'];if(Math.hypot(actor.x+dx-area.x,actor.z+dz-area.z)>area.radius-.4){dx=0;dz=0;}}
     const requestedCrouch=frostSlideSpeed(actor)>0?1:Number.isFinite(input.crouch)?clamp(input.crouch,0,1):0;
@@ -2999,8 +3055,13 @@ function updateRemoteActor(actor,dt){
       if(flight){
         acceptedY=Math.min(acceptedY,flight.y+DUCK_SKILLS.flightHeight,previousY+DUCK_SKILLS.flapVelocity*dt);
         if(acceptedY>previousY)for(const c of map.collision.query(actor.x,actor.z,.34)){
+          if(c.disabled)continue;
           const underside=c.base||0,height=actorBodyHeight(actor);if(previousY+height<=underside+.00001&&acceptedY+height>=underside&&map.collision.overlaps(c,actor.x,actor.z,.34))acceptedY=Math.min(acceptedY,underside-height);
         }
+      }
+      if(map.traversal&&!flight&&!ordinarySkills.onnaraEvent?.('onnara-hover',actor.id,elapsed)){
+        if(inputFeet>actor.y+.1&&actorGrounded(actor))actor.vy=6.552;
+        updateActorVertical(actor,dt);acceptedY=actor.y;
       }
       actor.y=acceptedY;
       // Remote motion is consumed from its accepted pose; a prior lift impulse
@@ -3013,6 +3074,7 @@ function updateRemoteActor(actor,dt){
   }
   if(active&&busSeat(actor)){actor.netYaw=Number.isFinite(input.yaw)?input.yaw:actor.netYaw||0;actor.netPitch=clamp(Number(input.pitch)||0,-1.35,1.35);}
   const remoteRunning=active&&match.phase==='live'&&(frostSlideSpeed(actor)>0||input.quiet!==true&&actor.crouch<.5)&&!wasDashing&&actorGrounded(actor)&&Math.hypot(actor.x-previousX,actor.z-previousZ)>dt*2;
+  if(!wasClimbing)trcMotionSound(actor,dt,{x:previousX,y:previousY,z:previousZ},input.quiet===true);
   actor.netStepClock=remoteRunning?(actor.netStepClock||0)+dt:0;if(actor.netStepClock>.35){actor.netStepClock=0;sound('step',{entity:actor});}
   actor.kit?.tick(elapsed);actor.dashTimer=Math.max(0,(actor.dashTimer||0)-dt);actor.moving=Math.hypot(actor.x-previousX,actor.z-previousZ)>dt*.5;
   const stationary=Math.hypot(actor.x-previousX,actor.z-previousZ)<dt*.25&&Math.abs(actor.y||0)<=.05,held=active&&!busSeat(actor)&&!carMotionActive(actor)&&input.interact===true&&match.phase==='live';
@@ -3040,6 +3102,7 @@ function updateRemoteActor(actor,dt){
 }
 function applyRemoteAction(actor,action,actionTime=elapsed){
   if(!actor.alive)return;const r=actor.record;
+  if(action.type==='trc-interact'){if(match.phase==='live')trcInteract(actor,{kind:action.kind,id:action.id});return;}
   if(action.type==='bus'){busInteract(actor);return;}
   if(busDriving(actor)||busSeat(actor)&&['ability','drop','pickup'].includes(action.type))return;
   if((actor.planting||actor.defusing)&&['fire','reload','equip','ability','drop'].includes(action.type))return;
@@ -3116,10 +3179,10 @@ function tickOnline(dt){
   if(online.host){
     const rules={format:match.format,startingSide:match.startingSide,round:match.round,score:{...match.score},phase:match.phase,phaseTime:match.phaseTime,roundTime:match.roundTime,winner:match.winner,lastRound:match.lastRound?{...match.lastRound}:null,spike:{...match.spike}};
     if(rules.lastRound&&match.phase!=='post')delete rules.lastRound.fullCombo;
-    const teamState=teamAbilities.snapshot(),packet={type:'snapshot',mapId:map.id||'hashimoto',seq:++netSequence,time:elapsed,paused:netHostPaused,cues:serializeNetCues(),smokes:serializeSmokes(),drops:serializeDrops(),detonation:detonationState?{...detonationState}:null,takeover:takeoverState?{...takeoverState}:null,zoneAbilities:zoneAbilities.snapshot(),...(map.traffic?{busTransit:map.traffic.service.snapshot([player,...bots].map(a=>a.id)),...(map.destruction?.snapshot()?{busDamage:map.destruction.snapshot()}:{})}:{}),rules,roster:roster.map(r=>({...r,kit:r.kit?.snapshot()})),actors:[player,...bots].map(captureNetActor),acks:Object.fromEntries(netApplied),positionAcks:Object.fromEntries(bots.filter(b=>b.remoteId&&b.netPositionAck).map(b=>[b.remoteId,{...b.netPositionAck}]))};
-    for(const team of ['blue','red']){let state={...packet,teamAbilities:{...teamState,pings:teamState.pings.filter(ping=>ping.observerTeam===team)},ordinarySkills:ordinarySkills.snapshot(team),nopeDecoys:nopeDecoys.snapshot(),nopePops:serializeNopePops()};if(state.nopeDecoys||state.ordinarySkills.events.some(e=>e.type==='nope-decoy')||map.traffic||packet.actors.some(a=>a.crouch>0)||[player,...bots].some(carMotionActive)||match.phase==='post'||state.cues.some(c=>c.type==='skill-hit'||c.type==='skill-heal'))state=fitTrafficSnapshot(state);if(state)online.send(state,{team});}
+    const teamState=teamAbilities.snapshot(),packet={type:'snapshot',mapId:map.id||'hashimoto',seq:++netSequence,time:elapsed,paused:netHostPaused,...(map.traversal?{trcDoors:map.traversal.snapshot()}:{}),cues:serializeNetCues(),smokes:serializeSmokes(),drops:serializeDrops(),detonation:detonationState?{...detonationState}:null,takeover:takeoverState?{...takeoverState}:null,zoneAbilities:zoneAbilities.snapshot(),...(map.traffic?{busTransit:map.traffic.service.snapshot([player,...bots].map(a=>a.id)),...(map.destruction?.snapshot()?{busDamage:map.destruction.snapshot()}:{})}:{}),rules,roster:roster.map(r=>({...r,kit:r.kit?.snapshot()})),actors:[player,...bots].map(captureNetActor),acks:Object.fromEntries(netApplied),positionAcks:Object.fromEntries(bots.filter(b=>b.remoteId&&b.netPositionAck).map(b=>[b.remoteId,{...b.netPositionAck}]))};
+    for(const team of ['blue','red']){let state={...packet,teamAbilities:{...teamState,pings:teamState.pings.filter(ping=>ping.observerTeam===team)},ordinarySkills:ordinarySkills.snapshot(team),nopeDecoys:nopeDecoys.snapshot(),nopePops:serializeNopePops()};if(state.nopeDecoys||state.ordinarySkills.events.some(e=>e.type==='nope-decoy')||map.traffic||map.traversal||packet.actors.some(a=>a.crouch>0)||[player,...bots].some(carMotionActive)||match.phase==='post'||state.cues.some(c=>c.type==='skill-hit'||c.type==='skill-heal'))state=fitTrafficSnapshot(state);if(state)online.send(state,{team});}
   }else if(netHasSnapshot){
-    const seq=++netSequence,input={x:player.x,z:player.z,y:player.y,yaw:player.yaw,pitch:player.pitch,crouch:player.crouch,quiet:keys.has('ShiftLeft')||keys.has('ShiftRight'),interact:mode==='play'&&interactionHeld,...(busDriving()?{bus:busControls(player.id)}:{})};
+    const seq=++netSequence,input={...(map.traversal?{climb:mode==='play'?Math.sign((keys.has('KeyW')?1:0)-(keys.has('KeyS')?1:0)-touchMove.y):0}:{}),x:player.x,z:player.z,y:player.y,yaw:player.yaw,pitch:player.pitch,crouch:player.crouch,quiet:keys.has('ShiftLeft')||keys.has('ShiftRight'),interact:mode==='play'&&interactionHeld,...(busDriving()?{bus:busControls(player.id)}:{})};
     netPositionHistory.set(seq,{x:input.x,z:input.z,correctionX:netPositionCorrectionX,correctionZ:netPositionCorrectionZ});while(netPositionHistory.size>128)netPositionHistory.delete(netPositionHistory.keys().next().value);
     online.send({type:'input',seq,round:match.round,input,actions:netActions});
   }
@@ -3227,7 +3290,7 @@ document.addEventListener('keydown',e=>{
   if(e.code==='Tab'&&['play','score'].includes(mode)){if(mode==='play')showScoreboard();return;}
   if(netHostPaused||mode!=='play')return;
   keys.add(e.code);
-  if(e.code==='KeyF'&&player.alive&&match?.phase==='live'&&!objectivePractice?.completed){if(busInteract())return;interactionHeld=true;}
+  if(e.code==='KeyF'&&player.alive&&match?.phase==='live'&&!objectivePractice?.completed){if(e.repeat)return;if(trcInteract()||busInteract())return;interactionHeld=true;}
   if(player.alive){
     if(e.code==='Digit1'&&inventory.primary)equip(inventory.primary);
     if(e.code==='Digit2')equip(inventory.secondary);
@@ -3318,7 +3381,7 @@ $('mobile-crouch')?.addEventListener('click',()=>{
 $('mobile-fire')?.addEventListener('pointerdown',e=>{e.preventDefault();if(duckAim){const key=duckAim;duckAim=null;confirmDuckSkill(key);return;}if(netHostPaused||mode!=='play'||!player.alive||match?.phase!=='live')return;firing=true;shoot();$( 'mobile-fire').setPointerCapture(e.pointerId);});
 for(const type of ['pointerup','pointercancel'])$('mobile-fire')?.addEventListener(type,()=>firing=false);
 $('mobile-shop')?.addEventListener('click',openShop);
-$('mobile-interact')?.addEventListener('pointerdown',e=>{e.preventDefault();if(netHostPaused||mode!=='play'||!player.alive||match?.phase!=='live'||objectivePractice?.completed)return;if(busInteract())return;interactionHeld=true;$('mobile-interact').setPointerCapture(e.pointerId);});
+$('mobile-interact')?.addEventListener('pointerdown',e=>{e.preventDefault();if(netHostPaused||mode!=='play'||!player.alive||match?.phase!=='live'||objectivePractice?.completed)return;if(trcInteract()||busInteract())return;interactionHeld=true;$('mobile-interact').setPointerCapture(e.pointerId);});
 for(const type of ['pointerup','pointercancel'])$('mobile-interact')?.addEventListener(type,()=>interactionHeld=false);
 canvas.addEventListener('pointercancel',e=>{if(touchLook?.id===e.pointerId)touchLook=null;});
 

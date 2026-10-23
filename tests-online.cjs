@@ -76,6 +76,12 @@ async function main() {
   async function test(name, fn) { await fn(); passed++; console.log(`PASS: ${name}`); }
 
   try {
+    await test('TRC can be selected, joined and started as an authoritative ten-seat room',async()=>{
+      const created=await api('',{method:'POST',body:{name:'TRC HOST',mapId:'trc',format:'swift'}});
+      assert.equal(created.status,201);const host=created.value,guest=await join(host);
+      assert.equal(guest.settings.mapId,'trc');assert.equal(guest.settings.maxPlayers,10);
+      const playing=await start(host,guest);assert.equal(playing.settings.mapId,'trc');assert.equal(playing.status,'playing');
+    });
     await test('lobby map and format are host-owned, persisted before start, and visible to joins/polls/resume',async()=>{
       const created=await api('',{method:'POST',body:{name:'MAP HOST',mapId:'hirakata',format:'standard'}});
       assert.equal(created.status,201);const host=created.value,guest=await join(host);
