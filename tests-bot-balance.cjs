@@ -44,9 +44,16 @@ const suite=String.raw`
  });
  check('actual frame event drain counts plant and defuse once despite the game consuming notifications',()=>{
    setup();h.run("match.spike.status='carried';match.spike.carrier='player';match.interactPlant(4,{actorId:'player',team:match.attackerTeam,site:'A',x:0,z:0,stationary:true})");tick(1);
-   assert.equal(h.run('bench.plants'),1);
-   h.run("match.interactDefuse(7,{actorId:'enemy',team:match.defenderTeam,near:true,stationary:true})");tick(1);assert.equal(h.run('bench.defuses'),1);
+   assert.equal(h.run('bench.plants'),1);assert.equal(h.run('bench.actors.player.plants'),1);
+   h.run("match.interactDefuse(7,{actorId:'enemy',team:match.defenderTeam,near:true,stationary:true})");tick(1);assert.equal(h.run('bench.defuses'),1);assert.equal(h.run('bench.actors.enemy.defuses'),1);
    h.run('match.drainEvents();match.drainEvents()');assert.equal(h.run('bench.plants'),1);assert.equal(h.run('bench.defuses'),1);
+ });
+ check('personal tool work counts actual accepted progress, not rejected work or duplicate events',()=>{
+   setup();h.run("player.kit=new DuelistKit({character:'nobi'});activateAbility(player,'e');match.spike.status='carried';match.spike.carrier='player';match.interactPlant(1.5,{actorId:'player',team:match.attackerTeam,site:'A',x:0,z:0,stationary:true})");
+   near(h.run('bench.actors.player.workProgress'),1.5,'accepted work');near(h.run('bench.actors.player.toolWorkProgress'),1.5,'boosted progress');near(h.run('bench.actors.player.toolSavedSeconds'),.5,'normal-work equivalent');
+   h.run("match.interactPlant(3,{actorId:'enemy',team:match.defenderTeam,site:'A',x:0,z:0,stationary:true})");assert.equal(h.run('bench.actors.enemy.workProgress||0'),0);
+   h.run("match.interactPlant(10,{actorId:'player',team:match.attackerTeam,site:'A',x:0,z:0,stationary:true});match.interactPlant(10,{actorId:'player',team:match.attackerTeam,site:'A',x:0,z:0,stationary:true});match.drainEvents();match.drainEvents()");
+   near(h.run('bench.actors.player.workProgress'),4,'clamped objective progress');near(h.run('bench.actors.player.toolSavedSeconds'),4/3,'no overcount');assert.equal(h.run('bench.actors.player.plants'),1);
  });
  console.log('PASS: '+groups+' measurement pipeline/clock/contact/ablation/collision/accounting/objective groups; audio inert');
 }

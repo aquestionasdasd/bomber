@@ -72,7 +72,13 @@ const body = `
  function advanceMeasuredRound(dt){updatePlay(dt);}
  function observeMeasuredMatch(){
    const drainEvents=match.drainEvents.bind(match);
-   match.drainEvents=function(){const events=drainEvents();for(const e of events){if(e.type==='planted')bench.plants++;if(e.type==='defused')bench.defuses++;}return events;};
+   match.drainEvents=function(){const events=drainEvents();for(const e of events){if(e.type==='planted'){bench.plants++;if(bench.actors[e.actorId])bench.actors[e.actorId].plants=(bench.actors[e.actorId].plants||0)+1;}if(e.type==='defused'){bench.defuses++;if(bench.actors[e.actorId])bench.actors[e.actorId].defuses=(bench.actors[e.actorId].defuses||0)+1;}}return events;};
+   for(const method of ['interactPlant','interactDefuse']){
+     const work=match[method].bind(match),field=method==='interactPlant'?'plantProgress':'defuseProgress';
+     match[method]=function(dt,options){const before=this.spike[field],result=work(dt,options),after=this.spike[field],stat=bench.actors[options.actorId];
+       if(stat&&after>before){const scale=ordinarySkills.nobiWork(options.actorId,elapsed)||1,progress=after-before;stat.workProgress=(stat.workProgress||0)+progress;if(scale>1){stat.toolWorkProgress=(stat.toolWorkProgress||0)+progress;stat.toolSavedSeconds=(stat.toolSavedSeconds||0)+progress*(1-1/scale);}}return result;
+     };
+   }
  }
  const measuredCarMotion=updateCarMotions;
  updateCarMotions=function(dt){
@@ -97,7 +103,7 @@ const body = `
          if(record.id===bench.focalId){const spec=WEAPONS[benchConfig.weapon];record.primary=spec.slot==='primary'?benchConfig.weapon:null;record.secondary=spec.slot==='secondary'?benchConfig.weapon:'classic';}
          record.kit.smoke=getCharacterSkill(character,'c').max;record.kit.updraft=getCharacterSkill(character,'q').max;record.kit.ultPoints=7;
          roster.push(record);const points=map.teamSpawns[team===match.attackerTeam?'attack':'defend'];makeBot(points[i],i,team,record);
-         bench.actors[record.id]={character,team,casts:{},damage:0,kills:0,serviceCompletions:0,serviceRounds:0,ramHits:0,ramDamage:0,ramTravel:0,launchedTravel:0};
+         bench.actors[record.id]={character,team,casts:{},damage:0,kills:0,plants:0,defuses:0,workProgress:0,toolWorkProgress:0,toolSavedSeconds:0,serviceCompletions:0,serviceRounds:0,ramHits:0,ramDamage:0,ramTravel:0,launchedTravel:0};
          if(record.id===bench.focalId){const actor=bots.at(-1),weaponId=record.primary||record.secondary,spec=WEAPONS[weaponId];Object.assign(actor,{aiWeapon:weaponId,aiAmmo:benchConfig.magazine==='empty'?0:benchConfig.magazine==='low'?Math.max(1,Math.floor(spec.mag*.25)):spec.mag,aiReserve:benchConfig.reserve==='empty'?0:benchConfig.reserve==='short'?Math.max(1,Math.floor(spec.mag*.25)):spec.reserve,aiReload:0});bench.initialFocal={weapon:weaponId,ammo:actor.aiAmmo,reserve:actor.aiReserve};}
        }
        if(benchConfig.diagnostics&&updateBots.tactics&&!updateBots.tactics.benchMeasured){
