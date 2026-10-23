@@ -1,3 +1,4 @@
+import {busCabinRayClear} from './bus-cabin.js';
 import {createBusService,BUS_SERVICE,busPoint} from './bus-service.js';
 // Deterministic environmental traffic. The host alone calls impacts(); rendering
 // uses the same clock on guests. No audio and no actor/room references here.
@@ -38,7 +39,7 @@ export function createTrafficClock(routes=HIRAKATA_BUS_ROUTES){
   previous.clear();for(const a of actors)previous.set(a.id,{x:a.x,y:a.y||0,z:a.z,alive:a.alive});last=time;return result;
  }
  function dangerous(x,z,time,horizon=.65){for(let t=0;t<=horizon;t+=.13)for(const p of poses(time+t)){const dx=x-p.x,dz=z-p.z;if(Math.abs(dx*Math.cos(p.yaw)-dz*Math.sin(p.yaw))<2.05&&Math.abs(dx*Math.sin(p.yaw)+dz*Math.cos(p.yaw))<6.4)return true;}return false;}
- function rayClear(a,b,time){for(const p of poses(time)){const local=v=>{const x=v.x-p.x,z=v.z-p.z;return[x*Math.cos(p.yaw)-z*Math.sin(p.yaw),v.y||0,x*Math.sin(p.yaw)+z*Math.cos(p.yaw)];},start=local(a),end=local(b);let low=0,high=1;for(let i=0;i<3;i++){const min=[-1.25,0,-5.3][i],max=[1.25,3.25,5.3][i],delta=end[i]-start[i];if(Math.abs(delta)<1e-9){if(start[i]<min||start[i]>max){low=2;break;}}else{const u=(min-start[i])/delta,v=(max-start[i])/delta;low=Math.max(low,Math.min(u,v));high=Math.min(high,Math.max(u,v));if(low>high)break;}}if(low<=high)return false;}return true;}
+ function rayClear(a,b,time){return poses(time).every(p=>busCabinRayClear(a,b,p));}
  return{poses,impacts,reset,dangerous,rayClear,service,stops};
 }
 

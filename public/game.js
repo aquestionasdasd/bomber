@@ -918,7 +918,7 @@ function busInteract(actor=player){
  }
  return true;
 }
-function busSurfaceVisible(hit){if(hit.object.userData.busDebrisHidden||hit.object.userData.busBrokenInstances?.has(hit.instanceId))return false;return !hit.object.userData.busDriver||map.traffic?.poses(elapsed).some(p=>p.id===hit.object.userData.busDriver&&p.driverHP>0);}
+function busSurfaceVisible(hit){if(hit.object.userData.busGlass||hit.object.userData.busDebrisHidden||hit.object.userData.busBrokenInstances?.has(hit.instanceId))return false;return !hit.object.userData.busDriver||map.traffic?.poses(elapsed).some(p=>p.id===hit.object.userData.busDriver&&p.driverHP>0);}
 function shootBusDriver(hit,actor,damage,{visualOnly=false}={}){
  const id=hit?.object.userData.busDriver;if(!id)return false;
  if(!visualOnly){const service=map.traffic?.service,before=service?.poses(elapsed).find(p=>p.id===id)?.driverHP;
@@ -2468,10 +2468,10 @@ function updateBots(dt){
           if(!hit){to.x+=(Math.random()-.5)*1.8;to.y+=(Math.random()-.5)*.8;}
           if(spec.arsenal){fireArsenal(bot,from,to.clone().sub(from).normalize(),spec,!bot.moving);sound('enemy',{weapon:weaponId,entity:bot});}
           else{
-          const clearShot=map.collision.rayClear(from.x,from.y,from.z,to.x,to.y,to.z);let bounceSurface=null;
+          const clearShot=map.collision.rayClear(from.x,from.y,from.z,to.x,to.y,to.z)&&(!map.traffic||map.traffic.rayClear(from,to,elapsed));let bounceSurface=null;
           if(!clearShot){
             direction.subVectors(to,from).normalize();raycaster.set(from,direction);raycaster.far=from.distanceTo(to);
-            const surface=raycaster.intersectObject(environment,true)[0];
+            const surface=raycaster.intersectObject(environment,true).find(busSurfaceVisible);
             if(surface){to.copy(surface.point);bounceSurface=surface;}
             raycaster.far=190;
           }
