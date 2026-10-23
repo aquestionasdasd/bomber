@@ -3,9 +3,21 @@ import { ONNARA_SKILLS as S } from './abilities.js';
 // The host calls this once per accepted trigger, never per pellet or damage hit.
 export function chargeCrownTax(skills, actor, now, ledger) {
   if (!actor?.alive || !ledger || !Number.isSafeInteger(ledger.credits) || ledger.credits < 0) return 0;
+  const before = skills.onnaraTax?.(actor.id, now)?.power;
   const paid = skills.consumeCrownTax(actor.id, now, ledger.credits);
   ledger.credits -= paid;
+  // Only an owned host event can spend this budget. A restored guest event
+  // never changes HP, including when the target has no credits left.
+  const after = skills.onnaraTax?.(actor.id, now)?.power;
+  if (Number.isFinite(before) && after < before && Number.isFinite(actor.hp) && actor.hp > 0) {
+    actor.hp = Math.max(1, actor.hp - S.taxHealthPerShot);
+  }
   return paid;
+}
+
+export function orbViewYaw(event, now) {
+  const age = Number.isFinite(now) && Number.isFinite(event.startedAt) ? now-event.startedAt : 0;
+  return event.yaw + Math.PI*2*Math.max(0, Math.min(1, age/S.orbDuration));
 }
 
 // Actual damage (HP + armor lost), not nominal weapon damage, drives the chain.

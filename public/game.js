@@ -1,7 +1,7 @@
 import { ONNARA_SKILLS } from './abilities.js';
 import { createOnnaraSkillFX } from './onnara-skill-fx.js';
 import { createOrbView } from './onnara-orb-view.js';
-import { chargeCrownTax, constellationTarget, createStarHold } from './onnara-rules.js';
+import { chargeCrownTax, constellationTarget, createStarHold, orbViewYaw } from './onnara-rules.js';
 import { URCHIN_SKILLS } from './abilities.js';
 import { createUrchinSkillFX } from './urchin-skill-fx.js';
 import { CAP_SKILLS } from './abilities.js';
@@ -423,7 +423,7 @@ function renderOrdinarySkills(){
   iagnuSkillFX.update(live?ordinarySkills.events(elapsed):[],elapsed,{viewer:viewer||player,actors:[player,...bots],showHand:live&&mode==='play'&&player.alive,reducedMotion:reducedMotion.matches});
   grassSkillFX.update(live?ordinarySkills.events(elapsed):[],elapsed,{viewer:viewer||player,actors:[player,...bots].map(ordinaryActorView),groundHeight:ordinaryGroundHeight,showHand:live&&mode==='play'&&player.alive,reducedMotion:reducedMotion.matches});
   emberSkillFX.update(live?ordinarySkills.events(elapsed):[],elapsed,{viewer:viewer||player,actors:[player,...bots].map(ordinaryActorView),showHand:live&&mode==='play'&&player.alive,reducedMotion:reducedMotion.matches});
-  onnaraSkillFX.update(live?ordinarySkills.events(elapsed):[],elapsed,{actors:[player,...bots].filter(a=>a.team===player.team||ordinarySkills.blindUntil(player.id,elapsed)<=elapsed&&visibleBetween(player,a))});
+  onnaraSkillFX.update(live?ordinarySkills.events(elapsed):[],elapsed,{actors:[player,...bots].filter(a=>a.team===player.team||ordinarySkills.blindUntil(player.id,elapsed)<=elapsed&&visibleBetween(player,a)),reducedMotion:reducedMotion.matches});
   urchinSkillFX.update(live?ordinarySkills.events(elapsed):[],elapsed,{actors:[player,...bots].filter(a=>a.team===player.team||ordinarySkills.blindUntil(player.id,elapsed)<=elapsed&&visibleBetween(player,a))});
   capSkillFX.update(live?ordinarySkills.events(elapsed):[],elapsed,{actors:[player,...bots].filter(a=>a.team===player.team||ordinarySkills.blindUntil(player.id,elapsed)<=elapsed&&visibleBetween(player,a))});
   japanSkillFX.update(live?ordinarySkills.events(elapsed):[],elapsed,{actors:[player,...bots].filter(a=>a.team===player.team||ordinarySkills.blindUntil(player.id,elapsed)<=elapsed&&visibleBetween(player,a))});
@@ -1352,7 +1352,7 @@ function japanLevyTarget(actor,aim=null){
  }return best;
 }
 
-function crownShot(actor){if(isGuest()||!ordinarySkills.consumeCrownTax)return;chargeCrownTax(ordinarySkills,actor,elapsed,actor===player?match:actor.record);}
+function crownShot(actor){if(isGuest()||!ordinarySkills.consumeCrownTax)return;const before=actor.hp;chargeCrownTax(ordinarySkills,actor,elapsed,actor===player?match:actor.record);if(actor===player&&actor.hp<before)damageFlash=.3;}
 function onnaraOrbTarget(actor,aim){
  if(ordinarySkills.blindUntil(actor.id,elapsed)>elapsed)return null;const d=carAim(actor,aim);if(!d||Math.hypot(d.x,d.z)<.05)return null;
  const origin={x:actor.x,y:(actor.y||0)+1.7-(actor.crouch||0)*.55,z:actor.z};let reach=ONNARA_SKILLS.orbRange;
@@ -1385,9 +1385,9 @@ function applyStarHold(actor){
 }
 function renderOnnaraOrb(){
  const event=ordinarySkills.onnaraEvent?.('onnara-orb',player.id,elapsed),show=event&&match?.phase==='live'&&mode==='play'&&player.alive&&!netHostPaused&&!document.hidden&&ordinarySkills.blindUntil(player.id,elapsed)<=elapsed;
- const label=$('onnara-orb-label');if(label){label.hidden=!show;if(show)label.textContent=`星見の宝玉 · ${Math.ceil(event.endsAt-elapsed)}秒`;}
+ const label=$('onnara-orb-label');if(label){label.hidden=!show;if(show)label.textContent=`星見の宝玉 · 360°周回 · ${Math.ceil(event.endsAt-elapsed)}秒`;}
  if(show){const obscured=[...smokes,...activeOrdinarySmokeFields()].some(s=>(event.x-s.x)**2+(event.y+1.65-s.y)**2+(event.z-s.z)**2<s.radius*s.radius);if(obscured){if(label)label.textContent='星見の宝玉 · 煙で映像が遮られています';return;}
-  onnaraOrbView.render(renderer,scene,event,{actors:bots,visible:visibleBetween,gun,hide:[onnaraSkillFX.group]});}
+  onnaraOrbView.render(renderer,scene,event,{actors:bots,visible:visibleBetween,gun,hide:[onnaraSkillFX.group],now:elapsed});}
 
 }
 function urchinWeapon(actor){return actor===player?inventory.active:actor.remoteId?actor.netWeapon:actor.aiWeapon;}
@@ -1788,7 +1788,7 @@ function updateHUD(){
     const scale=player.alive?actorSpeedScale(player):1,boosted=player.alive&&actorMovementScale(player)>1,slowed=scale<1,blind=player.alive&&ordinarySkills.blindUntil(player.id,elapsed)>elapsed;
     const statuses=[];
     const carGyro=ordinarySkills.carGyro(player.id,elapsed);
-    const tax=ordinarySkills.onnaraTax?.(player.id,elapsed);if(tax)statuses.push(`王冠の徴税 · 通常銃撃で30コイン / 残り上限${tax.power}`);
+    const tax=ordinarySkills.onnaraTax?.(player.id,elapsed);if(tax)statuses.push(tax.power>0?`王冠の徴税 · 発砲ごとHP4 / 残り${Math.ceil(tax.power/ONNARA_SKILLS.taxPerShot)}回 · HP1で止まる`:'王冠の徴税 · 10発分の代償を払い終えました');
     if(ordinarySkills.onnaraEvent?.('onnara-hover',player.id,elapsed)&&!starHold.stopped(ordinarySkills.onnaraEvent('onnara-hover',player.id,elapsed).id))statuses.push('星留め · 空中静止');
     if(ordinarySkills.onnaraEvent?.('onnara-chain',player.id,elapsed))statuses.push('星座裁定 · 近くの敵へ70%連鎖');
     if(ordinarySkills.urchinJammed(player.id,elapsed))statuses.push('棘錠 · 装填不可');
@@ -2012,7 +2012,7 @@ function updateBots(dt){
       if(plan?.defuserId===bot.id)shouldDefuse=distance(bot,spike)<2.05;
     }
     const orb=ordinarySkills.onnaraEvent?.('onnara-orb',bot.id,elapsed);
-    if(orb&&!enemy&&ordinarySkills.blindUntil(bot.id,elapsed)<=elapsed){const forward={x:-Math.sin(orb.yaw),z:-Math.cos(orb.yaw)};
+    if(orb&&!enemy&&ordinarySkills.blindUntil(bot.id,elapsed)<=elapsed){const yaw=orbViewYaw(orb,elapsed),forward={x:-Math.sin(yaw),z:-Math.cos(yaw)};
       const observed=[player,...bots].filter(a=>a.alive&&a.team!==bot.team).filter(a=>{const dx=a.x-orb.x,dz=a.z-orb.z,d=Math.hypot(dx,dz);return d>.1&&d<=70&&(dx*forward.x+dz*forward.z)/d>.85&&visibleBetween(orb,a);}).sort((a,b)=>distance(orb,a)-distance(orb,b))[0];
       if(observed)bot.lastHeard={x:observed.x,y:observed.y||0,z:observed.z,at:elapsed};
     }
