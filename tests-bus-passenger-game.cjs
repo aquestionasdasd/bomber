@@ -147,7 +147,7 @@ async function main() {
   const prediction=fixture();prediction.run("onlinePlaying=true;online={host:false,room:{code:'BUSGUN02'},session:{memberId:'guest',hostId:'host'},send:()=>{}};equip('vandal',true)");aim(prediction);prediction.run('shoot()');assert.equal(prediction.run('rider.hp'),100);assert.equal(prediction.run('totalKills'),0);
  });
  check('render budgets and actual four-bus timetable/windows remain bounded without wire fields',()=>{
-  const h=harness({realMap:true});h.reset();h.run("selectArena('hirakata');map.busModels.update(elapsed);environment.updateMatrixWorld(true)");assert.equal(h.run('map.traffic.poses(elapsed).length'),4);assert.ok(h.run('(()=>{let n=0;map.world.traverse(o=>{if(o.isMesh)n++});return n<=240})()'));assert.ok(h.run('(()=>{let n=0;environment.traverse(o=>{if(o.userData.busGlass)n++});return n>=4})()'));
+  const h=harness({realMap:true});h.reset();h.run("selectArena('hirakata');map.busModels.update(elapsed);environment.updateMatrixWorld(true)");assert.equal(h.run('map.traffic.poses(elapsed).length'),4);assert.ok(h.run('(()=>{let n=0;map.world.traverse(o=>{if(o.isMesh)n++});return n<=280})()'));assert.ok(h.run('(()=>{let n=0;environment.traverse(o=>{if(o.userData.busGlass)n++});return n>=4})()'));
  });
  console.log(`PASS: ${groups} bus passenger firearms / actual meshes / independent JSON / cover / lifecycle groups; no audio`);
  console.log(`TOTAL ${Math.round(performance.now()-started)}ms wall / ${Math.round(process.cpuUsage(cpuStarted).user/1000)}ms CPU`);

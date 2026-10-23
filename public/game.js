@@ -897,8 +897,8 @@ function busCanDrive(p,old,context){
  for(const x of[-1.3,1.3])for(const z of[-5.35,5.35]){const point=busPoint(p,x,z);
   if(point.x<bounds.minX||point.x>bounds.maxX||point.z<bounds.minZ||point.z>bounds.maxZ)return false;
  }
- // Test the entire vehicle before removing any furniture. Station walls,
- // floors and arena limits always win, even if cover is behind that wall.
+ // Check the full body and arena limits before demolition. A moving owned
+ // bus may remove catalogued walls/roofs; unknown solids still stop it safely.
  for(const c of map.collision.query(p.x,p.z,5.6))if(!(smash&&destruction?.damageable.has(c))&&busHitsBox(p,c))return false;
  if(smash)destruction?.breakAt(p,old,elapsed);
  return true;
