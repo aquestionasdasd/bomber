@@ -833,6 +833,9 @@ async function main() {
   assert.equal(run('player.alive'), false); assert.equal(run('gun.visible'), false);
   assert.equal(run('mode'), 'play', 'Player death must spectate surviving allies instead of ending the match');
   assert.equal(run('match.phase'), 'live');
+  assert.equal(run('deathView.holding'),true,'Death must be visible before switching to an allied viewpoint');
+  assert.equal(run('spectatedBot'),null,'Death hold must not reveal the ally camera early');
+  for(let frame=0;frame<25;frame++)run('updatePlay(.05)');
   assert.ok(run('spectatedBot?.alive&&spectatedBot.team==="blue"'), 'Death must select a living allied spectator target');
   assert.equal(run('spectatedBot.group.visible'), false, 'The watched ally model must not obstruct a camera inside its own head');
   const firstWatchedId = run('spectatedBot.id');
@@ -1902,7 +1905,8 @@ async function main() {
   assert.equal(cycleRun('player.alive'), false); assert.equal(cycleRun('player.hp'), 0);
   assert.equal(cycleRun('interactionHeld||firing||aiming||keys.has("TouchCrouch")||touchLook!==null||movePointer!==null||touchMove.x!==0||touchMove.y!==0'), false, 'A guest death snapshot must release old desktop and mobile combat input');
   assert.equal(cycleRun('gun.visible'), false, 'A dead guest must lose its first-person weapon');
-  assert.equal(cycleElements.get('spectator-hint').hidden, false);
+  assert.equal(cycleElements.get('spectator-hint').hidden, true);
+  assert.equal(cycleElements.get('death-card').hidden, false,'Guest death must be explicitly announced before spectating');
   assert.equal(cycleRun('roster.find(record=>record.id===player.id).d'), 1, 'Repeated death damage must not count a second death');
   assert.equal(cycleRun('droppedWeapons.length'), 1, 'A remote death must create one synchronized weapon drop');
   assert.equal(cycleRun('droppedWeapons[0].weapon'), 'vandal'); assert.equal(cycleRun('droppedWeapons[0].ammo'), 7); assert.equal(cycleRun('droppedWeapons[0].reserve'), 19);
