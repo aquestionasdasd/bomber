@@ -11,7 +11,7 @@ const liquid=(gain=.17,length=.4,delay=0)=>layer('scifi-slime_000.ogg',gain,leng
 const pluck=(id,gain=.14,length=.65,delay=0)=>layer('jingle-PIZZI'+id+'.ogg',gain,length,delay);
 export const SAMPLE_CUES=Object.freeze({
  reload:[cloth(.24,.24),layer('rpg-beltHandle1.ogg',.18,.24,.06)],hit:[soft(.23,.14)],
- spike:[layer('rpg-handleCoins2.ogg',.16,.10)],plant:[layer('rpg-bookClose.ogg',.22,.24),layer('rpg-handleCoins.ogg',.12,.28,.10)],defuse:[layer('rpg-bookOpen.ogg',.2,.26),cloth(.18,.25,.08)],
+ spike:[layer('rpg-handleCoins2.ogg',.42,.18),bell(.18,.12)],plant:[bell(.34,.8),layer('rpg-bookClose.ogg',.25,.30),layer('rpg-handleCoins.ogg',.12,.30,.20)],defuse:[layer('rpg-bookOpen.ogg',.2,.26),cloth(.18,.25,.08)],
  buy:[layer('rpg-handleCoins.ogg',.20,.3),layer('rpg-beltHandle1.ogg',.12,.22,.05)],scan:[page(.15,.18),bell(.07,.3,.06)],
  'skill-throw':[cloth(.26,.25),air(.13,.24,.03)],'bottle-pop':[liquid(.25,.45),layer('impactGlass_heavy_000.ogg',.16,.4,.025),soft(.15,.2)],
  flash:[air(.16,.24),glass(.11,.24,.04)],decoy:[layer('rpg-dropLeather.ogg',.20,.25),cloth(.17,.3,.04)],takeover:[layer('rpg-doorClose_1.ogg',.21,.45),air(.20,.4,.07),liquid(.15,.45,.14)],
