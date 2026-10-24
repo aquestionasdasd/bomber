@@ -88,7 +88,18 @@ const body = `
  };
  // Use the browser's complete frame driver. The old partial tick omitted
  // forced car movement and must not be used for balance conclusions.
- function advanceMeasuredRound(dt){updatePlay(dt);}
+ let rootStepDt=0,rootStepSeen=new Set();
+ const measuredSpeedScale=ordinarySkills.speedScale;
+ ordinarySkills.speedScale=function(actor,now,queries){
+   const scale=measuredSpeedScale(actor,now,queries);
+   if(bench&&rootStepDt>0&&scale<=VEIL_SKILLS.rootsSpeedScale){
+     for(const event of ordinarySkills.events(now))if(now>=event.triggerAt&&ordinarySkills.wouldRoot(actor,event,queries)){
+       const owner=bench.actors[event.sourceId],key=event.sourceId+'|'+actor.id;
+       if(owner&&!rootStepSeen.has(key)){rootStepSeen.add(key);owner.rootSlowSamples=(owner.rootSlowSamples||0)+1;owner.rootSlowSeconds=(owner.rootSlowSeconds||0)+rootStepDt;(owner.rootTargets||={})[actor.id]=true;}
+     }
+   }return scale;
+ };
+ function advanceMeasuredRound(dt){rootStepDt=dt;rootStepSeen.clear();try{updatePlay(dt);}finally{rootStepDt=0;}}
  function observeMeasuredMatch(){
    const drainEvents=match.drainEvents.bind(match);
    match.drainEvents=function(){const events=drainEvents();for(const e of events){if(e.type==='planted'){bench.plants++;if(bench.actors[e.actorId])bench.actors[e.actorId].plants=(bench.actors[e.actorId].plants||0)+1;}if(e.type==='defused'){bench.defuses++;if(bench.actors[e.actorId])bench.actors[e.actorId].defuses=(bench.actors[e.actorId].defuses||0)+1;}}return events;};

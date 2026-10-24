@@ -400,6 +400,21 @@ export function createCharacterSkills() {
     }
     return 0;
   }
+  // Forecast and live movement share the nearest supported floor point.
+  // This query never advances the event clock or grants effect ownership.
+  function wouldRoot(actor, event, { reachable, groundHeight } = {}) {
+    if (!living(actor) || actor.grounded !== true || event?.type !== 'veil-roots' || actor.team === event.team
+      || ![event.fromX,event.fromY,event.fromZ,event.x,event.y,event.z,event.radius].every(Number.isFinite) || event.radius <= 0) return false;
+    const dx = event.x - event.fromX, dz = event.z - event.fromZ, lengthSquared = dx * dx + dz * dz;
+    if (lengthSquared <= 0) return false;
+    const t = Math.max(0, Math.min(1, ((actor.x - event.fromX) * dx + (actor.z - event.fromZ) * dz) / lengthSquared));
+    const x = event.fromX + dx * t, z = event.fromZ + dz * t, referenceY = event.fromY + (event.y - event.fromY) * t;
+    if (Math.hypot(actor.x - x, actor.z - z) > event.radius) return false;
+    const floor = safeGround(groundHeight, x, z, referenceY);
+    if (floor === null || Math.abs(floor - referenceY) > VEIL_SKILLS.rootsHeightTolerance + 1e-8
+      || Math.abs((actor.y || 0) - floor) > VEIL_SKILLS.rootsHeightTolerance + 1e-8) return false;
+    return canReach(reachable, { ...event, x, y: floor, z }, actor);
+  }
   function speedScale(actor, now, { reachable, groundHeight } = {}) {
     if (!living(actor) || !viewTime(now)) return 1;
     let scale = 1;
@@ -420,16 +435,7 @@ export function createCharacterSkills() {
             && canReach(reachable, { ...event, x, y: projectedFloor, z }, actor)) scale = Math.min(scale, FROST_SKILLS.stitchSpeedScale);
         }
       }
-      if (event.type !== 'veil-roots' || actor.grounded !== true) continue;
-      const dx = event.x - event.fromX, dz = event.z - event.fromZ, lengthSquared = dx * dx + dz * dz;
-      const t = Math.max(0, Math.min(1, ((actor.x - event.fromX) * dx + (actor.z - event.fromZ) * dz) / lengthSquared));
-      const x = event.fromX + dx * t, z = event.fromZ + dz * t, referenceY = event.fromY + (event.y - event.fromY) * t;
-      if (Math.hypot(actor.x - x, actor.z - z) > event.radius) continue;
-      const floor = safeGround(groundHeight, x, z, referenceY);
-      if (floor === null || Math.abs(floor - referenceY) > VEIL_SKILLS.rootsHeightTolerance + 1e-8
-        || Math.abs((actor.y || 0) - floor) > VEIL_SKILLS.rootsHeightTolerance + 1e-8) continue;
-      // Test cover from the nearest actual floor point, never the far endpoint.
-      if (canReach(reachable, { ...event, x, y: floor, z }, actor)) scale = Math.min(scale, VEIL_SKILLS.rootsSpeedScale);
+      if (wouldRoot(actor, event, { reachable, groundHeight })) scale = Math.min(scale, VEIL_SKILLS.rootsSpeedScale);
     }
     return scale;
   }
@@ -575,5 +581,5 @@ export function createCharacterSkills() {
     if(!e)return 0;const stored=active.get(e.id),step=Math.min(ONNARA_SKILLS.taxPerShot,stored.power),paid=Math.min(credits,step);stored.power-=step;return paid;
   }
   const onnaraEvent=(type,id,now)=>events(now).find(e=>e.type===type&&e.sourceId===id)||null;
-  return {nearsightUntil,sightRange,duckPad,recordConstellation(sourceId,from,to,now){const e=events(now).find(e=>e.type==='onnara-chain'&&e.sourceId===sourceId&&owned.has(e.id));if(!e||!point(from)||!point(to)||Math.hypot(from.x-to.x,from.y-to.y,from.z-to.z)>ONNARA_SKILLS.chainRange+.001)return false;active.get(e.id).link=[from.x,from.y,from.z,to.x,to.y,to.z,now].map(n=>Math.round(n*1000)/1000);active.get(e.id).link[6]=now;return true;},cancelOnnaraEvent(id,sourceId){const e=active.get(id);if(e?.type.startsWith('onnara-')&&e.sourceId===sourceId&&owned.has(id)){active.delete(id);owned.delete(id);return true;}return false;},consumeCrownTax,onnaraTax:(id,now)=>events(now).find(e=>e.type==='onnara-tax'&&e.targetId===id)||null,onnaraEvent,urchinJammed:(id,now)=>capState('urchin-jam',id,now,true),urchinTrident:(id,now)=>capState('urchin-trident',id,now),hasImpairment,cleanse,capLocked:(id,now)=>capState('cap-lock',id,now,true),capBank:(id,now)=>capState('cap-bank',id,now),capMagazine:(id,now)=>capState('cap-magazine',id,now),resetActor,japanReturn:(id,now)=>events(now).some(e=>e.type==='japan-return'&&e.sourceId===id)?JAPAN_SKILLS.returnScale:0,nobiVulnerability,nobiInterval,nobiWork,nobiLegend,carGyro,disperseSmoke,cancelCarEvent,catBookmark,returnToCatBookmark,cancelCatEvent,clockFrozen, wouldBlind,sealUntil,quiet,guardLethal,interceptShield,cast, update, events, snapshot, restore, reset, blindUntil, speedScale, markers, movementScale, mitigateSlow, frostSlideSpeed, cancelService, consumeDecoy, flashDecoy };
+  return {nearsightUntil,sightRange,duckPad,recordConstellation(sourceId,from,to,now){const e=events(now).find(e=>e.type==='onnara-chain'&&e.sourceId===sourceId&&owned.has(e.id));if(!e||!point(from)||!point(to)||Math.hypot(from.x-to.x,from.y-to.y,from.z-to.z)>ONNARA_SKILLS.chainRange+.001)return false;active.get(e.id).link=[from.x,from.y,from.z,to.x,to.y,to.z,now].map(n=>Math.round(n*1000)/1000);active.get(e.id).link[6]=now;return true;},cancelOnnaraEvent(id,sourceId){const e=active.get(id);if(e?.type.startsWith('onnara-')&&e.sourceId===sourceId&&owned.has(id)){active.delete(id);owned.delete(id);return true;}return false;},consumeCrownTax,onnaraTax:(id,now)=>events(now).find(e=>e.type==='onnara-tax'&&e.targetId===id)||null,onnaraEvent,urchinJammed:(id,now)=>capState('urchin-jam',id,now,true),urchinTrident:(id,now)=>capState('urchin-trident',id,now),hasImpairment,cleanse,capLocked:(id,now)=>capState('cap-lock',id,now,true),capBank:(id,now)=>capState('cap-bank',id,now),capMagazine:(id,now)=>capState('cap-magazine',id,now),resetActor,japanReturn:(id,now)=>events(now).some(e=>e.type==='japan-return'&&e.sourceId===id)?JAPAN_SKILLS.returnScale:0,nobiVulnerability,nobiInterval,nobiWork,nobiLegend,carGyro,disperseSmoke,cancelCarEvent,catBookmark,returnToCatBookmark,cancelCatEvent,clockFrozen, wouldBlind, wouldRoot,sealUntil,quiet,guardLethal,interceptShield,cast, update, events, snapshot, restore, reset, blindUntil, speedScale, markers, movementScale, mitigateSlow, frostSlideSpeed, cancelService, consumeDecoy, flashDecoy };
 }

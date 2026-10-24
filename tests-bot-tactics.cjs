@@ -7,7 +7,7 @@ const {pathToFileURL}=require('node:url');
 async function main(){
   const started=performance.now();
   const load=file=>import(pathToFileURL(path.join(__dirname,'public',file)).href);
-  const [{createBotTactics,inVisionCone,createBotHearing},{createNavigation},{createCollisionIndex},{MatchRules,WEAPONS},THREE,areas,{DuelistKit,NOPE_SKILLS,MEND_SKILLS,IAGNU_SKILLS,VEIL_SKILLS,EMBER_SKILLS,FROST_SKILLS},{selectMendTarget}]=await Promise.all([
+  const [{createBotTactics,inVisionCone,createBotHearing},{createNavigation},{createCollisionIndex},{MatchRules,WEAPONS},THREE,areas,{DuelistKit,NOPE_SKILLS,MEND_SKILLS,IAGNU_SKILLS,VEIL_SKILLS,EMBER_SKILLS,FROST_SKILLS},{selectMendTarget,createCharacterSkills}]=await Promise.all([
     load('bot-tactics.js'),load('navigation.js'),load('collision.js'),load('rules.js'),load('vendor/three.module.js'),load('site-areas.js'),load('abilities.js'),load('character-skills.js')]);
   const sites=[{id:'A',x:-22,z:-12,radius:7,plantPositions:[{id:'A-cover',x:-24,z:-11,style:'cover'},{id:'A-open',x:-20,z:-14,style:'open'}]},
     {id:'B',x:22,z:-12,radius:7,plantPositions:[{id:'B-cover',x:24,z:-11,style:'cover'},{id:'B-open',x:20,z:-14,style:'open'}]}];
@@ -86,14 +86,15 @@ async function main(){
   const updateSource=source.slice(source.indexOf('function updateBots(dt)'),source.indexOf('function separateBots(dt)'));
   const serviceSource=source.slice(source.indexOf('function actorWeaponId('),source.indexOf('function ordinaryActorView('));
   const verticalSource=source.slice(source.indexOf('function updateActorVertical('),source.indexOf('function updatePlay('));
+  const rootsSource=source.slice(source.indexOf('function getRootsTarget('),source.indexOf('function getZoneTarget('));
   assert.ok(updateSource.length>5000);
   function integration({map=makeMap(),player=actor('player','blue',0,0),bots=[],match=new MatchRules(),random=.99,ordinarySkills={interceptShield:()=>null,quiet:()=>false,sealUntil:()=>0,blindUntil:()=>0,events:()=>[],markers:()=>[]}}={}){
-    match.startLive();let bulletHits=0,shots=0;const casts=[],traces=[];ordinarySkills={capMagazine:()=>false,urchinJammed:()=>false,urchinTrident:()=>false,interceptShield:()=>null,quiet:()=>false,sealUntil:()=>0,cancelService(){},carGyro:()=>false,speedScale:()=>1,...ordinarySkills};
+    match.startLive();let bulletHits=0,shots=0;const casts=[],traces=[];ordinarySkills={capMagazine:()=>false,urchinJammed:()=>false,urchinTrident:()=>false,interceptShield:()=>null,quiet:()=>false,sealUntil:()=>0,cancelService(){},carGyro:()=>false,speedScale:()=>1,wouldRoot:createCharacterSkills().wouldRoot,...ordinarySkills};
     const math=Object.create(Math);math.random=typeof random==='function'?random:()=>random;
     const sandbox={busSeat:()=>null,busSurfaceVisible:()=>true,applyStarHold:()=>false,crownShot:()=>{},activateCapAbility:()=>null,activateJapanAbility:()=>null,nobiBulletDamage:(_s,_t,d)=>d,THREE,WEAPONS,NOPE_SKILLS,IAGNU_SKILLS,VEIL_SKILLS,EMBER_SKILLS,FROST_SKILLS,...areas,createBotTactics,inVisionCone,createBotHearing,map,navigation:createNavigation(map),player,bots,match,elapsed:0,inventory:{active:'classic'},reloading:0,
       levels:{normal:{interval:1.25,aim:.68,speed:2.1}},difficulty:'normal',Math:math,clamp:(v,a,b)=>Math.max(a,Math.min(b,v)),
       isGuest:()=>false,botHearing:createBotHearing(),ordinarySkills,zoneAbilities:{speedMultiplier:()=>1},actorSpeedScale:()=>1,frostSlideSpeed:()=>0,agentEquipment:()=>({}),selectMendTarget,activePollenFields:()=>[],
-      ordinaryActorView:value=>({...value,grounded:sandbox.actorGrounded(value)}),ordinaryGroundHeight:()=>0,rampFloor:()=>null,
+      ordinaryActorView:value=>({...value,grounded:sandbox.actorGrounded(value)}),ordinaryGroundHeight:()=>0,rampFloor:()=>null,netInputs:new Map(),
       ordinaryReachable:(event,value)=>map.collision.rayClear(event.x,(event.y||0)+.18,event.z,value.x,(value.y||0)+.18,value.z),
       actorGrounded:actor=>actor.alive&&Math.abs(actor.y||0)<1e-8&&Math.abs(actor.vy||0)<1e-8,
       activeOrdinarySmokeFields:()=>ordinarySkills.events(sandbox.elapsed).filter(event=>event.type==='veil-dust'&&sandbox.elapsed>=event.triggerAt),
@@ -104,7 +105,7 @@ async function main(){
       visibleBetween:(a,b)=>map.collision.rayClear(a.x,(a.y||0)+1.45,a.z,b.x,(b.y||0)+1.45,b.z),
       moveEntity(entity,dx,dz,r){const x=entity.x+dx,z=entity.z+dz;if(!map.collision.blocked(x,entity.z,r,0))entity.x=x;if(!map.collision.blocked(entity.x,z,r,0))entity.z=z;},
       urchinTridentShot:()=>[],direction:new THREE.Vector3(),raycaster:{set(){},intersectObject:()=>[],far:190},environment:new THREE.Group()};
-    vm.createContext(sandbox);vm.runInContext(`${source.slice(source.indexOf('function carMotionActive('),source.indexOf('function beginCarMotion('))}\n${source.slice(source.indexOf('function duckFlight('),source.indexOf('function duckFlap('))}\n${source.slice(source.indexOf('function actorBodyHeight('),source.indexOf('function canStand('))}\n${serviceSource}\n${verticalSource}\n${updateSource}`,sandbox);
+    vm.createContext(sandbox);vm.runInContext(`${source.slice(source.indexOf('function carMotionActive('),source.indexOf('function beginCarMotion('))}\n${source.slice(source.indexOf('function duckFlight('),source.indexOf('function duckFlap('))}\n${source.slice(source.indexOf('function actorBodyHeight('),source.indexOf('function canStand('))}\n${serviceSource}\n${verticalSource}\n${rootsSource}\n${updateSource}`,sandbox);
     return {sandbox,casts,traces,step(count=1){for(let i=0;i<count;i++){sandbox.elapsed+=.05;vm.runInContext('updateBots(.05)',sandbox);}},get shots(){return shots;},get hits(){return bulletHits;}};
   }
   const sightMap=makeMap(),watcher=actor('red-0','red',0,10),target=actor('player','blue',0,25);watcher.group.rotation.y=0;

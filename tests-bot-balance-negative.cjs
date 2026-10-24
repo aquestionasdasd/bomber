@@ -2,13 +2,14 @@
 const fs=require('node:fs'),cp=require('node:child_process');
 const faults=[
  ['lost personal tool progress','stat.toolSavedSeconds=(stat.toolSavedSeconds||0)+progress*(1-1/scale);','stat.toolSavedSeconds=(stat.toolSavedSeconds||0)+0;'],
- ['old incomplete tick','function advanceMeasuredRound(dt){updatePlay(dt);}','function advanceMeasuredRound(dt){elapsed+=dt;for(const bot of bots)bot.kit.tick(elapsed);updateTeamAbilities();updateBots(dt);updateTraffic(dt);}'],
- ['double simulation clock','function advanceMeasuredRound(dt){updatePlay(dt);}','function advanceMeasuredRound(dt){elapsed+=dt;updatePlay(dt);}'],
+ ['old incomplete tick','try{updatePlay(dt);}finally{rootStepDt=0;}','try{elapsed+=dt;for(const bot of bots)bot.kit.tick(elapsed);updateTeamAbilities();updateBots(dt);updateTraffic(dt);}finally{rootStepDt=0;}'],
+ ['double simulation clock','try{updatePlay(dt);}finally{rootStepDt=0;}','try{elapsed+=dt;updatePlay(dt);}finally{rootStepDt=0;}'],
  ['lost hit attribution','stat.ramHits++;stat.ramDamage+=actual;','stat.ramHits+=0;stat.ramDamage+=0;'],
  ['lost actual solder damage','stat.solderDamage=(stat.solderDamage||0)+actual;','stat.solderDamage=(stat.solderDamage||0)+0;'],
  ['lost actual bottle damage','stat.bottleDamage=(stat.bottleDamage||0)+actual;','stat.bottleDamage=(stat.bottleDamage||0)+0;'],
  ['lost glint duration accounting',"owner.glintEnemyBlindSeconds=(owner.glintEnemyBlindSeconds||0)+effect.duration;","owner.glintEnemyBlindSeconds=(owner.glintEnemyBlindSeconds||0)+0;"],
  ['lost objective accounting',"if(e.type==='planted'){bench.plants++;","if(e.type==='planted'){bench.plants+=0;"],
+ ['lost root sample time','owner.rootSlowSeconds=(owner.rootSlowSeconds||0)+rootStepDt;','owner.rootSlowSeconds=(owner.rootSlowSeconds||0)+0;'],
 ];
 const source=fs.readFileSync('scripts/bot-balance.cjs','utf8');
 for(const[label,from,to]of faults){

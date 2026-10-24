@@ -2518,7 +2518,15 @@ function updateBots(dt){
       if(known){
         const dist=distance(bot,known),aim={yaw:Math.atan2(bot.x-known.x,bot.z-known.z),pitch:0};
         if(dist>3&&dist<18&&bot.kit.smoke>0&&(bot.hp<65||role?.urgent)&&!activeOrdinarySmokeFields().some(event=>event.team===bot.team&&distance(event,bot)<event.radius))cast=activateAbility(bot,'c',{aim});
-        else if(dist>2&&dist<=VEIL_SKILLS.rootsRange&&bot.kit.updraft>0&&!ordinarySkills.events(elapsed).some(event=>event.type==='veil-roots'&&event.team===bot.team&&distance(event,known)<3))cast=activateAbility(bot,'q',{zonePoint:known,aim});
+        else if(dist>=VEIL_SKILLS.rootsMinRange&&dist<=VEIL_SKILLS.rootsRange&&bot.kit.updraft>0){
+          const point={x:known.x,y:known.y??bot.y??0,z:known.z},target=getRootsTarget(bot,point,aim);
+          // A visible pose may be airborne; lost sight uses only its fixed
+          // remembered location, conservatively assuming our current floor.
+          const pose=enemy?ordinaryActorView(enemy):{...point,id:known.id,team:known.team,alive:true,hp:100,grounded:true};
+          const roots=target&&{type:'veil-roots',team:bot.team,fromX:bot.x,fromY:bot.y,fromZ:bot.z,...target,radius:VEIL_SKILLS.rootsWidth/2};
+          const queries={reachable:ordinaryReachable,groundHeight:ordinaryGroundHeight};
+          if(roots&&ordinarySkills.wouldRoot(pose,roots,queries)&&!ordinarySkills.events(elapsed).some(event=>event.team===bot.team&&ordinarySkills.wouldRoot(pose,event,queries)))cast=activateAbility(bot,'q',{zonePoint:point,aim});
+        }
       }
       if(!cast&&!enemy&&goal&&distance(bot,goal)>9&&bot.kit.dash>0)cast=activateAbility(bot,'e');
       bot.nextSkillAt=elapsed+(cast?2.5:.5);

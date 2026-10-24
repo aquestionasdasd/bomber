@@ -89,6 +89,12 @@ const suite=String.raw`
    assert.equal(h.run('bench.actors.player.glintSelfBlinds'),1);assert.equal(h.run('bench.actors.player.glintFriendlyBlinds'),1);assert.equal(h.run('bench.actors.player.glintEnemyBlinds'),1);
    setup();h.run("player.kit=new DuelistKit({character:'echo'});player.kit.updraft=1;bench.actors.player.character='echo';bench.actors.player.team=player.team;bench.actors.enemy.team=enemy.team;enemy.z=-14;enemy.yaw=Math.PI;bench.disabled='q';activateAbility(player,'q',{zonePoint:{x:0,z:-12.5},aim:{yaw:0,pitch:0}})");tick(84);assert.equal(h.run('bench.actors.player.glintEnemyBlinds'),undefined);
  });
+ check('VEIL Q measures actual grounded speed queries once per source target frame, with no cast-only or airborne credit',()=>{
+   setup();h.run("player.kit=new DuelistKit({character:'veil'});player.kit.updraft=1;enemy.z=-8;activateAbility(player,'q',{zonePoint:{x:0,y:0,z:-8},aim:{yaw:0,pitch:0}});var realMeasuredPlay=updatePlay;updatePlay=function(dt){realMeasuredPlay(dt);for(let i=0;i<3;i++)ordinarySkills.speedScale(ordinaryActorView(enemy),elapsed,{reachable:ordinaryReachable,groundHeight:ordinaryGroundHeight})}");
+   tick(24);assert.equal(h.run('bench.actors.player.rootSlowSamples||0'),0);tick(24);assert.ok(h.run('bench.actors.player.rootSlowSamples')>0);assert.ok(h.run('bench.actors.player.rootSlowSamples')<=24);near(h.run('bench.actors.player.rootSlowSeconds'),h.run('bench.actors.player.rootSlowSamples')/120,'deduplicated seconds');
+   h.run('var previousRootSamples=bench.actors.player.rootSlowSamples;enemy.y=2;enemy.vy=1');tick(12);assert.equal(h.run('bench.actors.player.rootSlowSamples'),h.run('previousRootSamples'));
+   setup();h.run("player.kit=new DuelistKit({character:'veil'});player.kit.updraft=1;bench.disabled='q';enemy.z=-8;activateAbility(player,'q',{zonePoint:{x:0,y:0,z:-8},aim:{yaw:0,pitch:0}})");tick(60);assert.equal(h.run('bench.actors.player.rootSlowSamples'),undefined);
+ });
  console.log('PASS: '+groups+' measurement pipeline/clock/contact/ablation/collision/accounting/objective groups; audio inert');
 }
 main().catch(e=>{console.error(e);process.exitCode=1;});
