@@ -101,6 +101,12 @@ const suite=String.raw`
    setup();h.run("player.kit=new DuelistKit({character:'mend'});player.kit.ultPoints=7;player.hp=40;activateAbility(player,'x')");assert.equal(h.run('player.hp'),100);assert.equal(h.run('bench.actors.player.mendHealing'),undefined);
    for(const code of["bench.disabled='e'","onlinePlaying=true;online={host:false,session:{memberId:'friend'}}","for(let i=0;i<20;i++)ordinarySkills.cast('nope-bottle',ordinaryActorView(player),{x:1,y:.12,z:1},elapsed,match.round)"]){setup();h.sandbox.code=code;h.run("player.kit=new DuelistKit({character:'mend'});player.kit.dash=1;player.hp=40;eval(code);activateAbility(player,'e')");assert.equal(h.run('player.hp'),40);assert.equal(h.run('bench.actors.player.mendHealing'),undefined)}
  });
+ check('MEND C measures active real speed queries once per source target frame without credit above floor or outside radius',()=>{
+   setup();h.run("player.kit=new DuelistKit({character:'mend'});player.kit.smoke=2;enemy.z=-8;activateAbility(player,'c',{zonePoint:{x:0,y:0,z:-8},aim:{yaw:0,pitch:0}});const seedMeasuredPlay=updatePlay;updatePlay=function(dt){seedMeasuredPlay(dt);for(let i=0;i<3;i++)ordinarySkills.speedScale(ordinaryActorView(enemy),elapsed,{reachable:ordinaryReachable,groundHeight:ordinaryGroundHeight})}");
+   tick(60);assert.equal(h.run('bench.actors.player.seedSlowSamples||0'),0);tick(48);assert.ok(h.run('bench.actors.player.seedSlowSamples')>0);assert.ok(h.run('bench.actors.player.seedSlowSamples')<=48);near(h.run('bench.actors.player.seedSlowSeconds'),h.run('bench.actors.player.seedSlowSamples')/120,'seed deduplicated seconds');
+   h.run('var previousSeedSamples=bench.actors.player.seedSlowSamples;enemy.y=5');tick(12);assert.equal(h.run('bench.actors.player.seedSlowSamples'),h.run('previousSeedSamples'));
+   setup();h.run("player.kit=new DuelistKit({character:'mend'});player.kit.smoke=2;bench.disabled='c';enemy.z=-8;activateAbility(player,'c',{zonePoint:{x:0,y:0,z:-8},aim:{yaw:0,pitch:0}})");tick(120);assert.equal(h.run('bench.actors.player.seedSlowSamples'),undefined);
+ });
  console.log('PASS: '+groups+' measurement pipeline/clock/contact/ablation/collision/accounting/objective groups; audio inert');
 }
 main().catch(e=>{console.error(e);process.exitCode=1;});

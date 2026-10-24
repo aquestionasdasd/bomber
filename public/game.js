@@ -2497,8 +2497,14 @@ function updateBots(dt){
       if(injured&&injured.hp<=70&&bot.kit.dash>0)cast=activateAbility(bot,'e');
       if(!cast&&known){
         const dist=distance(bot,known),aim={yaw:Math.atan2(bot.x-known.x,bot.z-known.z),pitch:0};
-        if(dist>5&&dist<17&&bot.kit.smoke>0&&!ordinarySkills.events(elapsed).some(event=>event.type==='mend-seeds'&&event.team===bot.team&&distance(event,known)<event.radius))cast=activateAbility(bot,'c',{zonePoint:known,aim});
-        else if(dist>8&&dist<20&&bot.kit.updraft>0&&(bot.hp<65||role?.urgent)&&!activePollenFields().some(event=>event.team===bot.team&&distance(event,bot)<8))cast=activateAbility(bot,'q',{zonePoint:{x:bot.x+(known.x-bot.x)*.6,z:bot.z+(known.z-bot.z)*.6},aim});
+        if(dist>0&&dist<=CHARACTER_SKILLS.castDistance+MEND_SKILLS.seedsRadius&&bot.kit.smoke>0){
+          const point={x:known.x,y:known.y??bot.y??0,z:known.z},landing=getSkillTarget(bot,'mend-seeds',point,aim);
+          // Lost sight supplies a fixed location, never the hidden actor's pose.
+          const pose=enemy?ordinaryActorView(enemy):{...point,id:known.id||'remembered-enemy',team:bot.team==='blue'?'red':'blue',alive:true,hp:100};
+          const seeds=landing&&{type:'mend-seeds',team:bot.team,...landing,radius:MEND_SKILLS.seedsRadius},queries={reachable:ordinaryReachable};
+          if(seeds&&ordinarySkills.wouldSeed(pose,seeds,queries)&&!ordinarySkills.events(elapsed).some(event=>event.team===bot.team&&ordinarySkills.wouldSeed(pose,event,queries)))cast=activateAbility(bot,'c',{zonePoint:point,aim});
+        }
+        if(!cast&&dist>8&&dist<20&&bot.kit.updraft>0&&(bot.hp<65||role?.urgent)&&!activePollenFields().some(event=>event.team===bot.team&&distance(event,bot)<8))cast=activateAbility(bot,'q',{zonePoint:{x:bot.x+(known.x-bot.x)*.6,z:bot.z+(known.z-bot.z)*.6},aim});
       }
       bot.nextSkillAt=elapsed+(cast?2.5:.5);
     }

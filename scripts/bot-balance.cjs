@@ -103,6 +103,12 @@ const body = `
        const owner=bench.actors[event.sourceId],key=event.sourceId+'|'+actor.id;
        if(owner&&!rootStepSeen.has(key)){rootStepSeen.add(key);owner.rootSlowSamples=(owner.rootSlowSamples||0)+1;owner.rootSlowSeconds=(owner.rootSlowSeconds||0)+rootStepDt;(owner.rootTargets||={})[actor.id]=true;}
      }
+   }
+   if(bench&&rootStepDt>0&&scale<=MEND_SKILLS.seedsSpeedScale){
+     for(const event of ordinarySkills.events(now))if(now>=event.triggerAt&&ordinarySkills.wouldSeed(actor,event,queries)){
+       const owner=bench.actors[event.sourceId],key='seeds|'+event.sourceId+'|'+actor.id;
+       if(owner&&!rootStepSeen.has(key)){rootStepSeen.add(key);owner.seedSlowSamples=(owner.seedSlowSamples||0)+1;owner.seedSlowSeconds=(owner.seedSlowSeconds||0)+rootStepDt;(owner.seedTargets||={})[actor.id]=true;}
+     }
    }return scale;
  };
  function advanceMeasuredRound(dt){rootStepDt=dt;rootStepSeen.clear();try{updatePlay(dt);}finally{rootStepDt=0;}}
