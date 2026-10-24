@@ -1,3 +1,17 @@
+## 第114巡 — 金文字BOTの閃光を実際の発光位置と視線で判断
+
+ECHO Qの旧BOTは8～16mの敵座標へ投げ、味方は半径内というだけで見送り、自身を判定していなかった。実savedgameで9mは自分だけ閃光、14mの静止敵は眼の直下で光り不発、20mはBOTの旧距離制限で未使用を再現。最終同条件は9mで温存、14m/20mで敵に実適用し自身は無傷。raw前後とsourceSHAはworkspace cycle114-echo-controlled-before/after.json。
+
+現在視認した敵より1.5m手前へ置き、実getSkillTargetの同じ放物線/壁天井/20mclampを計算する。新しいread-only wouldBlindを既存の向き/目の高さ/半径/壁/煙predicateで定義し、実起爆も同じ関数へ通す。人間の効き方は変更しない。敵へ届き、同tickで敵を向く本人を含む味方へ当たらない場合だけQ。反対向きや壁の裏の味方は距離だけで見送らない。Cの優先/待ち成功2.5秒・拒否0.5秒/20event rollback/host権威は維持。人間Qの投擲20m・半径10m・飛行0.5秒・閃光2秒・Q1/価格/C/E/X、地形/物理/model/audio/wire/HTTP頻度不変。発動時のpose評価であり、0.5秒中に移動/振り向く相手や味方への結果保証ではない。見えていない敵現在地を使わない。
+
+修正前Vandal8組16round(seed1～2)は本人Q0対0/対象team勝利4対4/撃破6対6/総与ダメ796.9011026992561対796.9011026992561、全8組で全actor/結果一致。beforeの専用blind適用counterは未計測null。最終Vandal16組32round(seed3～6)+PUMP8組16round(seed9～10)、両駅/攻守/席順の24組48roundで本人Q12対0/チーム勝利9対7/本人生存7対5/撃破8対6/総与ダメ1311.28対1176.52。本人Qの実敵閃光適用29件/自身0/味方0、適用duration合計52.9秒。1投複数や同対象再適用があるので件数を人数/命中率にしない。duration合計は重複や耐性も含み、重なりを除いた有効時間や勝利寄与ではない。PUMP勝利4対4は改善なし。本人設置2対1/電源オフ1対1と全team設置15対14/電源オフ4対4は別。
+
+精鋭5v5/50armor/満在庫7pt、他9人Vandal。小標本/武器経済偏り/発動後PRNG分岐、旧新seed/武器差があり人間や全体の勝率向上保証ではない。実updatePlay一frame一回、実ordinarySkills.updateが返したblindだけを本人/敵/味方/持続へ計測。計測はharness限定で製品payloadへ追加しない。raw3本/条件/sourceSHA/本人目標はcycle114-echo-*.json/cycle114-balance-summary.json。
+
+専用実savedgame8/4memory故障、測定11/7memory故障、通常55/金文字FX7/顔閃光5/知覚8/戦術14行実地4seed/SQLite21とbuildを関連確認。最初の新helperがupdateBots内だけのdistanceを参照していた不具合をMath.hypotへ修正。新fixtureの味方yaw符号、実20-1e-6clampへの過小許容、計測fixtureのteam未指定/Q在庫0も訂正しlog保持。製品の知覚/射線/時計/在庫/権威は緩めない。公開/共有/最終buildの確定はcycle114-release.json/test-reportを正本にする。
+
+browser/tab/server0、既存ユーザーtab/OS/他アプリ不操作、音再生/試聴なし。音不変の同mockや全mainを反復せず、全15人汎用性と旧床ボンバー/hold4fixture債務は未完了。CAT E/CAT X/EMBER Cの前巡修正とCAR75raw24m/Japan人間強化を保持。
+
 ## 第113巡 — 猫BOTの銃回収先を実際の照準と装備で選ぶ
 
 旧BOTの猫Eは18m以内の落ち武器を配列の先頭から一つ選んでいた。実savedgameで、装填済みVandalからGhostへの持ち替え、先頭が壁の裏だと別の見えるPhantomを取らない状態、空弾倉のVandalを回収してしまう状態を再現。最終同条件ではVandal保持/見えるPhantom回収/空弾倉を見送る結果へ変わった。rawはworkspace cycle113-cat-controlled-before/after.json、旧/最終gameSHAを保持する。

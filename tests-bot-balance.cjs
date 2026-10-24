@@ -75,6 +75,13 @@ const suite=String.raw`
    setup();h.run("player.kit=new DuelistKit({character:'ember'});player.kit.smoke=2;enemy.z=-16;enemy.hp=10;bench.actors.player.character='ember';activateAbility(player,'c',{zonePoint:{x:0,z:-16},aim:{yaw:0,pitch:0}})");tick(84);near(h.run('bench.actors.player.solderDamage'),10,'overkill excluded');assert.equal(h.run('bench.actors.player.solderKills'),1);
    setup();h.run("player.kit=new DuelistKit({character:'ember'});bench.disabled='c';activateAbility(player,'c',{zonePoint:{x:0,z:-16},aim:{yaw:0,pitch:0}})");tick(84);assert.equal(h.run('bench.actors.player.solderHits'),undefined);
  });
+ check('ECHO Q counts actual enemy ally and self blind applications without predicted casts',()=>{
+   setup();h.run("player.kit=new DuelistKit({character:'echo'});player.kit.updraft=1;bench.actors.player.character='echo';bench.actors.player.team=player.team;bench.actors.enemy.team=enemy.team;enemy.z=-14;enemy.yaw=Math.PI;enemy.pitch=0;activateAbility(player,'q',{zonePoint:{x:0,z:-12.5},aim:{yaw:0,pitch:0}})");tick(84);
+   assert.equal(h.run('bench.actors.player.glintEnemyBlinds'),1);near(h.run('bench.actors.player.glintEnemyBlindSeconds'),2,'real duration');assert.equal(h.run('bench.actors.player.glintSelfBlinds||0'),0);tick(24);assert.equal(h.run('bench.actors.player.glintEnemyBlinds'),1);
+   setup();h.run("player.kit=new DuelistKit({character:'echo'});player.kit.updraft=1;bench.actors.player.character='echo';bench.actors.player.team=player.team;bench.actors.enemy.team=enemy.team;enemy.z=-9;enemy.yaw=Math.PI;enemy.pitch=0;makeBot({x:3,z:-8},1,player.team,{id:'friend',team:player.team,secondary:'classic',kit:new DuelistKit({character:'nope'})});var friend=bots[1];friend.remoteId='passive';friend.yaw=Math.PI/2;bench.actors.friend={character:'nope',team:player.team,casts:{}};activateAbility(player,'q',{zonePoint:{x:0,z:-8},aim:{yaw:0,pitch:0}})");tick(84);
+   assert.equal(h.run('bench.actors.player.glintSelfBlinds'),1);assert.equal(h.run('bench.actors.player.glintFriendlyBlinds'),1);assert.equal(h.run('bench.actors.player.glintEnemyBlinds'),1);
+   setup();h.run("player.kit=new DuelistKit({character:'echo'});player.kit.updraft=1;bench.actors.player.character='echo';bench.actors.player.team=player.team;bench.actors.enemy.team=enemy.team;enemy.z=-14;enemy.yaw=Math.PI;bench.disabled='q';activateAbility(player,'q',{zonePoint:{x:0,z:-12.5},aim:{yaw:0,pitch:0}})");tick(84);assert.equal(h.run('bench.actors.player.glintEnemyBlinds'),undefined);
+ });
  console.log('PASS: '+groups+' measurement pipeline/clock/contact/ablation/collision/accounting/objective groups; audio inert');
 }
 main().catch(e=>{console.error(e);process.exitCode=1;});

@@ -51,6 +51,10 @@ const body = `
    if(bench)for(const effect of effects)if(effect.type==='nearsight'){
      const owner=bench.actors[effect.sourceId],target=bench.actors[effect.targetId];
      if(owner&&target){const key=owner.team===target.team?'gloomFriendlyHits':'gloomEnemyHits';owner[key]=(owner[key]||0)+1;}
+   }
+   if(bench)for(const effect of effects)if(effect.type==='blind'){
+     const owner=bench.actors[effect.sourceId],target=bench.actors[effect.targetId];
+     if(owner?.character==='echo'&&target){const key=effect.targetId===effect.sourceId?'glintSelfBlinds':owner.team===target.team?'glintFriendlyBlinds':'glintEnemyBlinds';owner[key]=(owner[key]||0)+1;if(owner.team!==target.team)owner.glintEnemyBlindSeconds=(owner.glintEnemyBlindSeconds||0)+effect.duration;}
    }return effects;
  };
  const measuredPads=tickDuckPads;

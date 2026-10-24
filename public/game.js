@@ -1598,6 +1598,19 @@ function catDropTarget(actor,aim=null){
  const origin=new THREE.Vector3(actor.x,(actor.y||0)+1.7-(actor.crouch||0)*.55,actor.z),direction=new THREE.Vector3(-Math.sin(yaw)*Math.cos(pitch),Math.sin(pitch),-Math.cos(yaw)*Math.cos(pitch));
  let best=null;for(const drop of droppedWeapons){const target=new THREE.Vector3(drop.x,.2,drop.z),offset=target.clone().sub(origin),along=offset.dot(direction);if(along<0||Math.hypot(drop.x-actor.x,actor.y||0,drop.z-actor.z)>CAT_SKILLS.fetchRange||offset.addScaledVector(direction,-along).length()>.8||!catDropVisible(actor,drop))continue;if(!best||along<best.distance)best={drop,distance:along,x:drop.x,y:0,z:drop.z};}return best;
 }
+function echoBotGlintPoint(bot,enemy,aim,actors){
+ if(!enemy||!visibleBetween(bot,enemy))return null;
+ const dist=Math.hypot(enemy.x-bot.x,enemy.z-bot.z);if(dist<1.5)return null;
+ // Burst in front of the observed face, not directly below its eyes.
+ const ratio=(dist-1.5)/dist,point=getSkillTarget(bot,'echo-glint',{x:bot.x+(enemy.x-bot.x)*ratio,z:bot.z+(enemy.z-bot.z)*ratio},aim);
+ if(!point)return null;
+ const event={type:'echo-glint',...point,radius:IAGNU_SKILLS.glintRadius},options={reachable:ordinaryReachable};
+ if(!ordinarySkills.wouldBlind(ordinaryActorView(enemy),event,options))return null;
+ // The caster will turn toward this enemy to shoot later in the same tick.
+ if(ordinarySkills.wouldBlind({...ordinaryActorView(bot),yaw:aim.yaw,pitch:aim.pitch},event,options))return null;
+ if(actors.some(ally=>ally!==bot&&ally.alive&&ally.team===bot.team&&ordinarySkills.wouldBlind(ordinaryActorView(ally),event,options)))return null;
+ return point;
+}
 function catBotFetchAim(bot){
  if(bot.aiReload>0||bot.serviceReload)return null;
  const active=WEAPONS[actorWeaponId(bot)];let best=null;
@@ -2487,7 +2500,7 @@ function updateBots(dt){
       if(watch){
         const dist=distance(bot,watch),aim={yaw:Math.atan2(bot.x-watch.x,bot.z-watch.z),pitch:0};
         if(dist>4&&dist<=IAGNU_SKILLS.tagRange&&bot.kit.smoke>0&&!ordinarySkills.events(elapsed).some(event=>event.type==='echo-tag'&&event.team===bot.team&&distance(event,watch)<4))cast=activateAbility(bot,'c',{zonePoint:watch,aim});
-        if(!cast&&enemy&&dist>8&&dist<16&&bot.kit.updraft>0&&!actors.some(ally=>ally!==bot&&ally.alive&&ally.team===bot.team&&distance(ally,watch)<IAGNU_SKILLS.glintRadius))cast=activateAbility(bot,'q',{zonePoint:watch,aim});
+        if(!cast&&enemy&&bot.kit.updraft>0){const point=echoBotGlintPoint(bot,enemy,aim,actors);if(point)cast=activateAbility(bot,'q',{zonePoint:point,aim});}
       }
       if(!cast&&!enemy&&goal&&distance(bot,goal)>9&&bot.kit.dash>0)cast=activateAbility(bot,'e');
       bot.nextSkillAt=elapsed+(cast?2.5:.5);
