@@ -103,7 +103,7 @@ export function createHirakataMap(T,scene){
  // South deck extends toward the shopping blocks, with openings to both stairs.
  deck(-38,29,34,4,'south-west-pedestrian');deck(39,29,32,4,'south-east-pedestrian');
  // Bus stop roofs, curbside furniture, timetable poles and safety rail breaks.
- function stop(x,z,number,north=false){return breakable('stop-'+x+'-'+z,()=>{solid(x,3.25,z,9,.2,3.4,'white','surface',`stop-${north?'N':'S'}-${number}`);for(const dx of[-3.6,3.6])solid(x+dx,1.6,z,.14,3.2,.14,'dark','cover');solid(x, .5,z,4,.7,.55,'wood','cover');part(x,1.4,z+.1,4,.65,.14,'metal');part(x-3,1.45,z+1.3,.12,2.9,.12,'dark');sign(number+'  京阪バス',north?'北口 NORTH':'南口 SOUTH',x-3,2.3,z+1.39,1.5,.85,{bg:'#ede8da',fg:'#28434c',ry:north?Math.PI:0});sign('時刻表','KEIHAN BUS',x-3,1.45,z+1.4,.65,.8,{bg:'#eee8d5',fg:'#31434a'});});}
+ function stop(x,z,number,north=false){return breakable('stop-'+x+'-'+z,()=>{solid(x,3.25,z,9,.2,3.4,'white','surface',`stop-${north?'N':'S'}-${number}`);for(const dx of[-3.6,3.6])solid(x+dx,1.6,z,.14,3.2,.14,'dark','cover');solid(x, .5,z,4,.7,.55,'wood','cover');part(x,1.4,z+.1,4,.65,.14,'metal');part(x-3,1.45,z+1.3,.12,2.9,.12,'dark');sign(number+'  しばくでバス',north?'北口 NORTH':'南口 SOUTH',x-3,2.3,z+1.39,1.5,.85,{bg:'#ede8da',fg:'#28434c',ry:north?Math.PI:0});sign('時刻表','SHIBAKUDE BUS',x-3,1.45,z+1.4,.65,.8,{bg:'#eee8d5',fg:'#31434a'});});}
  for(const[x,num]of[[-39,'1'],[-7,'2'],[18,'3'],[44,'4']])stop(x,23,num);
  for(const[x,num]of[[3,'1'],[20,'2'],[40,'3'],[64,'4']])stop(x,-27,num,true);
  for(const z of[-39,-58])stop(67,z,z===-39?'5':'6',true);

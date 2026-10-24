@@ -1023,7 +1023,7 @@ function updateMapLabels(){
   const name=map.name||'橋本駅',short=map.shortName||'HASHIMOTO',viewBounds=activeArenaBounds();
   const copies={'mission-map':name+' 爆破・電源オフ作戦','menu-map-name':name+'前','character-preview-map':name+'前','hud-map-name':short+' STATION','map-title':name+' / 戦術マップ','map-area-name':name+' · '+(viewBounds.maxX-viewBounds.minX)+'m × '+(viewBounds.maxZ-viewBounds.minZ)+'m','map-route-copy':map.id==='hirakata'?'屋内A / 屋内B / MID横挟みルート':'バス通り / 中央連絡路 / ミウィ通り'};
   if(map.id==='trc')Object.assign(copies,{'menu-map-name':name,'character-preview-map':name,'hud-map-name':'TRC / SOUND MARKET','map-route-copy':'屋外 A ロング / 正面ロビー・MID / 搬入 B メイン'});
-  copies['map-site-a-name']=map.sites[0].name;copies['map-site-b-name']=map.sites[1].name;copies['map-detail']=map.id==='hirakata'?'対戦は従来の164m四方。マップ練習では周辺224m四方も探索できます。車道の京阪バスに注意。':'橋本駅前の景観をもとに構成したオリジナルマップです。';
+  copies['map-site-a-name']=map.sites[0].name;copies['map-site-b-name']=map.sites[1].name;copies['map-detail']=map.id==='hirakata'?'対戦は従来の164m四方。マップ練習では周辺224m四方も探索できます。車道のしばくでバスに注意。':'橋本駅前の景観をもとに構成したオリジナルマップです。';
   copies['map-coordinate-copy']=copies['menu-coordinate-copy']=map.id==='hirakata'?'34.815°N / 135.649°E':'35°35′42″N / 139°20′42″E';copies['menu-map-note']=map.id==='hirakata'?'枚方市駅 / 南北広場・自由通路・駅周辺街区':'非公式ファンメイド / 橋本駅前をモチーフにしたオリジナルマップ';copies['radar-map-copy']=short+' / 2 SITES';
   if(map.id==='trc')Object.assign(copies,{'map-detail':'屋外前庭から会場へ侵入する縦長マップ。Aはダクト・準備室経由のヘブン、Bは低いステージ。サイトの主床に広く設置可能。Fでドア・はしご、Vでダクト、Shiftで消音。','map-coordinate-copy':'TRC INSPIRED / OUTDOOR APPROACH','menu-coordinate-copy':'TRC INSPIRED / OUTDOOR APPROACH','menu-map-note':'同人音楽即売会 / オリジナル対戦レイアウト'});
   canvas.setAttribute('aria-label',name+'の3D競技マップ');$('large-minimap')?.setAttribute('aria-label',name+'の戦術マップ');
@@ -1091,7 +1091,7 @@ function updateTraffic(dt){
       const actor=actors.find(a=>a.id===hit.actorId);actor.carMotion=null;actor.carImpulseUntil=0;actor.carFallUntil=0;actor.trafficLaunch={seq:hit.sequence,endsAt:hit.endsAt,vx:hit.vx,vz:hit.vz,vy:hit.vy};actor.vy=hit.vy;actor.dashTimer=0;actor.vx=0;actor.vz=0;actor.path=[];actor.planAt=0;
       sound('vehicle-hit',{entity:actor});
       cancelServiceReload(actor);match.cancelPlant(actor.id);match.cancelDefuse(actor.id);damageEntity(actor,hit.damage,actors.find(a=>a.id===hit.owner)||null,{vehicle:true});
-      if(actor===player){damageFlash=.55;showMessage('京阪バスと接触',`${hit.damage}ダメージ · 車道から離れてください`,3);}
+      if(actor===player){damageFlash=.55;showMessage('しばくでバスと接触',`${hit.damage}ダメージ · 車道から離れてください`,3);}
     }
   }
   for(const actor of actors){const hit=actor.trafficLaunch;if(!hit)continue;
