@@ -1,6 +1,7 @@
 // Corrupt the measurement driver only in child memory, never game files.
 const fs=require('node:fs'),cp=require('node:child_process');
 const faults=[
+ ["lost stitch sample time","owner.stitchSlowSeconds=(owner.stitchSlowSeconds||0)+rootStepDt;","owner.stitchSlowSeconds=(owner.stitchSlowSeconds||0)+0;"],
  ["lost actual tag detection","owner.tagDetections=(owner.tagDetections||0)+1;","owner.tagDetections=(owner.tagDetections||0)+0;"],
  ["lost seed sample time","owner.seedSlowSeconds=(owner.seedSlowSeconds||0)+rootStepDt;","owner.seedSlowSeconds=(owner.seedSlowSeconds||0)+0;"],
  ["lost accepted heal amount", "owner.mendHealing=(owner.mendHealing||0)+actual;", "owner.mendHealing=(owner.mendHealing||0)+0;"],

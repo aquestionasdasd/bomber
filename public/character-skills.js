@@ -428,13 +428,10 @@ export function createCharacterSkills() {
       &&Math.abs((actor.y||0)-(event.y-MEND_SKILLS.seedsGroundOffset))<=CHARACTER_SKILLS.heightTolerance
       &&canReach(reachable,event,actor);
   }
-  function speedScale(actor, now, { reachable, groundHeight } = {}) {
-    if (!living(actor) || !viewTime(now)) return 1;
-    let scale = 1;
-    for (const event of active.values()) {
-      if (actor.team === event.team || currentTime < event.triggerAt) continue;
-      if (wouldSeed(actor,event,{reachable})) scale = Math.min(scale, MEND_SKILLS.seedsSpeedScale);
-      if (event.type === 'frost-stitch' && actor.grounded === true) {
+  // Read-only annulus forecast uses the live supported floor and line of sight.
+  function wouldStitch(actor,event,{reachable,groundHeight}={}) {
+    if(!living(actor)||actor.team===event?.team)return false;
+    if (event?.type === 'frost-stitch' && actor.grounded === true) {
         const dx = actor.x - event.x, dz = actor.z - event.z, distance = Math.hypot(dx, dz);
         if (distance >= FROST_SKILLS.stitchInnerRadius - 1e-8 && distance <= event.radius + 1e-8) {
           const referenceY = event.y - FROST_SKILLS.stitchGroundOffset, radius = (FROST_SKILLS.stitchInnerRadius + event.radius) / 2;
@@ -444,9 +441,18 @@ export function createCharacterSkills() {
           if (projectedFloor !== null && actorFloor !== null && Math.abs(projectedFloor - referenceY) <= tolerance
             && Math.abs(actorFloor - referenceY) <= tolerance && Math.abs((actor.y || 0) - actorFloor) <= tolerance
             && Math.abs((actor.y || 0) - projectedFloor) <= tolerance
-            && canReach(reachable, { ...event, x, y: projectedFloor, z }, actor)) scale = Math.min(scale, FROST_SKILLS.stitchSpeedScale);
+            && canReach(reachable, { ...event, x, y: projectedFloor, z }, actor)) return true;
         }
       }
+    return false;
+  }
+  function speedScale(actor, now, { reachable, groundHeight } = {}) {
+    if (!living(actor) || !viewTime(now)) return 1;
+    let scale = 1;
+    for (const event of active.values()) {
+      if (actor.team === event.team || currentTime < event.triggerAt) continue;
+      if (wouldSeed(actor,event,{reachable})) scale = Math.min(scale, MEND_SKILLS.seedsSpeedScale);
+      if (wouldStitch(actor,event,{reachable,groundHeight})) scale = Math.min(scale,FROST_SKILLS.stitchSpeedScale);
       if (wouldRoot(actor, event, { reachable, groundHeight })) scale = Math.min(scale, VEIL_SKILLS.rootsSpeedScale);
     }
     return scale;
@@ -593,5 +599,5 @@ export function createCharacterSkills() {
     if(!e)return 0;const stored=active.get(e.id),step=Math.min(ONNARA_SKILLS.taxPerShot,stored.power),paid=Math.min(credits,step);stored.power-=step;return paid;
   }
   const onnaraEvent=(type,id,now)=>events(now).find(e=>e.type===type&&e.sourceId===id)||null;
-  return {nearsightUntil,sightRange,duckPad,recordConstellation(sourceId,from,to,now){const e=events(now).find(e=>e.type==='onnara-chain'&&e.sourceId===sourceId&&owned.has(e.id));if(!e||!point(from)||!point(to)||Math.hypot(from.x-to.x,from.y-to.y,from.z-to.z)>ONNARA_SKILLS.chainRange+.001)return false;active.get(e.id).link=[from.x,from.y,from.z,to.x,to.y,to.z,now].map(n=>Math.round(n*1000)/1000);active.get(e.id).link[6]=now;return true;},cancelOnnaraEvent(id,sourceId){const e=active.get(id);if(e?.type.startsWith('onnara-')&&e.sourceId===sourceId&&owned.has(id)){active.delete(id);owned.delete(id);return true;}return false;},consumeCrownTax,onnaraTax:(id,now)=>events(now).find(e=>e.type==='onnara-tax'&&e.targetId===id)||null,onnaraEvent,urchinJammed:(id,now)=>capState('urchin-jam',id,now,true),urchinTrident:(id,now)=>capState('urchin-trident',id,now),hasImpairment,cleanse,capLocked:(id,now)=>capState('cap-lock',id,now,true),capBank:(id,now)=>capState('cap-bank',id,now),capMagazine:(id,now)=>capState('cap-magazine',id,now),resetActor,japanReturn:(id,now)=>events(now).some(e=>e.type==='japan-return'&&e.sourceId===id)?JAPAN_SKILLS.returnScale:0,nobiVulnerability,nobiInterval,nobiWork,nobiLegend,carGyro,disperseSmoke,cancelCarEvent,catBookmark,returnToCatBookmark,cancelCatEvent,clockFrozen, wouldBlind, wouldRoot,wouldSeed,wouldTag,sealUntil,quiet,guardLethal,interceptShield,cast, update, events, snapshot, restore, reset, blindUntil, speedScale, markers, movementScale, mitigateSlow, frostSlideSpeed, cancelService, consumeDecoy, flashDecoy };
+  return {nearsightUntil,sightRange,duckPad,recordConstellation(sourceId,from,to,now){const e=events(now).find(e=>e.type==='onnara-chain'&&e.sourceId===sourceId&&owned.has(e.id));if(!e||!point(from)||!point(to)||Math.hypot(from.x-to.x,from.y-to.y,from.z-to.z)>ONNARA_SKILLS.chainRange+.001)return false;active.get(e.id).link=[from.x,from.y,from.z,to.x,to.y,to.z,now].map(n=>Math.round(n*1000)/1000);active.get(e.id).link[6]=now;return true;},cancelOnnaraEvent(id,sourceId){const e=active.get(id);if(e?.type.startsWith('onnara-')&&e.sourceId===sourceId&&owned.has(id)){active.delete(id);owned.delete(id);return true;}return false;},consumeCrownTax,onnaraTax:(id,now)=>events(now).find(e=>e.type==='onnara-tax'&&e.targetId===id)||null,onnaraEvent,urchinJammed:(id,now)=>capState('urchin-jam',id,now,true),urchinTrident:(id,now)=>capState('urchin-trident',id,now),hasImpairment,cleanse,capLocked:(id,now)=>capState('cap-lock',id,now,true),capBank:(id,now)=>capState('cap-bank',id,now),capMagazine:(id,now)=>capState('cap-magazine',id,now),resetActor,japanReturn:(id,now)=>events(now).some(e=>e.type==='japan-return'&&e.sourceId===id)?JAPAN_SKILLS.returnScale:0,nobiVulnerability,nobiInterval,nobiWork,nobiLegend,carGyro,disperseSmoke,cancelCarEvent,catBookmark,returnToCatBookmark,cancelCatEvent,clockFrozen, wouldBlind, wouldRoot,wouldSeed,wouldTag,wouldStitch,sealUntil,quiet,guardLethal,interceptShield,cast, update, events, snapshot, restore, reset, blindUntil, speedScale, markers, movementScale, mitigateSlow, frostSlideSpeed, cancelService, consumeDecoy, flashDecoy };
 }

@@ -113,7 +113,14 @@ const body = `
        const owner=bench.actors[event.sourceId],key='seeds|'+event.sourceId+'|'+actor.id;
        if(owner&&!rootStepSeen.has(key)){rootStepSeen.add(key);owner.seedSlowSamples=(owner.seedSlowSamples||0)+1;owner.seedSlowSeconds=(owner.seedSlowSeconds||0)+rootStepDt;(owner.seedTargets||={})[actor.id]=true;}
      }
-   }return scale;
+   }
+   if(bench&&rootStepDt>0&&scale<=FROST_SKILLS.stitchSpeedScale){
+     for(const event of ordinarySkills.events(now))if(now>=event.triggerAt&&ordinarySkills.wouldStitch(actor,event,queries)){
+       const owner=bench.actors[event.sourceId],key='stitch|'+event.sourceId+'|'+actor.id;
+       if(owner&&!rootStepSeen.has(key)){rootStepSeen.add(key);owner.stitchSlowSamples=(owner.stitchSlowSamples||0)+1;owner.stitchSlowSeconds=(owner.stitchSlowSeconds||0)+rootStepDt;(owner.stitchTargets||={})[actor.id]=true;}
+     }
+   }
+   return scale;
  };
  function advanceMeasuredRound(dt){rootStepDt=dt;rootStepSeen.clear();try{updatePlay(dt);}finally{rootStepDt=0;}}
  function observeMeasuredMatch(){

@@ -2638,8 +2638,14 @@ function updateBots(dt){
         const dist=distance(bot,watch),aim={yaw:Math.atan2(bot.x-watch.x,bot.z-watch.z),pitch:0};
         // Place the band on the known approach instead of trapping a target in
         // the safe center; only sightings/watch goals already held by the BOT.
-        const ring={x:watch.x+Math.cos(aim.yaw)*2,z:watch.z-Math.sin(aim.yaw)*2};
-        if(dist>3&&dist<=12&&!ordinarySkills.events(elapsed).some(event=>event.type==='frost-stitch'&&event.team===bot.team&&distance(event,ring)<3))cast=activateAbility(bot,'c',{zonePoint:ring,aim});
+        const ring={x:watch.x+Math.cos(aim.yaw)*2,y:watch.y??bot.y??0,z:watch.z-Math.sin(aim.yaw)*2};
+        if(dist>0&&dist<=FROST_SKILLS.stitchRange+FROST_SKILLS.stitchRadius){
+          const landing=getSkillTarget(bot,'frost-stitch',ring,aim);
+          const pose=enemy?ordinaryActorView(enemy):{x:watch.x,y:watch.y??bot.y??0,z:watch.z,grounded:true,id:watch.id||'watched-location',team:bot.team==='blue'?'red':'blue',alive:true,hp:100};
+          const stitch=landing&&{type:'frost-stitch',team:bot.team,...landing,radius:FROST_SKILLS.stitchRadius};
+          const queries={reachable:ordinaryReachable,groundHeight:ordinaryGroundHeight};
+          if(stitch&&ordinarySkills.wouldStitch(pose,stitch,queries)&&!ordinarySkills.events(elapsed).some(event=>event.team===bot.team&&ordinarySkills.wouldStitch(pose,event,queries)))cast=activateAbility(bot,'c',{zonePoint:ring,aim});
+        }
       }
       bot.nextSkillAt=elapsed+(cast?2.5:.5);
     }

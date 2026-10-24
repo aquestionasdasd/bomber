@@ -112,6 +112,13 @@ const suite=String.raw`
    for(const code of["bench.disabled='c'","enemy.y=5"]){setup();h.sandbox.code=code;h.run("player.kit=new DuelistKit({character:'echo'});player.kit.smoke=2;bench.actors.player.character='echo';enemy.z=-8;eval(code);activateAbility(player,'c',{zonePoint:{x:0,y:0,z:-8},aim:{yaw:0,pitch:0}})");tick(168);assert.equal(h.run('bench.actors.player.tagDetections'),undefined)}
    setup();h.run("player.kit=new DuelistKit({character:'echo'});player.kit.smoke=2;bench.actors.player.character='echo';enemy.z=-8;activateAbility(player,'c',{zonePoint:{x:0,y:0,z:-8},aim:{yaw:0,pitch:0}});var tagSaved=JSON.parse(JSON.stringify(ordinarySkills.snapshot()));ordinarySkills.reset();ordinarySkills.restore(tagSaved,elapsed,match.round)");tick(168);assert.equal(h.run('bench.actors.player.tagDetections'),undefined);
  });
+
+ check('FROST C measures active annulus speed queries once per source target frame without safe-centre or air credit',()=>{
+   setup();h.run("player.kit=new DuelistKit({character:'frost'});player.kit.smoke=2;enemy.z=-8;activateAbility(player,'c',{zonePoint:{x:2,y:0,z:-8},aim:{yaw:0,pitch:0}});const stitchMeasuredPlay=updatePlay;updatePlay=function(dt){stitchMeasuredPlay(dt);for(let i=0;i<3;i++)ordinarySkills.speedScale(ordinaryActorView(enemy),elapsed,{reachable:ordinaryReachable,groundHeight:ordinaryGroundHeight})}");
+   tick(72);assert.equal(h.run('bench.actors.player.stitchSlowSamples||0'),0);tick(48);assert.ok(h.run('bench.actors.player.stitchSlowSamples')>0);assert.ok(h.run('bench.actors.player.stitchSlowSamples')<=48);near(h.run('bench.actors.player.stitchSlowSeconds'),h.run('bench.actors.player.stitchSlowSamples')/120,'stitch deduplicated seconds');
+   h.run('var previousStitchSamples=bench.actors.player.stitchSlowSamples;enemy.x=2');tick(12);assert.equal(h.run('bench.actors.player.stitchSlowSamples'),h.run('previousStitchSamples'));
+   for(const code of["bench.disabled='c'","enemy.y=5"]){setup();h.sandbox.code=code;h.run("player.kit=new DuelistKit({character:'frost'});player.kit.smoke=2;enemy.z=-8;eval(code);activateAbility(player,'c',{zonePoint:{x:2,y:0,z:-8},aim:{yaw:0,pitch:0}})");tick(168);assert.equal(h.run('bench.actors.player.stitchSlowSamples'),undefined)}
+ });
  console.log('PASS: '+groups+' measurement pipeline/clock/contact/ablation/collision/accounting/objective groups; audio inert');
 }
 main().catch(e=>{console.error(e);process.exitCode=1;});
