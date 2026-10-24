@@ -2477,9 +2477,17 @@ function updateBots(dt){
       let cast=null;
       if(known){
         const dist=distance(bot,known),aim={yaw:Math.atan2(bot.x-known.x,bot.z-known.z),pitch:0};
-        if(dist>5&&dist<17&&bot.kit.smoke>0)cast=activateAbility(bot,'c',{zonePoint:known,aim});
-        else if(enemy&&dist>10&&dist<18&&bot.kit.updraft>0&&!actors.some(ally=>ally!==bot&&ally.alive&&ally.team===bot.team&&distance(ally,known)<NOPE_SKILLS.flashRadius))cast=activateAbility(bot,'q',{zonePoint:known,aim});
-        else if(bot.kit.dash>0&&(bot.hp<65||!enemy))cast=activateAbility(bot,'e',{aim});
+        if(dist>0&&dist<=NOPE_SKILLS.bottleRange&&bot.kit.smoke>0){
+          // Use the actual lob and splash test; the longer throw is wasted
+          // when a wall, ceiling or another floor keeps the burst out of reach.
+          const spot={x:known.x,y:known.y??bot.y??0,z:known.z};
+          const landing=getSkillTarget(bot,'nope-bottle',spot,aim);
+          if(landing&&distance(landing,spot)<NOPE_SKILLS.bottleRadius&&
+            Math.abs(spot.y-landing.y)<=CHARACTER_SKILLS.heightTolerance&&
+            ordinaryReachable({type:'nope-bottle',...landing},spot))cast=activateAbility(bot,'c',{zonePoint:spot,aim});
+        }
+        if(!cast&&enemy&&dist>10&&dist<18&&bot.kit.updraft>0&&!actors.some(ally=>ally!==bot&&ally.alive&&ally.team===bot.team&&distance(ally,known)<NOPE_SKILLS.flashRadius))cast=activateAbility(bot,'q',{zonePoint:known,aim});
+        if(!cast&&bot.kit.dash>0&&(bot.hp<65||!enemy))cast=activateAbility(bot,'e',{aim});
       }
       bot.nextSkillAt=elapsed+(cast?2.5:.5);
     }

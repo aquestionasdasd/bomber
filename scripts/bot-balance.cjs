@@ -83,7 +83,7 @@ const body = `
    const hp=target.hp,armor=target.armor||0,alive=target.alive;
    const result=measuredDamage(target,amount,killer,options);
    if(bench&&alive){const actual=Math.max(0,hp-target.hp)+Math.max(0,armor-(target.armor||0)),stat=bench.actors[killer?.id];
-     if(stat){stat.damage+=actual;if(options?.skill==='car'&&target.carMotion?.phase===2){stat.ramHits++;stat.ramDamage+=actual;}if(measuredOrdinaryDepth&&killer?.kit?.character==='ember'&&options?.skill==='ember'&&actual>0){stat.solderHits=(stat.solderHits||0)+1;stat.solderDamage=(stat.solderDamage||0)+actual;if(!target.alive)stat.solderKills=(stat.solderKills||0)+1;}if(!target.alive)stat.kills++;}
+     if(stat){stat.damage+=actual;if(options?.skill==='car'&&target.carMotion?.phase===2){stat.ramHits++;stat.ramDamage+=actual;}if(measuredOrdinaryDepth&&killer?.kit?.character==='ember'&&options?.skill==='ember'&&actual>0){stat.solderHits=(stat.solderHits||0)+1;stat.solderDamage=(stat.solderDamage||0)+actual;if(!target.alive)stat.solderKills=(stat.solderKills||0)+1;}if(measuredOrdinaryDepth&&killer?.kit?.character==='nope'&&options?.skill==='nope'&&actual>0){stat.bottleHits=(stat.bottleHits||0)+1;stat.bottleDamage=(stat.bottleDamage||0)+actual;if(!target.alive)stat.bottleKills=(stat.bottleKills||0)+1;}if(!target.alive)stat.kills++;}
    }return result;
  };
  // Use the browser's complete frame driver. The old partial tick omitted
