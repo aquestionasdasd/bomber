@@ -2513,7 +2513,13 @@ function updateBots(dt){
       let cast=null;
       if(watch){
         const dist=distance(bot,watch),aim={yaw:Math.atan2(bot.x-watch.x,bot.z-watch.z),pitch:0};
-        if(dist>4&&dist<=IAGNU_SKILLS.tagRange&&bot.kit.smoke>0&&!ordinarySkills.events(elapsed).some(event=>event.type==='echo-tag'&&event.team===bot.team&&distance(event,watch)<4))cast=activateAbility(bot,'c',{zonePoint:watch,aim});
+        if(dist>0&&dist<=IAGNU_SKILLS.tagRange+IAGNU_SKILLS.tagRadius&&bot.kit.smoke>0){
+          const point={x:watch.x,y:watch.y??bot.y??0,z:watch.z},landing=getSkillTarget(bot,'echo-tag',point,aim);
+          // An empty watch point is a possible future contact, not a hidden actor.
+          const pose=enemy?ordinaryActorView(enemy):{...point,id:watch.id||'watched-location',team:bot.team==='blue'?'red':'blue',alive:true,hp:100};
+          const tag=landing&&{type:'echo-tag',team:bot.team,...landing,radius:IAGNU_SKILLS.tagRadius},queries={reachable:ordinaryReachable};
+          if(tag&&ordinarySkills.wouldTag(pose,tag,queries)&&!ordinarySkills.events(elapsed).some(event=>event.team===bot.team&&ordinarySkills.wouldTag(pose,event,queries)))cast=activateAbility(bot,'c',{zonePoint:point,aim});
+        }
         if(!cast&&enemy&&bot.kit.updraft>0){const point=echoBotGlintPoint(bot,enemy,aim,actors);if(point)cast=activateAbility(bot,'q',{zonePoint:point,aim});}
       }
       if(!cast&&!enemy&&goal&&distance(bot,goal)>9&&bot.kit.dash>0)cast=activateAbility(bot,'e');

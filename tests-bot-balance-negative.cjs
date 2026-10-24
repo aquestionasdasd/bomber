@@ -1,6 +1,7 @@
 // Corrupt the measurement driver only in child memory, never game files.
 const fs=require('node:fs'),cp=require('node:child_process');
 const faults=[
+ ["lost actual tag detection","owner.tagDetections=(owner.tagDetections||0)+1;","owner.tagDetections=(owner.tagDetections||0)+0;"],
  ["lost seed sample time","owner.seedSlowSeconds=(owner.seedSlowSeconds||0)+rootStepDt;","owner.seedSlowSeconds=(owner.seedSlowSeconds||0)+0;"],
  ["lost accepted heal amount", "owner.mendHealing=(owner.mendHealing||0)+actual;", "owner.mendHealing=(owner.mendHealing||0)+0;"],
  ['lost personal tool progress','stat.toolSavedSeconds=(stat.toolSavedSeconds||0)+progress*(1-1/scale);','stat.toolSavedSeconds=(stat.toolSavedSeconds||0)+0;'],

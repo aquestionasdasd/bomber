@@ -61,6 +61,10 @@ const body = `
    if(bench)for(const effect of effects)if(effect.type==='blind'){
      const owner=bench.actors[effect.sourceId],target=bench.actors[effect.targetId];
      if(owner?.character==='echo'&&target){const key=effect.targetId===effect.sourceId?'glintSelfBlinds':owner.team===target.team?'glintFriendlyBlinds':'glintEnemyBlinds';owner[key]=(owner[key]||0)+1;if(owner.team!==target.team)owner.glintEnemyBlindSeconds=(owner.glintEnemyBlindSeconds||0)+effect.duration;}
+   }
+   if(bench)for(const effect of effects)if(effect.type==='detect'){
+     const owner=bench.actors[effect.sourceId];
+     if(owner?.character==='echo'){owner.tagDetections=(owner.tagDetections||0)+1;(owner.tagPoints||=[]).push({x:effect.x,y:effect.y,z:effect.z,at:effect.detectedAt,endsAt:effect.endsAt});}
    }return effects;
  };
  const measuredPads=tickDuckPads;

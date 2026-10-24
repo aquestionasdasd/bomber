@@ -107,6 +107,11 @@ const suite=String.raw`
    h.run('var previousSeedSamples=bench.actors.player.seedSlowSamples;enemy.y=5');tick(12);assert.equal(h.run('bench.actors.player.seedSlowSamples'),h.run('previousSeedSamples'));
    setup();h.run("player.kit=new DuelistKit({character:'mend'});player.kit.smoke=2;bench.disabled='c';enemy.z=-8;activateAbility(player,'c',{zonePoint:{x:0,y:0,z:-8},aim:{yaw:0,pitch:0}})");tick(120);assert.equal(h.run('bench.actors.player.seedSlowSamples'),undefined);
  });
+ check('ECHO C credits actual one-shot fixed detections without cast-only restored or ablated credit',()=>{
+   setup();h.run("player.kit=new DuelistKit({character:'echo'});player.kit.smoke=2;bench.actors.player.character='echo';enemy.z=-8;activateAbility(player,'c',{zonePoint:{x:0,y:0,z:-8},aim:{yaw:0,pitch:0}})");tick(96);assert.equal(h.run('bench.actors.player.tagDetections||0'),0);tick(48);assert.equal(h.run('bench.actors.player.tagDetections'),1);assert.equal(h.run('bench.actors.player.tagPoints[0].z'),-8);h.run('enemy.x=10');tick(48);assert.equal(h.run('bench.actors.player.tagDetections'),1);assert.equal(h.run('bench.actors.player.tagPoints[0].x'),0);
+   for(const code of["bench.disabled='c'","enemy.y=5"]){setup();h.sandbox.code=code;h.run("player.kit=new DuelistKit({character:'echo'});player.kit.smoke=2;bench.actors.player.character='echo';enemy.z=-8;eval(code);activateAbility(player,'c',{zonePoint:{x:0,y:0,z:-8},aim:{yaw:0,pitch:0}})");tick(168);assert.equal(h.run('bench.actors.player.tagDetections'),undefined)}
+   setup();h.run("player.kit=new DuelistKit({character:'echo'});player.kit.smoke=2;bench.actors.player.character='echo';enemy.z=-8;activateAbility(player,'c',{zonePoint:{x:0,y:0,z:-8},aim:{yaw:0,pitch:0}});var tagSaved=JSON.parse(JSON.stringify(ordinarySkills.snapshot()));ordinarySkills.reset();ordinarySkills.restore(tagSaved,elapsed,match.round)");tick(168);assert.equal(h.run('bench.actors.player.tagDetections'),undefined);
+ });
  console.log('PASS: '+groups+' measurement pipeline/clock/contact/ablation/collision/accounting/objective groups; audio inert');
 }
 main().catch(e=>{console.error(e);process.exitCode=1;});
