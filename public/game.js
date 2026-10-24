@@ -2494,7 +2494,7 @@ function updateBots(dt){
     if(bot.kit?.character==='mend'&&!interactPlant&&!interactDefuse&&ordinarySkills.blindUntil(bot.id,elapsed)<=elapsed&&elapsed>=(bot.nextSkillAt||0)){
       const injured=selectMendTarget(bot,actors,mendReachable),known=enemy||(bot.lastSeen&&elapsed-bot.lastSeen.seenAt<1.5?bot.lastSeen:null);
       let cast=null;
-      if(injured&&injured.hp<=70&&bot.kit.dash>0&&enemyDistance>8)cast=activateAbility(bot,'e');
+      if(injured&&injured.hp<=70&&bot.kit.dash>0)cast=activateAbility(bot,'e');
       if(!cast&&known){
         const dist=distance(bot,known),aim={yaw:Math.atan2(bot.x-known.x,bot.z-known.z),pitch:0};
         if(dist>5&&dist<17&&bot.kit.smoke>0&&!ordinarySkills.events(elapsed).some(event=>event.type==='mend-seeds'&&event.team===bot.team&&distance(event,known)<event.radius))cast=activateAbility(bot,'c',{zonePoint:known,aim});

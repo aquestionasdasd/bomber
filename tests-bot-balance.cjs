@@ -95,6 +95,12 @@ const suite=String.raw`
    h.run('var previousRootSamples=bench.actors.player.rootSlowSamples;enemy.y=2;enemy.vy=1');tick(12);assert.equal(h.run('bench.actors.player.rootSlowSamples'),h.run('previousRootSamples'));
    setup();h.run("player.kit=new DuelistKit({character:'veil'});player.kit.updraft=1;bench.disabled='q';enemy.z=-8;activateAbility(player,'q',{zonePoint:{x:0,y:0,z:-8},aim:{yaw:0,pitch:0}})");tick(60);assert.equal(h.run('bench.actors.player.rootSlowSamples'),undefined);
  });
+ check('MEND E credits only accepted HP to its source and separates self ally and capped healing from X',()=>{
+   setup();h.run("player.kit=new DuelistKit({character:'mend'});player.kit.dash=1;player.hp=70;activateAbility(player,'e')");assert.equal(h.run('player.hp'),100);assert.equal(h.run('bench.actors.player.mendHeals'),1);assert.equal(h.run('bench.actors.player.mendHealing'),30);assert.equal(h.run('bench.actors.player.mendSelfHealing'),30);tick(12);assert.equal(h.run('bench.actors.player.mendHealing'),30);
+   setup();h.run("player.kit=new DuelistKit({character:'mend'});player.kit.dash=1;enemy.team=player.team;enemy.hp=40;activateAbility(player,'e')");assert.equal(h.run('enemy.hp'),100);assert.equal(h.run('bench.actors.player.mendAllyHealing'),60);assert.equal(h.run('bench.actors.player.mendSelfHealing||0'),0);
+   setup();h.run("player.kit=new DuelistKit({character:'mend'});player.kit.ultPoints=7;player.hp=40;activateAbility(player,'x')");assert.equal(h.run('player.hp'),100);assert.equal(h.run('bench.actors.player.mendHealing'),undefined);
+   for(const code of["bench.disabled='e'","onlinePlaying=true;online={host:false,session:{memberId:'friend'}}","for(let i=0;i<20;i++)ordinarySkills.cast('nope-bottle',ordinaryActorView(player),{x:1,y:.12,z:1},elapsed,match.round)"]){setup();h.sandbox.code=code;h.run("player.kit=new DuelistKit({character:'mend'});player.kit.dash=1;player.hp=40;eval(code);activateAbility(player,'e')");assert.equal(h.run('player.hp'),40);assert.equal(h.run('bench.actors.player.mendHealing'),undefined)}
+ });
  console.log('PASS: '+groups+' measurement pipeline/clock/contact/ablation/collision/accounting/objective groups; audio inert');
 }
 main().catch(e=>{console.error(e);process.exitCode=1;});

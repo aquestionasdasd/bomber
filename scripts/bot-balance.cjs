@@ -45,6 +45,12 @@ const body = `
  };
  activateAbility=measureActivate(activateAbility);
  activateJapanAbility=measureActivate(activateJapanAbility);
+ // This callback is injected only into the saved-game measurement source,
+ // immediately after the real HP assignment. Never credit requested/overflow HP.
+ function observeMendHeal(target,source,before){
+   const actual=Math.max(0,target.hp-before),owner=bench?.actors[source.id];
+   if(owner&&measuredOrdinaryDepth&&actual>0){owner.mendHeals=(owner.mendHeals||0)+1;owner.mendHealing=(owner.mendHealing||0)+actual;const key=target.id===source.id?'mendSelfHealing':'mendAllyHealing';owner[key]=(owner[key]||0)+actual;(owner.mendTargets||={})[target.id]=true;}
+ }
  const measuredOrdinaryUpdate=ordinarySkills.update;
  ordinarySkills.update=function(...args){
    const effects=measuredOrdinaryUpdate(...args);
@@ -173,10 +179,11 @@ const body = `
  console.log('REPORT '+config.out+'; '+rows.length+' rounds; '+Math.round(performance.now()-started)+'ms');
 }main().catch(e=>{console.error(e);process.exitCode=1;});
 `;
-module.exports={body,fixturePrefix:fixture.slice(0,boundary)};
+const fixturePrefix=fixture.slice(0,boundary).replace("fs.readFileSync(path.join(__dirname, 'public/game.js'), 'utf8')","fs.readFileSync(path.join(__dirname, 'public/game.js'), 'utf8').replace(\"if(target.hp>before)skillImpact(target,source,'mend','heal');\",\"if(target.hp>before){skillImpact(target,source,'mend','heal');observeMendHeal(target,source,before);}\")");
+module.exports={body,fixturePrefix};
 if(require.main===module){
  const runner = new Module(path.join(root, 'bot-balance-harness.cjs'), module);
  runner.filename = path.join(root, 'bot-balance-harness.cjs');
  runner.paths = Module._nodeModulePaths(root);
- runner._compile(fixture.slice(0, boundary) + body, runner.filename);
+ runner._compile(fixturePrefix + body, runner.filename);
 }
