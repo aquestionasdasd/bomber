@@ -53,7 +53,6 @@ async function protectedTrace(createGameAudio,mode,interleave=false){
   const end=()=>{for(const source of context.sources)source.end();};
   const play=(type,options)=>{const nodeStart=context.nodes.length,sourceStart=context.sources.length;audio.play(type,options);traces.push({type,options,trace:voiceTrace(context,nodeStart,sourceStart)});end();};
   const options=[{volume:.61,pan:-.7,distance:11,occluded:false},{volume:.61,pan:.7,distance:11,occluded:true},{volume:.45,pan:0,distance:0,occluded:false}];
-  for(const type of ['shot','enemy'])for(const weapon of ['classic','ghost','spectre','phantom','vandal','knife'])for(const option of options)play(type,{...option,weapon});
   for(let i=0;i<newTypes.length;i++){
     // Check each cue independently: an even total number of newly shared
     // recordings could otherwise hide a changed two-footstep variation phase.
@@ -80,17 +79,23 @@ async function main(){
   for(const entry of adopted){const bytes=fs.readFileSync(path.join(__dirname,'public/audio',entry.file));assert.equal(sha(bytes),entry.sha256);assert.equal(bytes.length,entry.bytes);}
   assert.ok([...files].every(file=>[...adopted,...manifests].some(entry=>entry.file===file)),'Every active cue has documented provenance');
   assert.deepEqual(SAMPLE_CUES.jump.map(cue=>cue.file),['lab-cloth.ogg']);assert.ok(SAMPLE_CUES.jump[0].length<=.2);
+  assert.deepEqual(SAMPLE_CUES['gun-hit'].map(l=>l.file),['lab-punch-light1.ogg']);assert.ok(SAMPLE_CUES['gun-hit'][0].length<=.14);assert.ok(SAMPLE_CUES['gun-hit'][0].gain>SAMPLE_CUES.hit[0].gain);
+  assert.deepEqual(SAMPLE_CUES['gun-kill'].map(l=>l.file),['lab-punch-light1.ogg','jingle-PIZZI07.ogg']);assert.ok(SAMPLE_CUES['gun-kill'][1].length<=.7);
   assert.ok(types.length>=70);assert.ok(![...files].some(f=>f.startsWith('interface-')||f.includes('forceField')||f.includes('doorClose_001')));
   assert.equal(manifests.filter(e=>e.adopted_cycle===102).length,1);assert.equal(SAMPLE_CUES['bus-break'][0].file,'bus-wall-break-user.mp3');assert.equal(SAMPLE_CUES['bus-break'][0].rate,1);
   assert.equal(manifests.filter(e=>e.adopted_cycle===99).length,1);assert.equal(SAMPLE_CUES['vehicle-hit'].length,1);assert.equal(SAMPLE_CUES['vehicle-hit'][0].file,'vehicle-impact-user.mp3');assert.equal(SAMPLE_CUES['vehicle-hit'][0].rate,1);assert.equal(manifests.find(e=>e.adopted_cycle===99).sha256,'ae00f7eee68c22f65d1800f52b545ec73930b30f4253d4b54bc877fa3b21cc01');
   console.log('PASS:22 original CC0 additions plus exact user MP3/SHA and every active sample;no electronic interface/forcefield layers');
 
   global.window={AudioContext:Context};const cold=createGameAudio();const prior=Context.current;cold.play('kill');assert.equal(Context.current,prior);cold.init();const c=Context.current;
-  for(const type of [...types,'unknown','constructor','toString','__proto__'])cold.play(type);assert.equal(c.sources.length,0);assert.equal(c.nodes.length,0,'Not-ready non-gun effects allocate no nodes and never synthesize');
-  const baseline={cold:'c5bf5d4937f95253795c9701ae435951585f325a96aa6200599001fa832f7d2b',ready:'490a62624113d54c5c0f06a80605311883576e8b530f83c44a67b0cb5990dc65',failed:'c5bf5d4937f95253795c9701ae435951585f325a96aa6200599001fa832f7d2b'};
-  for(const mode of ['cold','ready','failed']){assert.equal(await protectedTrace(createGameAudio,mode),baseline[mode]);assert.equal(await protectedTrace(createGameAudio,mode,true),baseline[mode]);}
-  console.log('PASS: exact original70 protected gun/enemy/step/landing voice traces in cold/ready/failed modes');
+  for(const type of [...types,'unknown','constructor','toString','__proto__'])cold.play(type);assert.equal(c.sources.length,0);assert.equal(c.nodes.length,0,'Not-ready recorded effects allocate no nodes and never synthesize');
+  const baseline={cold:'6fc349747f245e7cbbe625f4f31e32de6396da5579727960397ab747c6dc651b',ready:'44ed4bb66615bb77e60cdc13a8c5ad8a386ca403801758f6221f045d2260f435',failed:'6fc349747f245e7cbbe625f4f31e32de6396da5579727960397ab747c6dc651b'};
+  for(const mode of ['cold','ready','failed']){assert.equal(await protectedTrace(createGameAudio,mode),baseline[mode]);assert.equal(await protectedTrace(createGameAudio,mode,true),baseline[mode]);assert.equal(await protectedTrace(createGameAudio,mode,'shot'),baseline[mode]);}
+  console.log('PASS: exact original34 step/landing voice traces captured before this change in cold/ready/failed modes');
 
+  // Independent contract copied from collaborator PR54/PR49, not from runtime output.
+  const weapons={classic:['lab-handgun-firing1.ogg',.34,.42,1],ghost:['lab-handgun-firing1.ogg',.21,.35,1.12],spectre:['lab-machinegun-firing2.ogg',.27,.12,1.18],phantom:['lab-machinegun-firing2.ogg',.25,.12,.94],vandal:['lab-machinegun-firing1.ogg',.40,.12,1],knife:['lab-knife-slash-1.ogg',.22,.36,1],pump:['lab-handgun-firing1.ogg',.40,.42,.78],drum:['lab-machinegun-firing1.ogg',.36,.12,.85],scout:['lab-handgun-firing1.ogg',.36,.42,.92],atlas:['lab-handgun-firing1.ogg',.43,.5,.68],forge:['lab-machinegun-firing2.ogg',.31,.12,.8]};
+  for(const [weapon,[file,gain,length,rate]] of Object.entries(weapons))assert.deepEqual(SAMPLE_CUES['weapon-'+weapon],[{file,gain,length,delay:0,rate}]);
+  for(const type of ['shot','enemy'])for(const weapon of Object.keys(weapons))cold.play(type,{weapon});assert.equal(c.nodes.length,0);
   let release;const gate=new Promise(r=>release=r),requests=[];
   class Mapped extends Context{decodeAudioData(bytes){return Promise.resolve(decodedSample(Buffer.from(bytes).toString()));}}
   global.window={AudioContext:Mapped,fetch:async(url,options)=>{assert.equal(options.credentials,'same-origin');assert.equal(options.cache,'force-cache');const file=path.basename(new URL(url).pathname);requests.push(file);await gate;return{ok:true,arrayBuffer:async()=>Uint8Array.from(Buffer.from(file)).buffer};}};
@@ -109,13 +114,18 @@ async function main(){
    const longest=layers.reduce((a,b)=>a.started+a.duration/a.playbackRate.value>b.started+b.duration/b.playbackRate.value?a:b);for(const source of layers)if(source!==longest)source.end();assert.ok(nodes.every(n=>n.disconnects===0));longest.end();assert.ok(nodes.every(n=>n.disconnects===1));longest.end();
    const at=ctx.sources.length;audio.play('step');const step=ctx.sources[at];assert.equal(decodedHashes.get(bufferHash(step.buffer)),stepIndex++%2?'footstep_concrete_001.ogg':'footstep_concrete_000.ogg');step.end();
   }
+  for(const type of ['shot','enemy'])for(const weapon of [...Object.keys(weapons),'unknown','__proto__','constructor'])for(const occluded of [false,true]){
+   const [file,gain,length,rate]=weapons[weapon] instanceof Array?weapons[weapon]:weapons.classic,ns=ctx.nodes.length,ss=ctx.sources.length;
+   audio.play(type,{weapon,volume:.61,pan:-.7,distance:11,occluded});const sources=ctx.sources.slice(ss),nodes=ctx.nodes.slice(ns);
+   assert.equal(sources.length,1,type+' '+weapon);const source=sources[0];assert.equal(source.kind,'buffer');assert.equal(decodedHashes.get(bufferHash(source.buffer)),file);assert.equal(source.playbackRate.value,rate);assert.equal(source.duration,Math.min(2/rate,length)*rate);assert.equal(source.connections[0].connections[0].gain.events[0],gain);assert.equal(nodes.find(n=>n.kind==='panner').pan.value,-.7);assert.equal(source.connections[0].frequency.value,occluded?1600:10000);assert.ok(Math.abs(nodes[0].gain.value-.61/(1+11*.11)*(occluded?.4:1))<1e-12);source.end();assert.ok(nodes.every(n=>n.disconnects===1));
+  }
   assert.ok(ctx.nodes.every(n=>n.disconnects===1));const at=ctx.sources.length;for(let i=0;i<60;i++)audio.play('takeover');assert.equal(ctx.sources.length-at,144);const cap=ctx.nodes.length;audio.play('buy');assert.equal(ctx.nodes.length,cap);for(const source of ctx.sources)source.end();audio.play('buy');assert.equal(ctx.sources.length,at+146);for(const source of ctx.sources)source.end();
-  const no=ctx.nodes.length;audio.play('kill',{volume:0});ctx.state='suspended';audio.play('kill');assert.equal(ctx.nodes.length,no);assert.equal(requests.length,expectedFiles.size);
-  console.log(`PASS:all${types.length} non-gun cues sample-only/<=3 layers;mono peak/gain/position/occlusion/fades;48voices;cleanup/mute;footstep phase unchanged`);
+  const no=ctx.nodes.length;for(const type of ['kill','shot','enemy'])audio.play(type,{volume:0});ctx.state='suspended';for(const type of ['kill','shot','enemy'])audio.play(type);assert.equal(ctx.nodes.length,no);assert.equal(requests.length,expectedFiles.size);
+  console.log(`PASS:all${types.length} recorded cues sample-only/<=3 layers;mono peak/gain/position/occlusion/fades;48voices;cleanup/mute;footstep phase unchanged`);
 
   for(const failure of ['fetch','http','decode','nonfinite','duration','channels']){
    class Failed extends Context{decodeAudioData(){if(failure==='decode')throw Error('codec');const d=decodedSample('bad');if(failure==='nonfinite')d.getChannelData(0)[0]=NaN;if(failure==='duration')d.duration=13;if(failure==='channels')d.numberOfChannels=9;return Promise.resolve(d);}}
-   global.window={AudioContext:Failed,fetch:async()=>{if(failure==='fetch')throw Error('offline');return{ok:failure!=='http',arrayBuffer:async()=>new ArrayBuffer(4)};}};const bad=createGameAudio();bad.init();await settle();const cx=Context.current;for(const type of types)bad.play(type);assert.equal(cx.nodes.length,0,failure+' never reverts to beeps/noise');
+   global.window={AudioContext:Failed,fetch:async()=>{if(failure==='fetch')throw Error('offline');return{ok:failure!=='http',arrayBuffer:async()=>new ArrayBuffer(4)};}};const bad=createGameAudio();bad.init();await settle();const cx=Context.current;for(const type of types)bad.play(type);for(const type of ['shot','enemy'])for(const weapon of Object.keys(weapons))bad.play(type,{weapon});assert.equal(cx.nodes.length,0,failure+' never reverts to beeps/noise');
   }
   // Partial decoding retains only ready layers and never synthesizes a missing layer.
   global.window={AudioContext:Mapped,fetch:async url=>{const f=path.basename(new URL(url).pathname);return{ok:f==='lab-cloth.ogg',arrayBuffer:async()=>Uint8Array.from(Buffer.from(f)).buffer};}};const partial=createGameAudio();partial.init();await settle();const pc=Context.current;partial.play('skill-throw');assert.equal(pc.sources.length,1);assert.equal(pc.sources[0].kind,'buffer');pc.sources[0].end();assert.ok(pc.nodes.every(n=>n.disconnects===1));

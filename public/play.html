@@ -231,8 +231,9 @@
 
   <section id="shop-overlay" class="overlay-screen shop-screen" hidden aria-label="武器購入">
     <div class="shop-panel">
-      <header class="shop-header"><div><div class="dialog-eyebrow"><span class="signal-dot"></span> PREPARE FOR THE NEXT ROUND</div><h2>ARSENAL<span>装備購入</span></h2></div><div class="shop-wallet"><span>しばくでコイン</span><strong>SC <span id="shop-credits">800</span></strong></div><button id="close-shop" class="close-button" type="button" aria-label="購入画面を閉じる">× <kbd>B</kbd></button></header>
-      <div class="shop-rule"><span class="signal-dot"></span><span id="shop-rule-summary">購入は購入フェーズ中のみ可能です</span><span>武器は死亡すると失い、生存時は次のラウンドへ持ち越します。</span></div>
+      <header class="shop-header"><div><div class="dialog-eyebrow"><span class="signal-dot"></span> PREPARE FOR THE NEXT ROUND</div><h2>購入メニュー<span>BUY MENU</span></h2></div><div class="shop-wallet"><span>しばくでコイン</span><strong>SC <span id="shop-credits">800</span></strong></div><button id="close-shop" class="close-button" type="button" aria-label="購入画面を閉じる">× <kbd>B</kbd></button></header>
+      <div class="shop-rule"><span class="signal-dot"></span><span id="shop-rule-summary">購入フェーズ</span><span>持ち越し装備は売却できません</span></div>
+      <div class="shop-controls"><span><b>左クリック</b> 購入・買い足し</span><span><b>右クリック</b> 売却</span><span><kbd>B</kbd> / <kbd>Esc</kbd> 閉じる</span></div>
       <div class="shop-columns">
         <section class="shop-category"><h3><span>01</span> SIDEARMS<small>サイドアーム</small></h3>
           <button class="buy-card" data-buy="classic" type="button"><span class="buy-name">CLASSIC<small>クラシック / サイドアーム</small></span><svg viewBox="0 0 180 70" aria-hidden="true"><path d="M20 19h117l6 7h13v13h-46l-6 22H77l-5-25H20zM34 13h89v7H34z"/></svg><span class="buy-price"><span>STANDARD ISSUE</span><strong>SC 0</strong></span></button>
@@ -250,14 +251,15 @@
           <button class="buy-card" data-buy="light" type="button"><span class="buy-name">LIGHT SHIELDS<small>ライトシールド</small></span><svg class="shield-silhouette" viewBox="0 0 100 90" aria-hidden="true"><path d="m50 8 29 12v24c0 19-29 36-29 36S21 63 21 44V20zM50 20v46"/></svg><span class="shield-strength">25 ARMOR</span><span class="buy-price"><span>LIGHT</span><strong>SC 400</strong></span></button>
           <button class="buy-card" data-buy="heavy" type="button"><span class="buy-name">HEAVY SHIELDS<small>ヘヴィーシールド</small></span><svg class="shield-silhouette" viewBox="0 0 100 90" aria-hidden="true"><path d="m50 7 34 14v24c0 20-34 39-34 39S16 65 16 45V21zM50 20 29 29v16c0 10 21 25 21 25s21-15 21-25V29zM50 20v50"/></svg><span class="shield-strength">50 ARMOR</span><span class="buy-price"><span>HEAVY</span><strong>SC 1,000</strong></span></button>
         </section>
-        <section class="shop-category ability-shop"><h3><span>05</span> ABILITIES<small>能力</small></h3>
+        <section class="shop-category ability-shop"><h3>スキル<small>ABILITIES · 1クリックで1回分</small></h3>
           <button id="shop-skill-c" class="buy-card ability-buy-card" data-buy="smoke" data-skill-key="c" type="button"><span class="buy-name"><span id="shop-skill-c-name">煙幕</span><small id="shop-skill-c-key">C / 煙幕</small></span><svg class="ability-buy-icon" viewBox="0 0 36 30" aria-hidden="true"><path id="shop-skill-c-glyph" d="M9 23a6 6 0 0 1-1-12 9 9 0 0 1 17-3 8 8 0 0 1 2 16H9M6 27h24M12 18h12"/></svg><span id="shop-skill-c-description" class="ability-buy-description">視線を遮る煙を展開</span><small id="shop-skill-c-count" class="ability-buy-stock">所持 0/2 · 1回分を購入</small><span class="buy-price"><span>C / SKILL</span><strong id="shop-skill-c-price">SC 200</strong></span></button>
-          <button id="shop-skill-c-add" class="skill-add-button" type="button">＋1回分購入</button>
+          <button id="shop-skill-c-sell" class="skill-sell-button" type="button" aria-label="Cを1回分売却">1回分売却</button>
           <button id="shop-skill-q" class="buy-card ability-buy-card" data-buy="updraft" data-skill-key="q" type="button"><span class="buy-name"><span id="shop-skill-q-name">上昇</span><small id="shop-skill-q-key">Q / 上昇</small></span><svg class="ability-buy-icon" viewBox="0 0 36 30" aria-hidden="true"><path id="shop-skill-q-glyph" d="m10 14 8-9 8 9M18 6v17M7 21l11 6 11-6M5 26l13 3 13-3"/></svg><span id="shop-skill-q-description" class="ability-buy-description">上空へ跳び上がる</span><small id="shop-skill-q-count" class="ability-buy-stock">所持 0/1 · 1回分を購入</small><span class="buy-price"><span>Q / SKILL</span><strong id="shop-skill-q-price">SC 150</strong></span></button>
-          <button id="shop-skill-q-add" class="skill-add-button" type="button">＋1回分購入</button>
+          <button id="shop-skill-q-sell" class="skill-sell-button" type="button" aria-label="Qを1回分売却">1回分売却</button>
         </section>
       </div>
-      <footer class="shop-footer"><div><p id="shop-status" role="status" aria-live="polite">装備を選択してください。</p><span>クリックして購入 <i>·</i> B で閉じる <i>·</i> ラウンド中の購入はできません</span></div><button id="start-round" class="primary-button" type="button"><span>準備完了<small>START ROUND / SOLO</small></span><span class="arrow">→</span></button></footer>
+      <div class="shop-free-skills"><span id="shop-free-skill"></span><span id="shop-ultimate"></span></div>
+      <footer class="shop-footer"><div><p id="shop-status" role="status" aria-live="polite">装備を選択してください。</p><span>当ラウンドの購入分のみ全額返金 <i>·</i> タッチ操作は「売却」ボタン <i>·</i> キーボードは選択して Delete で売却</span></div><button id="start-round" class="primary-button" type="button"><span>準備完了<small>START ROUND / SOLO</small></span><span class="arrow">→</span></button></footer>
     </div>
   </section>
 

@@ -2,9 +2,10 @@
 
 効果音：効果音ラボ / OtoLogic / On-Jin ～音人～
 スキル・通知・TRCの操作音に、この3サイトの編集済み音源を使用します。
-所有者の指定により、銃声・足音・着地は従来のKenney素材と再生処理を維持。
+所有者の最新指定により、銃撃/ナイフは共同編集版の効果音ラボ録音へ差し替え。
+足音・着地は従来のKenney素材と再生処理を維持。
 車両命中・壁破壊はユーザー提供MP3を使用します。
-銃声・足音・着地の既存fallback以外は、読取失敗時に無音となります。
+足音・着地の既存fallback以外は、読取失敗時に無音となります。
 
 OtoLogic — https://otologic.jp/
 Copyright OtoLogic. Licensed under Creative Commons Attribution 4.0:
@@ -158,3 +159,18 @@ User supplied bus wall destruction (cycle102)
 Original attachment: 岩が真っ二つに割れる.mp3 -> bus-wall-break-user.mp3 (unchanged bytes).
 Included at the user's explicit request for bus demolition in this game.
 Separate from Kenney CC0 packs; no CC0 license is claimed.
+
+Combat confirmation use (cycle109)
+- gun-hit: existing lab-punch-light1.ogg, Sound Effect Lab recording; terms and SHA remain in soundeffect-lab-manifest.json.
+- gun-kill: the same impact plus existing jingle-PIZZI07.ogg, Kenney Music Jingles, CC0; original license and SHA remain bundled.
+No new recording downloads, synthesized layers, gunshot/footstep changes or user-impact MP3 edits.
+
+Weapon recording integration (cycle115)
+Owner requested the collaborator gunfire replacement. All 10 firearms and knife
+now use the exact PR54/PR49 recorded recipes (rate, gain and clip length).
+Sources: lab-handgun-firing1.ogg / lab-machinegun-firing1.ogg /
+lab-machinegun-firing2.ogg / lab-knife-slash-1.ogg from Sound Effect Lab.
+Original source URLs, edits and SHA remain in soundeffect-lab-manifest.json.
+Self/enemy share the same weapon recording; distance/pan/occlusion remain.
+No playback/listening performed. Original footstep/landing graph and 8 asset
+bytes remain; earlier original-gunfire preservation notes above are history.

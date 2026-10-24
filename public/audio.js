@@ -1,4 +1,4 @@
-// Recorded skill/UI/TRC effects from Sound Effect Lab, OtoLogic and On-Jin plus user impacts. Original gunfire/step/landing graph is preserved. See audio/CREDITS.txt.
+// Recorded skill/UI/TRC effects from Sound Effect Lab, OtoLogic and On-Jin plus user impacts. Collaborator weapon recordings; original step/landing graph is preserved. See audio/CREDITS.txt.
 const layer=(file,gain=.15,length=.35,delay=0,rate=1)=>Object.freeze({file,gain,length,delay,rate});
 const cloth=(gain=.18,length=.28,delay=0)=>layer('lab-cloth.ogg',gain,length,delay);
 const air=(gain=.18,length=.28,delay=0)=>layer('onjin-dash.ogg',gain,length,delay);
@@ -10,6 +10,12 @@ const wood=(gain=.18,length=.28,delay=0)=>layer('lab-landing1.ogg',gain,length,d
 const liquid=(gain=.17,length=.4,delay=0)=>layer('lab-liquid.ogg',gain,length,delay);
 const pluck=(id,gain=.14,length=.65,delay=0)=>layer((id==='00'?'oto-angel01-1.ogg':id==='07'?'lab-success1.ogg':'lab-cancel2.ogg'),gain,length,delay);
 export const SAMPLE_CUES=Object.freeze({
+ 'weapon-classic':[layer('lab-handgun-firing1.ogg',.34,.42)],'weapon-ghost':[layer('lab-handgun-firing1.ogg',.21,.35,0,1.12)],
+ 'weapon-spectre':[layer('lab-machinegun-firing2.ogg',.27,.12,0,1.18)],'weapon-phantom':[layer('lab-machinegun-firing2.ogg',.25,.12,0,.94)],'weapon-vandal':[layer('lab-machinegun-firing1.ogg',.40,.12)],
+ 'weapon-knife':[layer('lab-knife-slash-1.ogg',.22,.36)],'weapon-pump':[layer('lab-handgun-firing1.ogg',.40,.42,0,.78)],'weapon-drum':[layer('lab-machinegun-firing1.ogg',.36,.12,0,.85)],
+ 'weapon-scout':[layer('lab-handgun-firing1.ogg',.36,.42,0,.92)],'weapon-atlas':[layer('lab-handgun-firing1.ogg',.43,.5,0,.68)],'weapon-forge':[layer('lab-machinegun-firing2.ogg',.31,.12,0,.8)],
+ 'gun-hit':[soft(.48,.12)],
+ 'gun-kill':[soft(.38,.14),layer('jingle-PIZZI07.ogg',.30,.65,.025)],
  'vehicle-hit':[layer('vehicle-impact-user.mp3',.65,1.1)],
  'bus-break':[layer('bus-wall-break-user.mp3',.55,5.55)],
  'duct-step':[layer('onjin-latch.ogg',.14,.16,0,.82)],
@@ -47,11 +53,6 @@ export const SAMPLE_CUES=Object.freeze({
 export function createGameAudio(){
   let context=null,active=0,loading=false,sampleSequence=0;const buffers=new Map(),samples=new Map();
   const recordings={step:{files:['footstep_concrete_000.ogg','footstep_concrete_001.ogg'],gain:.20,length:.30},land:{files:['impactSoft_heavy_000.ogg'],gain:.25,rate:.9,length:.40}};
-  const profiles={
-    classic:{frequency:1750,body:125,length:.15,gain:.28},ghost:{frequency:1250,body:95,length:.13,gain:.23},
-    spectre:{frequency:2200,body:145,length:.12,gain:.27},phantom:{frequency:1500,body:105,length:.16,gain:.29},
-    vandal:{frequency:2900,body:155,length:.20,gain:.36},knife:{frequency:1200,body:0,length:.13,gain:.15}
-  };
   function init(){
     try{context||=new (window.AudioContext||window.webkitAudioContext)();if(context.state==='suspended')context.resume()?.catch?.(()=>{});loadSamples();}catch{}
   }
@@ -83,8 +84,9 @@ export function createGameAudio(){
   }
   function play(type,{volume=.45,weapon='classic',pan=0,distance=0,occluded=false}={}){
     if(!context||context.state!=='running'||volume<=0||active>=48)return;
-    const protectedSound=['shot','enemy','step','land'].includes(type);
-    const recipe=Object.hasOwn(SAMPLE_CUES,type)?SAMPLE_CUES[type]:null;
+    const protectedSound=['step','land'].includes(type);
+    const cueType=type==='shot'||type==='enemy'?'weapon-'+(Object.hasOwn(SAMPLE_CUES,'weapon-'+weapon)?weapon:'classic'):type;
+    const recipe=Object.hasOwn(SAMPLE_CUES,cueType)?SAMPLE_CUES[cueType]:null;
     const layers=protectedSound?null:recipe?.filter(layer=>samples.has(layer.file));
     // Failed or not-yet-decoded samples stay silent: never queue a late cue or emit a beep.
     if(!protectedSound&&!layers?.length)return;
@@ -112,12 +114,7 @@ export function createGameAudio(){
       source.connect(filter);filter.connect(amp);amp.connect(out);source.start(t,0,length*rate);
       sources.push({source,end:length});nodes.push(source,filter,amp);return true;
     }
-    if(type==='shot'||type==='enemy'){
-      const spec=profiles[({pump:'vandal',drum:'vandal',scout:'vandal',atlas:'vandal',forge:'phantom'})[weapon]||weapon]||profiles.classic;
-      hiss(spec.length,spec.frequency,spec.gain,weapon==='knife');
-      if(spec.body)tone(spec.body,spec.body*.34,.12,spec.gain*.48,'triangle');
-      if(weapon==='vandal'||weapon==='classic')hiss(.055,4300,.10,true);
-    }else if(type==='step'||type==='land'){
+    if(type==='step'||type==='land'){
       if(!recording(type)){hiss(type==='land'?.12:.075,660,type==='land'?.16:.10);tone(type==='land'?95:125,45,.065,type==='land'?.10:.045,'triangle');}
     }else{
       for(const layer of layers){

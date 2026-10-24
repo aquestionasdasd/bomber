@@ -1,4 +1,5 @@
 import { createRoundDamageTracker, renderCombatReport } from './combat-report.js';
+import { createFlashStatusFX } from './flash-status-fx.js';
 import { planNopeWalk, nopeWalkPose } from './nope-walk.js';
 import {busPoint} from './bus-service.js';
 import {busHitsBox} from './bus-destruction.js';
@@ -52,7 +53,7 @@ import { createBuildingCollapse } from './building-collapse.js';
 import { createStationTakeover } from './station-takeover.js';
 import { createKeyboardProtection } from './keyboard-protection.js';
 import { getCharacterSkill } from './abilities.js';
-import { createCharacterSkills, skillProjectilePosition, selectMendTarget } from './character-skills.js';
+import { CHARACTER_SKILLS, createCharacterSkills, skillProjectilePosition, selectMendTarget } from './character-skills.js';
 import { createCharacterSkillUI } from './character-skill-ui.js';
 import { createNopeSkillFX } from './nope-skill-fx.js';
 import { createNopeDecoys } from './nope-decoys.js';
@@ -131,6 +132,7 @@ const teamAbilities=createTeamAbilities(),characterFX=createCharacterFX(THREE);s
 const zoneAbilities=createZoneAbilities(),zoneFX=createZoneFX(THREE);scene.add(zoneFX.group);
 const skillSpectacle=createSkillSpectacle(THREE),skillFeedback=createSkillFeedback(document);scene.add(skillSpectacle.group);
 const ordinarySkills=createCharacterSkills(),ordinaryFX=createNopeSkillFX(THREE,camera);scene.add(ordinaryFX.group);
+const flashStatusFX=createFlashStatusFX(THREE);scene.add(flashStatusFX.group);
 const nopeDecoys=createNopeDecoys(),nopeDecoyFX=createNopeDecoyFX(THREE);scene.add(nopeDecoyFX.group);
 let nopePopSequence=0,nopeSeenPopSequence=0,nopeDecoyTownCandidates=null;
 const nopePops=[];
@@ -191,7 +193,6 @@ let skillPurchaseLedger=new WeakMap(),bomberNoticeKey='',bomberNoticeUntil=0;
 let roster = [];
 let redLossStreak=0,spectateIndex=0,spectatedBot=null,interactionHeld=false,shotSequence=0,stepClock=0;
 let targetSite='A',lastSpikeBeep=0,botThinkTick=0;
-const originalNames=['YOU',CHARACTER_DEFS.ember.label,'NOVA','ATLAS',CHARACTER_DEFS.echo.label,'VIPER UNIT','ONYX','CIPHER UNIT','BLAZE','ORBIT'];
 const sideNames={attack:'ATTACKERS / 攻撃',defend:'DEFENDERS / 防衛'};
 let mode = 'menu', pausedFrom = 'play', locked = false, firing = false, aiming = false;
 let elapsed = 0, timeLeft = 150, round = 1, totalKills = 0, shots = 0, hits = 0, reloading = 0;
@@ -245,7 +246,7 @@ function resetTakeover(){takeoverState=null;takeoverClock=0;stationTakeover.rese
 function resetZoneAbilities(){zoneAbilities.reset();zoneFX.reset();zonePulseAudio.clear();zoneTargetPreview=null;zoneTargetPreviewAt=-Infinity;zoneTargetCharacter=null;if($('status-effects')){$('status-effects').hidden=true;$('status-effects').textContent='';}}
 const stoppedTurfEvents=new Map();
 const stoppedFrostEvents=new Map();
-function resetOrdinarySkills(){capBankPreviewFX.reset();capPreviewUntil=-Infinity;capPreviewPath=null;skillSpectacle.reset();skillFeedback.reset();starHold.reset();onnaraSkillFX.reset();urchinSkillFX.reset();capSkillFX.reset();japanSkillFX.reset();nobiSkillFX.reset();carSkillFX.reset();catReturnSeen.clear();catSkillFX.reset();duckAim=null;duckSkillFX.reset();botHearing.reset();ordinarySkills.reset();ordinaryFX.reset();nopeDecoys.reset();nopeDecoyFX.reset();nopePops.length=0;nopeSeenPopSequence=0;mendSkillFX.reset();iagnuSkillFX.reset();grassSkillFX.reset();emberSkillFX.reset();frostSkillFX.reset();duelistSkillFX.reset();for(const actor of [player,...bots]){actor.nextNobiToolAt=0;actor.duckPadAt=-Infinity;actor.duckPadUntil=0;actor.duckPadRound=0;actor.duckPadTeam=null;actor.duckFlapEvent=null;actor.duckFlapAt=-Infinity;if(!(['play','pause'].includes(mode)&&match?.phase==='post'&&!actor.alive&&actor.carMotion?.round===match.round&&actor.carMotion?.endsAt>elapsed)){actor.carMotion=null;actor.carImpulseUntil=0;actor.carFallUntil=0;actor.carRecoveryUntil=0;}cancelServiceReload(actor);actor.lastHeard=null;actor.netStepClock=0;}stoppedServiceEvents.clear();stoppedTurfEvents.clear();stoppedFrostEvents.clear();ordinaryAudio.clear();ordinaryMarkerAudio.clear();const overlay=$('skill-blind-overlay');if(overlay){overlay.hidden=true;overlay.style.opacity='0';}const nearOverlay=$('skill-nearsight-overlay');if(nearOverlay){nearOverlay.hidden=true;nearOverlay.style.opacity='0';}}
+function resetOrdinarySkills(){flashStatusFX.reset();capBankPreviewFX.reset();capPreviewUntil=-Infinity;capPreviewPath=null;skillSpectacle.reset();skillFeedback.reset();starHold.reset();onnaraSkillFX.reset();urchinSkillFX.reset();capSkillFX.reset();japanSkillFX.reset();nobiSkillFX.reset();carSkillFX.reset();catReturnSeen.clear();catSkillFX.reset();duckAim=null;duckSkillFX.reset();botHearing.reset();ordinarySkills.reset();ordinaryFX.reset();nopeDecoys.reset();nopeDecoyFX.reset();nopePops.length=0;nopeSeenPopSequence=0;mendSkillFX.reset();iagnuSkillFX.reset();grassSkillFX.reset();emberSkillFX.reset();frostSkillFX.reset();duelistSkillFX.reset();for(const actor of [player,...bots]){actor.nextNobiToolAt=0;actor.nextCatClockAt=0;actor.decoySeen?.clear();actor.duckPadAt=-Infinity;actor.duckPadUntil=0;actor.duckPadRound=0;actor.duckPadTeam=null;actor.duckFlapEvent=null;actor.duckFlapAt=-Infinity;if(!(['play','pause'].includes(mode)&&match?.phase==='post'&&!actor.alive&&actor.carMotion?.round===match.round&&actor.carMotion?.endsAt>elapsed)){actor.carMotion=null;actor.carImpulseUntil=0;actor.carFallUntil=0;actor.carRecoveryUntil=0;}cancelServiceReload(actor);actor.lastHeard=null;actor.netStepClock=0;}stoppedServiceEvents.clear();stoppedTurfEvents.clear();stoppedFrostEvents.clear();ordinaryAudio.clear();ordinaryMarkerAudio.clear();const overlay=$('skill-blind-overlay');if(overlay){overlay.hidden=true;overlay.style.opacity='0';}const nearOverlay=$('skill-nearsight-overlay');if(nearOverlay){nearOverlay.hidden=true;nearOverlay.style.opacity='0';}}
 function resetTeamAbilities(){teamAbilities.reset();characterFX.reset();resetZoneAbilities();resetOrdinarySkills();}
 function actorGrounded(actor){
   if(!actor?.alive||!Number.isFinite(actor.y)||Number.isFinite(actor.vy)&&Math.abs(actor.vy)>1e-5)return false;
@@ -450,6 +451,7 @@ function updateOrdinarySkills(){
 function renderOrdinarySkills(){
   capBankPreviewFX.update(getCapBankPreview());
   const live=match?.phase==='live',viewer=player.alive?player:spectatedBot;
+  flashStatusFX.update(live&&['play','pause'].includes(mode)?bots:[],elapsed,{blindUntil:(id,now)=>Math.max(ordinarySkills.blindUntil(id,now),ordinarySkills.nearsightUntil(id,now)),viewerId:(viewer||player).id,reducedMotion:reducedMotion.matches,visible:actor=>ordinarySkills.blindUntil((viewer||player).id,elapsed)<=elapsed&&visibleBetween(viewer||player,actor)});
   const spectacleEvents=live?[...ordinarySkills.events(elapsed),...teamAbilities.events(elapsed),...zoneAbilities.events(elapsed)]:[];
   skillFeedback.observe(spectacleEvents,elapsed,player.id);skillFeedback.render(elapsed,{active:live&&mode==='play'&&player.alive,reducedMotion:reducedMotion.matches});
   skillSpectacle.update(spectacleEvents,elapsed,{actors:[player,...bots],viewer:viewer||player,reducedMotion:reducedMotion.matches,visible:p=>ordinarySkills.blindUntil((viewer||player).id,elapsed)<=elapsed&&visibleBetween(viewer||player,p)});
@@ -473,7 +475,8 @@ function renderOrdinarySkills(){
   if(nearOverlay){nearOverlay.hidden=!(nearRemaining>0&&mode==='play');nearOverlay.style.opacity=String(Math.min(1,nearRemaining/.25));}
   const remaining=live&&viewer?.alive?Math.max(0,ordinarySkills.blindUntil(viewer.id,elapsed)-elapsed):0,overlay=$('skill-blind-overlay');
   if(overlay){overlay.hidden=!(remaining>0&&mode==='play');overlay.style.opacity=String(clamp(remaining/.35,0,.94));}
-  if(['play','pause','shop','map','score'].includes(mode))gun.visible=player.alive&&!busDriving()&&inventory.active!=='spike'&&!ordinaryFX.throwing(elapsed)&&!mendSkillFX.throwing(elapsed)&&!iagnuSkillFX.throwing(elapsed)&&!grassSkillFX.throwing(elapsed)&&!emberSkillFX.throwing(elapsed)&&!frostSkillFX.throwing(elapsed)&&!duelistSkillFX.throwing(elapsed);
+  // Resolve the viewed equipment again after FX and asynchronous snapshots.
+  updateFirstPersonEquipment(0);
 }
 function updateTeamAbilities(){
   if(!match)return;
@@ -564,6 +567,17 @@ function skillImpact(target,source,character,kind='hit'){
   if(onlinePlaying&&online?.host){netCues.push({seq:++netCueSequence,round:match.round,type:kind==='heal'?'skill-heal':'skill-hit',weapon:character,id:source.id,...point,time:elapsed});if(netCues.length>64)netCues.splice(0,netCues.length-64);}
 }
 function serializeNetCues(){return netCues.filter(c=>c.round===match?.round&&c.time>=elapsed-1.5);}
+// A confirmation belongs to the shooter, after real host damage, never the
+// predicted guest ray. Shotgun pellets already arrive as one victim total.
+function firearmFeedback(source,killed){
+  if(isGuest()||!source)return;
+  const type=killed?'gun-kill':'gun-hit';
+  if(source===player)sound(type,{localOnly:true});
+  else if(onlinePlaying&&online?.host&&source.remoteId){
+    netCues.push({seq:++netCueSequence,round:match.round,type,weapon:source.netWeapon,id:source.id,x:source.x,y:source.y||0,z:source.z,time:elapsed});
+    if(netCues.length>64)netCues.splice(0,netCues.length-64);
+  }
+}
 function validBusBreakCue(cue,packet){
  return cue?.type==='bus-break'&&Number.isSafeInteger(cue.seq)&&cue.seq>0&&cue.round===packet.rules?.round&&packet.rules?.phase==='live'&&[cue.x,cue.y,cue.z,cue.time].every(Number.isFinite)&&Math.max(Math.abs(cue.x),Math.abs(cue.z))<=82&&cue.y>=0&&cue.y<=30&&packet.time>=cue.time&&packet.time-cue.time<=.65;
 }
@@ -573,6 +587,12 @@ function applyNetCues(packet,fresh,ownId){
     if(!Number.isSafeInteger(cue.seq)||cue.seq<=previous||seen.has(cue.seq))continue;seen.add(cue.seq);
     netSeenCueSequence=Math.max(netSeenCueSequence,cue.seq);
     if(fresh||cue.round!==packet.rules.round||packet.time-cue.time>1||packet.time<cue.time||![cue.x,cue.z].every(Number.isFinite))continue;
+    if(cue.type==='gun-hit'||cue.type==='gun-kill'){
+      // Keep the final elimination audible in its post-round snapshot too.
+      // The shared sequence is consumed even while muted or still loading.
+      if(cue.id===ownId&&['live','post'].includes(packet.rules.phase)&&packet.time-cue.time<=.65&&Number.isFinite(cue.time)&&Number.isFinite(cue.y)&&Object.hasOwn(WEAPONS,cue.weapon)&&['primary','secondary'].includes(WEAPONS[cue.weapon].slot))sound(cue.type,{localOnly:true});
+      continue;
+    }
     if(['skill-hit','skill-heal'].includes(cue.type)){if(!Object.hasOwn(SKILL_LOOKS,cue.weapon)||!Number.isFinite(cue.y)||Math.max(Math.abs(cue.x),Math.abs(cue.y),Math.abs(cue.z))>1000||packet.time-cue.time>.65||packet.rules.phase!=='live')continue;const kind=cue.type==='skill-heal'?'heal':'hit';skillSpectacle.impact(cue.weapon,cue,cue.time,{kind});if(cue.id===ownId)skillFeedback.note(kind,'receipt:'+cue.round+':'+cue.seq,cue.weapon,cue.time);continue;}
     if(cue.type==='bus-break'){if(validBusBreakCue(cue,packet))sound('bus-break',{entity:cue,localOnly:true});continue;}
     // Vehicle contact is host-confirmed even when this guest is the victim.
@@ -598,6 +618,34 @@ function updateAbilityFeedback(){
 
 const viewmodel=createViewmodel(THREE,camera);
 const gun=viewmodel.group,flash=viewmodel.flash;
+let equipmentActor=null;
+function firstPersonActor(){
+  if(!['play','pause','shop','map','score'].includes(mode)||isGuest()&&!netHasSnapshot)return null;
+  if(player.alive)return player;
+  return !deathView.holding&&spectatedBot?.alive&&spectatedBot.team===player.team?spectatedBot:null;
+}
+function firstPersonWeapon(actor){
+  const id=actor===player?inventory.active:actor.netTarget?.weapon||(actor.remoteId?actor.netWeapon:actor.aiWeapon)||actor.record?.primary||actor.record?.secondary||'classic';
+  return id==='spike'||Object.hasOwn(WEAPONS,id)?id:'classic';
+}
+function updateFirstPersonEquipment(dt){
+  const actor=firstPersonActor();
+  if(!actor){gun.visible=false;flash.visible=false;equipmentActor=null;return;}
+  const local=actor===player,id=firstPersonWeapon(actor),spec=WEAPONS[id]||WEAPONS.knife,state=local?null:actor.netTarget;
+  const reload=local?reloading:state?.reloading??(actor.remoteId?actor.netReload:actor.aiReload)??0;
+  const interacting=local?interactionHeld&&mode==='play':!!(actor.planting||actor.defusing||state?.planting||state?.defusing);
+  const scoped=!!(local&&aiming&&spec.scope&&!reload&&!actor.serviceReload&&!interactionHeld&&!busSeat(actor)&&['play','pause'].includes(mode));
+  const throwing=local?(ordinaryFX.throwing(elapsed)||mendSkillFX.throwing(elapsed)||iagnuSkillFX.throwing(elapsed)||grassSkillFX.throwing(elapsed)||emberSkillFX.throwing(elapsed)||frostSkillFX.throwing(elapsed)||duelistSkillFX.throwing(elapsed)):elapsed<(actor.skillThrowUntil||0);
+  gun.visible=id!=='spike'&&!busDriving(actor)&&!scoped&&!throwing;
+  viewmodel.setWeapon(id==='spike'?'knife':id,actor!==equipmentActor);equipmentActor=actor;
+  viewmodel.update(dt,{character:actor.kit?.character||state?.kit?.character,scoped,
+    aiming:local&&aiming&&mode==='play'&&!netHostPaused,reloading:reload,
+    reloadDuration:actor.serviceReload||state?.serviceReload?EMBER_SKILLS.serviceDuration:spec.reload,
+    kick:local?kick:actor.flash>0?.035:0,moving:local?Math.hypot(actor.vx,actor.vz)>.5:!!actor.moving,
+    time:elapsed,crouching:actor.crouch,interacting,ultimate:actor.kit?.knivesActive&&id==='knife',
+    knives:actor.kit?.knives,shotSequence:local?shotSequence:actor.shotSequence||state?.shotSequence||0,spectating:!local});
+  flash.visible=gun.visible&&id!=='knife'&&!reload&&!interacting&&(local?elapsed-lastShot<.045:actor.flash>0);flash.rotation.z=elapsed*40;
+}
 const gunDark=new THREE.MeshStandardMaterial({color:'#26363d',roughness:.5,metalness:.5});
 
 const buyBarrier=new THREE.Mesh(new THREE.CylinderGeometry(1,1,4,80,1,true),new THREE.MeshBasicMaterial({color:'#8ad8ed',transparent:true,opacity:.16,side:THREE.DoubleSide,depthWrite:false}));
@@ -687,7 +735,7 @@ function openShop(){
   if(!match||(!exploring&&match.phase!=='buy')||!player.alive){showMessage('ショップは購入フェーズのみ','装備は生き残れば次のラウンドへ持ち越します',2);return;}
   if(mode==='shop'){resumeGame();return;}
   mode='shop';keys.clear();firing=false;aiming=false;setVisible('shop-overlay',true);if(document.pointerLockElement)document.exitPointerLock();updateShop();
-  if($('shop-status'))$('shop-status').textContent=exploring?'練習中は全武器を無料で選択できます。':'装備を選択してください。';
+  if($('shop-status'))$('shop-status').textContent=exploring?'練習中は全武器を無料で選択できます。':'左クリックで購入・買い足し / 右クリックで売却';
 }
 // Only purchases made by this kit in this buy phase can be refunded. No wire
 // fields are needed: the host keeps the ledger, guests send an ordinary action.
@@ -705,41 +753,85 @@ function tradeSkill(actor,id,selling=false){
   const ok=kit.buy(key,price=>{if(record.credits<price)return false;if(actor===player)return match.purchase(price);record.credits-=price;return true;});
   if(ok)ledger[key].push(definition.price);return ok;
 }
-function clickSkillPurchase(key){
+function clickSkillPurchase(key,selling=false){
   if(!['c','q'].includes(key)||!player.alive||match?.phase!=='buy'||netHostPaused||exploring)return false;
-  const selling=player.kit[key==='c'?'smoke':'updraft']>0,id=selling?'sell-'+key:key;
-  if(isGuest()){if(netActions.some(a=>a.type==='buy'&&[key,key==='c'?'smoke':'updraft','sell-'+key].includes(a.id)))return false;queueNetAction('buy',{id});return true;}
+  const id=selling?'sell-'+key:key;
+  if(isGuest()){if(netActions.some(a=>a.type==='buy'&&[key,key==='c'?'smoke':'updraft','sell-'+key].includes(a.id)))return false;const n=netActions.length;queueNetAction('buy',{id});return netActions.length>n;}
   const ok=tradeSkill(player,key,selling);
-  if($('shop-status'))$('shop-status').textContent=ok?`${getCharacterSkill(player.kit.character,key).name} を${selling?'売却':'購入'}しました`:'持ち越したスキルは売却できません';
+  if($('shop-status'))$('shop-status').textContent=ok?`${getCharacterSkill(player.kit.character,key).name} を${selling?'売却':'購入'}しました`:selling?'このラウンドに購入したスキルだけ売却できます':'所持数が最大か、しばくでコインが不足しています';
+  if(ok)sound('buy');updateShop();updateHUD();return ok;
+}
+// The previous loadout stays in the host's ledger, never in a client price.
+function tradeEquipment(actor,id,selling=false){
+  if(!actor?.alive||match?.phase!=='buy'||netHostPaused||exploring)return false;
+  const local=actor===player,record=local?match:actor.record,items=local?inventory:record;
+  const armor=id==='light'||id==='heavy',spec=armor?{slot:'armor',price:id==='light'?400:1000}:WEAPONS[id];
+  if(!record||!spec||!['primary','secondary','armor'].includes(spec.slot))return false;
+  const ledger=local?roundPurchases:(record.netPurchases||={}),slot=spec.slot;
+  const old=ledger[slot]?.round===match.round?ledger[slot]:null,owned=armor?actor.armor>=(id==='light'?25:50):items[slot]===id;
+  if(selling){
+    if(!owned||!old||old.id!==id)return false;
+    if(local)match.addCredits(old.price);else record.credits=Math.min(9000,record.credits+old.price);
+    delete ledger[slot];
+    if(armor)actor.armor=old.previous;
+    else{
+      items[slot]=old.previous;
+      const stores=local?ammoStore:(actor.netStores||={});delete stores[id];if(old.previous&&old.ammo)stores[old.previous]={...old.ammo};
+      const active=local?inventory.active:actor.netWeapon;
+      if(active===id){const next=old.previous||items.secondary||items.primary||'knife';if(local)equip(next,true);else{const w=WEAPONS[next],ammo=stores[next];actor.netWeapon=next;actor.netAmmo=ammo?.ammo??w.mag;actor.netReserve=ammo?.reserve??w.reserve;actor.netReload=0;}}
+    }
+    return true;
+  }
+  if(owned)return false;
+  const replacing=old&&(armor||old.id===items[slot]),refund=replacing?old.price:0;
+  if(record.credits+refund<spec.price)return false;
+  const previous=replacing?old.previous:armor?actor.armor:items[slot];
+  const active=local?inventory.active:actor.netWeapon,stores=local?ammoStore:(actor.netStores||={});
+  const ammo=armor?null:replacing?old.ammo:previous?(active===previous?{ammo:local?player.ammo:actor.netAmmo,reserve:local?player.reserve:actor.netReserve}:stores[previous]||{ammo:WEAPONS[previous].mag,reserve:WEAPONS[previous].reserve}):null;
+  record.credits=Math.min(9000,record.credits+refund)-spec.price;
+  ledger[slot]={id,price:spec.price,round:match.round,previous,ammo};
+  if(armor)actor.armor=id==='light'?25:50;
+  else{items[slot]=id;delete stores[id];if(local)equip(id);else{actor.netWeapon=id;actor.netAmmo=spec.mag;actor.netReserve=spec.reserve;actor.netReload=0;stores[id]={ammo:spec.mag,reserve:spec.reserve};}}
+  return true;
+}
+function sell(id){
+  if(['c','q'].includes(id))return clickSkillPurchase(id,true);
+  if(!player.alive||match?.phase!=='buy'||netHostPaused||exploring)return false;
+  if(isGuest()){if(netActions.some(a=>a.type==='buy'))return false;const n=netActions.length;queueNetAction('buy',{id:'sell-'+id});return netActions.length>n;}
+  const ok=tradeEquipment(player,id,true);
+  if($('shop-status'))$('shop-status').textContent=ok?'売却してしばくでコインを返金しました':'このラウンドに購入し、所持している装備だけ売却できます';
   if(ok)sound('buy');updateShop();updateHUD();return ok;
 }
 function buy(id){
   if(netHostPaused)return false;
   if(exploring){const spec=WEAPONS[id];if(!spec||spec.slot==='melee')return false;inventory[spec.slot]=id;delete ammoStore[id];equip(id,true);updateShop();updateHUD();return true;}
-  if(isGuest()){queueNetAction('buy',{id});return true;}
+  if(isGuest()){if(netActions.some(a=>a.type==='buy'&&a.id===id))return false;const n=netActions.length;queueNetAction('buy',{id});return netActions.length>n;}
   if(!match||match.phase!=='buy'||!player.alive)return false;
   if(['smoke','updraft','c','q'].includes(id)){const ok=tradeSkill(player,id);if(ok){sound('buy');updateShop();updateHUD();}return ok;}
   const armor=id==='light'||id==='heavy';const spec=armor?{price:id==='light'?400:1000,slot:'armor'}:WEAPONS[id];if(!spec)return false;
-  const slot=spec.slot;const oldId=armor?null:inventory[slot];
-  if((armor&&player.armor>=(id==='light'?25:50))||(!armor&&oldId===id)){if($('shop-status'))$('shop-status').textContent='すでに装備しています';return false;}
-  const purchase=roundPurchases[slot],refund=purchase&&(armor||purchase.id===oldId)?purchase.price:0;
-  if(match.credits+refund<spec.price){if($('shop-status'))$('shop-status').textContent='しばくでコインが不足しています';return false;}
-  match.addCredits(refund);if(!match.purchase(spec.price))return false;
-  roundPurchases[slot]={id,price:spec.price};
-  if(armor)player.armor=id==='light'?25:50;
-  else{inventory[slot]=id;delete ammoStore[id];equip(id);}
+  if(!tradeEquipment(player,id)){if($('shop-status'))$('shop-status').textContent='すでに所持しているか、しばくでコインが不足しています';return false;}
   if($('shop-status'))$('shop-status').textContent=`${armor?(id==='heavy'?'ヘヴィーシールド':'ライトシールド'):spec.name} を購入しました`;
   sound('buy');updateShop();updateHUD();return true;
 }
 function updateShop(){
   if(!match)return;
   setVisible('start-round',!onlinePlaying&&!exploring);
-  if($('shop-rule-summary'))$('shop-rule-summary').textContent=exploring?'マップ練習 / 全10銃を無料で選択':'購入は購入フェーズ中のみ可能です';
+  if($('shop-rule-summary'))$('shop-rule-summary').textContent=exploring?'マップ練習 / 全10銃を無料で選択':`ラウンド ${match.round} · 購入終了まで ${Math.ceil(match.phaseTime)}秒`;
   if($('shop-credits'))$('shop-credits').textContent=exploring?'練習 / FREE':match.credits.toLocaleString();
-  document.querySelectorAll('[data-buy]').forEach(button=>{const id=button.dataset.buy;if(id==='smoke'||id==='updraft'){const max=id==='smoke'?2:1,price=id==='smoke'?200:150;button.disabled=match.phase!=='buy'||player.kit[id]>=max||match.credits<price;button.classList.toggle('owned',player.kit[id]>=max);return;}const armor=id==='light'||id==='heavy';const spec=armor?{price:id==='light'?400:1000,slot:'armor'}:WEAPONS[id];if(!spec)return;const owned=armor?player.armor>=(id==='light'?25:50):inventory[spec.slot]===id;
-    button.disabled=exploring?armor:match.phase!=='buy'||(!owned&&match.credits+(roundPurchases[spec.slot]?.price||0)<spec.price);button.classList.toggle('owned',owned);button.classList.toggle('selected',inventory.active===id);
+  document.querySelectorAll('[data-buy]').forEach(button=>{const id=button.dataset.buy;if(button.dataset.skillKey)return;
+    const armor=id==='light'||id==='heavy',spec=armor?{price:id==='light'?400:1000,slot:'armor'}:WEAPONS[id];if(!spec)return;
+    const owned=armor?player.armor>=(id==='light'?25:50):inventory[spec.slot]===id,purchase=roundPurchases[spec.slot];
+    const current=purchase?.round===match.round,refundable=owned&&current&&purchase.id===id;
+    const affordable=match.credits+(current?purchase.price:0)>=spec.price;
+    button.disabled=exploring?armor:!player.alive||match.phase!=='buy'||netHostPaused;
+    button.classList.toggle('owned',owned);button.classList.toggle('selected',inventory.active===id);button.classList.toggle('unaffordable',!owned&&!affordable&&!exploring);
+    const status=exploring?'無料で装備':refundable?'所持 · 右クリックで売却':owned?'所持':affordable?'左クリックで購入':'コイン不足';
+    button.dataset.state=status;button.setAttribute('aria-label',`${armor?(id==='light'?'ライトシールド':'ヘヴィーシールド'):spec.name} SC ${spec.price}、${status}`);
+    const state=button.querySelector?.('.buy-state');if(state)state.textContent=status;
+    const sellButton=document.querySelector?.(`[data-sell="${id}"]`);if(sellButton){sellButton.hidden=(!refundable&&!(owned&&isGuest()))||exploring;sellButton.disabled=button.disabled;}
   });
-  skillUI.updateShop({kit:player.kit,credits:match.credits,phase:match.phase,alive:player.alive});
+  const ledger=skillPurchaseLedger.get(player.kit),refunds=ledger?.round===match.round&&ledger.character===player.kit.character?{c:ledger.c.length,q:ledger.q.length}:{};
+  skillUI.updateShop({kit:player.kit,credits:match.credits,phase:match.phase,alive:player.alive&&!netHostPaused&&!exploring,refunds,allowUnknownSales:isGuest()});
 }
 function startRound(){if(onlinePlaying&&!online.host){showMessage('開始を待っています','購入終了とラウンド進行はホストが管理します',2);return;}if(match?.startLive()){resumeGame();handleMatchEvents();updateHUD();}}
 function showScoreboard(){
@@ -753,17 +845,28 @@ function updateScoreboard(){
 }
 function aliveCount(team){return bots.filter(b=>b.alive&&b.team===team).length+(team===player.team&&player.alive?1:0);}
 function recordOf(entity){return entity.id==='player'?roster[0]:entity.record;}
+function catBotClockUseful(actor){
+  const spike=match?.spike;
+  if(!actor?.alive||match?.phase!=='live'||!spike)return false;
+  // Freeze only the objective deadline our side is racing, never the one
+  // already counting down to our victory. These are public objective clocks.
+  if(actor.team===match.attackerTeam)return ['carried','dropped'].includes(spike.status)&&match.roundTime>0&&match.roundTime<20;
+  return actor.team===match.defenderTeam&&spike.status==='planted'&&spike.timer>0&&spike.timer<=12;
+}
 function damageEntity(entity,amount,killer,{firearm=false,returned=false,chain=true,skill=null,vehicle=false}={}){
   if(isGuest())return;
   if(!entity.alive||match?.phase!=='live'||(killer&&entity.team===killer.team&&!vehicle))return;
   if(rangeSession&&entity.rangeTarget){
+    const before=entity.hp;
     entity.hp=Math.max(0,entity.hp-amount);
-    if(!entity.hp){entity.alive=false;entity.death=.35;rangeRespawn=.18;totalKills++;sound('kill');}
+    if(firearm&&entity.hp<before)firearmFeedback(killer,!entity.hp);
+    if(!entity.hp){entity.alive=false;entity.death=.35;rangeRespawn=.18;totalKills++;if(!firearm)sound('kill');}
     return;
   }
   const returnScale=!returned&&firearm&&killer?.alive?ordinarySkills.japanReturn(entity.id,elapsed):0,healthBefore=entity.hp,armorBefore=entity.armor;
   const result=applyArmorDamage(entity.hp,entity.armor,amount);entity.hp=result.hp;entity.armor=result.armor;if(entity.hp<=0&&ordinarySkills.guardLethal(entity.id,elapsed,match.round)){entity.hp=1;if(entity===player)showMessage('不屈の卵 / 殻が割れた','致死攻撃をHP1で耐えました',1.5);}
   roundDamage.record(match.round,entity.id,killer?.id,Math.max(0,healthBefore-entity.hp)+Math.max(0,armorBefore-entity.armor));
+  if(firearm&&killer&&entity.team!==killer.team&&Math.max(0,healthBefore-entity.hp)+Math.max(0,armorBefore-entity.armor)>0)firearmFeedback(killer,entity.hp<=0);
   if(skill&&killer&&Math.max(0,healthBefore-entity.hp)+Math.max(0,armorBefore-entity.armor)>0)skillImpact(entity,killer,skill);
   if(entity===player)damageFlash=.45;
   if(returnScale){const actual=Math.max(0,healthBefore-entity.hp)+Math.max(0,armorBefore-entity.armor);if(actual>0)damageEntity(killer,actual*returnScale,entity,{returned:true,skill:'japan'});}
@@ -774,7 +877,7 @@ function damageEntity(entity,amount,killer,{firearm=false,returned=false,chain=t
   entity.alive=false;entity.trcLadder=null;cancelServiceReload(entity);entity.kit?.awardPoint();const record=recordOf(entity);if(record)record.d++;
   match.dropSpike(entity.id,entity.x,entity.z);match.cancelPlant(entity.id);match.cancelDefuse(entity.id);
   const item=entity===player?inventory.primary:record?.primary;dropItem(item,entity);
-  if(creditedKiller){killer.kit?.awardKill();const k=recordOf(killer);if(k)k.k++;if(killer===player){totalKills++;match.awardKill();sound('kill');}else if(k)k.credits=Math.min(9000,k.credits+200);feed(`${k?.name||'SENTINEL'}  ⌁  ${record?.name||'YOU'}`);}
+  if(creditedKiller){killer.kit?.awardKill();const k=recordOf(killer);if(k)k.k++;if(killer===player){totalKills++;match.awardKill();if(!firearm)sound('kill');}else if(k)k.credits=Math.min(9000,k.credits+200);feed(`${k?.name||CHARACTER_DEFS[killer.kit?.character||'duelist'].label}  ⌁  ${record?.name||(entity===player?'YOU':CHARACTER_DEFS[entity.kit?.character||'duelist'].label)}`);}
   if(entity===player)beginDeathView();
   else{entity.death=.85;entity.defusing=false;entity.planting=false;}
 }
@@ -825,6 +928,7 @@ function makeBot(spawn,index,team='red',record=null) {
   const savedKit=record?.kit;
   bot.kit=typeof savedKit?.restore==='function'?savedKit:new DuelistKit({character:savedKit?.character||characterIds[index%characterIds.length]});
   if(savedKit&&typeof savedKit.restore!=='function')bot.kit.restore(savedKit);
+  if(record&&(!record.memberId||record.netFallback)&&record.id!=='range-target')record.name=CHARACTER_DEFS[bot.kit.character].label;
   const visual=createAgentModel(THREE,{bot,team,variant:index,character:bot.kit.character});
   Object.assign(bot,{visual,group:visual.group,meshes:visual.meshes,muzzle:visual.muzzle});
   const side=team===match?.attackerTeam?'attack':'defend';
@@ -840,7 +944,7 @@ function clearBots() {
 function spawnRound(reset=false) {
   player.trcStepClock=0;
   deathView.reset();syncDeathUI();
-  resetTraffic();
+  resetTraffic(true);
   victoryMusic.stop();lastRoundAudio='';
   fullComboTracker.reset();delete $('round-banner').dataset.roundResult;
   clearCombatInput();
@@ -919,7 +1023,7 @@ function updateMapLabels(){
   const name=map.name||'橋本駅',short=map.shortName||'HASHIMOTO',viewBounds=activeArenaBounds();
   const copies={'mission-map':name+' 爆破・電源オフ作戦','menu-map-name':name+'前','character-preview-map':name+'前','hud-map-name':short+' STATION','map-title':name+' / 戦術マップ','map-area-name':name+' · '+(viewBounds.maxX-viewBounds.minX)+'m × '+(viewBounds.maxZ-viewBounds.minZ)+'m','map-route-copy':map.id==='hirakata'?'屋内A / 屋内B / MID横挟みルート':'バス通り / 中央連絡路 / ミウィ通り'};
   if(map.id==='trc')Object.assign(copies,{'menu-map-name':name,'character-preview-map':name,'hud-map-name':'TRC / SOUND MARKET','map-route-copy':'屋外 A ロング / 正面ロビー・MID / 搬入 B メイン'});
-  copies['map-site-a-name']=map.sites[0].name;copies['map-site-b-name']=map.sites[1].name;copies['map-detail']=map.id==='hirakata'?'対戦は従来の164m四方。マップ練習では周辺224m四方も探索できます。車道の京阪バスに注意。':'橋本駅前の景観をもとに構成したオリジナルマップです。';
+  copies['map-site-a-name']=map.sites[0].name;copies['map-site-b-name']=map.sites[1].name;copies['map-detail']=map.id==='hirakata'?'対戦は従来の164m四方。マップ練習では周辺224m四方も探索できます。車道のしばくでバスに注意。':'橋本駅前の景観をもとに構成したオリジナルマップです。';
   copies['map-coordinate-copy']=copies['menu-coordinate-copy']=map.id==='hirakata'?'34.815°N / 135.649°E':'35°35′42″N / 139°20′42″E';copies['menu-map-note']=map.id==='hirakata'?'枚方市駅 / 南北広場・自由通路・駅周辺街区':'非公式ファンメイド / 橋本駅前をモチーフにしたオリジナルマップ';copies['radar-map-copy']=short+' / 2 SITES';
   if(map.id==='trc')Object.assign(copies,{'map-detail':'屋外前庭から会場へ侵入する縦長マップ。Aはダクト・準備室経由のヘブン、Bは低いステージ。サイトの主床に広く設置可能。Fでドア・はしご、Vでダクト、Shiftで消音。','map-coordinate-copy':'TRC INSPIRED / OUTDOOR APPROACH','menu-coordinate-copy':'TRC INSPIRED / OUTDOOR APPROACH','menu-map-note':'同人音楽即売会 / オリジナル対戦レイアウト'});
   canvas.setAttribute('aria-label',name+'の3D競技マップ');$('large-minimap')?.setAttribute('aria-label',name+'の戦術マップ');
@@ -974,7 +1078,7 @@ function shootBusDriver(hit,actor,damage,{visualOnly=false}={}){
  }
  burst(hit.point,'#e9c586',3);return true;
 }
-function resetTraffic(){busBreakAudioAt.clear();map.traversal?.reset();player.trcLadder=null;map.traffic?.reset();map.destruction?.reset();for(const actor of [player,...bots]){actor.trafficLaunch=null;delete actor.busFrameYaw;}}
+function resetTraffic(preserveHijacked=false){busBreakAudioAt.clear();map.traversal?.reset();player.trcLadder=null;map.traffic?.reset(null,{preserveHijacked});map.busModels?.update(elapsed);map.destruction?.reset();for(const actor of [player,...bots]){actor.trafficLaunch=null;delete actor.busFrameYaw;}}
 function updateTraffic(dt){
   if(!map.traffic)return;
   const actors=[player,...bots];
@@ -987,7 +1091,7 @@ function updateTraffic(dt){
       const actor=actors.find(a=>a.id===hit.actorId);actor.carMotion=null;actor.carImpulseUntil=0;actor.carFallUntil=0;actor.trafficLaunch={seq:hit.sequence,endsAt:hit.endsAt,vx:hit.vx,vz:hit.vz,vy:hit.vy};actor.vy=hit.vy;actor.dashTimer=0;actor.vx=0;actor.vz=0;actor.path=[];actor.planAt=0;
       sound('vehicle-hit',{entity:actor});
       cancelServiceReload(actor);match.cancelPlant(actor.id);match.cancelDefuse(actor.id);damageEntity(actor,hit.damage,actors.find(a=>a.id===hit.owner)||null,{vehicle:true});
-      if(actor===player){damageFlash=.55;showMessage('京阪バスと接触','100ダメージ · 車道から離れてください',3);}
+      if(actor===player){damageFlash=.55;showMessage('しばくでバスと接触',`${hit.damage}ダメージ · 車道から離れてください`,3);}
     }
   }
   for(const actor of actors){const hit=actor.trafficLaunch;if(!hit)continue;
@@ -1022,7 +1126,7 @@ function startGame() {
   match=new MatchRules({format:exploring?'standard':selectedFormat,startingSide:objectivePractice?(selectedFormat==='plant'?'attack':'defend'):$('starting-side')?.value||'attack'});
   if($('economy-note'))$('economy-note').textContent=match.format==='swift'?'SWIFT · ROUND GRANTS SC 2,400 / 4,250  +  ELIMINATION SC 200':'WIN SC 3,000  +  ELIMINATION SC 200';
   inventory={primary:null,secondary:'classic',active:'classic'};player.armor=0;player.alive=true;
-  roster=[{id:'player',team:'blue',name:'YOU',k:0,d:0,a:0,credits:800},...Array.from({length:9},(_,i)=>({id:i<4?`blue-${i+1}`:`red-${i-4}`,team:i<4?'blue':'red',name:originalNames[i+1],k:0,d:0,a:0,credits:800,primary:null,secondary:'classic',armor:0,survived:false}))];
+  roster=[{id:'player',team:'blue',name:'YOU',k:0,d:0,a:0,credits:800},...Array.from({length:9},(_,i)=>({id:i<4?`blue-${i+1}`:`red-${i-4}`,team:i<4?'blue':'red',name:'',k:0,d:0,a:0,credits:800,primary:null,secondary:'classic',armor:0,survived:false}))];
   if(exploring)roster=roster.slice(0,1);
   if(onlinePlaying){
     const blue=online.room.members.filter(m=>m.team==='blue'),red=online.room.members.filter(m=>m.team==='red');
@@ -1342,7 +1446,7 @@ function shoot(shotTime=elapsed) {
     if(bot&&bot.alive&&bot.team!==player.team&&!isGuest()){
       hits++;const head=hit.object.userData.head;let damage=nobiBulletDamage(player,bot,head?spec.head:hit.point.y-(bot.y||0)<.7?spec.leg:spec.body,spec.head,!melee&&!ultimate);
       if(['phantom','spectre','ghost','classic'].includes(inventory.active)&&hit.distance>15)damage*=hit.distance>30?.8:.9;
-      damageEntity(bot,damage,player,{firearm:!melee&&!ultimate,skill:ultimate?'duelist':null});hitFlash=.14;burst(hit.point,head?'#fff3c8':'#ff737e',5);sound('hit');
+      damageEntity(bot,damage,player,{firearm:!melee&&!ultimate,skill:ultimate?'duelist':null});hitFlash=.14;burst(hit.point,head?'#fff3c8':'#ff737e',5);if(melee||ultimate)sound('hit');
       if(rangeSession&&bot.rangeTarget)rangeSession.recordHit({head,eliminated:!bot.alive});
     }else{burst(hit.point,'#f9ce9a',4);if(!melee&&!ultimate)capBounceShot(player,camera.position,direction,hit,spec);}
   }
@@ -1388,7 +1492,7 @@ function fireArsenal(actor,origin,aim,spec,ads=false,{visualOnly=false}={}){
   // Apply one damage event per victim per cartridge, so kill awards, reflection
   // and chain reactions cannot multiply by pellet count.
   if(!visualOnly)for(const [target,damage] of totals){damageEntity(target,damage,actor,{firearm:true});if(actor===player&&rangeSession&&target.rangeTarget)rangeSession.recordHit({head:headHit,eliminated:!target.alive});}
-  if(actor===player&&anyHit){hits++;hitFlash=.14;sound('hit');}
+  if(actor===player&&anyHit){hits++;hitFlash=.14;}
   if(!visualOnly)urchinTridentShot(actor,origin,forward,spec);
 }
 function reload(){
@@ -1537,6 +1641,38 @@ function catDropTarget(actor,aim=null){
  if(!Number.isFinite(yaw)||!Number.isFinite(pitch))return null;
  const origin=new THREE.Vector3(actor.x,(actor.y||0)+1.7-(actor.crouch||0)*.55,actor.z),direction=new THREE.Vector3(-Math.sin(yaw)*Math.cos(pitch),Math.sin(pitch),-Math.cos(yaw)*Math.cos(pitch));
  let best=null;for(const drop of droppedWeapons){const target=new THREE.Vector3(drop.x,.2,drop.z),offset=target.clone().sub(origin),along=offset.dot(direction);if(along<0||Math.hypot(drop.x-actor.x,actor.y||0,drop.z-actor.z)>CAT_SKILLS.fetchRange||offset.addScaledVector(direction,-along).length()>.8||!catDropVisible(actor,drop))continue;if(!best||along<best.distance)best={drop,distance:along,x:drop.x,y:0,z:drop.z};}return best;
+}
+function echoBotGlintPoint(bot,enemy,aim,actors){
+ if(!enemy||!visibleBetween(bot,enemy))return null;
+ const dist=Math.hypot(enemy.x-bot.x,enemy.z-bot.z);if(dist<1.5)return null;
+ // Burst in front of the observed face, not directly below its eyes.
+ const ratio=(dist-1.5)/dist,point=getSkillTarget(bot,'echo-glint',{x:bot.x+(enemy.x-bot.x)*ratio,z:bot.z+(enemy.z-bot.z)*ratio},aim);
+ if(!point)return null;
+ const event={type:'echo-glint',...point,radius:IAGNU_SKILLS.glintRadius},options={reachable:ordinaryReachable};
+ if(!ordinarySkills.wouldBlind(ordinaryActorView(enemy),event,options))return null;
+ // The caster will turn toward this enemy to shoot later in the same tick.
+ if(ordinarySkills.wouldBlind({...ordinaryActorView(bot),yaw:aim.yaw,pitch:aim.pitch},event,options))return null;
+ if(actors.some(ally=>ally!==bot&&ally.alive&&ally.team===bot.team&&ordinarySkills.wouldBlind(ordinaryActorView(ally),event,options)))return null;
+ return point;
+}
+function catBotFetchAim(bot){
+ if(bot.aiReload>0||bot.serviceReload)return null;
+ const active=WEAPONS[actorWeaponId(bot)];let best=null;
+ for(const drop of droppedWeapons){
+  const spec=WEAPONS[drop.weapon];if(!spec||drop.ammo<=0||!['primary','secondary'].includes(spec.slot)||active?.slot==='primary'&&spec.slot==='secondary')continue;
+  const owned=bot.record?.[spec.slot],current=WEAPONS[owned];
+  // Price is a conservative equipment-upgrade heuristic, not a combat score.
+  // A same-gun swap must improve the loaded magazine without losing total ammo.
+  if(current){
+   if(owned===drop.weapon){const saved=actorWeaponId(bot)===owned?{ammo:bot.aiAmmo,reserve:bot.aiReserve}:bot.netStores?.[owned];if(!saved||!(drop.ammo>saved.ammo)||drop.ammo+drop.reserve<saved.ammo+saved.reserve)continue;}
+   else if(spec.price<=current.price)continue;
+  }
+  const distance=Math.hypot(drop.x-bot.x,drop.z-bot.z),aim={yaw:Math.atan2(bot.x-drop.x,bot.z-drop.z),pitch:Math.atan2(.2-((bot.y||0)+1.7-(bot.crouch||0)*.55),distance)};
+  // Use the real human target ray: a nearer drop can intercept this aim.
+  if(catDropTarget(bot,aim)?.drop!==drop)continue;
+  const score=spec.price+drop.ammo/spec.mag;
+  if(!best||score>best.score||score===best.score&&(distance<best.distance||distance===best.distance&&drop.id<best.id))best={aim,score,distance,id:drop.id};
+ }return best?.aim||null;
 }
 function japanBorderTarget(actor,aim=null){
  if(ordinarySkills.blindUntil(actor.id,elapsed)>elapsed)return null;const d=carAim(actor,aim);if(!d||Math.hypot(d.x,d.z)<.05)return null;
@@ -2122,7 +2258,7 @@ function updateHUD(){
   if(exploring){
     $('timer').textContent='∞';$('round-label').textContent=(map.shortName||'HASHIMOTO')+' / MAP PRACTICE';$('side-label').textContent='マップ練習';
     $('phase-label').textContent='2 SITES / 3 LANES';$('objective-label').textContent=!rangeSession&&!objectivePractice?'C/Q/E/X 無限 · M：ルート確認・地点移動 · B：武器選択':'M：ルート確認・地点移動 · WASD：移動 · B：武器選択';
-    $('spike-state').textContent=map.id==='trc'?'屋外前庭 / A ロング / MID / 搬入 B メイン':map.id==='hirakata'?'南北自由通路 / バス車道に注意 / 接触100ダメージ':'バス通り / 中央連絡路 / ミウィ通り';$('zone').textContent=zone?.name||((map.name||'橋本駅')+'前');
+    $('spike-state').textContent=map.id==='trc'?'屋外前庭 / A ロング / MID / 搬入 B メイン':map.id==='hirakata'?'南北自由通路 / バス車道に注意 / 接触150ダメージ':'バス通り / 中央連絡路 / ミウィ通り';$('zone').textContent=zone?.name||((map.name||'橋本駅')+'前');
   }
   if($('ally-label'))$('ally-label').textContent=rangeSession?'SCORE':'YOUR TEAM';
   if($('enemy-label'))$('enemy-label').textContent=rangeSession?'HEADSHOT':'ENEMY TEAM';
@@ -2338,14 +2474,18 @@ function updateBots(dt){
     // supply a live actor reference or bypass the BOT's visible-target checks.
     const tagContact=!enemy?ordinarySkills.markers(bot.team,elapsed).filter(point=>distance(bot,point)<24).sort((a,b)=>b.detectedAt-a.detectedAt||a.eventId.localeCompare(b.eventId))[0]:null;
     if(tagContact&&!role?.urgent&&ordinarySkills.blindUntil(bot.id,elapsed)<=elapsed)goal=tagContact;
-    // Investigate a nearby audible/visible fake once, without inventing a sighting
-    // of a real actor or overriding the objective during an urgent retake.
+    // Mistake a visible fake for a threat once per ID, including during a
+    // distant duel. Never publish it as a real sighting or abandon urgent work.
     let decoyTarget=null;
-    if(!enemy&&!role?.urgent&&ordinarySkills.blindUntil(bot.id,elapsed)<=elapsed){
-      const events=allNopeDecoys(),activeIds=new Set(events.map(event=>event.id));
-      bot.decoySeen||=new Map();for(const id of bot.decoySeen.keys())if(!activeIds.has(id))bot.decoySeen.delete(id);
-      const decoy=events.find(event=>event.type==='nope-decoy'&&event.team!==bot.team&&distance(bot,event)<18&&visibleBetween(bot,event)&&(!bot.decoySeen.has(event.id)||elapsed<bot.decoySeen.get(event.id)));
-      if(decoy){if(!bot.decoySeen.has(decoy.id))bot.decoySeen.set(decoy.id,elapsed+1.5);goal=decoy;decoyTarget=decoy;}
+    const decoys=allNopeDecoys(),activeDecoyIds=new Set(decoys.map(event=>event.id));
+    bot.decoySeen||=new Map();for(const id of bot.decoySeen.keys())if(!activeDecoyIds.has(id))bot.decoySeen.delete(id);
+    if(!role?.urgent&&(!enemy||enemyDistance>6)&&spec.mag>0&&ordinarySkills.blindUntil(bot.id,elapsed)<=elapsed){
+      const candidates=decoys.filter(event=>event.team!==bot.team&&distance(bot,event)<Math.min(40,enemyDistance*1.25)&&inVisionCone(bot,event,{yaw:bot.group.rotation.y})&&visibleBetween(bot,event)).sort((a,b)=>distance(bot,a)-distance(bot,b));
+      for(const decoy of candidates){
+        if(!bot.decoySeen.has(decoy.id))bot.decoySeen.set(decoy.id,Math.random()<({easy:.75,normal:.6,hard:.4}[difficulty]||.6)?elapsed+1.5:elapsed);
+        if(elapsed>=bot.decoySeen.get(decoy.id))continue;
+        goal=decoy;decoyTarget=decoy;enemy=null;break;
+      }
     }
     // A close threat interrupts starting an interaction; an ongoing plant or urgent retake commits.
     const committedPlant=spike.plantActor===bot.id&&spike.plantProgress>0;
@@ -2359,6 +2499,12 @@ function updateBots(dt){
     if(bot.kit?.character==='nobi'&&(interactPlant&&!committedPlant||interactDefuse&&!committedDefuse)&&elapsed>=(bot.nextNobiToolAt||0)){
       cancelServiceReload(bot);
       const tool=activateAbility(bot,'e');bot.nextNobiToolAt=elapsed+(tool?.type==='nobi-tool'?1:.5);
+    }
+    // A useful clock must be armed before work marks this actor busy. Keep
+    // the assigned task running even if the event queue refuses the cast.
+    if(bot.kit?.character==='cat'&&(interactPlant&&!committedPlant||interactDefuse&&!committedDefuse)&&bot.kit.ultPoints>=7&&catBotClockUseful(bot)&&!ordinarySkills.clockFrozen(elapsed)&&elapsed>=(bot.nextCatClockAt||0)){
+      cancelServiceReload(bot);
+      const clock=activateAbility(bot,'x');bot.nextCatClockAt=elapsed+(clock?1:.5);
     }
     bot.planting=!!interactPlant;bot.defusing=!!interactDefuse;
     if(bot.kit?.character==='duelist'&&!interactPlant&&!interactDefuse&&ordinarySkills.blindUntil(bot.id,elapsed)<=elapsed&&elapsed>=(bot.nextSkillAt||0)){
@@ -2375,20 +2521,34 @@ function updateBots(dt){
       let cast=null;
       if(known){
         const dist=distance(bot,known),aim={yaw:Math.atan2(bot.x-known.x,bot.z-known.z),pitch:0};
-        if(dist>5&&dist<17&&bot.kit.smoke>0)cast=activateAbility(bot,'c',{zonePoint:known,aim});
-        else if(enemy&&dist>10&&dist<18&&bot.kit.updraft>0&&!actors.some(ally=>ally!==bot&&ally.alive&&ally.team===bot.team&&distance(ally,known)<NOPE_SKILLS.flashRadius))cast=activateAbility(bot,'q',{zonePoint:known,aim});
-        else if(bot.kit.dash>0&&(bot.hp<65||!enemy))cast=activateAbility(bot,'e',{aim});
+        if(dist>0&&dist<=NOPE_SKILLS.bottleRange&&bot.kit.smoke>0){
+          // Use the actual lob and splash test; the longer throw is wasted
+          // when a wall, ceiling or another floor keeps the burst out of reach.
+          const spot={x:known.x,y:known.y??bot.y??0,z:known.z};
+          const landing=getSkillTarget(bot,'nope-bottle',spot,aim);
+          if(landing&&distance(landing,spot)<NOPE_SKILLS.bottleRadius&&
+            Math.abs(spot.y-landing.y)<=CHARACTER_SKILLS.heightTolerance&&
+            ordinaryReachable({type:'nope-bottle',...landing},spot))cast=activateAbility(bot,'c',{zonePoint:spot,aim});
+        }
+        if(!cast&&enemy&&dist>10&&dist<18&&bot.kit.updraft>0&&!actors.some(ally=>ally!==bot&&ally.alive&&ally.team===bot.team&&distance(ally,known)<NOPE_SKILLS.flashRadius))cast=activateAbility(bot,'q',{zonePoint:known,aim});
+        if(!cast&&bot.kit.dash>0&&(bot.hp<65||!enemy))cast=activateAbility(bot,'e',{aim});
       }
       bot.nextSkillAt=elapsed+(cast?2.5:.5);
     }
     if(bot.kit?.character==='mend'&&!interactPlant&&!interactDefuse&&ordinarySkills.blindUntil(bot.id,elapsed)<=elapsed&&elapsed>=(bot.nextSkillAt||0)){
       const injured=selectMendTarget(bot,actors,mendReachable),known=enemy||(bot.lastSeen&&elapsed-bot.lastSeen.seenAt<1.5?bot.lastSeen:null);
       let cast=null;
-      if(injured&&injured.hp<=70&&bot.kit.dash>0&&enemyDistance>8)cast=activateAbility(bot,'e');
+      if(injured&&injured.hp<=70&&bot.kit.dash>0)cast=activateAbility(bot,'e');
       if(!cast&&known){
         const dist=distance(bot,known),aim={yaw:Math.atan2(bot.x-known.x,bot.z-known.z),pitch:0};
-        if(dist>5&&dist<17&&bot.kit.smoke>0&&!ordinarySkills.events(elapsed).some(event=>event.type==='mend-seeds'&&event.team===bot.team&&distance(event,known)<event.radius))cast=activateAbility(bot,'c',{zonePoint:known,aim});
-        else if(dist>8&&dist<20&&bot.kit.updraft>0&&(bot.hp<65||role?.urgent)&&!activePollenFields().some(event=>event.team===bot.team&&distance(event,bot)<8))cast=activateAbility(bot,'q',{zonePoint:{x:bot.x+(known.x-bot.x)*.6,z:bot.z+(known.z-bot.z)*.6},aim});
+        if(dist>0&&dist<=CHARACTER_SKILLS.castDistance+MEND_SKILLS.seedsRadius&&bot.kit.smoke>0){
+          const point={x:known.x,y:known.y??bot.y??0,z:known.z},landing=getSkillTarget(bot,'mend-seeds',point,aim);
+          // Lost sight supplies a fixed location, never the hidden actor's pose.
+          const pose=enemy?ordinaryActorView(enemy):{...point,id:known.id||'remembered-enemy',team:bot.team==='blue'?'red':'blue',alive:true,hp:100};
+          const seeds=landing&&{type:'mend-seeds',team:bot.team,...landing,radius:MEND_SKILLS.seedsRadius},queries={reachable:ordinaryReachable};
+          if(seeds&&ordinarySkills.wouldSeed(pose,seeds,queries)&&!ordinarySkills.events(elapsed).some(event=>event.team===bot.team&&ordinarySkills.wouldSeed(pose,event,queries)))cast=activateAbility(bot,'c',{zonePoint:point,aim});
+        }
+        if(!cast&&dist>8&&dist<20&&bot.kit.updraft>0&&(bot.hp<65||role?.urgent)&&!activePollenFields().some(event=>event.team===bot.team&&distance(event,bot)<8))cast=activateAbility(bot,'q',{zonePoint:{x:bot.x+(known.x-bot.x)*.6,z:bot.z+(known.z-bot.z)*.6},aim});
       }
       bot.nextSkillAt=elapsed+(cast?2.5:.5);
     }
@@ -2397,8 +2557,14 @@ function updateBots(dt){
       let cast=null;
       if(watch){
         const dist=distance(bot,watch),aim={yaw:Math.atan2(bot.x-watch.x,bot.z-watch.z),pitch:0};
-        if(dist>4&&dist<=IAGNU_SKILLS.tagRange&&bot.kit.smoke>0&&!ordinarySkills.events(elapsed).some(event=>event.type==='echo-tag'&&event.team===bot.team&&distance(event,watch)<4))cast=activateAbility(bot,'c',{zonePoint:watch,aim});
-        if(!cast&&enemy&&dist>8&&dist<16&&bot.kit.updraft>0&&!actors.some(ally=>ally!==bot&&ally.alive&&ally.team===bot.team&&distance(ally,watch)<IAGNU_SKILLS.glintRadius))cast=activateAbility(bot,'q',{zonePoint:watch,aim});
+        if(dist>0&&dist<=IAGNU_SKILLS.tagRange+IAGNU_SKILLS.tagRadius&&bot.kit.smoke>0){
+          const point={x:watch.x,y:watch.y??bot.y??0,z:watch.z},landing=getSkillTarget(bot,'echo-tag',point,aim);
+          // An empty watch point is a possible future contact, not a hidden actor.
+          const pose=enemy?ordinaryActorView(enemy):{...point,id:watch.id||'watched-location',team:bot.team==='blue'?'red':'blue',alive:true,hp:100};
+          const tag=landing&&{type:'echo-tag',team:bot.team,...landing,radius:IAGNU_SKILLS.tagRadius},queries={reachable:ordinaryReachable};
+          if(tag&&ordinarySkills.wouldTag(pose,tag,queries)&&!ordinarySkills.events(elapsed).some(event=>event.team===bot.team&&ordinarySkills.wouldTag(pose,event,queries)))cast=activateAbility(bot,'c',{zonePoint:point,aim});
+        }
+        if(!cast&&enemy&&bot.kit.updraft>0){const point=echoBotGlintPoint(bot,enemy,aim,actors);if(point)cast=activateAbility(bot,'q',{zonePoint:point,aim});}
       }
       if(!cast&&!enemy&&goal&&distance(bot,goal)>9&&bot.kit.dash>0)cast=activateAbility(bot,'e');
       bot.nextSkillAt=elapsed+(cast?2.5:.5);
@@ -2408,7 +2574,15 @@ function updateBots(dt){
       if(known){
         const dist=distance(bot,known),aim={yaw:Math.atan2(bot.x-known.x,bot.z-known.z),pitch:0};
         if(dist>3&&dist<18&&bot.kit.smoke>0&&(bot.hp<65||role?.urgent)&&!activeOrdinarySmokeFields().some(event=>event.team===bot.team&&distance(event,bot)<event.radius))cast=activateAbility(bot,'c',{aim});
-        else if(dist>2&&dist<=VEIL_SKILLS.rootsRange&&bot.kit.updraft>0&&!ordinarySkills.events(elapsed).some(event=>event.type==='veil-roots'&&event.team===bot.team&&distance(event,known)<3))cast=activateAbility(bot,'q',{zonePoint:known,aim});
+        else if(dist>=VEIL_SKILLS.rootsMinRange&&dist<=VEIL_SKILLS.rootsRange&&bot.kit.updraft>0){
+          const point={x:known.x,y:known.y??bot.y??0,z:known.z},target=getRootsTarget(bot,point,aim);
+          // A visible pose may be airborne; lost sight uses only its fixed
+          // remembered location, conservatively assuming our current floor.
+          const pose=enemy?ordinaryActorView(enemy):{...point,id:known.id,team:known.team,alive:true,hp:100,grounded:true};
+          const roots=target&&{type:'veil-roots',team:bot.team,fromX:bot.x,fromY:bot.y,fromZ:bot.z,...target,radius:VEIL_SKILLS.rootsWidth/2};
+          const queries={reachable:ordinaryReachable,groundHeight:ordinaryGroundHeight};
+          if(roots&&ordinarySkills.wouldRoot(pose,roots,queries)&&!ordinarySkills.events(elapsed).some(event=>event.team===bot.team&&ordinarySkills.wouldRoot(pose,event,queries)))cast=activateAbility(bot,'q',{zonePoint:point,aim});
+        }
       }
       if(!cast&&!enemy&&goal&&distance(bot,goal)>9&&bot.kit.dash>0)cast=activateAbility(bot,'e');
       bot.nextSkillAt=elapsed+(cast?2.5:.5);
@@ -2422,7 +2596,15 @@ function updateBots(dt){
         const dist=distance(bot,known),aim={yaw:Math.atan2(bot.x-known.x,bot.z-known.z),pitch:0};
         const seenFlash=ordinarySkills.events(elapsed).some(event=>['nope-flash','echo-glint'].includes(event.type)&&event.team!==bot.team&&event.triggerAt>elapsed&&distance(bot,event)<9&&map.collision.rayClear(bot.x,(bot.y||0)+1.6,bot.z,event.x,event.y,event.z));
         if(bot.kit.updraft>0&&(seenFlash||enemy&&dist<12&&bot.hp<70))cast=activateAbility(bot,'q');
-        if(!cast&&dist>=3&&dist<=14&&bot.kit.smoke>0)cast=activateAbility(bot,'c',{zonePoint:known,aim});
+        if(!cast&&dist>0&&dist<=EMBER_SKILLS.solderRange&&bot.kit.smoke>0){
+          // Judge the real clipped arc, not just the enemy's distance. A wall
+          // or another floor can leave the molten burst unable to reach them.
+          const spot={x:known.x,y:known.y??bot.y??0,z:known.z};
+          const landing=getSkillTarget(bot,'ember-solder',spot,aim);
+          if(landing&&distance(landing,spot)<EMBER_SKILLS.solderRadius&&
+            Math.abs(spot.y-(landing.y-EMBER_SKILLS.solderGroundOffset))<=CHARACTER_SKILLS.heightTolerance&&
+            ordinaryReachable({type:'ember-solder',...landing},spot))cast=activateAbility(bot,'c',{zonePoint:spot,aim});
+        }
       }
       bot.nextSkillAt=elapsed+(cast?2:.4);
     }
@@ -2461,10 +2643,10 @@ function updateBots(dt){
     }
     if(bot.kit?.character==='cat'&&!interactPlant&&!interactDefuse&&elapsed>=(bot.nextSkillAt||0)){
       let cast=null;const bookmark=ordinarySkills.catBookmark(bot.id,elapsed);
-      if(bot.kit.ultPoints>=7&&(match.spike.status==='planted'||match.roundTime<20)&&!ordinarySkills.clockFrozen(elapsed))cast=activateAbility(bot,'x');
+      if(bot.kit.ultPoints>=7&&catBotClockUseful(bot)&&!ordinarySkills.clockFrozen(elapsed))cast=activateAbility(bot,'x');
       if(!cast&&bookmark&&bot.hp<45)cast=activateAbility(bot,'c');
       if(!cast&&enemy&&visibleBetween(bot,enemy)){const aim={yaw:Math.atan2(-(enemy.x-bot.x),-(enemy.z-bot.z)),pitch:Math.atan2((enemy.y||0)+1.3-((bot.y||0)+1.7),Math.hypot(enemy.x-bot.x,enemy.z-bot.z))};cast=activateAbility(bot,'q',{aim});if(!cast&&!bookmark&&bot.hp>60)cast=activateAbility(bot,'c');}
-      if(!cast&&!enemy){const drop=droppedWeapons.find(d=>Math.hypot(d.x-bot.x,d.z-bot.z)<CAT_SKILLS.fetchRange);if(drop){const distance=Math.hypot(drop.x-bot.x,drop.z-bot.z),aim={yaw:Math.atan2(-(drop.x-bot.x),-(drop.z-bot.z)),pitch:Math.atan2(.2-((bot.y||0)+1.7),distance)};cast=activateAbility(bot,'e',{aim});}}
+      if(!cast&&!enemy){const aim=catBotFetchAim(bot);if(aim)cast=activateAbility(bot,'e',{aim});}
       bot.nextSkillAt=elapsed+(cast?1:.5);
     }
     if(bot.kit?.character==='duck'&&!interactPlant&&!interactDefuse&&elapsed>=(bot.nextSkillAt||0)){
@@ -2500,8 +2682,14 @@ function updateBots(dt){
         const dist=distance(bot,watch),aim={yaw:Math.atan2(bot.x-watch.x,bot.z-watch.z),pitch:0};
         // Place the band on the known approach instead of trapping a target in
         // the safe center; only sightings/watch goals already held by the BOT.
-        const ring={x:watch.x+Math.cos(aim.yaw)*2,z:watch.z-Math.sin(aim.yaw)*2};
-        if(dist>3&&dist<=12&&!ordinarySkills.events(elapsed).some(event=>event.type==='frost-stitch'&&event.team===bot.team&&distance(event,ring)<3))cast=activateAbility(bot,'c',{zonePoint:ring,aim});
+        const ring={x:watch.x+Math.cos(aim.yaw)*2,y:watch.y??bot.y??0,z:watch.z-Math.sin(aim.yaw)*2};
+        if(dist>0&&dist<=FROST_SKILLS.stitchRange+FROST_SKILLS.stitchRadius){
+          const landing=getSkillTarget(bot,'frost-stitch',ring,aim);
+          const pose=enemy?ordinaryActorView(enemy):{x:watch.x,y:watch.y??bot.y??0,z:watch.z,grounded:true,id:watch.id||'watched-location',team:bot.team==='blue'?'red':'blue',alive:true,hp:100};
+          const stitch=landing&&{type:'frost-stitch',team:bot.team,...landing,radius:FROST_SKILLS.stitchRadius};
+          const queries={reachable:ordinaryReachable,groundHeight:ordinaryGroundHeight};
+          if(stitch&&ordinarySkills.wouldStitch(pose,stitch,queries)&&!ordinarySkills.events(elapsed).some(event=>event.team===bot.team&&ordinarySkills.wouldStitch(pose,event,queries)))cast=activateAbility(bot,'c',{zonePoint:ring,aim});
+        }
       }
       bot.nextSkillAt=elapsed+(cast?2.5:.5);
     }
@@ -2573,7 +2761,7 @@ function updateBots(dt){
           }
         }
       }
-    }else if(decoyTarget&&!bot.serviceReload&&elapsed>=(bot.skillThrowUntil||0)){
+    }else if(decoyTarget&&!bot.serviceReload&&elapsed>=(bot.skillThrowUntil||0)&&visibleBetween(bot,decoyTarget)){
       bot.goal={x:decoyTarget.x,z:decoyTarget.z};bot.pathTime=0;
       const aligned=face(bot,decoyTarget,8);
       if(aligned&&elapsed>=bot.decoySeen.get(decoyTarget.id)-1.05&&bot.fire<=0&&!(bot.aiReload>0)){
@@ -2788,8 +2976,7 @@ function updatePlay(dt){
   if(botThinkTick<=0){botThinkTick=.25;const front=new THREE.Vector3();camera.getWorldDirection(front);for(const bot of bots){if(bot.team===player.team||!bot.alive)continue;const offset=new THREE.Vector3(bot.x-player.x,0,bot.z-player.z);if(player.alive&&offset.length()<42&&offset.normalize().dot(front)>.55&&visibleBetween(player,bot))bot.spottedUntil=elapsed+.6;}}
   if(!exploring&&!isGuest()){match.tick(dt,{clockPaused:match.phase==='live'&&ordinarySkills.clockFrozen(elapsed),blueAlive:aliveCount('blue'),redAlive:aliveCount('red'),playerAlive:player.alive});handleMatchEvents();}
   timeLeft=match.phase==='buy'||match.phase==='post'?match.phaseTime:match.spike.status==='planted'?match.spike.timer:match.roundTime;
-  viewmodel.update(dt,{character:player.kit.character,scoped,aiming:aiming&&controlled,reloading,reloadDuration:player.serviceReload?EMBER_SKILLS.serviceDuration:weapon().reload,kick,moving:Math.hypot(player.vx,player.vz)>.5,time:elapsed,crouching:player.crouch,interacting:interactionHeld&&controlled,ultimate:player.kit.knivesActive&&inventory.active==='knife',knives:player.kit.knives,shotSequence});
-  flash.visible=player.alive&&inventory.active!=='knife'&&elapsed-lastShot<.045;flash.rotation.z=elapsed*40;
+  updateFirstPersonEquipment(dt);
   const s=match.spike;spikeModel.position.set(s.x,0,s.z);objectiveModel.update({time:elapsed,...s,practice:!!objectivePractice});
   if(s.status==='planted'&&!objectivePractice){
     const interval=s.timer<5?.15:s.timer<10?.3:s.timer<20?.6:1;
@@ -2896,10 +3083,11 @@ function updateRoom(room){
   if(onlinePlaying&&online.host)for(const [memberId,entityId] of netParticipants){
     if(memberId===room.hostId)continue;
     const member=room.members.find(m=>m.id===memberId),actor=bots.find(b=>b.id===entityId);
-    if(!member){if(actor){match.cancelPlant(actor.id);match.cancelDefuse(actor.id);actor.planting=false;actor.defusing=false;transferEmberControl(actor,false);map.traffic?.service.exit(actor,elapsed,busCanExit);actor.remoteId=null;actor.record.memberId=null;actor.record.netFallback=false;actor.record.name=`${actor.record.name} / BOT`;}netParticipants.delete(memberId);}
+    if(!member){if(actor){match.cancelPlant(actor.id);match.cancelDefuse(actor.id);actor.planting=false;actor.defusing=false;transferEmberControl(actor,false);map.traffic?.service.exit(actor,elapsed,busCanExit);actor.remoteId=null;actor.record.memberId=null;actor.record.netFallback=false;actor.record.name=CHARACTER_DEFS[actor.kit.character].label;}netParticipants.delete(memberId);}
     else if(actor){
       const fallback=member.connected===false&&Date.now()-(netInputs.get(memberId)?.receivedAt||0)>=20000;
       actor.record.netFallback=fallback;
+      actor.record.name=fallback?CHARACTER_DEFS[actor.kit.character].label:member.name;
       if(fallback){if(actor.remoteId){match.cancelPlant(actor.id);match.cancelDefuse(actor.id);transferEmberControl(actor,false);map.traffic?.service.exit(actor,elapsed,busCanExit);actor.remoteId=null;actor.planting=false;actor.defusing=false;}}
       else if(actor.remoteId!==memberId){transferEmberControl(actor,true);actor.remoteId=memberId;actor.netYaw=actor.group.rotation.y-Math.PI;actor.lastNetInput=elapsed;}
     }
@@ -2979,9 +3167,14 @@ function applyNetPurchaseFeedback(packet,self,fresh,ack){
     receipt[0]>ack||receipt[1]!==match.round||typeof receipt[2]!=='string')return;
   const action=netActions.find(a=>a.type==='buy'&&a.seq===receipt[0]&&a.round===receipt[1]&&a.id===receipt[2]);if(!action)return;
   sound('buy',{localOnly:true});
-  const id=action.id,selling=['sell-c','sell-q'].includes(id),label=selling?getCharacterSkill(player.kit.character,id.slice(-1))?.name:id==='light'?'ライトシールド':id==='heavy'?'ヘヴィーシールド':
+  const selling=action.id.startsWith('sell-'),id=selling?action.id.slice(5):action.id;
+  const label=id==='light'?'ライトシールド':id==='heavy'?'ヘヴィーシールド':
     ['c','smoke'].includes(id)?getCharacterSkill(player.kit.character,'c')?.name:
     ['q','updraft'].includes(id)?getCharacterSkill(player.kit.character,'q')?.name:WEAPONS[id]?.name;
+  // Cosmetic ledger only. Money, equipment and stock still come from self.
+  const key=['c','smoke'].includes(id)?'c':['q','updraft'].includes(id)?'q':null;
+  if(key){let ledger=skillPurchaseLedger.get(player.kit);if(!ledger||ledger.round!==match.round||ledger.character!==player.kit.character){ledger={round:match.round,character:player.kit.character,c:[],q:[]};skillPurchaseLedger.set(player.kit,ledger);}if(selling)ledger[key].pop();else ledger[key].push(getCharacterSkill(player.kit.character,key).price);}
+  else{const slot=id==='light'||id==='heavy'?'armor':WEAPONS[id]?.slot;if(slot){if(selling)delete roundPurchases[slot];else roundPurchases[slot]={id,price:slot==='armor'?(id==='light'?400:1000):WEAPONS[id].price,round:match.round};}}
   if(mode==='shop'&&$('shop-status'))$('shop-status').textContent=`${label||'装備'} を${selling?'売却':'購入'}しました`;
 }
 function applyNetSnapshot(packet){
@@ -3003,6 +3196,7 @@ function applyNetSnapshot(packet){
   netActionSequence=Math.max(netActionSequence,ack,...netActions.map(a=>a.seq));
   applyNetCues(packet,fresh,ownId);
   Object.assign(match,packet.rules);match.events=[];match.credits=self.credits;elapsed=packet.time;roster=packet.roster;
+  map.busModels?.update(elapsed);
   if(match.phase==='buy'){if(packet.damageReport!==undefined)roundDamage.restore(packet.damageReport,roster,match.round,self.team);else roundDamage.reset();}
 if(map.destruction){if(fresh||!packet.busDamage)map.destruction.reset();map.destruction.restore(packet.busDamage??'',elapsed,{effects:!fresh&&match.phase==='live',impacts:map.traffic?.poses(elapsed)||[],contacts:Array.isArray(packet.cues)?packet.cues.filter(c=>validBusBreakCue(c,packet)):[]});map.destruction.update(elapsed);}
   const stopped=fresh||wasAlive&&!self.alive||previousPhase!==match.phase&&['post','match'].includes(match.phase);
@@ -3196,11 +3390,8 @@ function applyRemoteAction(actor,action,actionTime=elapsed){
   if(action.type==='character'){if(match.phase==='buy'&&match.round===1&&characterIds.includes(action.character))actor.kit.character=action.character;return;}
   if(action.type==='buy'&&match.phase==='buy'){
     if(['smoke','updraft','c','q','sell-c','sell-q'].includes(action.id)){const selling=action.id.startsWith('sell-'),id=selling?action.id.slice(-1):action.id;if(tradeSkill(actor,id,selling))actor.netPurchaseAck=[action.seq,match.round,action.id];return;}
-    const id=action.id,spec=WEAPONS[id],armor=id==='light'||id==='heavy',price=armor?(id==='light'?400:1000):spec?.price;
-    if(!Number.isFinite(price))return;r.netPurchases||={};const slot=armor?'armor':spec.slot;if(slot!=='armor'&&!['primary','secondary'].includes(slot))return;
-    if(armor?actor.armor>=(id==='light'?25:50):r[slot]===id)return;
-    const purchase=r.netPurchases[slot],refund=purchase&&(armor||purchase.id===r[slot])?purchase.price:0;if(r.credits+refund<price)return;r.credits+=refund-price;r.netPurchases[slot]={id,price};
-    if(armor)actor.armor=id==='light'?25:50;else{r[slot]=id;actor.netWeapon=id;actor.netAmmo=spec.mag;actor.netReserve=spec.reserve;actor.netReload=0;actor.netStores||={};actor.netStores[id]={ammo:spec.mag,reserve:spec.reserve};}actor.netPurchaseAck=[action.seq,match.round,id];return;
+    if(typeof action.id!=='string')return;const selling=action.id.startsWith('sell-'),id=selling?action.id.slice(5):action.id;
+    if(tradeEquipment(actor,id,selling))actor.netPurchaseAck=[action.seq,match.round,action.id];return;
   }
   if(action.type==='ability'){
     if(['c','q','e','x'].includes(action.key)){
@@ -3267,7 +3458,7 @@ function tickOnline(dt){
     const rules={format:match.format,startingSide:match.startingSide,round:match.round,score:{...match.score},phase:match.phase,phaseTime:match.phaseTime,roundTime:match.roundTime,winner:match.winner,lastRound:match.lastRound?{...match.lastRound}:null,spike:{...match.spike}};
     if(rules.lastRound&&match.phase!=='post')delete rules.lastRound.fullCombo;
     const teamState=teamAbilities.snapshot(),packet={type:'snapshot',mapId:map.id||'hashimoto',seq:++netSequence,time:elapsed,paused:netHostPaused,...(map.traversal?{trcDoors:map.traversal.snapshot()}:{}),cues:serializeNetCues(),smokes:serializeSmokes(),drops:serializeDrops(),detonation:detonationState?{...detonationState}:null,takeover:takeoverState?{...takeoverState}:null,zoneAbilities:zoneAbilities.snapshot(),...(map.traffic?{busTransit:map.traffic.service.snapshot([player,...bots].map(a=>a.id)),...(map.destruction?.snapshot()?{busDamage:map.destruction.snapshot()}:{})}:{}),rules,roster:roster.map(r=>({...r,kit:r.kit?.snapshot()})),actors:[player,...bots].map(captureNetActor),acks:Object.fromEntries(netApplied),positionAcks:Object.fromEntries(bots.filter(b=>b.remoteId&&b.netPositionAck).map(b=>[b.remoteId,{...b.netPositionAck}]))};
-    for(const team of ['blue','red']){let state={...packet,teamAbilities:{...teamState,pings:teamState.pings.filter(ping=>ping.observerTeam===team)},ordinarySkills:ordinarySkills.snapshot(team),nopeDecoys:nopeDecoys.snapshot(),nopePops:serializeNopePops()};if(match.phase==='buy'){const report=roundDamage.snapshot(team,match.round);if(report)state.damageReport=report;}if(state.damageReport||state.nopeDecoys||state.ordinarySkills.events.some(e=>['nope-decoy','urchin-gloom'].includes(e.type))||state.ordinarySkills.blinds.some(b=>b.eventId.startsWith('skill-urchin-gloom-'))||map.traffic||map.traversal||packet.actors.some(a=>a.crouch>0)||[player,...bots].some(carMotionActive)||match.phase==='post'||state.cues.some(c=>c.type==='skill-hit'||c.type==='skill-heal'))state=fitTrafficSnapshot(state);if(state)online.send(state,{team});}
+    for(const team of ['blue','red']){let state={...packet,teamAbilities:{...teamState,pings:teamState.pings.filter(ping=>ping.observerTeam===team)},ordinarySkills:ordinarySkills.snapshot(team),nopeDecoys:nopeDecoys.snapshot(),nopePops:serializeNopePops()};if(match.phase==='buy'){const report=roundDamage.snapshot(team,match.round);if(report)state.damageReport=report;}if(state.damageReport||state.nopeDecoys||state.ordinarySkills.events.some(e=>['nope-decoy','urchin-gloom'].includes(e.type))||state.ordinarySkills.blinds.some(b=>b.eventId.startsWith('skill-urchin-gloom-'))||map.traffic||map.traversal||packet.actors.some(a=>a.crouch>0)||[player,...bots].some(carMotionActive)||match.phase==='post'||state.cues.some(c=>['skill-hit','skill-heal','gun-hit','gun-kill'].includes(c.type)))state=fitTrafficSnapshot(state);if(state)online.send(state,{team});}
   }else if(netHasSnapshot){
     const seq=++netSequence,input={...(map.traversal?{climb:mode==='play'?Math.sign((keys.has('KeyW')?1:0)-(keys.has('KeyS')?1:0)-touchMove.y):0}:{}),x:player.x,z:player.z,y:player.y,yaw:player.yaw,pitch:player.pitch,crouch:player.crouch,quiet:keys.has('ShiftLeft')||keys.has('ShiftRight'),interact:mode==='play'&&interactionHeld,...(busDriving()?{bus:busControls(player.id)}:{})};
     netPositionHistory.set(seq,{x:input.x,z:input.z,correctionX:netPositionCorrectionX,correctionZ:netPositionCorrectionZ});while(netPositionHistory.size>128)netPositionHistory.delete(netPositionHistory.keys().next().value);
@@ -3410,8 +3601,14 @@ $('pause-back-menu')?.addEventListener('click',backMenu);
 $('pause').addEventListener('click',()=>pauseGame());$('map-toggle').addEventListener('click',()=>pauseGame(true));$('close-map').addEventListener('click',resumeGame);
 $('close-shop')?.addEventListener('click',resumeGame);$('start-round')?.addEventListener('click',startRound);$('scoreboard-close')?.addEventListener('click',resumeGame);
 createArsenalShop(document);
-document.querySelectorAll('[data-buy]').forEach(button=>button.addEventListener('click',()=>button.dataset.skillKey?clickSkillPurchase(button.dataset.skillKey):buy(button.dataset.buy)));
-for(const key of ['c','q'])$(`shop-skill-${key}-add`)?.addEventListener('click',()=>buy(key));
+document.querySelectorAll('[data-buy]').forEach(button=>{
+  const id=()=>button.dataset.skillKey||button.dataset.buy;
+  button.addEventListener('click',()=>button.dataset.skillKey?clickSkillPurchase(id()):buy(id()));
+  button.addEventListener('contextmenu',e=>{e.preventDefault();sell(id());});
+  button.addEventListener('keydown',e=>{if(e.code==='Delete'&&!e.repeat){e.preventDefault();sell(id());}});
+});
+for(const key of ['c','q'])$(`shop-skill-${key}-sell`)?.addEventListener('click',()=>sell(key));
+document.querySelectorAll('[data-sell]').forEach(button=>button.addEventListener('click',()=>sell(button.dataset.sell)));
 $('sound').addEventListener('click',()=>{soundEnabled=!soundEnabled;$('sound').textContent=soundEnabled?'SOUND ON':'SOUND OFF';$('sound').setAttribute('aria-pressed',String(soundEnabled));syncVictoryMusic();if(soundEnabled){audioInit();sound('scan');}});
 function updateFormatSummary(){
   const format=$('match-format')?.value,objective=['plant','defuse'].includes(format),practice=objective||['explore','range'].includes(format);

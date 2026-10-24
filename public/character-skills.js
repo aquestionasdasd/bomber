@@ -216,6 +216,10 @@ export function createCharacterSkills() {
     const pitch = Number.isFinite(actor.pitch) ? Math.max(-1.35, Math.min(1.35, actor.pitch)) : 0;
     return (-Math.sin(yaw) * Math.cos(pitch) * dx + Math.sin(pitch) * dy - Math.cos(yaw) * Math.cos(pitch) * dz) / distance > CHARACTER_SKILLS.flashFacingDot;
   }
+  // Read-only forecast and actual detonation share the same facing/range/ray.
+  function wouldBlind(actor,event,{reachable}={}){
+    return living(actor)&&event&&['nope-flash','echo-glint'].includes(event.type)&&facesFlash(actor,event)&&canReach(reachable,event,actor);
+  }
   // Only locally owned E events can be broken. Restoring a snapshot never
   // grants authority to consume a decoy or create damage on a guest.
   function consumeDecoy(id, shooterTeam, now, round) {
@@ -309,7 +313,7 @@ export function createCharacterSkills() {
         for (const actor of list) {
           if (!living(actor) || actor.team === event.team || seen.has(actor.id)) continue; seen.add(actor.id);
           const distance = Math.hypot(actor.x - event.x, actor.z - event.z);
-          if (distance > event.radius || Math.abs((actor.y || 0) - (event.y - IAGNU_SKILLS.tagGroundOffset)) > CHARACTER_SKILLS.heightTolerance || !canReach(reachable, event, actor)) continue;
+          if (!wouldTag(actor, event, { reachable })) continue;
           candidates.push({ actor, distance });
         }
         candidates.sort((a, b) => a.distance - b.distance || (a.actor.id < b.actor.id ? -1 : a.actor.id > b.actor.id ? 1 : 0));
@@ -334,7 +338,7 @@ export function createCharacterSkills() {
           const solder = event.type === 'ember-solder', floor = event.y - (solder ? EMBER_SKILLS.solderGroundOffset : 0);
           if (actor.team === event.team || distance >= event.radius || Math.abs((actor.y || 0) - floor) > CHARACTER_SKILLS.heightTolerance || !canReach(reachable, event, actor)) continue;
           effects.push({ type: 'damage', targetId: actor.id, sourceId: event.sourceId, amount: (solder ? EMBER_SKILLS.solderDamage : NOPE_SKILLS.bottleDamage) * (1 - distance / event.radius) });
-        } else if ((event.type === 'nope-flash' || event.type === 'echo-glint') && facesFlash(actor, event) && canReach(reachable, event, actor)) {
+        } else if (wouldBlind(actor,event,{reachable})) {
           const resisted = [...active.values()].some(other => other.type === 'ember-shade' && other.sourceId === actor.id && other.team === actor.team && now >= other.triggerAt);
           const duration = flashDuration(event.id) * (resisted ? EMBER_SKILLS.shadeFlashScale : 1);
           const blind = { eventId: event.id, targetId: actor.id, sourceId: event.sourceId, team: event.team, round,
@@ -396,14 +400,38 @@ export function createCharacterSkills() {
     }
     return 0;
   }
-  function speedScale(actor, now, { reachable, groundHeight } = {}) {
-    if (!living(actor) || !viewTime(now)) return 1;
-    let scale = 1;
-    for (const event of active.values()) {
-      if (actor.team === event.team || currentTime < event.triggerAt) continue;
-      if (event.type === 'mend-seeds' && Math.hypot(actor.x - event.x, actor.z - event.z) <= event.radius
-        && Math.abs((actor.y || 0) - (event.y - MEND_SKILLS.seedsGroundOffset)) <= CHARACTER_SKILLS.heightTolerance && canReach(reachable, event, actor)) scale = Math.min(scale, MEND_SKILLS.seedsSpeedScale);
-      if (event.type === 'frost-stitch' && actor.grounded === true) {
+  // Forecast and live movement share the nearest supported floor point.
+  // This query never advances the event clock or grants effect ownership.
+  function wouldRoot(actor, event, { reachable, groundHeight } = {}) {
+    if (!living(actor) || actor.grounded !== true || event?.type !== 'veil-roots' || actor.team === event.team
+      || ![event.fromX,event.fromY,event.fromZ,event.x,event.y,event.z,event.radius].every(Number.isFinite) || event.radius <= 0) return false;
+    const dx = event.x - event.fromX, dz = event.z - event.fromZ, lengthSquared = dx * dx + dz * dz;
+    if (lengthSquared <= 0) return false;
+    const t = Math.max(0, Math.min(1, ((actor.x - event.fromX) * dx + (actor.z - event.fromZ) * dz) / lengthSquared));
+    const x = event.fromX + dx * t, z = event.fromZ + dz * t, referenceY = event.fromY + (event.y - event.fromY) * t;
+    if (Math.hypot(actor.x - x, actor.z - z) > event.radius) return false;
+    const floor = safeGround(groundHeight, x, z, referenceY);
+    if (floor === null || Math.abs(floor - referenceY) > VEIL_SKILLS.rootsHeightTolerance + 1e-8
+      || Math.abs((actor.y || 0) - floor) > VEIL_SKILLS.rootsHeightTolerance + 1e-8) return false;
+    return canReach(reachable, { ...event, x, y: floor, z }, actor);
+  }
+  // Read-only forecasts share the live radius, floor and ray predicates.
+  function wouldTag(actor,event,{reachable}={}){
+    return living(actor)&&event?.type==='echo-tag'&&actor.team!==event.team
+      &&Math.hypot(actor.x-event.x,actor.z-event.z)<=event.radius
+      &&Math.abs((actor.y||0)-(event.y-IAGNU_SKILLS.tagGroundOffset))<=CHARACTER_SKILLS.heightTolerance
+      &&canReach(reachable,event,actor);
+  }
+  function wouldSeed(actor,event,{reachable}={}){
+    return living(actor)&&event?.type==='mend-seeds'&&actor.team!==event.team
+      &&Math.hypot(actor.x-event.x,actor.z-event.z)<=event.radius
+      &&Math.abs((actor.y||0)-(event.y-MEND_SKILLS.seedsGroundOffset))<=CHARACTER_SKILLS.heightTolerance
+      &&canReach(reachable,event,actor);
+  }
+  // Read-only annulus forecast uses the live supported floor and line of sight.
+  function wouldStitch(actor,event,{reachable,groundHeight}={}) {
+    if(!living(actor)||actor.team===event?.team)return false;
+    if (event?.type === 'frost-stitch' && actor.grounded === true) {
         const dx = actor.x - event.x, dz = actor.z - event.z, distance = Math.hypot(dx, dz);
         if (distance >= FROST_SKILLS.stitchInnerRadius - 1e-8 && distance <= event.radius + 1e-8) {
           const referenceY = event.y - FROST_SKILLS.stitchGroundOffset, radius = (FROST_SKILLS.stitchInnerRadius + event.radius) / 2;
@@ -413,19 +441,19 @@ export function createCharacterSkills() {
           if (projectedFloor !== null && actorFloor !== null && Math.abs(projectedFloor - referenceY) <= tolerance
             && Math.abs(actorFloor - referenceY) <= tolerance && Math.abs((actor.y || 0) - actorFloor) <= tolerance
             && Math.abs((actor.y || 0) - projectedFloor) <= tolerance
-            && canReach(reachable, { ...event, x, y: projectedFloor, z }, actor)) scale = Math.min(scale, FROST_SKILLS.stitchSpeedScale);
+            && canReach(reachable, { ...event, x, y: projectedFloor, z }, actor)) return true;
         }
       }
-      if (event.type !== 'veil-roots' || actor.grounded !== true) continue;
-      const dx = event.x - event.fromX, dz = event.z - event.fromZ, lengthSquared = dx * dx + dz * dz;
-      const t = Math.max(0, Math.min(1, ((actor.x - event.fromX) * dx + (actor.z - event.fromZ) * dz) / lengthSquared));
-      const x = event.fromX + dx * t, z = event.fromZ + dz * t, referenceY = event.fromY + (event.y - event.fromY) * t;
-      if (Math.hypot(actor.x - x, actor.z - z) > event.radius) continue;
-      const floor = safeGround(groundHeight, x, z, referenceY);
-      if (floor === null || Math.abs(floor - referenceY) > VEIL_SKILLS.rootsHeightTolerance + 1e-8
-        || Math.abs((actor.y || 0) - floor) > VEIL_SKILLS.rootsHeightTolerance + 1e-8) continue;
-      // Test cover from the nearest actual floor point, never the far endpoint.
-      if (canReach(reachable, { ...event, x, y: floor, z }, actor)) scale = Math.min(scale, VEIL_SKILLS.rootsSpeedScale);
+    return false;
+  }
+  function speedScale(actor, now, { reachable, groundHeight } = {}) {
+    if (!living(actor) || !viewTime(now)) return 1;
+    let scale = 1;
+    for (const event of active.values()) {
+      if (actor.team === event.team || currentTime < event.triggerAt) continue;
+      if (wouldSeed(actor,event,{reachable})) scale = Math.min(scale, MEND_SKILLS.seedsSpeedScale);
+      if (wouldStitch(actor,event,{reachable,groundHeight})) scale = Math.min(scale,FROST_SKILLS.stitchSpeedScale);
+      if (wouldRoot(actor, event, { reachable, groundHeight })) scale = Math.min(scale, VEIL_SKILLS.rootsSpeedScale);
     }
     return scale;
   }
@@ -571,5 +599,5 @@ export function createCharacterSkills() {
     if(!e)return 0;const stored=active.get(e.id),step=Math.min(ONNARA_SKILLS.taxPerShot,stored.power),paid=Math.min(credits,step);stored.power-=step;return paid;
   }
   const onnaraEvent=(type,id,now)=>events(now).find(e=>e.type===type&&e.sourceId===id)||null;
-  return {nearsightUntil,sightRange,duckPad,recordConstellation(sourceId,from,to,now){const e=events(now).find(e=>e.type==='onnara-chain'&&e.sourceId===sourceId&&owned.has(e.id));if(!e||!point(from)||!point(to)||Math.hypot(from.x-to.x,from.y-to.y,from.z-to.z)>ONNARA_SKILLS.chainRange+.001)return false;active.get(e.id).link=[from.x,from.y,from.z,to.x,to.y,to.z,now].map(n=>Math.round(n*1000)/1000);active.get(e.id).link[6]=now;return true;},cancelOnnaraEvent(id,sourceId){const e=active.get(id);if(e?.type.startsWith('onnara-')&&e.sourceId===sourceId&&owned.has(id)){active.delete(id);owned.delete(id);return true;}return false;},consumeCrownTax,onnaraTax:(id,now)=>events(now).find(e=>e.type==='onnara-tax'&&e.targetId===id)||null,onnaraEvent,urchinJammed:(id,now)=>capState('urchin-jam',id,now,true),urchinTrident:(id,now)=>capState('urchin-trident',id,now),hasImpairment,cleanse,capLocked:(id,now)=>capState('cap-lock',id,now,true),capBank:(id,now)=>capState('cap-bank',id,now),capMagazine:(id,now)=>capState('cap-magazine',id,now),resetActor,japanReturn:(id,now)=>events(now).some(e=>e.type==='japan-return'&&e.sourceId===id)?JAPAN_SKILLS.returnScale:0,nobiVulnerability,nobiInterval,nobiWork,nobiLegend,carGyro,disperseSmoke,cancelCarEvent,catBookmark,returnToCatBookmark,cancelCatEvent,clockFrozen, sealUntil,quiet,guardLethal,interceptShield,cast, update, events, snapshot, restore, reset, blindUntil, speedScale, markers, movementScale, mitigateSlow, frostSlideSpeed, cancelService, consumeDecoy, flashDecoy };
+  return {nearsightUntil,sightRange,duckPad,recordConstellation(sourceId,from,to,now){const e=events(now).find(e=>e.type==='onnara-chain'&&e.sourceId===sourceId&&owned.has(e.id));if(!e||!point(from)||!point(to)||Math.hypot(from.x-to.x,from.y-to.y,from.z-to.z)>ONNARA_SKILLS.chainRange+.001)return false;active.get(e.id).link=[from.x,from.y,from.z,to.x,to.y,to.z,now].map(n=>Math.round(n*1000)/1000);active.get(e.id).link[6]=now;return true;},cancelOnnaraEvent(id,sourceId){const e=active.get(id);if(e?.type.startsWith('onnara-')&&e.sourceId===sourceId&&owned.has(id)){active.delete(id);owned.delete(id);return true;}return false;},consumeCrownTax,onnaraTax:(id,now)=>events(now).find(e=>e.type==='onnara-tax'&&e.targetId===id)||null,onnaraEvent,urchinJammed:(id,now)=>capState('urchin-jam',id,now,true),urchinTrident:(id,now)=>capState('urchin-trident',id,now),hasImpairment,cleanse,capLocked:(id,now)=>capState('cap-lock',id,now,true),capBank:(id,now)=>capState('cap-bank',id,now),capMagazine:(id,now)=>capState('cap-magazine',id,now),resetActor,japanReturn:(id,now)=>events(now).some(e=>e.type==='japan-return'&&e.sourceId===id)?JAPAN_SKILLS.returnScale:0,nobiVulnerability,nobiInterval,nobiWork,nobiLegend,carGyro,disperseSmoke,cancelCarEvent,catBookmark,returnToCatBookmark,cancelCatEvent,clockFrozen, wouldBlind, wouldRoot,wouldSeed,wouldTag,wouldStitch,sealUntil,quiet,guardLethal,interceptShield,cast, update, events, snapshot, restore, reset, blindUntil, speedScale, markers, movementScale, mitigateSlow, frostSlideSpeed, cancelService, consumeDecoy, flashDecoy };
 }
