@@ -735,7 +735,7 @@ function openShop(){
   if(!match||(!exploring&&match.phase!=='buy')||!player.alive){showMessage('ショップは購入フェーズのみ','装備は生き残れば次のラウンドへ持ち越します',2);return;}
   if(mode==='shop'){resumeGame();return;}
   mode='shop';keys.clear();firing=false;aiming=false;setVisible('shop-overlay',true);if(document.pointerLockElement)document.exitPointerLock();updateShop();
-  if($('shop-status'))$('shop-status').textContent=exploring?'練習中は全武器を無料で選択できます。':'装備を選択してください。';
+  if($('shop-status'))$('shop-status').textContent=exploring?'練習中は全武器を無料で選択できます。':'左クリックで購入・買い足し / 右クリックで売却';
 }
 // Only purchases made by this kit in this buy phase can be refunded. No wire
 // fields are needed: the host keeps the ledger, guests send an ordinary action.
@@ -753,41 +753,85 @@ function tradeSkill(actor,id,selling=false){
   const ok=kit.buy(key,price=>{if(record.credits<price)return false;if(actor===player)return match.purchase(price);record.credits-=price;return true;});
   if(ok)ledger[key].push(definition.price);return ok;
 }
-function clickSkillPurchase(key){
+function clickSkillPurchase(key,selling=false){
   if(!['c','q'].includes(key)||!player.alive||match?.phase!=='buy'||netHostPaused||exploring)return false;
-  const selling=player.kit[key==='c'?'smoke':'updraft']>0,id=selling?'sell-'+key:key;
-  if(isGuest()){if(netActions.some(a=>a.type==='buy'&&[key,key==='c'?'smoke':'updraft','sell-'+key].includes(a.id)))return false;queueNetAction('buy',{id});return true;}
+  const id=selling?'sell-'+key:key;
+  if(isGuest()){if(netActions.some(a=>a.type==='buy'&&[key,key==='c'?'smoke':'updraft','sell-'+key].includes(a.id)))return false;const n=netActions.length;queueNetAction('buy',{id});return netActions.length>n;}
   const ok=tradeSkill(player,key,selling);
-  if($('shop-status'))$('shop-status').textContent=ok?`${getCharacterSkill(player.kit.character,key).name} を${selling?'売却':'購入'}しました`:'持ち越したスキルは売却できません';
+  if($('shop-status'))$('shop-status').textContent=ok?`${getCharacterSkill(player.kit.character,key).name} を${selling?'売却':'購入'}しました`:selling?'このラウンドに購入したスキルだけ売却できます':'所持数が最大か、しばくでコインが不足しています';
+  if(ok)sound('buy');updateShop();updateHUD();return ok;
+}
+// The previous loadout stays in the host's ledger, never in a client price.
+function tradeEquipment(actor,id,selling=false){
+  if(!actor?.alive||match?.phase!=='buy'||netHostPaused||exploring)return false;
+  const local=actor===player,record=local?match:actor.record,items=local?inventory:record;
+  const armor=id==='light'||id==='heavy',spec=armor?{slot:'armor',price:id==='light'?400:1000}:WEAPONS[id];
+  if(!record||!spec||!['primary','secondary','armor'].includes(spec.slot))return false;
+  const ledger=local?roundPurchases:(record.netPurchases||={}),slot=spec.slot;
+  const old=ledger[slot]?.round===match.round?ledger[slot]:null,owned=armor?actor.armor>=(id==='light'?25:50):items[slot]===id;
+  if(selling){
+    if(!owned||!old||old.id!==id)return false;
+    if(local)match.addCredits(old.price);else record.credits=Math.min(9000,record.credits+old.price);
+    delete ledger[slot];
+    if(armor)actor.armor=old.previous;
+    else{
+      items[slot]=old.previous;
+      const stores=local?ammoStore:(actor.netStores||={});delete stores[id];if(old.previous&&old.ammo)stores[old.previous]={...old.ammo};
+      const active=local?inventory.active:actor.netWeapon;
+      if(active===id){const next=old.previous||items.secondary||items.primary||'knife';if(local)equip(next,true);else{const w=WEAPONS[next],ammo=stores[next];actor.netWeapon=next;actor.netAmmo=ammo?.ammo??w.mag;actor.netReserve=ammo?.reserve??w.reserve;actor.netReload=0;}}
+    }
+    return true;
+  }
+  if(owned)return false;
+  const replacing=old&&(armor||old.id===items[slot]),refund=replacing?old.price:0;
+  if(record.credits+refund<spec.price)return false;
+  const previous=replacing?old.previous:armor?actor.armor:items[slot];
+  const active=local?inventory.active:actor.netWeapon,stores=local?ammoStore:(actor.netStores||={});
+  const ammo=armor?null:replacing?old.ammo:previous?(active===previous?{ammo:local?player.ammo:actor.netAmmo,reserve:local?player.reserve:actor.netReserve}:stores[previous]||{ammo:WEAPONS[previous].mag,reserve:WEAPONS[previous].reserve}):null;
+  record.credits=Math.min(9000,record.credits+refund)-spec.price;
+  ledger[slot]={id,price:spec.price,round:match.round,previous,ammo};
+  if(armor)actor.armor=id==='light'?25:50;
+  else{items[slot]=id;delete stores[id];if(local)equip(id);else{actor.netWeapon=id;actor.netAmmo=spec.mag;actor.netReserve=spec.reserve;actor.netReload=0;stores[id]={ammo:spec.mag,reserve:spec.reserve};}}
+  return true;
+}
+function sell(id){
+  if(['c','q'].includes(id))return clickSkillPurchase(id,true);
+  if(!player.alive||match?.phase!=='buy'||netHostPaused||exploring)return false;
+  if(isGuest()){if(netActions.some(a=>a.type==='buy'))return false;const n=netActions.length;queueNetAction('buy',{id:'sell-'+id});return netActions.length>n;}
+  const ok=tradeEquipment(player,id,true);
+  if($('shop-status'))$('shop-status').textContent=ok?'売却してしばくでコインを返金しました':'このラウンドに購入し、所持している装備だけ売却できます';
   if(ok)sound('buy');updateShop();updateHUD();return ok;
 }
 function buy(id){
   if(netHostPaused)return false;
   if(exploring){const spec=WEAPONS[id];if(!spec||spec.slot==='melee')return false;inventory[spec.slot]=id;delete ammoStore[id];equip(id,true);updateShop();updateHUD();return true;}
-  if(isGuest()){queueNetAction('buy',{id});return true;}
+  if(isGuest()){if(netActions.some(a=>a.type==='buy'&&a.id===id))return false;const n=netActions.length;queueNetAction('buy',{id});return netActions.length>n;}
   if(!match||match.phase!=='buy'||!player.alive)return false;
   if(['smoke','updraft','c','q'].includes(id)){const ok=tradeSkill(player,id);if(ok){sound('buy');updateShop();updateHUD();}return ok;}
   const armor=id==='light'||id==='heavy';const spec=armor?{price:id==='light'?400:1000,slot:'armor'}:WEAPONS[id];if(!spec)return false;
-  const slot=spec.slot;const oldId=armor?null:inventory[slot];
-  if((armor&&player.armor>=(id==='light'?25:50))||(!armor&&oldId===id)){if($('shop-status'))$('shop-status').textContent='すでに装備しています';return false;}
-  const purchase=roundPurchases[slot],refund=purchase&&(armor||purchase.id===oldId)?purchase.price:0;
-  if(match.credits+refund<spec.price){if($('shop-status'))$('shop-status').textContent='しばくでコインが不足しています';return false;}
-  match.addCredits(refund);if(!match.purchase(spec.price))return false;
-  roundPurchases[slot]={id,price:spec.price};
-  if(armor)player.armor=id==='light'?25:50;
-  else{inventory[slot]=id;delete ammoStore[id];equip(id);}
+  if(!tradeEquipment(player,id)){if($('shop-status'))$('shop-status').textContent='すでに所持しているか、しばくでコインが不足しています';return false;}
   if($('shop-status'))$('shop-status').textContent=`${armor?(id==='heavy'?'ヘヴィーシールド':'ライトシールド'):spec.name} を購入しました`;
   sound('buy');updateShop();updateHUD();return true;
 }
 function updateShop(){
   if(!match)return;
   setVisible('start-round',!onlinePlaying&&!exploring);
-  if($('shop-rule-summary'))$('shop-rule-summary').textContent=exploring?'マップ練習 / 全10銃を無料で選択':'購入は購入フェーズ中のみ可能です';
+  if($('shop-rule-summary'))$('shop-rule-summary').textContent=exploring?'マップ練習 / 全10銃を無料で選択':`ラウンド ${match.round} · 購入終了まで ${Math.ceil(match.phaseTime)}秒`;
   if($('shop-credits'))$('shop-credits').textContent=exploring?'練習 / FREE':match.credits.toLocaleString();
-  document.querySelectorAll('[data-buy]').forEach(button=>{const id=button.dataset.buy;if(id==='smoke'||id==='updraft'){const max=id==='smoke'?2:1,price=id==='smoke'?200:150;button.disabled=match.phase!=='buy'||player.kit[id]>=max||match.credits<price;button.classList.toggle('owned',player.kit[id]>=max);return;}const armor=id==='light'||id==='heavy';const spec=armor?{price:id==='light'?400:1000,slot:'armor'}:WEAPONS[id];if(!spec)return;const owned=armor?player.armor>=(id==='light'?25:50):inventory[spec.slot]===id;
-    button.disabled=exploring?armor:match.phase!=='buy'||(!owned&&match.credits+(roundPurchases[spec.slot]?.price||0)<spec.price);button.classList.toggle('owned',owned);button.classList.toggle('selected',inventory.active===id);
+  document.querySelectorAll('[data-buy]').forEach(button=>{const id=button.dataset.buy;if(button.dataset.skillKey)return;
+    const armor=id==='light'||id==='heavy',spec=armor?{price:id==='light'?400:1000,slot:'armor'}:WEAPONS[id];if(!spec)return;
+    const owned=armor?player.armor>=(id==='light'?25:50):inventory[spec.slot]===id,purchase=roundPurchases[spec.slot];
+    const current=purchase?.round===match.round,refundable=owned&&current&&purchase.id===id;
+    const affordable=match.credits+(current?purchase.price:0)>=spec.price;
+    button.disabled=exploring?armor:!player.alive||match.phase!=='buy'||netHostPaused;
+    button.classList.toggle('owned',owned);button.classList.toggle('selected',inventory.active===id);button.classList.toggle('unaffordable',!owned&&!affordable&&!exploring);
+    const status=exploring?'無料で装備':refundable?'所持 · 右クリックで売却':owned?'所持':affordable?'左クリックで購入':'コイン不足';
+    button.dataset.state=status;button.setAttribute('aria-label',`${armor?(id==='light'?'ライトシールド':'ヘヴィーシールド'):spec.name} SC ${spec.price}、${status}`);
+    const state=button.querySelector?.('.buy-state');if(state)state.textContent=status;
+    const sellButton=document.querySelector?.(`[data-sell="${id}"]`);if(sellButton){sellButton.hidden=(!refundable&&!(owned&&isGuest()))||exploring;sellButton.disabled=button.disabled;}
   });
-  skillUI.updateShop({kit:player.kit,credits:match.credits,phase:match.phase,alive:player.alive});
+  const ledger=skillPurchaseLedger.get(player.kit),refunds=ledger?.round===match.round&&ledger.character===player.kit.character?{c:ledger.c.length,q:ledger.q.length}:{};
+  skillUI.updateShop({kit:player.kit,credits:match.credits,phase:match.phase,alive:player.alive&&!netHostPaused&&!exploring,refunds,allowUnknownSales:isGuest()});
 }
 function startRound(){if(onlinePlaying&&!online.host){showMessage('開始を待っています','購入終了とラウンド進行はホストが管理します',2);return;}if(match?.startLive()){resumeGame();handleMatchEvents();updateHUD();}}
 function showScoreboard(){
@@ -3123,9 +3167,14 @@ function applyNetPurchaseFeedback(packet,self,fresh,ack){
     receipt[0]>ack||receipt[1]!==match.round||typeof receipt[2]!=='string')return;
   const action=netActions.find(a=>a.type==='buy'&&a.seq===receipt[0]&&a.round===receipt[1]&&a.id===receipt[2]);if(!action)return;
   sound('buy',{localOnly:true});
-  const id=action.id,selling=['sell-c','sell-q'].includes(id),label=selling?getCharacterSkill(player.kit.character,id.slice(-1))?.name:id==='light'?'ライトシールド':id==='heavy'?'ヘヴィーシールド':
+  const selling=action.id.startsWith('sell-'),id=selling?action.id.slice(5):action.id;
+  const label=id==='light'?'ライトシールド':id==='heavy'?'ヘヴィーシールド':
     ['c','smoke'].includes(id)?getCharacterSkill(player.kit.character,'c')?.name:
     ['q','updraft'].includes(id)?getCharacterSkill(player.kit.character,'q')?.name:WEAPONS[id]?.name;
+  // Cosmetic ledger only. Money, equipment and stock still come from self.
+  const key=['c','smoke'].includes(id)?'c':['q','updraft'].includes(id)?'q':null;
+  if(key){let ledger=skillPurchaseLedger.get(player.kit);if(!ledger||ledger.round!==match.round||ledger.character!==player.kit.character){ledger={round:match.round,character:player.kit.character,c:[],q:[]};skillPurchaseLedger.set(player.kit,ledger);}if(selling)ledger[key].pop();else ledger[key].push(getCharacterSkill(player.kit.character,key).price);}
+  else{const slot=id==='light'||id==='heavy'?'armor':WEAPONS[id]?.slot;if(slot){if(selling)delete roundPurchases[slot];else roundPurchases[slot]={id,price:slot==='armor'?(id==='light'?400:1000):WEAPONS[id].price,round:match.round};}}
   if(mode==='shop'&&$('shop-status'))$('shop-status').textContent=`${label||'装備'} を${selling?'売却':'購入'}しました`;
 }
 function applyNetSnapshot(packet){
@@ -3341,11 +3390,8 @@ function applyRemoteAction(actor,action,actionTime=elapsed){
   if(action.type==='character'){if(match.phase==='buy'&&match.round===1&&characterIds.includes(action.character))actor.kit.character=action.character;return;}
   if(action.type==='buy'&&match.phase==='buy'){
     if(['smoke','updraft','c','q','sell-c','sell-q'].includes(action.id)){const selling=action.id.startsWith('sell-'),id=selling?action.id.slice(-1):action.id;if(tradeSkill(actor,id,selling))actor.netPurchaseAck=[action.seq,match.round,action.id];return;}
-    const id=action.id,spec=WEAPONS[id],armor=id==='light'||id==='heavy',price=armor?(id==='light'?400:1000):spec?.price;
-    if(!Number.isFinite(price))return;r.netPurchases||={};const slot=armor?'armor':spec.slot;if(slot!=='armor'&&!['primary','secondary'].includes(slot))return;
-    if(armor?actor.armor>=(id==='light'?25:50):r[slot]===id)return;
-    const purchase=r.netPurchases[slot],refund=purchase&&(armor||purchase.id===r[slot])?purchase.price:0;if(r.credits+refund<price)return;r.credits+=refund-price;r.netPurchases[slot]={id,price};
-    if(armor)actor.armor=id==='light'?25:50;else{r[slot]=id;actor.netWeapon=id;actor.netAmmo=spec.mag;actor.netReserve=spec.reserve;actor.netReload=0;actor.netStores||={};actor.netStores[id]={ammo:spec.mag,reserve:spec.reserve};}actor.netPurchaseAck=[action.seq,match.round,id];return;
+    if(typeof action.id!=='string')return;const selling=action.id.startsWith('sell-'),id=selling?action.id.slice(5):action.id;
+    if(tradeEquipment(actor,id,selling))actor.netPurchaseAck=[action.seq,match.round,action.id];return;
   }
   if(action.type==='ability'){
     if(['c','q','e','x'].includes(action.key)){
@@ -3555,8 +3601,14 @@ $('pause-back-menu')?.addEventListener('click',backMenu);
 $('pause').addEventListener('click',()=>pauseGame());$('map-toggle').addEventListener('click',()=>pauseGame(true));$('close-map').addEventListener('click',resumeGame);
 $('close-shop')?.addEventListener('click',resumeGame);$('start-round')?.addEventListener('click',startRound);$('scoreboard-close')?.addEventListener('click',resumeGame);
 createArsenalShop(document);
-document.querySelectorAll('[data-buy]').forEach(button=>button.addEventListener('click',()=>button.dataset.skillKey?clickSkillPurchase(button.dataset.skillKey):buy(button.dataset.buy)));
-for(const key of ['c','q'])$(`shop-skill-${key}-add`)?.addEventListener('click',()=>buy(key));
+document.querySelectorAll('[data-buy]').forEach(button=>{
+  const id=()=>button.dataset.skillKey||button.dataset.buy;
+  button.addEventListener('click',()=>button.dataset.skillKey?clickSkillPurchase(id()):buy(id()));
+  button.addEventListener('contextmenu',e=>{e.preventDefault();sell(id());});
+  button.addEventListener('keydown',e=>{if(e.code==='Delete'&&!e.repeat){e.preventDefault();sell(id());}});
+});
+for(const key of ['c','q'])$(`shop-skill-${key}-sell`)?.addEventListener('click',()=>sell(key));
+document.querySelectorAll('[data-sell]').forEach(button=>button.addEventListener('click',()=>sell(button.dataset.sell)));
 $('sound').addEventListener('click',()=>{soundEnabled=!soundEnabled;$('sound').textContent=soundEnabled?'SOUND ON':'SOUND OFF';$('sound').setAttribute('aria-pressed',String(soundEnabled));syncVictoryMusic();if(soundEnabled){audioInit();sound('scan');}});
 function updateFormatSummary(){
   const format=$('match-format')?.value,objective=['plant','defuse'].includes(format),practice=objective||['explore','range'].includes(format);
