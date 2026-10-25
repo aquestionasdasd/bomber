@@ -1,3 +1,4 @@
+import { createCareerCoins, CAREER_COIN_KEY, CAREER_COIN_REWARDS } from './career-coins.js';
 import { createRoundDamageTracker, renderCombatReport } from './combat-report.js';
 import { createFlashStatusFX } from './flash-status-fx.js';
 import { planNopeWalk, nopeWalkPose } from './nope-walk.js';
@@ -69,6 +70,14 @@ import { createFrostSkillFX } from './frost-skill-fx.js';
 import { createDuelistSkillFX } from './duelist-skill-fx.js';
 
 const $ = id => document.getElementById(id);
+const careerCoins = createCareerCoins({ onChange({balance,saved}) {
+  if($('career-coin-balance'))$('career-coin-balance').textContent=balance.toLocaleString('ja-JP');
+  if($('career-wallet')){
+    $('career-wallet').setAttribute('aria-label',`所持金 ${balance.toLocaleString('ja-JP')} 489coin`);
+    $('career-wallet').title=saved?`このブラウザーに保存 · 1キル${CAREER_COIN_REWARDS.kill} / 試合勝利${CAREER_COIN_REWARDS.win}`: '保存できないため、今開いている画面でのみ保持しています';
+  }
+} });
+window.addEventListener('storage',event=>{if(event.key===CAREER_COIN_KEY||event.key===null)careerCoins.refresh();});
 const canvas = $('game');
 const clamp = THREE.MathUtils.clamp;
 const keys = new Set();
@@ -917,7 +926,7 @@ function damageEntity(entity,amount,killer,{firearm=false,returned=false,chain=t
   entity.alive=false;entity.trcLadder=null;cancelServiceReload(entity);entity.kit?.awardPoint();const record=recordOf(entity);if(record)record.d++;
   match.dropSpike(entity.id,entity.x,entity.z);match.cancelPlant(entity.id);match.cancelDefuse(entity.id);
   const item=entity===player?inventory.primary:record?.primary;dropItem(item,entity);
-  if(creditedKiller){killer.kit?.awardKill();const k=recordOf(killer);if(k)k.k++;if(!firearm)killFeedback(killer);if(killer===player){totalKills++;match.awardKill();}else if(k)k.credits=Math.min(9000,k.credits+200);feed(`${k?.name||CHARACTER_DEFS[killer.kit?.character||'duelist'].label}  ⌁  ${record?.name||(entity===player?'YOU':CHARACTER_DEFS[entity.kit?.character||'duelist'].label)}`);}
+  if(creditedKiller){killer.kit?.awardKill();const k=recordOf(killer);if(k)k.k++;if(!firearm)killFeedback(killer);if(killer===player){totalKills++;match.awardKill();careerCoins.progress({kills:totalKills});}else if(k)k.credits=Math.min(9000,k.credits+200);feed(`${k?.name||CHARACTER_DEFS[killer.kit?.character||'duelist'].label}  ⌁  ${record?.name||(entity===player?'YOU':CHARACTER_DEFS[entity.kit?.character||'duelist'].label)}`);}
   if(entity===player)beginDeathView();
   else{entity.death=.85;entity.defusing=false;entity.planting=false;}
 }
@@ -1169,6 +1178,7 @@ function startGame() {
   rangeControl.hide();rangeSession=selectedFormat==='range'?new RangeSession({waiting:true}):null;rangeRespawn=0;
   objectivePractice=['plant','defuse'].includes(selectedFormat)?{kind:selectedFormat,site:'A',completed:false,elapsed:0,duration:0}:null;
   exploring=selectedFormat==='explore'||!!rangeSession||!!objectivePractice;
+  careerCoins.begin({eligible:!exploring,guest:isGuest()});
   navigation=createNavigation({...map,bounds:activeArenaBounds()});updateBots.tactics=null;nopeDecoyTownCandidates=null;updateMapLabels();
   match=new MatchRules({format:exploring?'standard':selectedFormat,startingSide:objectivePractice?(selectedFormat==='plant'?'attack':'defend'):$('starting-side')?.value||'attack'});
   if($('economy-note'))$('economy-note').textContent=match.format==='swift'?'SWIFT · ROUND GRANTS SC 2,400 / 4,250  +  ELIMINATION SC 200':'WIN SC 3,000  +  ELIMINATION SC 200';
@@ -1214,6 +1224,7 @@ function resumeGame() {
   victoryMusicUI?.close();clearCombatInput();mode='play';for(const id of ['pause-menu','map-overlay','shop-overlay','scoreboard'])setVisible(id,false);audioInit();requestLock();
 }
 function backMenu() {
+  careerCoins.stop();careerCoins.refresh();
   clearMouseInputTrace();
   victoryCamera.reset();lastSpectatedId=null;
   resetKillSounds();
@@ -1235,6 +1246,7 @@ function finish(won) {
   deathView.reset();syncDeathUI();
   resetTeamAbilities();
   if(!match||mode==='result')return;mode='result';clearCombatInput();reloading=0;gun.visible=false;buyBarrier.visible=false;
+  if(match.phase==='match'&&match.winner)careerCoins.progress({kills:totalKills,finished:true,won:match.winner===player.team});
   if(document.pointerLockElement)document.exitPointerLock();
   for(const id of ['hud','shop-overlay','scoreboard','map-overlay'])setVisible(id,false);setVisible('result',true);
   $('result-title').textContent=won?'開米':'閉米';
@@ -3382,6 +3394,7 @@ if(map.destruction){if(fresh||!packet.busDamage)map.destruction.reset();map.dest
   if(player.serviceReload)reloading=self.reloading;
   else if(self.serviceReload!=null)reloading=0;
   const ownRecord=roster.find(r=>r.id===ownId);totalKills=ownRecord?.k||0;
+  careerCoins.progress({kills:totalKills,finished:match.phase==='match',won:match.winner===player.team});
   for(const state of packet.actors){
     if(state.id===ownId)continue;let actor=bots.find(b=>b.id===state.id);
     if(!actor){makeBot(state,Number(state.id.split('-')[1])||0,state.team,roster.find(r=>r.id===state.id));actor=bots[bots.length-1];actor.id=state.id;actor.x=state.x;actor.z=state.z;actor.y=state.y;}

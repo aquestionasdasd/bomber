@@ -659,3 +659,12 @@ BOTは精鋭だけに固定し難易度の選択を削除。現在視認した�
 - 根拠: VALORANT Credits https://wiki.playvalorant.com/en-us/Credits （通常勝敗/撃破/設置/短期給の比較）、Riot patch1.11 https://playvalorant.com/en-us/news/game-updates/valorant-patch-notes-1-11/ （生存敗北1000）。金額全体の一律減額やスキル値変更は行わない。
 - 経済rules19/実savedgame6群を両形式/攻守/全10席で検査。独立host→guest JSON/重複snapshot/実敵kill200/実設置全攻撃者300/半期と延長/9000上限を含む。最初の新fixtureは存在しないsendNetSnapshot名と、ローカル財布ではないroster.player値を誤って期待した2件を訂正。製品ネット権威は変更しない。初回停止logを保持。
 - 所有hidden localタブは初手OFF/ariafalse/AX0、精鋭固定/難易度選択なし、SWIFT購入初期800、pauseの診断出力1行/18列とmenu清掃を実確認。warn/error0。実際の角度飛びは未捕捉で、診断追加を修正完了と扱わない。
+
+## 第134巡 / 人間指定489coin
+
+- 根拠/優先度: 新人間指定。キルとゲーム勝利で貯蓄し、最初の画面右上に表示。既存購入経済は別物として維持。
+- 変更: browser-localの489coin財布、1キル10/試合勝利100（量の回答なしの初期値）。通常STANDARD/SWIFT、死亡した勝利者も対象。ラウンド勝利/練習/味方撃破/driver中立撃破/デコイ/予測は加算しない。用途は未実装。
+- 権威: local hostの実敵撃破、guestは既存host snapshotの自分のk差分。途中参加の過去kill/終了済み初回到着を除外。セッション高水位/64receiptで重複/古い値/連続finishを保護。新wire/HTTPなし。無変化snapshotでは保存JSONを読み書きしない。
+- 保存: このブラウザーのlocalStorage。上限999999999、破損値拒否/例外時は現在page内保持。storage eventで別tab表示更新。アカウント同期/改竄防止付きのサーバー財布ではない。将来用途追加時に要再設計。
+- 再確認: 専用unit/実savedgame、独立hostguestJSON、既存経済/勝利演出/SQLite、所有hidden表示を検証。最新公開/GitHubの確定値はworkspace直下cycle134-release/test-reportを正本に。
+- 残課題: 視点飛びは未解決でowner inputTrace待ちを維持。fps-19はPAUSED。実スマホ/新実2タブ/端末間/聴感は未確認。

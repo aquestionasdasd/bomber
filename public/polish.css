@@ -194,3 +194,8 @@
 #hud.victory-camera #round-banner::first-line{font-size:clamp(24px,4vw,36px);line-height:1.12}
 #hud.victory-camera #round-banner .full-combo-title{font-size:clamp(22px,4vw,34px)}
 #hud.victory-camera #round-banner small{margin-top:4px;font-size:9px;letter-spacing:.05em}
+.career-wallet{display:flex;align-items:center;gap:10px;min-width:120px;padding:5px 14px 5px 10px;margin-right:8px;border:1px solid #d8b76d66;background:#0b182be8;color:#f3dca1;font-variant-numeric:tabular-nums}
+.career-coin-icon{display:grid;place-items:center;flex:none;width:29px;height:29px;border:1px solid #d9bc7a;border-radius:50%;font-size:10px;font-weight:800;letter-spacing:-.5px}
+.career-wallet>div{display:grid;gap:1px}.career-wallet-label{font-size:9px;font-weight:700;letter-spacing:1px;color:#d3bc8d}.career-wallet strong{font-size:20px;line-height:1.05;letter-spacing:1px;white-space:nowrap}
+@media(max-width:1100px){.menu-topbar .build-label{display:none}}
+@media(max-width:600px){.menu-topbar{height:auto;flex-wrap:wrap}.menu-topbar .menu-tools{margin-left:auto}.career-wallet{min-width:96px;padding:5px 8px;gap:7px;margin-right:2px}.career-wallet strong{font-size:17px}.career-coin-icon{width:24px;height:24px;font-size:9px}}
