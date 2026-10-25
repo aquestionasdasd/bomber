@@ -674,3 +674,10 @@ BOTは精鋭だけに固定し難易度の選択を削除。現在視認した�
 南北4台の共通定期停車を12秒から5秒へ変更。開扉/発車/周回周期/到着案内は同じBUS_SERVICE.dwellを参照し、別々の時計を追加しない。全4台の到着から4.999秒の開扉停止と5.001秒の発車を検査。後続待機/連続再発進20/60/144Hz、乗車と実運転、BOT迂回、退役、SQLiteを確認した。接触150raw/運転手100HP/燃料25秒/破壊/ホスト権威/通信形式/音源は維持。製品変更はbus-service.jsの定数1箇所のみ。
 
 service8/queue4/実savedgame運転10/BOT迂回7/退役6/SQLite21が成功。全mainや音検査の反復、ブラウザー起動/試聴はなし。公開とGitHubの最終状態はworkspace cycle135-release.jsonを正本とする。自動fps-19はPAUSED、所有者Chrome視点飛びは未解決でinputTrace待ちを維持。489coinは人間の遅着回答でも1キル10/試合勝利100を指定され、既存実装と一致。
+
+## 第136巡 / 設置完了後の主武器優先
+
+- 根拠/優先度: 最新人間指定「ボンバーを置き終わったら銃、ハンドガンよりアサルト優先」。設置完了イベントに本人だけの主武器→副武器→ナイフ選択を追加。所持している銃だけを選び、保存された弾数/予備弾を維持。設置練習も対応。
+- 権威/操作: hostの実設置完了でlocal/remoteを切替。remoteは既存equipの所有検査と弾保存を再利用し、作業済みflagを解除。guestは既存snapshotの装備だけを反映し、確定した自分の設置時に4保持を解除。新wire/action/HTTPなし。中断/他人の設置/死亡者には切替なし、後の手動選択を繰り返し上書きしない。
+- 検証: 旧実savedgameはspikeのままで失敗を再現。新専用6群（全primary/secondary、弾保存、3.99秒未完了/4秒完了、中断/他人/死亡、練習、独立hostguestJSON/重複/後の手動選択、即射撃と報酬）、既存bomber/shop13・経済6・観戦手元7・CAT実作業8・SQLite21成功。初回fixtureの現在弾数と保存弾数の不一致、未定義fire名を修正し、製品条件は緩めず停止log保持。
+- 最新公開/GitHub: workspace cycle136-release/test-reportを正本にする。正規Sites helperで同URL/publicへ公開し、PR63へ通常push。実ブラウザー/新実2タブ/実端末/聴感は未確認。音源/物理/地形/バス停車5秒/489coinは維持。fps-19はPAUSED、所有者Chrome視点飛びは未解決・inputTrace待ち、旧fullmain fixture債務は継続。

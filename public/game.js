@@ -779,6 +779,12 @@ function equip(id,fresh=false){
   gun.visible=player.alive&&id!=='spike';
   viewmodel.setWeapon(id==='spike'?'knife':id);
 }
+function equipAfterPlant(actor){
+  if(!actor?.alive)return;
+  const slots=actor===player?inventory:actor.record,id=slots?.primary||slots?.secondary||'knife';
+  if(actor===player){interactionHeld=false;equip(id);}
+  else if(actor.remoteId){actor.planting=false;applyRemoteAction(actor,{type:'equip',weapon:id});}
+}
 function openShop(){
   if(netHostPaused)return;
   if(!match||(!exploring&&match.phase!=='buy')||!player.alive){showMessage('ショップは購入フェーズのみ','装備は生き残れば次のラウンドへ持ち越します',2);return;}
@@ -942,7 +948,7 @@ function handleMatchEvents(){
   for(const event of match.drainEvents()){
     if(event.type==='live'){if(!exploring)roundDamage.begin(match.round,roster);if(!exploring&&!rangeSession&&!objectivePractice)fullComboTracker.begin(match.round,[player,...bots]);buyBarrier.visible=false;if(mode==='shop')resumeGame();showMessage(sideNames[match.side],match.side==='attack'?'A/Bサイトで 4 を4秒長押しして設置':'設置を阻止 · 設置されたら 4 を7秒長押しで電源オフ',3);}
     if(event.type==='planted'){
-      const planter=event.actorId==='player'?player:bots.find(b=>b.id===event.actorId);planter?.kit?.awardPoint();
+      const planter=event.actorId===player.id?player:bots.find(b=>b.id===event.actorId);planter?.kit?.awardPoint();equipAfterPlant(planter);
       showMessage('BOMBER PLANTED',`${event.site}サイト · 起爆まで45秒`,3);sound('plant',{entity:match.spike});lastSpikeBeep=0;
       for(const r of roster)if(r.id!=='player'&&r.team===event.team)r.credits=Math.min(9000,r.credits+300);
     }
@@ -1346,6 +1352,7 @@ function updateObjectivePractice(dt){
   if(event&&!objectivePractice.completed){
     objectivePractice.completed=true;objectivePractice.duration=objectivePractice.elapsed;
     clearCombatInput();sound(objectivePractice.kind==='plant'?'plant':'defuse');
+    if(event.type==='planted'&&event.actorId===player.id)equipAfterPlant(player);
     showMessage(objectivePractice.kind==='plant'?'設置成功':'電源オフ成功',`${objectivePractice.site} サイト · MからA/Bでもう一度 · 自由に近くで確認できます`,6);
   }
 }
@@ -3288,7 +3295,7 @@ function applyNetSnapshot(packet){
   if(map.destruction&&!map.destruction.valid(packet.busDamage??''))return;
   if(map.traffic&&!map.traffic.service.restore(packet.busTransit||[],packet.actors.map(a=>a.id),packet.time))return;
   if(map.traversal)map.traversal.restore(packet.trcDoors);
-  const fresh=netRound!==packet.rules.round||!netHasSnapshot,previousPhase=match.phase,previousSpikeStatus=match.spike.status,wasAlive=player.alive,wasPaused=netHostPaused;
+  const fresh=netRound!==packet.rules.round||!netHasSnapshot,previousPhase=match.phase,previousSpikeStatus=match.spike.status,previousSpikeCarrier=match.spike.carrier,wasAlive=player.alive,wasPaused=netHostPaused;
   // A same-round reconnect resets rendering, but must not revive a grounded
   // effect already stopped by this player's movement before its host ACK.
   const retainedFrostStops=fresh&&netRound===packet.rules.round&&player.id===ownId&&player.team===self.team
@@ -3366,7 +3373,7 @@ if(map.destruction){if(fresh||!packet.busDamage)map.destruction.reset();map.dest
   else if(wasAlive)beginDeathView();
   if(fresh)for(const marker of ordinarySkills.markers(player.team,elapsed))ordinaryMarkerAudio.add(marker.eventId);
   if(!fresh&&previousSpikeStatus!==match.spike.status){
-    if(match.spike.status==='planted'){sound('plant',{entity:match.spike,localOnly:true});lastSpikeBeep=0;}
+    if(match.spike.status==='planted'){if(previousSpikeCarrier===ownId)interactionHeld=false;sound('plant',{entity:match.spike,localOnly:true});lastSpikeBeep=0;}
     if(match.spike.status==='defused')sound('defuse',{entity:match.spike,localOnly:true});
   }
   if(fresh||netHostPaused||match.phase!=='post')victoryMusic.stop();
