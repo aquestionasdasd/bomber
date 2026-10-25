@@ -594,3 +594,10 @@ Qとデコイ反撃フラッシュ半径12→30m、向き/壁/煙/味方や自�
 実savedgameの両駅+TRC・全10銃・全15kit・20/60/144Hz、実反復cast/20event拒否/通常弾消費を確認。ローカル所有非表示205は初手SOUND OFF/AX0/aria-pressed=false、待機の看板/実銃撃によるBOT出現/00:57/∞弾表示を確認、warn/error0で閉鎖。初回ローカル起動は制限環境で応答せず保持session終了、許可済みloopback起動で回復し最終serverも終了。試聴なし、ユーザータブ/OS/他アプリ不操作。
 
 自動更新fps-19はPAUSEDを維持。この依頼だけを扱い、GitHubと同URL公開の最終結果をworkspace cycle125-release.json/test-reportに記録する。全mainの既存床ボンバー/4キーfixture債務は今回未完了で、同全main/無関係なBOT測定/音mockを反復しない。
+
+
+## 勝利BGMの同梱曲設定（手動依頼）
+
+提供されたsandstorm.wavをbyte変更なしで同梱し、現在の勝利BGMは「sandstorm」1曲。タイトル画面とEscの一時停止から同じ設定画面を開き、再生ON/OFFとBGM音量を保存する。ファイル選択/アップロードとblob URL APIは削除。設定操作で試聴せず、自チームのラウンド勝利だけ再生する。SOUND OFF/マスター音量、重複・途中参加の抑制、次R/一時停止/非表示/menuの停止、既存の勝利ダンスと確認音を維持する。
+
+設定はnative dialogでフォーカスを保持し、Esc/閉じる/背景クリックで元の画面へ戻る。EscでBGM設定を閉じても一時停止を解除しない。提供音源は他素材のCC0扱いにしない。従来の「音源未同梱/ページ内ファイル選択」はこの依頼で置き換える。自動更新はPAUSEDを保持。

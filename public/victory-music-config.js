@@ -1,3 +1,2 @@
-// Add the supplied, licensed music here later. Empty means no bundled BGM.
-// Example: src: new URL('./audio/victory.mp3', import.meta.url).href
-export const VICTORY_MUSIC = Object.freeze({src:'',title:'',maxSeconds:15});
+// Owner-supplied victory track. Opening settings never previews the audio.
+export const VICTORY_MUSIC = Object.freeze({src:new URL('./audio/victory-sandstorm.wav',import.meta.url).href,title:'sandstorm',maxSeconds:15});

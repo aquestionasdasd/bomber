@@ -136,18 +136,28 @@
 /* Victory music stays optional and separate from weapon/footstep volume. */
 #pause-menu{padding:24px;overflow:hidden}
 .pause-panel{max-height:calc(100dvh - 48px);overflow-y:auto;width:min(430px,100%)}
-.victory-music-settings{margin:8px 0 15px;border:1px solid #9eb0b63f;border-radius:3px;font-size:11px}
-.victory-music-settings summary{padding:13px 14px;cursor:pointer;color:var(--mint)}
-.victory-music-controls{padding:0 14px 14px;display:grid;gap:11px}
-.victory-music-controls label{font-size:11px;line-height:1.6}
-.victory-music-controls .music-check{display:flex;align-items:center;gap:8px}
-.victory-music-controls input{accent-color:var(--red);max-width:100%;min-width:0}
-.victory-music-controls input[type=range]{width:100%}
-.victory-music-controls input[type=file]{width:100%;font-size:10px}
-.victory-music-controls input::file-selector-button{background:#233943;color:#f0f7f7;border:1px solid #829da8;border-radius:3px;padding:8px;cursor:pointer;margin-right:8px}
-#victory-music-status{overflow-wrap:anywhere;line-height:1.6;color:#a9dfcf}
-.victory-music-controls .text-button{margin:0;text-align:left}
-.music-note{color:#aabac0;line-height:1.8;font-size:10px}
+.victory-music-open{width:100%;display:flex;justify-content:space-between;align-items:center;margin:12px 0;padding:12px 15px;border:1px solid #9eb0b64a;border-radius:3px;background:#0c2029b0;color:var(--mint);font:inherit;font-size:12px;cursor:pointer}
+.victory-music-open:hover,.victory-music-open:focus-visible{border-color:var(--mint);background:#203e49}
+.victory-music-dialog{width:min(510px,100%);max-width:100%;max-height:100dvh;margin:auto;padding:20px;border:0;background:transparent;color:var(--text);overflow:auto}
+.victory-music-dialog::backdrop{background:#041017db;backdrop-filter:blur(7px)}
+.victory-music-panel{width:100%;max-width:none;padding:30px;text-align:left}
+.victory-music-header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:26px}
+.victory-music-header h2{font-size:29px;letter-spacing:2px;margin:13px 0 0}
+.victory-music-header .close-button{align-self:flex-start;font-size:30px;line-height:1;padding:4px 8px}
+.victory-music-controls{display:grid;gap:16px}
+.victory-music-controls label{font-size:13px;line-height:1.6}
+.victory-music-controls .music-check{display:flex;align-items:center;gap:10px}
+.victory-music-controls input{accent-color:var(--mint);max-width:100%;min-width:0}
+.victory-music-controls input[type=range]{width:100%;margin:0}
+.victory-track{display:flex;align-items:center;gap:15px;padding:20px 17px;background:linear-gradient(120deg,#234b49,#142b35);border:1px solid #9ce2c875;border-radius:4px}
+.victory-track-icon{font-size:32px;color:var(--mint)}
+.victory-track strong{display:block;font-size:23px;font-weight:500;letter-spacing:.6px;overflow-wrap:anywhere}
+.victory-track small{display:block;color:#b0ccc6;font-size:10px;margin-top:6px}
+.music-volume-label{display:flex;justify-content:space-between;align-items:center}
+.music-volume-label output{color:var(--mint);font-variant-numeric:tabular-nums}
+#victory-music-status{margin:0;overflow-wrap:anywhere;line-height:1.8;color:#b6cbd0;font-size:12px}
+.music-note{margin:0;color:#8da5ad;line-height:1.8;font-size:11px}
+@media(max-width:480px){.victory-music-dialog{padding:14px}.victory-music-panel{padding:24px 21px}.victory-music-header h2{font-size:26px}.victory-track{padding:17px 13px}}
 @media(max-width:480px){#pause-menu{padding:16px}.pause-panel{max-height:calc(100dvh - 32px)}}
 /* A compact, silent celebration keeps the first-person camera in place. */
 .victory-dance{position:fixed;right:24px;bottom:130px;width:190px;height:280px;z-index:22;pointer-events:none;border:1px solid #d4edb355;border-radius:14px;background:radial-gradient(ellipse at 50% 80%,#9ec77c26,transparent 70%),linear-gradient(155deg,#142c34ed,#09191fec);box-shadow:0 15px 45px #0005;overflow:hidden}

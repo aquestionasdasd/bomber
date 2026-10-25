@@ -1114,7 +1114,7 @@ function updateTraffic(dt){
 function startGame() {
   roundDamage.reset();combatReportKey='';setVisible('combat-report',false);
   deathView.reset();
-  victoryMusic.reset();
+  victoryMusic.reset();victoryMusicUI?.close();
   player.kit=new DuelistKit({character:selectedCharacter()});netCharacterRequested=false;
   if(onlinePlaying&&mode!=='menu'){leaveOnline();return;}
   if(online&&!onlinePlaying){online.close(true);online=null;}
@@ -1169,13 +1169,13 @@ function pauseGame(showMap=false) {
 }
 function resumeGame() {
   if(!['pause','map','shop','score'].includes(mode))return;
-  clearCombatInput();mode='play';for(const id of ['pause-menu','map-overlay','shop-overlay','scoreboard'])setVisible(id,false);audioInit();requestLock();
+  victoryMusicUI?.close();clearCombatInput();mode='play';for(const id of ['pause-menu','map-overlay','shop-overlay','scoreboard'])setVisible(id,false);audioInit();requestLock();
 }
 function backMenu() {
   roundDamage.reset();combatReportKey='';setVisible('combat-report',false);
   fullComboTracker.reset();
   deathView.reset();syncDeathUI();
-  resetTraffic();victoryMusic.reset();
+  resetTraffic();victoryMusic.reset();victoryMusicUI?.close();
   if(online){leaveOnline();return;}
   netHostPaused=false;syncSmokes([]);scene.fog.near=145;scene.fog.far=380;scene.fog.color.set('#b7d0dd');
   updateFormatSummary();
@@ -3580,6 +3580,7 @@ canvas.addEventListener('mousedown',e=>{if(duckAim){e.preventDefault();if(e.butt
 document.addEventListener('mouseup',e=>{if(e.button===0)firing=false;if(e.button===2)aiming=false;});
 window.addEventListener('contextmenu',e=>{if(mode==='play')e.preventDefault();});
 document.addEventListener('keydown',e=>{
+  if(victoryMusicUI?.isOpen())return;
   const editing=e.target instanceof HTMLInputElement||e.target instanceof HTMLSelectElement||e.target?.tagName==='TEXTAREA'||e.target?.isContentEditable||e.target?.closest?.('[contenteditable]:not([contenteditable="false"])');
   if(!editing&&['play','pause','shop','map','score'].includes(mode)){
     // Reserved shortcuts must reach the page before they can be cancelled.

@@ -181,3 +181,9 @@ Generated deterministically by scripts/generate-bus-horn.cjs; 185/233 Hz
 fundamentals and harmonics, PCM16 mono 44100 Hz, 0.72 seconds.
 No external samples or third-party recording licenses. Generated and checked
 offline only; no playback/listening performed. All existing recordings remain.
+
+User supplied victory BGM (cycle126)
+sandstorm.wav -> victory-sandstorm.wav (unchanged bytes).
+Bundled at the owner's explicit request as the sole victory BGM.
+Separate from the CC0 packs and Sound Effect Lab; no third-party license or
+artist attribution is inferred. Inspected as PCM offline; no audition.

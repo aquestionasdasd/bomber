@@ -60,6 +60,7 @@
           <button id="explore-start" class="explore-button" type="button"><span class="explore-icon" aria-hidden="true">⌖</span><span>マップ練習<small>MAP / 時間制限なし</small></span><span class="explore-arrow" aria-hidden="true">↗</span></button>
         <button id="range-start" class="explore-button range-button" type="button"><span class="explore-icon" aria-hidden="true">◎</span><span>射撃訓練<small>RANGE / 60秒</small></span><span class="explore-arrow" aria-hidden="true">↗</span></button>
       </div>
+      <button id="victory-music-open" class="victory-music-open" type="button" aria-haspopup="dialog" aria-controls="victory-music-settings"><span>♫ 勝利BGMを設定</span><span aria-hidden="true">→</span></button>
       <div class="ready-status"><span class="signal-dot"></span> SYSTEM READY<span class="ready-separator">/</span><span>クリックして作戦開始</span></div>
       <p class="keyboard-safety-note">しゃがみ：V長押し。Ctrl＋W対策は一時停止画面の「全画面でキー保護」から。</p>
 
@@ -214,8 +215,22 @@
     </div>
   </section>
 
+  <dialog id="victory-music-settings" class="victory-music-dialog" aria-labelledby="victory-music-heading" aria-describedby="victory-music-status">
+    <div class="dialog-panel victory-music-panel">
+      <header class="victory-music-header"><div><div class="dialog-eyebrow"><span class="signal-dot"></span> VICTORY MUSIC</div><h2 id="victory-music-heading">勝利BGM</h2></div><button id="victory-music-close" class="close-button" type="button" aria-label="勝利BGM設定を閉じる" autofocus>×</button></header>
+      <div class="victory-music-controls">
+        <label class="victory-track"><input type="radio" name="victory-track" value="sandstorm" checked><span class="victory-track-icon" aria-hidden="true">♫</span><span><strong id="victory-music-title">sandstorm</strong><small>選択中 / 現在1曲</small></span></label>
+        <label class="music-check"><input id="victory-music-enabled" type="checkbox" checked>勝利時にBGMを流す</label>
+        <label class="music-volume-label" for="victory-music-volume">BGM音量 <output id="victory-music-value" for="victory-music-volume">60%</output></label>
+        <input id="victory-music-volume" type="range" min="0" max="1" step="0.05" value="0.6">
+        <p id="victory-music-status" role="status" aria-live="polite">自分のチームがラウンドに勝利したときに再生します。</p>
+        <p class="music-note">SOUND OFF・マスター音量と連動します。</p>
+      </div>
+    </div>
+  </dialog>
+
   <section id="pause-menu" class="overlay-screen" hidden>
-    <div class="dialog-panel pause-panel"><div class="dialog-eyebrow"><span class="signal-dot"></span> OPERATION ON HOLD</div><h2>PAUSED<span>一時停止</span></h2><p id="pause-note" class="dialog-description">準備ができたら、作戦を再開しよう。</p><button id="resume" class="primary-button" type="button"><span>作戦を再開する<small>RESUME OPERATION</small></span><span class="arrow">→</span></button><div class="settings-group"><label for="sensitivity"><span>マウス感度<small>SENSITIVITY · <output id="sensitivity-value" for="sensitivity">0.35</output></small></span><input id="sensitivity" type="range" min="0.05" max="1.5" step="0.01" value="0.35"></label><label for="volume"><span>音量<small>MASTER VOLUME</small></span><input id="volume" type="range" min="0" max="1" step="0.05" value="0.45"></label></div><details id="victory-music-settings" class="victory-music-settings"><summary>ラウンド勝利BGMを設定</summary><div class="victory-music-controls"><label class="music-check"><input id="victory-music-enabled" type="checkbox" checked>勝利したときにBGMを流す</label><label for="victory-music-volume">BGM音量 <output id="victory-music-value">60%</output></label><input id="victory-music-volume" type="range" min="0" max="1" step="0.05" value="0.6"><label for="victory-music-file" class="music-file-label">音源を選ぶ（MP3 / WAV / OGGなど・40MBまで）</label><input id="victory-music-file" type="file" accept="audio/*,.mp3,.wav,.ogg,.m4a,.aac,.webm,.flac"><p id="victory-music-status" role="status" aria-live="polite">音源は未設定です。後から追加できます。</p><button id="victory-music-clear" class="text-button" type="button" disabled>選んだ音源を解除</button><p class="music-note">自分のチームの勝利時だけ再生。マスター音量・SOUND OFFに連動します。次ラウンド・一時停止で終了します。<br>選んだファイルはアップロードされず、このページ内だけで使用します。</p></div></details><button id="keyboard-protect" class="secondary-button keyboard-protect-button" type="button" aria-describedby="keyboard-protection-status">全画面でキー保護</button><p id="keyboard-protection-status" class="keyboard-protection-status" role="status" aria-live="polite">しゃがみは V 長押し。ブラウザーにより一部のショートカットは停止できません。</p><button id="restart" class="secondary-button" type="button">作戦をやり直す <span>RESTART ↻</span></button><button id="pause-back-menu" class="text-button" type="button">メインメニューへ <span>↗</span></button><p class="dialog-footnote">ESC でも作戦に復帰できます</p></div>
+    <div class="dialog-panel pause-panel"><div class="dialog-eyebrow"><span class="signal-dot"></span> OPERATION ON HOLD</div><h2>PAUSED<span>一時停止</span></h2><p id="pause-note" class="dialog-description">準備ができたら、作戦を再開しよう。</p><button id="resume" class="primary-button" type="button"><span>作戦を再開する<small>RESUME OPERATION</small></span><span class="arrow">→</span></button><div class="settings-group"><label for="sensitivity"><span>マウス感度<small>SENSITIVITY · <output id="sensitivity-value" for="sensitivity">0.35</output></small></span><input id="sensitivity" type="range" min="0.05" max="1.5" step="0.01" value="0.35"></label><label for="volume"><span>音量<small>MASTER VOLUME</small></span><input id="volume" type="range" min="0" max="1" step="0.05" value="0.45"></label></div><button id="victory-music-pause-open" class="secondary-button" type="button" aria-haspopup="dialog" aria-controls="victory-music-settings">勝利BGMを設定 <span>♫</span></button><button id="keyboard-protect" class="secondary-button keyboard-protect-button" type="button" aria-describedby="keyboard-protection-status">全画面でキー保護</button><p id="keyboard-protection-status" class="keyboard-protection-status" role="status" aria-live="polite">しゃがみは V 長押し。ブラウザーにより一部のショートカットは停止できません。</p><button id="restart" class="secondary-button" type="button">作戦をやり直す <span>RESTART ↻</span></button><button id="pause-back-menu" class="text-button" type="button">メインメニューへ <span>↗</span></button><p class="dialog-footnote">ESC でも作戦に復帰できます</p></div>
   </section>
 
   <section id="result" class="overlay-screen result-screen" hidden>
