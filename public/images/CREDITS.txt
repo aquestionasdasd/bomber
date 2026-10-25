@@ -1,0 +1,4 @@
+kill-banner.png
+User-supplied artwork for this game, provided 2026-10-26.
+Original PNG bytes and alpha retained. Not represented as CC0.
+SHA256 116db44128965befbbe9c3254d6f3e8a2809f5715ebf3834e711dea590075f5e

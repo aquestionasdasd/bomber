@@ -1,3 +1,4 @@
+import { createKillBanner } from './kill-banner.js';
 import { createCareerCoins, CAREER_COIN_KEY, CAREER_COIN_REWARDS } from './career-coins.js';
 import { createRoundDamageTracker, renderCombatReport } from './combat-report.js';
 import { createFlashStatusFX } from './flash-status-fx.js';
@@ -143,6 +144,7 @@ const stationDetonation=createStationDetonation(THREE);scene.add(stationDetonati
 const stationTakeover=createStationTakeover(THREE);scene.add(stationTakeover.group);
 const teamAbilities=createTeamAbilities(),characterFX=createCharacterFX(THREE);scene.add(characterFX.group);
 const zoneAbilities=createZoneAbilities(),zoneFX=createZoneFX(THREE);scene.add(zoneFX.group);
+const killBanner=createKillBanner(document);
 const skillSpectacle=createSkillSpectacle(THREE),skillFeedback=createSkillFeedback(document);scene.add(skillSpectacle.group);
 const ordinarySkills=createCharacterSkills(),ordinaryFX=createNopeSkillFX(THREE,camera);scene.add(ordinaryFX.group);
 const flashStatusFX=createFlashStatusFX(THREE);scene.add(flashStatusFX.group);
@@ -605,7 +607,7 @@ function skillImpact(target,source,character,kind='hit'){
 function serializeNetCues(){return netCues.filter(c=>c.round===match?.round&&c.time>=elapsed-1.5);}
 let killSoundMatch=null,killSoundRound=null;const killSoundCounts=new Map();
 const isKillSoundCue=type=>typeof type==='string'&&/^kill-[1-5]$/.test(type);
-function resetKillSounds(){killSoundMatch=null;killSoundRound=null;killSoundCounts.clear();}
+function resetKillSounds(){killSoundMatch=null;killSoundRound=null;killSoundCounts.clear();killBanner.reset();}
 function killFeedback(source){
   if(isGuest()||!source)return;
   if(killSoundMatch!==match||killSoundRound!==match.round){resetKillSounds();killSoundMatch=match;killSoundRound=match.round;}
@@ -620,7 +622,7 @@ function firearmFeedback(source,killed){
 }
 function combatFeedback(source,type){
   if(isGuest()||!source)return;
-  if(source===player)sound(type,{localOnly:true});
+  if(source===player){if(isKillSoundCue(type))killBanner.note(elapsed,match.round);sound(type,{localOnly:true});}
   else if(onlinePlaying&&online?.host&&source.remoteId){
     netCues.push({seq:++netCueSequence,round:match.round,type,weapon:source.netWeapon||'classic',id:source.id,x:source.x,y:source.y||0,z:source.z,time:elapsed});
     if(netCues.length>64)netCues.splice(0,netCues.length-64);
@@ -638,7 +640,7 @@ function applyNetCues(packet,fresh,ownId){
     if(cue.type==='gun-hit'||isKillSoundCue(cue.type)){
       // Keep the final elimination audible in its post-round snapshot too.
       // The shared sequence is consumed even while muted or still loading.
-      if(cue.id===ownId&&['live','post'].includes(packet.rules.phase)&&packet.time-cue.time<=.65&&Number.isFinite(cue.time)&&Number.isFinite(cue.y)&&Object.hasOwn(WEAPONS,cue.weapon)&&(isKillSoundCue(cue.type)||['primary','secondary'].includes(WEAPONS[cue.weapon].slot)))sound(cue.type,{localOnly:true});
+      if(cue.id===ownId&&['live','post'].includes(packet.rules.phase)&&packet.time-cue.time<=.65&&Number.isFinite(cue.time)&&Number.isFinite(cue.y)&&Object.hasOwn(WEAPONS,cue.weapon)&&(isKillSoundCue(cue.type)||['primary','secondary'].includes(WEAPONS[cue.weapon].slot))){if(isKillSoundCue(cue.type))killBanner.note(elapsed,match.round);sound(cue.type,{localOnly:true});}
       continue;
     }
     if(['skill-hit','skill-heal'].includes(cue.type)){if(!Object.hasOwn(SKILL_LOOKS,cue.weapon)||!Number.isFinite(cue.y)||Math.max(Math.abs(cue.x),Math.abs(cue.y),Math.abs(cue.z))>1000||packet.time-cue.time>.65||packet.rules.phase!=='live')continue;const kind=cue.type==='skill-heal'?'heal':'hit';skillSpectacle.impact(cue.weapon,cue,cue.time,{kind});if(cue.id===ownId)skillFeedback.note(kind,'receipt:'+cue.round+':'+cue.seq,cue.weapon,cue.time);continue;}
@@ -1277,7 +1279,7 @@ function startGame() {
   updateTravelButtons();requestLock();updateHUD();
 }
 function pauseGame(showMap=false) {
-  victoryMusic.stop();
+  killBanner.reset();victoryMusic.stop();
   if(!['play','shop','map','score'].includes(mode)) return;
   flushMouseInputTrace();
   pausedFrom='play';mode=showMap?'map':'pause';clearCombatInput();
@@ -3891,6 +3893,7 @@ function frame(now){
   }
   tickOnline(dt);
   updateVictoryCamera(dt);
+  killBanner.render(elapsed,{active:!document.hidden&&!netHostPaused&&mode==='play'&&['live','post'].includes(match?.phase),currentRound:match?.round,reducedMotion:reducedMotion.matches});
   for(let i=effects.length-1;i>=0;i--){const effect=effects[i];if(['play','shop','map','score'].includes(mode)){effect.life-=dt;if(effect.velocity){effect.velocity.y-=6*dt;effect.object.position.addScaledVector(effect.velocity,dt);}}
     if(effect.life<=0){effectsGroup.remove(effect.object);effect.object.geometry.dispose();effect.object.material.dispose();effects.splice(i,1);}else effect.object.material.opacity=Math.min(1,effect.life/effect.max);
   }

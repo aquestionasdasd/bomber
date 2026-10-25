@@ -710,3 +710,10 @@ SCOUT/ATLASは実発射後、次弾を撃てるまでスコープを外し、右
 旧52面だけの命中判定と15人の外見が分離していた。旧胴/武器面は維持し、外に出る可視身体/所持小物も胴ダメージを受ける。可視頭の三角形を実アニメーション位置で使い、非表示旧ヘルメットは不使用。コピーされた頭frameを明示し、草ブロックの連続キューブは実上部40cmが頭。字間等の空所を頭箱で補間しない。localへの射撃も同一モデルでhost判定、旧local胴/下腿boxは維持。通常/散弾/三叉/反射/remoteの部位判定を共通化、描画形状/武器数値/音/wireは不変。
 
 新実savedgame9群は15人×立ちしゃがみ30頭sample、13人の旧全52面外の実40胴損失、金文字の空字間と実head kill、壁/味方遮断/散弾/独立JSON guest無HP/host重複/本人30頭/下腿volume/slide/清掃/SCOUT胴90。旧agent modelの幾何byte golden/300switch/資源解放を維持して旧の「外見は撃てない」期待だけ最新仕様へ更新。関連arsenal12/crouch8/sniper8/CAP22/urchin15成功。実ブラウザー/新2タブ/端末は未確認。自動fps-19 PAUSED維持、手動依頼の一まとまりとして同URL公開とGitHub通常pushまで行う。
+
+## 第141巡 / 提供画像のキルバナー
+
+- 最新人間指定: 添付の丸い顔画像をVALOのようにキル時に下中央へ大きく表示。透過PNG1254角/290766B/SHA256 116db44128965befbbe9c3254d6f3e8a2809f5715ebf3834e711dea590075f5eを原byteで同梱。所有者提供画像でCC0とは称さない。
+- 変更: 実本人キルの既存host確定/guest受信cueに視覚通知を併設。1.6秒のtransform/opacity、連続キルで再pulse、縮小動作では静止、pause/次R/menu清掃。下HUDより上の中央。既存キル音/武器威力/判定/経済/wire不変。
+- 再確認: 新実savedgame6、kill7/combat audio8/victorycamera7成功。所有hidden9の固定配置rangeで実shoot1撃破/実バナー表示/透過/warnerror0。仮fixtureは製品byteへ復元し除外。ユーザーtab不操作/再生試聴なし。最新公開とGitHubの最終値はworkspace cycle141-release。
+- 残課題: 新実2タブ/実端末/聴感未確認、旧fullmain床ボンバーhold4fixture債務保持。fps-19 PAUSED、次は手動指定のみ。
