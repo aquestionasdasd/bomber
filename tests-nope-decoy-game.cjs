@@ -158,7 +158,7 @@ async function main() {
       makeBot({x:0,z:0},0,'red',{id:'red-0',team:'red',name:'SHOOTER',secondary:'classic'});
       bots[0].group.rotation.y=Math.PI;bots[0].kit=new DuelistKit({character:'frost'});
       bots[0].kit.smoke=0;bots[0].kit.updraft=0;bots[0].kit.dash=0;bots[0].kit.ultPoints=0;
-      bots[0].think=0;bots[0].fire=0;bots[0].reactionUntil=0;`);
+      bots[0].think=0;bots[0].fire=0;bots[0].reactionUntil=0;Math.random=()=>.3;`);
     local.seed('blue'); local.run('updateBots(.05)');
     assert.equal(local.run('allNopeDecoys().length'), 1); assert.equal(local.run('bots[0].shotSequence||0'), 0, 'A visible fake needs reaction time');
     local.run('elapsed+=.5;updateBots(.05)');
@@ -175,7 +175,7 @@ async function main() {
     local.clearWalls();
   });
 
-  function prepareDecoyCPU(roll=.5){
+  function prepareDecoyCPU(roll=.3){
     local.reset();local.sandbox.roll=roll;
     local.run(`Object.assign(player,{x:12,z:-30});
       makeBot({x:0,z:0},0,'red',{id:'red-0',team:'red',secondary:'classic'});
@@ -196,7 +196,7 @@ async function main() {
     assert.equal(local.run('cpu.decoySeen.get(allNopeDecoys()[0].id)'),10);
     local.run('Math.random=()=>0;for(let i=0;i<30;i++){elapsed+=.05;updateBots(.05)}');
     assert.equal(local.run('cpu.shotSequence||0'),0);assert.equal(local.run('allNopeDecoys().length'),1);
-    local.seed('blue',2,-10);local.run('cpu.group.rotation.y=Math.PI;updateBots(.05);elapsed+=.5;updateBots(.05)');
+    local.seed('blue',2,-10);local.run('cpu.group.rotation.y=Math.PI;updateBots(.05);for(let i=0;i<16;i++){elapsed+=.05;updateBots(.05)}');
     assert.equal(local.run('nopePops.length'),1);assert.equal(local.run('allNopeDecoys().length'),1);
     local.run('elapsed+=20;updateBots(.05)');assert.equal(local.run('cpu.decoySeen.size'),0);
   });
@@ -226,8 +226,8 @@ async function main() {
     prepareDecoyCPU();local.run('player.x=45;player.z=45');local.seed('blue',0,-5);local.run('updateBots(.05)');local.wall();
     local.run('elapsed+=.5;updateBots(.05)');assert.equal(local.run('cpu.shotSequence||0'),0);assert.equal(local.run('allNopeDecoys().length'),1);local.clearWalls();
   });
-  check('difficulty changes the single encounter decision and reset clears its local memory',()=>{
-    for(const [level,roll,fooled] of [['easy',.7,true],['normal',.7,false],['hard',.5,false],['hard',.3,true]]){
+  check('elite single encounter decision ignores old difficulty values and reset clears its local memory',()=>{
+    for(const [level,roll,fooled] of [['easy',.7,false],['normal',.7,false],['hard',.5,false],['hard',.3,true]]){
       prepareDecoyCPU(roll);local.sandbox.level=level;local.run('difficulty=level;player.x=45;player.z=45');local.seed('blue',0,-5);local.run('updateBots(.05)');
       assert.equal(local.run('cpu.decoySeen.get(allNopeDecoys()[0].id)>elapsed'),fooled,level);
       local.run('resetOrdinarySkills()');assert.equal(local.run('cpu.decoySeen.size'),0);
@@ -275,8 +275,8 @@ async function main() {
     host.run(`player.x=45;player.z=45;var decoyCPU=bots.find(b=>b.team==='red'&&!b.remoteId);decoyCPU.rangeTarget=false;
       Object.assign(decoyCPU,{x:0,y:0,z:0,think:0,fire:0});decoyCPU.group.position.set(0,0,0);decoyCPU.group.rotation.y=Math.PI;
       decoyCPU.record.primary=null;decoyCPU.record.secondary='classic';
-      decoyCPU.kit=new DuelistKit({character:'frost'});decoyCPU.kit.smoke=decoyCPU.kit.updraft=decoyCPU.kit.dash=decoyCPU.kit.ultPoints=0;Math.random=()=>.5;`);
-    host.seed('blue');host.run('updateBots(.05);elapsed+=.5;updateBots(.05);tickOnline(.1)');deliver(host,guest,'host');
+      decoyCPU.kit=new DuelistKit({character:'frost'});decoyCPU.kit.smoke=decoyCPU.kit.updraft=decoyCPU.kit.dash=decoyCPU.kit.ultPoints=0;Math.random=()=>.3;`);
+    host.seed('blue');host.run('updateBots(.05);for(let i=0;i<16;i++){elapsed+=.05;updateBots(.05)}tickOnline(.1)');deliver(host,guest,'host');
     assert.equal(host.run('nopePops.length'),1);assert.equal(host.run('decoyCPU.aiAmmo'),11);assert.equal(guest.run('allNopeDecoys().length'),0);
     const seen=guest.run('nopeSeenPopSequence');assert.equal(seen,host.run('nopePops[0][0]'));
     guest.run('updateBots(.05);receiveNetPacket("host",incoming)');assert.equal(guest.run('nopeSeenPopSequence'),seen);

@@ -77,10 +77,9 @@ export class MatchRules {
     if(this.phase!=='live'||!['blue','red'].includes(team))return false;
     this.score[team]++;const won=team==='blue';
     let reward;
-    if(this.format==='swift'){
-      const nextIndex=this.round%4;
-      reward=nextIndex===1?2400+(won?600:0):nextIndex===2||nextIndex===3?4250:0;
-    }else if(won){reward=3000;this.lossStreak=Math.max(0,this.lossStreak-1);}
+    // Both match lengths use the standard economy; short rounds must not
+    // grant a full buy independently of the previous round's result.
+    if(won){reward=3000;this.lossStreak=0;}
     else{reward=1900+Math.min(this.lossStreak,2)*500;this.lossStreak++;
       if(context.playerAlive&&((this.side==='attack'&&reason==='timeout')||(this.side==='defend'&&reason==='detonation')))reward=1000;
     }

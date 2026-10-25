@@ -93,7 +93,7 @@ async function main(){
     match.startLive();let bulletHits=0,shots=0;const casts=[],traces=[];ordinarySkills={capMagazine:()=>false,urchinJammed:()=>false,urchinTrident:()=>false,interceptShield:()=>null,quiet:()=>false,sealUntil:()=>0,cancelService(){},carGyro:()=>false,speedScale:()=>1,wouldRoot:createCharacterSkills().wouldRoot,wouldSeed:createCharacterSkills().wouldSeed,wouldTag:createCharacterSkills().wouldTag,wouldStitch:createCharacterSkills().wouldStitch,...ordinarySkills};
     const math=Object.create(Math);math.random=typeof random==='function'?random:()=>random;
     const sandbox={busSeat:()=>null,busSurfaceVisible:()=>true,applyStarHold:()=>false,crownShot:()=>{},activateCapAbility:()=>null,activateJapanAbility:()=>null,nobiBulletDamage:(_s,_t,d)=>d,THREE,WEAPONS,skillProjectilePosition,activeArenaBounds:()=>map.bounds,MEND_SKILLS,CHARACTER_SKILLS,NOPE_SKILLS,IAGNU_SKILLS,VEIL_SKILLS,EMBER_SKILLS,FROST_SKILLS,...areas,createBotTactics,inVisionCone,createBotHearing,map,navigation:createNavigation(map),player,bots,match,elapsed:0,inventory:{active:'classic'},reloading:0,
-      levels:{normal:{interval:1.25,aim:.68,speed:2.1}},difficulty:'normal',Math:math,clamp:(v,a,b)=>Math.max(a,Math.min(b,v)),
+      levels:Function(source.match(/const levels = (.*);/)[0]+'return levels;')(),difficulty:'hard',Math:math,clamp:(v,a,b)=>Math.max(a,Math.min(b,v)),
       isGuest:()=>false,botHearing:createBotHearing(),ordinarySkills,zoneAbilities:{speedMultiplier:()=>1},actorSpeedScale:()=>1,frostSlideSpeed:()=>0,agentEquipment:()=>({}),selectMendTarget,activePollenFields:()=>[],
       ordinaryActorView:value=>({...value,grounded:sandbox.actorGrounded(value)}),ordinaryGroundHeight:()=>0,rampFloor:()=>null,netInputs:new Map(),
       ordinaryReachable:(event,value)=>map.collision.rayClear(event.x,(event.y||0)+.18,event.z,value.x,(value.y||0)+.18,value.z),
@@ -135,7 +135,7 @@ async function main(){
 
   const distracted=actor('red-decoy','red',0,0),hiddenPlayer={...actor('player','blue',0,30),alive:false};
   const decoys=[{id:'skill-nope-decoy-1',type:'nope-decoy',team:'blue',x:3,y:0,z:5},{id:'skill-nope-decoy-2',type:'nope-decoy',team:'blue',x:-3,y:0,z:5}];
-  const decoyGame=integration({player:hiddenPlayer,bots:[distracted],random:.5,ordinarySkills:{interceptShield:()=>null,quiet:()=>false,sealUntil:()=>0,blindUntil:()=>0,events:now=>now<6?decoys:[],markers:()=>[]}});
+  const decoyGame=integration({player:hiddenPlayer,bots:[distracted],random:.3,ordinarySkills:{interceptShield:()=>null,quiet:()=>false,sealUntil:()=>0,blindUntil:()=>0,events:now=>now<6?decoys:[],markers:()=>[]}});
   decoyGame.step();const firstDeadline=distracted.decoySeen.get(decoys[0].id);
   assert.equal(firstDeadline,1.55);assert.equal(distracted.goal.x,3,'The first visible enemy face may draw an investigation');
   decoyGame.sandbox.elapsed=firstDeadline+.001;decoyGame.step();const secondDeadline=distracted.decoySeen.get(decoys[1].id);
