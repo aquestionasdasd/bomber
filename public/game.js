@@ -39,6 +39,7 @@ import { createGameAudio } from './audio.js';
 import { createVictoryMusic, bindVictoryMusicSettings } from './victory-music.js';
 import { createDeathView } from './death-view.js';
 import { RangeSession } from './range.js';
+import { createRangeControl } from './range-control.js';
 import { RoomClient } from './online.js';
 import { DuelistKit, CHARACTER_DEFS, normalizeCharacter, signatureCooldown, JAPAN_SKILLS, NOBI_SKILLS, CAR_SKILLS, CAT_SKILLS, DUCK_SKILLS, DUELIST, DUELIST_SKILLS, NOPE_SKILLS, MEND_SKILLS, IAGNU_SKILLS, VEIL_SKILLS, EMBER_SKILLS, FROST_SKILLS } from './abilities.js';
 import { createTeamAbilities } from './team-abilities.js';
@@ -113,6 +114,7 @@ scene.add(sun);
 scene.add(sun.target);
 const environment = new THREE.Group();
 scene.add(environment);
+const rangeControl=createRangeControl(THREE);
 let map = createMap(THREE, environment);
 map.bomberCollapse=createBuildingCollapse(THREE,map);scene.add(map.bomberCollapse.group);
 const arenaCache=new Map([['hashimoto',map]]);
@@ -728,6 +730,7 @@ function equip(id,fresh=false){
   if(!id)return;if(!fresh)ammoStore[inventory.active]={ammo:player.ammo,reserve:player.reserve};
   cancelServiceReload(player);inventory.active=id;const spec=WEAPONS[id]||WEAPONS.classic;const saved=ammoStore[id];
   player.ammo=saved?.ammo??spec.mag;player.reserve=saved?.reserve??spec.reserve;reloading=0;shotSequence=0;kick=0;firing=false;aiming=false;
+  refillRangeAmmo();
   gun.visible=player.alive&&id!=='spike';
   viewmodel.setWeapon(id==='spike'?'knife':id);
 }
@@ -1012,7 +1015,7 @@ function requestLock() {
 }
 function selectArena(id){
   id=normalizeMapId(id);if((map.id||'hashimoto')===id){updateMapLabels();return;}
-  resetDetonation();map.traffic?.reset();map.destruction?.reset();map.traversal?.reset();player.trcLadder=null;map.world?.removeFromParent();
+  rangeControl.hide();resetDetonation();map.traffic?.reset();map.destruction?.reset();map.traversal?.reset();player.trcLadder=null;map.world?.removeFromParent();
   if(!arenaCache.has(id))arenaCache.set(id,createMap(THREE,environment,id));
   map=arenaCache.get(id);if(!map.bomberCollapse){map.bomberCollapse=createBuildingCollapse(THREE,map);scene.add(map.bomberCollapse.group);}environment.add(map.world);navigation=createNavigation({...map,bounds:map.combatBounds||map.bounds});updateBots.tactics=null;nopeDecoyTownCandidates=null;
   environment.traverse(object=>{for(const material of Array.isArray(object.material)?object.material:[object.material])if(material?.map)material.map.anisotropy=textureFiltering;});
@@ -1122,7 +1125,7 @@ function startGame() {
   round=1;totalKills=0;shots=0;hits=0;elapsed=0;lastShot=-10;
   player.recoil=0;scanTime=0;kick=0;hitFlash=0;reloading=0;redLossStreak=0;
   const selectedFormat=$('match-format')?.value||'standard';
-  rangeSession=selectedFormat==='range'?new RangeSession():null;rangeRespawn=0;
+  rangeControl.hide();rangeSession=selectedFormat==='range'?new RangeSession({waiting:true}):null;rangeRespawn=0;
   objectivePractice=['plant','defuse'].includes(selectedFormat)?{kind:selectedFormat,site:'A',completed:false,elapsed:0,duration:0}:null;
   exploring=selectedFormat==='explore'||!!rangeSession||!!objectivePractice;
   navigation=createNavigation({...map,bounds:activeArenaBounds()});updateBots.tactics=null;nopeDecoyTownCandidates=null;updateMapLabels();
@@ -1149,8 +1152,8 @@ function startGame() {
     const entry=map.landmarks?.find(l=>l.id==='north');if(entry)relocate(entry);
     if(objectivePractice)resetObjectivePractice('A');
     else if(rangeSession){
-      relocate(map.rangeArea?.spawn||{x:-20.75,z:-25.5,yaw:0});spawnRangeTarget();
-      showMessage('AIM DRILL / 60秒','標的を撃破して次へ · 頭で撃破150点 / 胴で撃破100点 · Bで武器選択',5);
+      relocate(map.rangeArea?.spawn||{x:-20.75,z:-25.5,yaw:0});prepareRangeStart();
+      showMessage('射撃訓練','スタート看板を撃って開始 · 弾・C/Q/E/Xは無限 · Bで武器選択',5);
     }else showMessage((map.shortName||'HASHIMOTO')+' / マップ練習','時間制限なし · Mでルート確認・地点移動 · Bで武器選択',5);
   }
   updateTravelButtons();requestLock();updateHUD();
@@ -1177,7 +1180,7 @@ function backMenu() {
   netHostPaused=false;syncSmokes([]);scene.fog.near=145;scene.fog.far=380;scene.fog.color.set('#b7d0dd');
   updateFormatSummary();
   mode='menu';clearCombatInput();gun.visible=false;spikeModel.visible=false;setVisible('loading',false);clearDrops();resetDetonation();resetTakeover();resetTeamAbilities();
-  rangeSession=null;rangeRespawn=0;objectivePractice=null;exploring=false;
+  rangeControl.hide();rangeSession=null;rangeRespawn=0;objectivePractice=null;exploring=false;
   navigation=createNavigation({...map,bounds:activeArenaBounds()});updateBots.tactics=null;updateMapLabels();
   clearBots();for(const id of ['hud','result','pause-menu','shop-overlay','scoreboard','map-overlay'])setVisible(id,false);setVisible('menu',true);buyBarrier.visible=false;
   if(document.pointerLockElement)document.exitPointerLock();
@@ -1197,7 +1200,19 @@ function finish(won) {
   $('result-time').textContent=formatTime(elapsed);
   sound(won?'match-win':'match-loss');
 }
+function prepareRangeStart(){
+  clearBots();
+  const yaw=player.yaw,x=player.x-Math.sin(yaw)*3.2,z=player.z-Math.cos(yaw)*3.2;
+  rangeControl.show(environment,{x,y:player.y,z,yaw});
+  refillMapPracticeSkills();refillRangeAmmo();
+}
+function startRangeDrill(){
+  if(!rangeSession||!exploring||onlinePlaying||mode!=='play'||!player.alive||match?.phase!=='live'||!rangeSession.start())return false;
+  rangeControl.hide();spawnRangeTarget();
+  showMessage('START / 60秒','頭で撃破150点 / 胴で撃破100点 · 弾・スキル無限',2);return true;
+}
 function spawnRangeTarget(){
+  if(!rangeSession?.started||rangeSession.complete)return;
   clearBots();
   const candidates=(map.rangeArea?.targets||[-25.8,-22,-18,-16].flatMap(x=>[-37,-45,-53].map(z=>({x,z})))).filter(point=>
     navigation.isWalkable(point.x,point.z)&&map.collision.rayClear(player.x,player.y+1.5,player.z,point.x,1.5,point.z));
@@ -1212,14 +1227,14 @@ function spawnRangeTarget(){
 }
 function finishRange(){
   if(!rangeSession||mode==='result')return;
-  resetTeamAbilities();
+  rangeControl.hide();resetTeamAbilities();
   const result=rangeSession.summary();let best=0;
   try{best=Math.max(0,Math.min(1000000,Number(localStorage.getItem('hashimoto-range-best'))||0));if(result.score>best)localStorage.setItem('hashimoto-range-best',String(result.score));}catch{}
   mode='result';keys.clear();firing=false;aiming=false;gun.visible=false;clearBots();
   if(document.pointerLockElement)document.exitPointerLock();
   for(const id of ['hud','pause-menu','shop-overlay','scoreboard','map-overlay','interaction'])setVisible(id,false);
   setVisible('result',true);setVisible('range-result',true);
-  $('result-title').classList.remove('japanese-result','defeat');$('result-title').textContent='DRILL COMPLETE';$('result-description').textContent='橋本駅コンコース / 60秒の射撃訓練';
+  $('result-title').classList.remove('japanese-result','defeat');$('result-title').textContent='DRILL COMPLETE';$('result-description').textContent=(map.name||'橋本駅')+' / 60秒の射撃訓練';
   $('result-kills').textContent=result.kills;$('result-accuracy').textContent=`${result.accuracy}%`;$('result-time').textContent='01:00';
   $('range-score').textContent=result.score.toLocaleString();$('range-head-rate').textContent=`${result.headRate}%`;
   $('range-best').textContent=Math.max(best,result.score).toLocaleString();$('range-best-note').textContent=result.score>best?'NEW PERSONAL BEST':'自己ベストに挑戦';sound('kill');
@@ -1415,12 +1430,13 @@ function burst(position,color='#ffac6b',number=7) {
   }
 }
 function shoot(shotTime=elapsed) {
+  refillRangeAmmo();
   const spec=weapon();
   if(netHostPaused||mode!=='play'||!player.alive||busDriving()||carMotionActive(player)||match?.phase!=='live'||inventory.active==='spike'||interactionHeld||ordinaryFX.throwing(elapsed)||mendSkillFX.throwing(elapsed)||iagnuSkillFX.throwing(elapsed)||grassSkillFX.throwing(elapsed)||emberSkillFX.throwing(elapsed)||frostSkillFX.throwing(elapsed)||duelistSkillFX.throwing(elapsed)||player.serviceReload||reloading>0||shotTime-lastShot+1e-8<nobiShotInterval(spec,player))return;
   const ultimate=player.kit.knivesActive&&inventory.active==='knife',melee=inventory.active==='knife'&&!ultimate;
   if(ultimate&&!player.kit.consumeKnife())return;
   if(!melee&&!ultimate&&player.ammo<=0){reload();return;}
-  if(!melee&&!ultimate&&!ordinarySkills.capMagazine(player.id,elapsed))player.ammo--;if(!melee&&!ultimate)crownShot(player);shots++;rangeSession?.recordShot();lastShot=shotTime;kick=melee?.1:.035;shotSequence++;
+  if(!melee&&!ultimate&&!rangeInfiniteResources()&&!ordinarySkills.capMagazine(player.id,elapsed))player.ammo--;if(!melee&&!ultimate)crownShot(player);shots++;rangeSession?.recordShot();lastShot=shotTime;kick=melee?.1:.035;shotSequence++;
   if(!ultimate)player.recoil=Math.min(.085,player.recoil+(spec.slot==='primary'?.012:.008));sound('shot');
   camera.position.set(player.x,1.7-player.crouch*.55+player.y,player.z);camera.rotation.set(player.pitch+renderedRecoil,player.yaw,0);
   camera.getWorldDirection(direction);
@@ -1451,7 +1467,8 @@ function shoot(shotTime=elapsed) {
       if(['phantom','spectre','ghost','classic'].includes(inventory.active)&&hit.distance>15)damage*=hit.distance>30?.8:.9;
       damageEntity(bot,damage,player,{firearm:!melee&&!ultimate,skill:ultimate?'duelist':null});hitFlash=.14;burst(hit.point,head?'#fff3c8':'#ff737e',5);if(melee||ultimate)sound('hit');
       if(rangeSession&&bot.rangeTarget)rangeSession.recordHit({head,eliminated:!bot.alive});
-    }else{burst(hit.point,'#f9ce9a',4);if(!melee&&!ultimate)capBounceShot(player,camera.position,direction,hit,spec);}
+    }else if(hit.object.userData.rangeStart&&!melee){startRangeDrill();}
+    else{burst(hit.point,'#f9ce9a',4);if(!melee&&!ultimate)capBounceShot(player,camera.position,direction,hit,spec);}
   }
   if(!melee&&!ultimate)urchinTridentShot(player,camera.position,direction,spec);
   if(!spec.auto)firing=false;
@@ -1467,7 +1484,7 @@ function fireArsenal(actor,origin,aim,spec,ads=false,{visualOnly=false}={}){
   const up=new THREE.Vector3().crossVectors(right,forward).normalize(),totals=new Map();
   botsGroup.updateMatrixWorld(true);
   const targets=[environment,botsGroup];
-  let anyHit=false,headHit=false,bounced=false;
+  let anyHit=false,headHit=false,bounced=false,rangeStartHit=false;
   for(const offset of shotPattern(id,{ads,moving,airborne:!actorGrounded(actor),steadyAir:duckAirAim(actor),sequence})){
     const dir=forward.clone().addScaledVector(right,offset.x).addScaledVector(up,offset.y).normalize();
     const ray=new THREE.Raycaster(origin,dir,0,120);
@@ -1486,6 +1503,7 @@ function fireArsenal(actor,origin,aim,spec,ads=false,{visualOnly=false}={}){
     if(shield){burst(end,'#f8dc72',2);continue;}
     if(fake){if(!visualOnly)hitNopeDecoy(fake.event,actor);continue;}
     if(shootBusDriver(hit,actor,weaponDamage(id,hit?.object.userData.head?'head':'body',nearest),{visualOnly}))continue;
+    if(hit?.object.userData.rangeStart&&actor===player&&!visualOnly){rangeStartHit=true;continue;}
     if(target?.alive&&target.team!==actor.team){
       const damage=nobiBulletDamage(actor,target,weaponDamage(id,part,nearest),weaponDamage(id,'head',nearest),true);
       totals.set(target,(totals.get(target)||0)+damage);anyHit=true;headHit||=part==='head';
@@ -1495,10 +1513,12 @@ function fireArsenal(actor,origin,aim,spec,ads=false,{visualOnly=false}={}){
   // Apply one damage event per victim per cartridge, so kill awards, reflection
   // and chain reactions cannot multiply by pellet count.
   if(!visualOnly)for(const [target,damage] of totals){damageEntity(target,damage,actor,{firearm:true});if(actor===player&&rangeSession&&target.rangeTarget)rangeSession.recordHit({head:headHit,eliminated:!target.alive});}
+  if(rangeStartHit)startRangeDrill();
   if(actor===player&&anyHit){hits++;hitFlash=.14;}
   if(!visualOnly)urchinTridentShot(actor,origin,forward,spec);
 }
 function reload(){
+  if(rangeInfiniteResources()){refillRangeAmmo();return;}
   if(ordinarySkills.urchinJammed(player.id,elapsed))return;
   const spec=weapon();if(netHostPaused||mode!=='play'||!player.alive||busDriving()||carMotionActive(player)||interactionHeld||inventory.active==='spike'||!spec.mag||reloading||player.ammo===spec.mag||player.reserve<=0||player.serviceReload)return;
   if(isGuest())queueNetAction('reload');
@@ -2124,8 +2144,14 @@ function activateAbility(actor,key,{predict=false,zonePoint=null,aim=null}={}){
   if(actor===player){const texts={smoke:['CLOUD VEIL','4.5秒間、視線と射線の判断を遮る煙幕'],updraft:['UPDRAFT','上昇中もナイフは正確に飛びます'],'dash-armed':['TAILWIND READY',`${DUELIST.dashArmDelay}秒後から E でもう一度発動 · ${DUELIST.dashWindow}秒以内`],dash:['TAILWIND',`${DUELIST.signatureKills}キルで再チャージ`],knives:['BLADE STORM','5本 · 撃破すると全回復'],nope:['NOPE TAKEOVER','12秒間、街中にライフルを持つ歩行デコイ30体＋駅ロゴ化 · 敵が撃つと閃光'],mend:['RECOVERY WAVE','18m以内・視線の通る味方と自身を最大75HP回復'],recon:['RECON PULSE','30mを3回索敵 · 検知した地点だけをミニマップへ表示'],veil:['BLACKOUT DOME','発動地点に半径9m・12秒の煙幕 · 敵味方双方の視界を遮断'],ember:['FLARE STRIKE','照準の先20m以内 · 1.2秒の予告後に3回爆撃 · 味方は無傷'],frost:['CRYO FIELD','照準の先20m以内 · 10秒の氷結地帯 · 敵の歩く速さを55%に']};const text=texts[effect.type];if(text)showMessage(...text,2);}
   return effect;
 }
+function rangeInfiniteResources(){return !!rangeSession&&exploring&&!onlinePlaying&&player.alive;}
+function refillRangeAmmo(){
+  if(!rangeInfiniteResources())return;
+  const spec=weapon();if(!spec.mag)return;
+  player.ammo=spec.mag;player.reserve=spec.reserve;reloading=0;
+}
 function refillMapPracticeSkills(){
-  if(!exploring||rangeSession||objectivePractice||onlinePlaying||!player.alive)return;
+  if(!exploring||objectivePractice||onlinePlaying||!player.alive)return;
   const kit=player.kit;if(!kit)return;
   kit.smoke=getCharacterSkill(kit.character,'c').max;kit.updraft=getCharacterSkill(kit.character,'q').max;
   if(kit.armExpiresAt===null&&!(player.dashTimer>0)){kit.dash=1;kit.dashKills=0;kit.nextSignatureAt=0;}
@@ -2185,7 +2211,7 @@ function updateHUD(){
   updateCombatReport();
   const armedWeapon=weapon(),ultimateKnives=player.kit.knivesActive&&inventory.active==='knife',firearm=inventory.active!=='spike'&&armedWeapon.mag>0;
   $('hud')?.classList.toggle('objective-practice',!!objectivePractice);
-  $('health').textContent=Math.ceil(player.hp);$('ammo').textContent=firearm?player.ammo:ultimateKnives?player.kit.knives:'—';$('reserve').textContent=firearm?player.reserve:ultimateKnives?'∞':'—';
+  $('health').textContent=Math.ceil(player.hp);$('ammo').textContent=firearm?(rangeInfiniteResources()?'∞':player.ammo):ultimateKnives?player.kit.knives:'—';$('reserve').textContent=firearm?(rangeInfiniteResources()?'∞':player.reserve):ultimateKnives?'∞':'—';
   $('timer').textContent=formatTime(Math.ceil(timeLeft));$('kills').textContent=String(totalKills).padStart(2,'0');
   $('remaining').textContent=aliveCount(player.team==='blue'?'red':'blue');$('ally-alive').textContent=aliveCount(player.team);
   $('round-label').textContent=`ROUND ${String(match.round).padStart(2,'0')}${match.overtime?' · OVERTIME':''}`;
@@ -2269,9 +2295,9 @@ function updateHUD(){
   if(rangeSession){
     const result=rangeSession.summary();
     $('timer').textContent=formatTime(Math.ceil(rangeSession.remaining));$('round-label').textContent='60 SECOND AIM DRILL';
-    $('phase-label').textContent='SHOOTING RANGE / 射撃訓練';$('side-label').textContent='射撃訓練';
+    $('phase-label').textContent=rangeSession.started?'SHOOTING RANGE / 射撃訓練':'スタート看板を撃って開始';$('side-label').textContent='射撃訓練';
     $('team-score').textContent=result.score;$('enemy-score').textContent=rangeSession.headKills;
-    $('objective-label').textContent='頭で撃破150点 / 胴で撃破100点 · Bで武器選択';
+    $('objective-label').textContent='弾・C/Q/E/X ∞ · 頭150点 / 胴100点 · Bで武器選択';
     $('spike-state').textContent=`${result.kills}撃破 · 命中 ${result.accuracy}% · ヘッド ${result.headRate}%`;
   }
   if(objectivePractice){
@@ -2877,7 +2903,7 @@ function updatePlay(dt){
   const objectiveWork=mode==='play'&&interactionHeld?objectiveActionFor(player):null;
   player.planting=objectiveWork?.kind==='plant';player.defusing=objectiveWork?.kind==='defuse';
   if(objectiveWork){player.vx=0;player.vz=0;}
-  refillMapPracticeSkills();tickDuckPads();player.kit.tick(elapsed);for(const bot of bots)bot.kit?.tick(elapsed);updateAbilityFeedback();
+  refillMapPracticeSkills();refillRangeAmmo();tickDuckPads();player.kit.tick(elapsed);for(const bot of bots)bot.kit?.tick(elapsed);updateAbilityFeedback();
   syncSmokes(serializeSmokes().filter(s=>s.expires>elapsed));updateSmokeAppearance(elapsed);
   if(rangeSession){
     if(rangeSession.tick(dt)){finishRange();return;}

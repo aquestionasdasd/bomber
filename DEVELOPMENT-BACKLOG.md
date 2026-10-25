@@ -584,3 +584,13 @@ Qとデコイ反撃フラッシュ半径12→30m、向き/壁/煙/味方や自�
 枚方市は南北のガラス外壁/駅名銀帯/実屋根/屋内通路に32面を配置し、HIRAKATASHI文字/銀帯/南北矢印の専用オリジナルtextureへ切替。橋本の38面と元画像は保持。写真転載/地形衝突変更/音源追加なし。
 
 関連suiteと新専用5群/実game4群、既存NOPE実game9群/20群SQLite/音mock4、両mapの全30経路の実支持を確認。全mainは今回反復せずcycle92の82PASSを過去根拠と区別する。local所有hidden188（初手/reload初手OFFfalse/AX0）で実Eの武器と姿勢/X南口装飾を確認、warnerror0、再生試聴なし。初回preview CSS配信形式、古い半径fixture/newhelperのdataURL参照/BOT抽出fixtureのactorBodyHeight漏れ、対戦map.id未指定の期待失敗を修正した履歴はworkspaceのcycle94-test-report/logを保持。正規公開/GitHub反映の成否はcycle94-releaseを正本とする。実2タブ/実端末/聴感、全15人の強弱調整は未完了。PR49音変更は保全・未統合。
+
+## 第125巡（手動依頼） — 射撃訓練の無限資源と銃撃スタート
+
+射撃訓練の待機中・計測中だけ弾倉/予備弾とC/Q/E/Xを補充し、リロードを不要にする。銃の連射間隔、スキルの発動条件・構え/予告/効果寿命、20event上限は保持。通常対戦/オンライン/設置練習へ無限化を持ち込まない。既存の自由マップ練習のスキル補充も維持。
+
+入場後は標的なし・残60秒で待機し、目の前の「スタート」看板への実弾命中で開始。開始弾は命中率/点数に含めず、散弾も全pellet処理後に一体目を生成して誤命中させない。ナイフ/外れ弾/遮蔽越しは開始しない。看板は開始/menu/結果/地図変更でray対象ごと除去し、やり直しは再び待機する。従来の1体ずつ/頭150点・胴100点/PB/60秒終了を保持。
+
+実savedgameの両駅+TRC・全10銃・全15kit・20/60/144Hz、実反復cast/20event拒否/通常弾消費を確認。ローカル所有非表示205は初手SOUND OFF/AX0/aria-pressed=false、待機の看板/実銃撃によるBOT出現/00:57/∞弾表示を確認、warn/error0で閉鎖。初回ローカル起動は制限環境で応答せず保持session終了、許可済みloopback起動で回復し最終serverも終了。試聴なし、ユーザータブ/OS/他アプリ不操作。
+
+自動更新fps-19はPAUSEDを維持。この依頼だけを扱い、GitHubと同URL公開の最終結果をworkspace cycle125-release.json/test-reportに記録する。全mainの既存床ボンバー/4キーfixture債務は今回未完了で、同全main/無関係なBOT測定/音mockを反復しない。

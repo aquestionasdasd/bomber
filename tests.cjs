@@ -1014,7 +1014,7 @@ async function main() {
   assert.ok(skillRefillButton&&!skillRefillButton.disabled);
   run('player.kit.smoke=0;player.kit.updraft=0');dispatchElement(skillRefillButton,'click');
   assert.equal(run('player.kit.smoke'),imported.getCharacterSkill(run('player.kit.character'),'c').max);assert.equal(run('player.kit.updraft'),imported.getCharacterSkill(run('player.kit.character'),'q').max,'Practice refill must restore both upgraded mascot lifts');
-  // Resource refill belongs only to free map exploration; keep active two-step E.
+  // Free map exploration and the range replenish skills; keep active two-step E.
   for(const character of Object.keys(imported.CHARACTER_DEFS)){
     sandbox.practiceCharacter=character;
     run('player.kit=new DuelistKit({character:practiceCharacter});refillMapPracticeSkills();player.kit.activate("c",elapsed);player.kit.activate("q",elapsed);player.kit.dash=0;player.kit.nextSignatureAt=elapsed+100;player.kit.ultPoints=0;refillMapPracticeSkills()');
@@ -1026,12 +1026,12 @@ async function main() {
   assert.equal(run('player.kit.armExpiresAt'),run('practiceArm'));assert.equal(run('player.kit.dash'),0,'Refill must preserve a prepared second E instead of resetting it');
   run('player.kit.activate("x",elapsed);player.kit.knives=0;updatePlay(.01)');
   assert.equal(run('player.kit.knivesActive'),true);assert.equal(run('player.kit.knives'),5,'Unlimited practice knives must refill before tick can disarm the ultimate');
-  for(const guard of ['onlinePlaying=true','rangeSession={}','objectivePractice={}','exploring=false','player.alive=false']){
+  for(const guard of ['onlinePlaying=true','objectivePractice={}','exploring=false','player.alive=false']){
     run('onlinePlaying=false;rangeSession=null;objectivePractice=null;exploring=true;player.alive=true;player.kit.smoke=0;player.kit.updraft=0;player.kit.ultPoints=0;'+guard+';refillMapPracticeSkills()');
     assert.equal(run('player.kit.smoke+player.kit.updraft+player.kit.ultPoints'),0,'Practice refill must not leak through '+guard);
   }
   run('onlinePlaying=false;rangeSession=null;objectivePractice=null;exploring=true;player.alive=true;player.kit=new DuelistKit();refillMapPracticeSkills();pauseGame(true)');
-  console.log('PASS: all7 map-practice infinite CQEX, prepared E/active knives preserved; match/range/objective/online/death guards');
+  console.log('PASS: all15 map-practice infinite CQEX, prepared E/active knives preserved; match/objective/online/death guards');
   assert.ok(travelButton && !travelButton.disabled, 'Practice must enable local travel buttons');
   dispatchElement(travelButton, 'click');
   assert.equal(run('mode'), 'play'); assert.equal(run('player.x'), -10); assert.equal(run('player.z'), -10);
@@ -1047,8 +1047,11 @@ async function main() {
   assert.equal(document.getElementById('match-format').value, 'range');
   assert.equal(run('rangeSession.remaining'), 60);
   assert.equal(run('roster.length'), 1, 'A shooting drill must not create a match roster');
-  assert.equal(run('bots.length'), 1);
-  assert.equal(run('bots[0].rangeTarget'), true);
+  assert.equal(run('bots.length'), 0);
+  run('updatePlay(5)');assert.equal(run('rangeSession.remaining'),60);
+  const shootRangeStart = () => run('var sign=new THREE.Vector3();rangeControl.face.getWorldPosition(sign);player.yaw=Math.atan2(player.x-sign.x,player.z-sign.z);player.pitch=Math.atan2(sign.y-(1.7-player.crouch*.55+player.y),Math.hypot(sign.x-player.x,sign.z-player.z));elapsed+=1;shotSequence=0;renderedRecoil=0;Math.random=()=>.5;shoot()');
+  shootRangeStart();assert.equal(run('rangeSession.started'),true);assert.equal(run('rangeSession.shots'),0);
+  assert.equal(run('bots.length'), 1);assert.equal(run('bots[0].rangeTarget'), true);
   assert.equal(run('inventory.active'), 'vandal');
   assert.ok(document.getElementById('landmark-travel').children.every(button => button.disabled), 'A timed drill must disable practice teleport shortcuts');
   keyDown('KeyB'); keyUp('KeyB');assert.equal(run('mode'),'shop');run("buy('phantom')");assert.equal(run('inventory.active'),'phantom');
@@ -1099,7 +1102,8 @@ async function main() {
   const rangeBestWrites = localWrites.filter(write => write.key === 'hashimoto-range-best').length;
   dispatchElement(document.getElementById('play-again'), 'click');
   assert.equal(run('rangeSession.score'), 0); assert.equal(run('rangeSession.shots'), 0);
-  assert.equal(run('rangeSession.remaining'), 60); assert.equal(run('bots.length'), 1);
+  assert.equal(run('rangeSession.remaining'), 60); assert.equal(run('bots.length'), 0);
+  shootRangeStart();
   assert.equal(document.getElementById('range-result').hidden, true, 'Retrying must hide the previous drill result');
   run('previous=0');
   for (let frame = 1; frame <= 602 && run('mode') === 'play'; frame++) run(`frame(${frame * 100})`);
@@ -3243,7 +3247,7 @@ async function main() {
     }
     {
       mainAgent.value = 'echo'; dispatchElement(mainAgent, 'change', { target: mainAgent });
-      run("$('match-format').value='range';startGame();updatePlay(59)");
+      run("$('match-format').value='range';startGame();startRangeDrill();updatePlay(59)");
       keyDown('KeyX'); keyUp('KeyX');
       assert.equal(run('teamAbilities.snapshot().events.length'), 1, 'ECHO must have an active six-second scan immediately before the drill deadline');
       assert.equal(run('characterFX.group.visible'), true); assert.equal(run('characterFX.group.userData.activeEvents'), 1);
