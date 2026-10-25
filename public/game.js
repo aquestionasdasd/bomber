@@ -987,6 +987,35 @@ function handleMatchEvents(){
   }
 }
 
+let playerShotModel=null;
+// The local player uses the same animated geometry as a remote/BOT avatar.
+// Detached from the scene: this has no draw, audio, state or network authority.
+function updatePlayerShotModel(dt=0){
+  playerShotModel??=createAgentModel(THREE,{bot:player,team:player.team,character:player.kit.character});
+  playerShotModel.group.position.set(player.x,player.y||0,player.z);
+  playerShotModel.group.rotation.y=player.yaw+Math.PI;
+  playerShotModel.update(dt,{...agentEquipment(player),weapon:inventory.active,time:elapsed,
+    sliding:frostSlideSpeed(player)>0&&Math.hypot(player.vx,player.vz)>1.2,
+    moving:Math.hypot(player.vx,player.vz)>1.2,planting:!!player.planting,defusing:!!player.defusing,alive:true});
+  playerShotModel.group.updateMatrixWorld(true);
+}
+function playerShotHit(ray){
+  if(!player.alive)return null;
+  updatePlayerShotModel();
+  const surface=ray.intersectObject(playerShotModel.group,true)[0]||null;
+  // Retain the previous forgiving torso/lower-leg volume, including its gaps.
+  // It supplies no head sphere and cannot mask the actual visible head.
+  const c=(player.crouch||0)*.55,point=ray.ray.intersectBox(new THREE.Box3(
+    new THREE.Vector3(player.x-.28,(player.y||0)+.4,player.z-.28),
+    new THREE.Vector3(player.x+.28,(player.y||0)+1.45-c,player.z+.28)),new THREE.Vector3());
+  const distance=point?ray.ray.origin.distanceTo(point):Infinity;
+  if(point&&distance>=ray.near&&distance<=ray.far&&(!surface||!(shotZone(surface)==='head')&&distance<surface.distance))
+    return {point,distance,object:{userData:{bot:player,head:false}}};
+  return surface;
+}
+function shotZone(hit,point=hit?.point,target=hit?.object.userData.bot){
+  return hit?.hitZone||hit?.object.userData.hitZone||(hit?.object.userData.head?'head':point&&target&&point.y-(target.y||0)<.7?'leg':'body');
+}
 function makeBot(spawn,index,team='red',record=null) {
   const bot={id:record?.id||`${team}-${index}`,team,record,x:spawn.x,z:spawn.z,y:Number.isFinite(spawn.y)?spawn.y:0,vy:0,hp:100,armor:record?.armor||0,alive:true,phase:Math.random()*6.28,fire:.18,index,flash:0,spawnX:spawn.x,spawnZ:spawn.z,path:[],pathTime:0,target:null,lastSeen:null,reactionUntil:0,flankComplete:false,plantPositionId:null,planting:false,defusing:false};
   const savedKit=record?.kit;
@@ -1001,6 +1030,7 @@ function makeBot(spawn,index,team='red',record=null) {
   visual.update(0,{...agentEquipment(bot),time:elapsed,alive:bot.alive});
 }
 function clearBots() {
+  playerShotModel?.dispose();playerShotModel=null;
   victoryCamera.reset();lastSpectatedId=null;
   spectatedBot=null;
   for(const bot of bots)bot.visual.dispose();
@@ -1558,10 +1588,10 @@ function shoot(shotTime=elapsed) {
   if(shield){burst(to,'#f8dc72',4);}
   else if(fake){if(!isGuest())hitNopeDecoy(fake.event,player);}
   else if(hit){
-    if(shootBusDriver(hit,player,hit.object.userData.head?spec.head:spec.body,{visualOnly:isGuest()})){raycaster.far=190;updateHUD();return;}
+    if(shootBusDriver(hit,player,shotZone(hit)==='head'?spec.head:spec.body,{visualOnly:isGuest()})){raycaster.far=190;updateHUD();return;}
     const bot=hit.object.userData.bot;
     if(bot&&bot.alive&&bot.team!==player.team&&!isGuest()){
-      hits++;const head=hit.object.userData.head;let damage=nobiBulletDamage(player,bot,head?spec.head:hit.point.y-(bot.y||0)<.7?spec.leg:spec.body,spec.head,!melee&&!ultimate);
+      hits++;const head=shotZone(hit)==='head';let damage=nobiBulletDamage(player,bot,head?spec.head:shotZone(hit)==='leg'?spec.leg:spec.body,spec.head,!melee&&!ultimate);
       if(['phantom','spectre','ghost','classic'].includes(inventory.active)&&hit.distance>15)damage*=hit.distance>30?.8:.9;
       damageEntity(bot,damage,player,{firearm:!melee&&!ultimate,skill:ultimate?'duelist':null});hitFlash=.14;burst(hit.point,head?'#fff3c8':'#ff737e',5);if(melee||ultimate)sound('hit');
       if(rangeSession&&bot.rangeTarget)rangeSession.recordHit({head,eliminated:!bot.alive});
@@ -1586,21 +1616,16 @@ function fireArsenal(actor,origin,aim,spec,ads=false,{visualOnly=false}={}){
   for(const offset of shotPattern(id,{ads,moving,airborne:!actorGrounded(actor),steadyAir:duckAirAim(actor),sequence})){
     const dir=forward.clone().addScaledVector(right,offset.x).addScaledVector(up,offset.y).normalize();
     const ray=new THREE.Raycaster(origin,dir,0,120);
-    const hit=ray.intersectObjects(targets,true).find(h=>busSurfaceVisible(h)&&h.object.userData.bot!==actor&&(!h.object.userData.bot||h.object.userData.bot.alive));
-    let target=hit?.object.userData.bot,point=hit?.point,part=hit?.object.userData.head?'head':point&&target&&point.y-(target.y||0)<.7?'leg':'body',nearest=hit?.distance??120;
-    if(actor!==player&&player.alive){
-      const crouch=player.crouch*.55;
-      const head=ray.ray.intersectSphere(new THREE.Sphere(new THREE.Vector3(player.x,1.62+player.y-crouch,player.z),.19),new THREE.Vector3());
-      const body=ray.ray.intersectBox(new THREE.Box3(new THREE.Vector3(player.x-.28,.4+player.y,player.z-.28),new THREE.Vector3(player.x+.28,1.45+player.y-crouch,player.z+.28)),new THREE.Vector3());
-      for(const [p,zone] of [[head,'head'],[body,'body']])if(p&&origin.distanceTo(p)<nearest){target=player;point=p;part=zone==='body'&&p.y-player.y<.7?'leg':zone;nearest=origin.distanceTo(p);}
-    }
+    let hit=ray.intersectObjects(targets,true).find(h=>busSurfaceVisible(h)&&h.object.userData.bot!==actor&&(!h.object.userData.bot||h.object.userData.bot.alive));
+    let target=hit?.object.userData.bot,point=hit?.point,part=shotZone(hit),nearest=hit?.distance??120;
+    if(actor!==player&&player.alive){const local=playerShotHit(ray);if(local&&local.distance<nearest){hit=local;target=player;point=local.point;part=shotZone(local);nearest=local.distance;}}
     const fake=raycastNopeDecoy(origin,dir,nearest,actor.team);
     const shield=ordinarySkills.interceptShield(origin,dir,fake?.distance??nearest,weaponDamage(id,'body',fake?.distance??nearest),elapsed,match.round,{consume:!visualOnly});
     const end=shield?new THREE.Vector3(shield.point.x,shield.point.y,shield.point.z):fake?.point||point||origin.clone().addScaledVector(dir,90);
     tracer(origin,end,actor.team==='blue'?'#a5eee0':'#ff7b76',.07);
     if(shield){burst(end,'#f8dc72',2);continue;}
     if(fake){if(!visualOnly)hitNopeDecoy(fake.event,actor);continue;}
-    if(shootBusDriver(hit,actor,weaponDamage(id,hit?.object.userData.head?'head':'body',nearest),{visualOnly}))continue;
+    if(shootBusDriver(hit,actor,weaponDamage(id,shotZone(hit)==='head'?'head':'body',nearest),{visualOnly}))continue;
     if(hit?.object.userData.rangeStart&&actor===player&&!visualOnly){rangeStartHit=true;continue;}
     if(target?.alive&&target.team!==actor.team){
       const damage=nobiBulletDamage(actor,target,weaponDamage(id,part,nearest),weaponDamage(id,'head',nearest),true);
@@ -1893,12 +1918,12 @@ function urchinTridentShot(actor,origin,incoming,spec){
  if(!ordinarySkills.urchinTrident?.(actor.id,elapsed)||!spec.mag)return [];
  botsGroup.updateMatrixWorld(true);const results=[];
  for(const side of[-1,1]){const aim=incoming.clone().normalize().applyAxisAngle(new THREE.Vector3(0,1,0),side*URCHIN_SKILLS.tridentAngle),from=origin.clone(),ray=new THREE.Raycaster(from,aim,0,URCHIN_SKILLS.tridentRange),all=ray.intersectObjects([environment,botsGroup],true).filter(h=>busSurfaceVisible(h)&&h.object.userData.bot!==actor&&(!h.object.userData.bot||h.object.userData.bot.alive));
-  const hit=all[0];let target=hit?.object.userData.bot,point=hit?.point,head=!!hit?.object.userData.head,nearest=hit?.distance??URCHIN_SKILLS.tridentRange;
-  if(player!==actor&&player.alive&&player.team!==actor.team){const c=(player.crouch||0)*.55;for(const[p,h]of[[ray.ray.intersectSphere(new THREE.Sphere(new THREE.Vector3(player.x,player.y+1.62-c,player.z),.19),new THREE.Vector3()),true],[ray.ray.intersectBox(new THREE.Box3(new THREE.Vector3(player.x-.28,player.y+.4,player.z-.28),new THREE.Vector3(player.x+.28,player.y+1.45-c,player.z+.28)),new THREE.Vector3()),false]])if(p&&from.distanceTo(p)<nearest){target=player;point=p;head=h;nearest=from.distanceTo(p);}}
+  const hit=all[0];let resolvedHit=hit,target=hit?.object.userData.bot,point=hit?.point,head=shotZone(hit)==='head',nearest=hit?.distance??URCHIN_SKILLS.tridentRange;
+  if(player!==actor&&player.alive){const local=playerShotHit(ray);if(local&&local.distance<nearest){target=player;point=local.point;head=shotZone(local)==='head';resolvedHit=local;nearest=local.distance;}}
   const fake=raycastNopeDecoy(from,aim,nearest,actor.team),shield=ordinarySkills.interceptShield(from,aim,fake?.distance??nearest,spec.body*URCHIN_SKILLS.tridentScale,elapsed,match.round,{consume:!isGuest()});
   if(shield){target=null;point=new THREE.Vector3(shield.point.x,shield.point.y,shield.point.z);}else if(fake){target=null;point=fake.point;if(!isGuest())hitNopeDecoy(fake.event,actor);}
   const end=point||from.clone().addScaledVector(aim,URCHIN_SKILLS.tridentRange);tracer(from,end,'#a9f1e4',.1);
-  if(target?.alive&&target.team!==actor.team&&!isGuest()){let damage=nobiBulletDamage(actor,target,head?spec.head:point.y-(target.y||0)<.7?spec.leg:spec.body,spec.head,true)*URCHIN_SKILLS.tridentScale;const id=urchinWeapon(actor);if(['phantom','spectre','ghost','classic'].includes(id)&&nearest>15)damage*=nearest>30?.8:.9;damageEntity(target,damage,actor,{firearm:true,chain:false,skill:'urchin'});burst(point,'#a9f1e4',3);}
+  if(target?.alive&&target.team!==actor.team&&!isGuest()){let damage=nobiBulletDamage(actor,target,head?spec.head:shotZone(resolvedHit,point,target)==='leg'?spec.leg:spec.body,spec.head,true)*URCHIN_SKILLS.tridentScale;const id=urchinWeapon(actor);if(['phantom','spectre','ghost','classic'].includes(id)&&nearest>15)damage*=nearest>30?.8:.9;damageEntity(target,damage,actor,{firearm:true,chain:false,skill:'urchin'});burst(point,'#a9f1e4',3);}
   results.push({targetId:target?.id||null,x:end.x,y:end.y,z:end.z});
  }return results;
 }
@@ -1930,12 +1955,12 @@ function capBounceShot(actor,origin,incoming,hit,spec){
  const frame=capBounceFrame(THREE,incoming,hit);if(!frame)return null;
  const {aim,from,remaining}=frame;
  botsGroup.updateMatrixWorld(true);const ray=new THREE.Raycaster(from,aim,.005,remaining),hits=ray.intersectObjects([environment,botsGroup],true).filter(h=>busSurfaceVisible(h)&&h.object.userData.bot!==actor&&(!h.object.userData.bot||h.object.userData.bot.alive));
- const next=hits[0];let target=next?.object.userData.bot,point=next?.point,head=!!next?.object.userData.head,nearest=next?.distance??remaining;
- if(player!==actor&&player.alive&&player.team!==actor.team){const c=(player.crouch||0)*.55;for(const[p,h]of[[ray.ray.intersectSphere(new THREE.Sphere(new THREE.Vector3(player.x,player.y+1.62-c,player.z),.19),new THREE.Vector3()),true],[ray.ray.intersectBox(new THREE.Box3(new THREE.Vector3(player.x-.28,player.y+.4,player.z-.28),new THREE.Vector3(player.x+.28,player.y+1.45-c,player.z+.28)),new THREE.Vector3()),false]])if(p&&from.distanceTo(p)<nearest){target=player;point=p;head=h;nearest=from.distanceTo(p);}}
+ const next=hits[0];let resolvedHit=next,target=next?.object.userData.bot,point=next?.point,head=shotZone(next)==='head',nearest=next?.distance??remaining;
+ if(player!==actor&&player.alive){const local=playerShotHit(ray);if(local&&local.distance<nearest){target=player;point=local.point;head=shotZone(local)==='head';resolvedHit=local;nearest=local.distance;}}
  const fake=raycastNopeDecoy(from,aim,nearest,actor.team),shield=ordinarySkills.interceptShield(from,aim,fake?.distance??nearest,spec.body*CAP_SKILLS.bounceScale,elapsed,match.round,{consume:!isGuest()});
  if(shield){target=null;point=new THREE.Vector3(shield.point.x,shield.point.y,shield.point.z);}else if(fake){target=null;point=fake.point;if(!isGuest())hitNopeDecoy(fake.event,actor);}
  const end=point||from.clone().addScaledVector(aim,remaining);tracer(hit.point,end,'#71e3ed',.12);
- if(target?.alive&&target.team!==actor.team&&!isGuest()){let amount=nobiBulletDamage(actor,target,head?spec.head:point.y-(target.y||0)<.7?spec.leg:spec.body,spec.head,true)*CAP_SKILLS.bounceScale;const weaponId=actor===player?inventory.active:actor.remoteId?actor.netWeapon:actor.aiWeapon;if(['phantom','spectre','ghost','classic'].includes(weaponId)&&hit.distance+nearest>15)amount*=hit.distance+nearest>30?.8:.9;damageEntity(target,amount,actor,{firearm:true,chain:false,skill:'cap'});burst(point,'#79e7ee',5);}
+ if(target?.alive&&target.team!==actor.team&&!isGuest()){let amount=nobiBulletDamage(actor,target,head?spec.head:shotZone(resolvedHit,point,target)==='leg'?spec.leg:spec.body,spec.head,true)*CAP_SKILLS.bounceScale;const weaponId=actor===player?inventory.active:actor.remoteId?actor.netWeapon:actor.aiWeapon;if(['phantom','spectre','ghost','classic'].includes(weaponId)&&hit.distance+nearest>15)amount*=hit.distance+nearest>30?.8:.9;damageEntity(target,amount,actor,{firearm:true,chain:false,skill:'cap'});burst(point,'#79e7ee',5);}
  return{targetId:target?.id||null,point:end,head};
 }
 
@@ -3113,6 +3138,7 @@ function updatePlay(dt){
     }
   }
   updateTeamAbilities();
+  if(!isGuest()&&player.alive&&!rangeSession)updatePlayerShotModel(dt);
   updateBots(dt);
   if(map.bomberCollapse?.active&&!isGuest()&&match.phase==='post')for(const bot of bots){
     if(!bot.alive||busSeat(bot)||bot.carMotion||bot.trafficLaunch||bot.remoteId&&duckPadAirborne(bot))continue;
@@ -3588,12 +3614,8 @@ function applyRemoteAction(actor,action,actionTime=elapsed){
   if(!melee&&!knives)capDistortAim(actor,aim);
   botsGroup.updateMatrixWorld(true);const ray=new THREE.Raycaster(origin,aim,0,melee?2.2:120);
   const all=ray.intersectObjects([environment,botsGroup],true).filter(h=>busSurfaceVisible(h)&&h.object.userData.bot!==actor&&(!h.object.userData.bot||h.object.userData.bot.alive));
-  const hit=all[0];let target=hit?.object.userData.bot,point=hit?.point,head=!!hit?.object.userData.head,nearest=hit?.distance??120;
-  if(player.alive&&player.team!==actor.team){
-    const crouch=player.crouch*.55,headDistance=ray.ray.intersectSphere(new THREE.Sphere(new THREE.Vector3(player.x,1.62+player.y-crouch,player.z),.19),new THREE.Vector3());
-    const bodyDistance=ray.ray.intersectBox(new THREE.Box3(new THREE.Vector3(player.x-.28,.4+player.y,player.z-.28),new THREE.Vector3(player.x+.28,1.45+player.y-crouch,player.z+.28)),new THREE.Vector3());
-    for(const [p,isHead] of [[headDistance,true],[bodyDistance,false]])if(p&&origin.distanceTo(p)<nearest){target=player;point=p;head=isHead;nearest=origin.distanceTo(p);}
-  }
+  let hit=all[0];let resolvedHit=hit,target=hit?.object.userData.bot,point=hit?.point,head=shotZone(hit)==='head',nearest=hit?.distance??120;
+  if(player.alive){const local=playerShotHit(ray);if(local&&local.distance<nearest){hit=local;target=player;point=local.point;head=shotZone(local)==='head';resolvedHit=local;nearest=local.distance;}}
   const fake=!melee?raycastNopeDecoy(origin,aim,nearest,actor.team):null;
   const shield=!melee?ordinarySkills.interceptShield(origin,aim,fake?.distance??nearest,spec.body||1,elapsed,match.round):null;
   if(shield){target=null;point=new THREE.Vector3(shield.point.x,shield.point.y,shield.point.z);nearest=shield.distance;}
@@ -3602,7 +3624,7 @@ function applyRemoteAction(actor,action,actionTime=elapsed){
   if(!target&&!fake&&!shield&&!melee&&!knives&&hit)capBounceShot(actor,origin,aim,hit,spec);
   if(!melee&&!knives)urchinTridentShot(actor,origin,aim,spec);
   if(!fake&&!shield&&shootBusDriver(hit,actor,head?spec.head:spec.body))return;
-  if(target&&target.team!==actor.team){let damage=nobiBulletDamage(actor,target,head?spec.head:point.y-(target.y||0)<.7?spec.leg:spec.body,spec.head,!melee&&!knives);if(!knives&&['phantom','spectre','ghost','classic'].includes(actor.netWeapon)&&nearest>15)damage*=nearest>30?.8:.9;damageEntity(target,damage,actor,{firearm:!melee&&!knives,skill:knives?'duelist':null});burst(point,head?'#fff3c8':'#ff737e',5);}
+  if(target&&target.team!==actor.team){let damage=nobiBulletDamage(actor,target,head?spec.head:shotZone(resolvedHit,point,target)==='leg'?spec.leg:spec.body,spec.head,!melee&&!knives);if(!knives&&['phantom','spectre','ghost','classic'].includes(actor.netWeapon)&&nearest>15)damage*=nearest>30?.8:.9;damageEntity(target,damage,actor,{firearm:!melee&&!knives,skill:knives?'duelist':null});burst(point,head?'#fff3c8':'#ff737e',5);}
 }
 function tickOnline(dt){
   if(!onlinePlaying||!online||!match)return;netClock+=dt;if(netClock<.065)return;netClock=0;

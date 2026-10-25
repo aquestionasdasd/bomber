@@ -630,12 +630,36 @@ export function createAgentModel(THREE, { bot = null, team = 'red', variant = 0,
     let parent = this; while (parent && parent !== group) { if (!parent.visible) return; parent = parent.parent; }
     THREE.Mesh.prototype.raycast.call(this, ray, hits);
   }; });
-  // Role equipment is cosmetic: the original body, head and weapon remain the
-  // complete hit surface. Static colored parts merge to one draw per attachment.
+  // Keep the forgiving original body/weapon surfaces. The visible avatar adds
+  // torso hits outside them; only its animated visible head grants head damage.
   const bodyDrawables=[];
   const rememberBody=object=>{if(object===weaponPivot)return;if(object.isMesh)bodyDrawables.push(object);for(const child of object.children)rememberBody(child);};
   rememberBody(rig);
   const enemyRim=createEnemyRim();enemyRim.register(bodyDrawables);
+  // Hidden legacy helmets must never award a headshot in empty space.
+  for(const object of kit.meshes)if(object.userData.head)object.raycast=()=>{};
+  const hitLocal=new THREE.Vector3();
+  function avatarRaycast(ray,hits){
+    for(let node=this;node;node=node.parent)if(!node.visible)return;
+    const start=hits.length;
+    THREE.Mesh.prototype.raycast.call(this,ray,hits);
+    // The grass block has one continuous cube rather than a separate head.
+    // Its upper 40cm is head, clipped to the real cube/fringe triangles.
+    if(this.userData.character==='veil'&&this.parent.name.endsWith(' / body'))
+      for(let i=start;i<hits.length;i++)if(upper.worldToLocal(hitLocal.copy(hits[i].point)).y>=1.46)hits[i].hitZone='head';
+  }
+  function registerAvatar(avatar){
+    if(bot)avatar.group.traverse(object=>{
+      if(!object.isMesh)return;
+      let headPart=false;
+      for(let node=object.parent;node&&node!==avatar.group;node=node.parent)
+        if(node.userData.agentHead===true||/ frame \/ head$| avatar frame \/ head$/.test(node.name))headPart=true;
+      object.userData.bot=bot;object.userData.head=headPart;
+      object.userData.hitZone=headPart?'head':'body';object.raycast=avatarRaycast;
+    });
+    enemyRim.register(avatar.group);
+  }
+
   let sunflowerAvatar=null,starMascotAvatar=null,solderAvatar=null,iagnuAvatar=null,onoAvatar=null,grassBlockAvatar=null,nopeAvatar=null,duckAvatar=null,catAvatar=null,carAvatar=null,nobiAvatar=null,japanAvatar=null,capAvatar=null,urchinAvatar=null,onnaraAvatar=null;
   const characterGear = new Map();
   let activeCharacter = 'duelist', gearMaterial = null;
@@ -855,21 +879,21 @@ export function createAgentModel(THREE, { bot = null, team = 'red', variant = 0,
       }
       characterGear.set(id,pieces);
     }
-    if(id==='mend'&&!sunflowerAvatar){sunflowerAvatar=createSunflowerAvatar(THREE,{rig,upper,head,rightArm,leftArm,leftLeg,rightLeg,team});enemyRim.register(sunflowerAvatar.group);}
-    if(id==='duelist'&&!starMascotAvatar){starMascotAvatar=createStarMascotAvatar(THREE,{rig,upper,head,rightArm,leftArm,leftLeg,rightLeg,team});enemyRim.register(starMascotAvatar.group);}
-    if(id==='ember'&&!solderAvatar){solderAvatar=createSolderAvatar(THREE,{rig,upper,head,rightArm,leftArm,leftLeg,rightLeg,team});enemyRim.register(solderAvatar.group);}
-    if(id==='echo'&&!iagnuAvatar){iagnuAvatar=createIagnuAvatar(THREE,{rig,upper,head,rightArm,leftArm,leftLeg,rightLeg,team});enemyRim.register(iagnuAvatar.group);}
-    if(id==='frost'&&!onoAvatar){onoAvatar=createOnoAvatar(THREE,{rig,upper,head,rightArm,leftArm,leftLeg,rightLeg,team});enemyRim.register(onoAvatar.group);}
-    if(id==='veil'&&!grassBlockAvatar){grassBlockAvatar=createGrassBlockAvatar(THREE,{rig,upper,head,rightArm,leftArm,leftLeg,rightLeg,team});enemyRim.register(grassBlockAvatar.group);}
-    if(id==='nope'&&!nopeAvatar){nopeAvatar=createNopeAvatar(THREE,{rig,upper,head,rightArm,leftArm,leftLeg,rightLeg,team});enemyRim.register(nopeAvatar.group);}
-    if(id==='onnara'&&!onnaraAvatar){onnaraAvatar=createOnnaraAvatar(THREE,{rig,upper,head,rightArm,leftArm,leftLeg,rightLeg,team});enemyRim.register(onnaraAvatar.group);}
-    if(id==='urchin'&&!urchinAvatar){urchinAvatar=createUrchinAvatar(THREE,{rig,upper,head,rightArm,leftArm,leftLeg,rightLeg,team});enemyRim.register(urchinAvatar.group);}
-    if(id==='cap'&&!capAvatar){capAvatar=createCapAvatar(THREE,{rig,upper,head,rightArm,leftArm,leftLeg,rightLeg,team});enemyRim.register(capAvatar.group);}
-    if(id==='japan'&&!japanAvatar){japanAvatar=createJapanAvatar(THREE,{rig,upper,head,rightArm,leftArm,leftLeg,rightLeg,team});enemyRim.register(japanAvatar.group);}
-    if(id==='nobi'&&!nobiAvatar){nobiAvatar=createNobiAvatar(THREE,{rig,upper,head,rightArm,leftArm,leftLeg,rightLeg,team});enemyRim.register(nobiAvatar.group);}
-    if(id==='car'&&!carAvatar){carAvatar=createCarAvatar(THREE,{rig,upper,head,rightArm,leftArm,leftLeg,rightLeg,team});enemyRim.register(carAvatar.group);}
-    if(id==='cat'&&!catAvatar){catAvatar=createCatAvatar(THREE,{rig,upper,head,rightArm,leftArm,leftLeg,rightLeg,team});enemyRim.register(catAvatar.group);}
-    if(id==='duck'&&!duckAvatar){duckAvatar=createDuckAvatar(THREE,{rig,upper,head,rightArm,leftArm,leftLeg,rightLeg,team});enemyRim.register(duckAvatar.group);}
+    if(id==='mend'&&!sunflowerAvatar){sunflowerAvatar=createSunflowerAvatar(THREE,{rig,upper,head,rightArm,leftArm,leftLeg,rightLeg,team});registerAvatar(sunflowerAvatar);}
+    if(id==='duelist'&&!starMascotAvatar){starMascotAvatar=createStarMascotAvatar(THREE,{rig,upper,head,rightArm,leftArm,leftLeg,rightLeg,team});registerAvatar(starMascotAvatar);}
+    if(id==='ember'&&!solderAvatar){solderAvatar=createSolderAvatar(THREE,{rig,upper,head,rightArm,leftArm,leftLeg,rightLeg,team});registerAvatar(solderAvatar);}
+    if(id==='echo'&&!iagnuAvatar){iagnuAvatar=createIagnuAvatar(THREE,{rig,upper,head,rightArm,leftArm,leftLeg,rightLeg,team});registerAvatar(iagnuAvatar);}
+    if(id==='frost'&&!onoAvatar){onoAvatar=createOnoAvatar(THREE,{rig,upper,head,rightArm,leftArm,leftLeg,rightLeg,team});registerAvatar(onoAvatar);}
+    if(id==='veil'&&!grassBlockAvatar){grassBlockAvatar=createGrassBlockAvatar(THREE,{rig,upper,head,rightArm,leftArm,leftLeg,rightLeg,team});registerAvatar(grassBlockAvatar);}
+    if(id==='nope'&&!nopeAvatar){nopeAvatar=createNopeAvatar(THREE,{rig,upper,head,rightArm,leftArm,leftLeg,rightLeg,team});registerAvatar(nopeAvatar);}
+    if(id==='onnara'&&!onnaraAvatar){onnaraAvatar=createOnnaraAvatar(THREE,{rig,upper,head,rightArm,leftArm,leftLeg,rightLeg,team});registerAvatar(onnaraAvatar);}
+    if(id==='urchin'&&!urchinAvatar){urchinAvatar=createUrchinAvatar(THREE,{rig,upper,head,rightArm,leftArm,leftLeg,rightLeg,team});registerAvatar(urchinAvatar);}
+    if(id==='cap'&&!capAvatar){capAvatar=createCapAvatar(THREE,{rig,upper,head,rightArm,leftArm,leftLeg,rightLeg,team});registerAvatar(capAvatar);}
+    if(id==='japan'&&!japanAvatar){japanAvatar=createJapanAvatar(THREE,{rig,upper,head,rightArm,leftArm,leftLeg,rightLeg,team});registerAvatar(japanAvatar);}
+    if(id==='nobi'&&!nobiAvatar){nobiAvatar=createNobiAvatar(THREE,{rig,upper,head,rightArm,leftArm,leftLeg,rightLeg,team});registerAvatar(nobiAvatar);}
+    if(id==='car'&&!carAvatar){carAvatar=createCarAvatar(THREE,{rig,upper,head,rightArm,leftArm,leftLeg,rightLeg,team});registerAvatar(carAvatar);}
+    if(id==='cat'&&!catAvatar){catAvatar=createCatAvatar(THREE,{rig,upper,head,rightArm,leftArm,leftLeg,rightLeg,team});registerAvatar(catAvatar);}
+    if(id==='duck'&&!duckAvatar){duckAvatar=createDuckAvatar(THREE,{rig,upper,head,rightArm,leftArm,leftLeg,rightLeg,team});registerAvatar(duckAvatar);}
     for(const object of bodyDrawables)object.visible=id!=='nope'&&id!=='mend'&&id!=='duelist'&&id!=='ember'&&id!=='echo'&&id!=='frost'&&id!=='veil'&&id!=='duck'&&id!=='cat'&&id!=='car'&&id!=='nobi'&&id!=='japan'&&id!=='cap'&&id!=='urchin'&&id!=='onnara';
     sunflowerAvatar?.setVisible(id==='mend');
     starMascotAvatar?.setVisible(id==='duelist');

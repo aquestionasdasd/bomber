@@ -8,6 +8,7 @@ async function main() {
   const [THREE, {createAgentModel, createEquipmentSurface, createWeaponModel}, {createViewmodel}, {createDroppedEquipment}] = await Promise.all([
     load('vendor/three.module.js'), load('agent-model.js'), load('viewmodel.js'), load('dropped-equipment.js'),
   ]);
+  const isHeadHit=hit=>hit?.hitZone==='head'||hit?.object.userData.head===true;
   const digest = value => createHash('sha256').update(value).digest('hex');
   function resources(root) {
     const geometries = new Set(), materials = new Set(), textures = new Set();
@@ -118,9 +119,9 @@ async function main() {
   legacyTraverse(agent.group,object=>{if(object.isMesh)bounds.union(new THREE.Box3().setFromObject(object,true));});
   assert.ok(Math.abs(bounds.min.y - .003) < 1e-7 && Math.abs(bounds.max.y - 1.8343485675775448) < 1e-7);
   const ray = new THREE.Raycaster(new THREE.Vector3(0,1.65,5), new THREE.Vector3(0,0,-1));
-  assert.equal(ray.intersectObjects(agent.meshes, true)[0].object.userData.head, true, 'The real headshot surface remains reachable');
+  assert.equal(isHeadHit(ray.intersectObject(agent.group, true)[0]), true, 'The real headshot surface remains reachable');
   ray.set(new THREE.Vector3(0,1.17,5), new THREE.Vector3(0,0,-1));
-  assert.equal(Boolean(ray.intersectObjects(agent.meshes, true)[0].object.userData.head), false, 'The chest remains a body hit');
+  assert.equal(isHeadHit(ray.intersectObject(agent.group, true)[0]), false, 'The chest remains a body hit');
 
   const finishes = agentTextures(agent);
   assert.equal(finishes.length, 4);
@@ -233,7 +234,7 @@ async function main() {
   const hitBaseline=hitSignature(roleModels[0]);
   for(let index=0;index<roles.length;index++){
     const model=roleModels[index],character=roles[index],attachments=[];let draws=0,tris=0;
-    assert.equal(model.group.userData.character,character);assert.equal(model.meshes.length,52);assert.equal(hitSignature(model),hitBaseline,'All seven roles keep exactly the same 52 hittable meshes');
+    assert.equal(model.group.userData.character,character);assert.equal(model.meshes.length,52);assert.equal(hitSignature(model),hitBaseline,'All seven roles retain exactly the same 52 legacy geometry references');
     if(priorGeometry[character]){
       const hash=createHash('sha256');model.group.traverse(object=>{if(!object.isMesh)return;for(const name of Object.keys(object.geometry.attributes).sort()){const a=object.geometry.attributes[name];hash.update(name);hash.update(Buffer.from(a.array.buffer,a.array.byteOffset,a.array.byteLength));}if(object.geometry.index)hash.update(Buffer.from(object.geometry.index.array.buffer));});
       assert.equal(hash.digest('hex'),priorGeometry[character],'The other six full models retain every geometry/UV/vertex-color byte');
@@ -265,8 +266,8 @@ async function main() {
       }
     }
     for(const attachment of attachments){
-      assert.equal(attachment.userData.solid,false);assert.equal(attachment.userData.bot,undefined);assert.equal(attachment.userData.head,undefined);
-      const hits=[];attachment.raycast(new THREE.Raycaster(),hits);assert.equal(hits.length,0,'Distinctive equipment cannot become a shield or headshot extension');
+      assert.equal(attachment.userData.solid,false);if(replacementRoles.has(character)){assert.equal(attachment.userData.bot,model.meshes[0].userData.bot);assert.equal(typeof attachment.userData.head,'boolean');assert.ok(['head','body'].includes(attachment.userData.hitZone));}else{assert.equal(attachment.userData.bot,undefined);assert.equal(attachment.userData.head,undefined);}
+      const hits=[];attachment.raycast(new THREE.Raycaster(),hits);if(!replacementRoles.has(character))assert.equal(hits.length,0,'Old optional equipment stays cosmetic');else for(const hit of hits)assert.ok(Number.isFinite(hit.distance)&&hit.object.userData.bot,'Visible replacement surfaces resolve to their actor');
       if(!replacementRoles.has(character)){assert.equal(attachment.material.vertexColors,true);assert.equal(attachment.material.bumpMap.name,'Agent finish / cloth');}
     }
     const armor=armorOf(model);assert.equal(armor.color.getHexString(),'438b91','Character accents cannot recolor the team armor');
@@ -306,7 +307,7 @@ async function main() {
   }
   for(const mesh of avatarMeshes){
     assert.equal(effectivelyVisible(mesh),true);assert.equal(sunflower.meshes.includes(mesh),false);
-    assert.equal(mesh.userData.solid,false);assert.equal(mesh.userData.head,undefined);assert.equal(mesh.userData.bot,undefined);
+    assert.equal(mesh.userData.solid,false);assert.equal(typeof mesh.userData.head,'boolean');assert.ok(mesh.userData.bot);
     for(const attribute of Object.values(mesh.geometry.attributes))for(const value of attribute.array)assert.ok(Number.isFinite(value),'Avatar vertex buffers contain only finite values');
   }
   assert.ok(sunflower.meshes.filter(mesh=>mesh.userData.head).every(mesh=>!effectivelyVisible(mesh)),'The old helmet and mask do not show through the new face');
@@ -318,12 +319,12 @@ async function main() {
   const outerHatRay=new THREE.Raycaster(new THREE.Vector3(hatBounds.getCenter(new THREE.Vector3()).x+hatBounds.getSize(new THREE.Vector3()).x*.4,hatBounds.max.y+.1,hatBounds.getCenter(new THREE.Vector3()).z),new THREE.Vector3(0,-1,0),0,hatBounds.getSize(new THREE.Vector3()).y+.2);
   const physicalHatHits=[];THREE.Mesh.prototype.raycast.call(hat,outerHatRay,physicalHatHits);
   assert.ok(physicalHatHits.length>0,'The non-hit ray really passes through the physical brim geometry');
-  assert.equal(outerHatRay.intersectObject(hat,true).length,0,'The outer brim cannot block a bullet');
-  assert.equal(outerHatRay.intersectObjects(sunflower.meshes,true).length,0,'The outer brim cannot create a new headshot surface');
+  assert.ok(outerHatRay.intersectObject(hat,true).some(isHeadHit),'The visible brim belongs to the visible head');
+  assert.ok(outerHatRay.intersectObject(sunflower.group,true).some(isHeadHit),'The expanded head matches the rendered brim');
   ray.set(new THREE.Vector3(0,1.65,5),new THREE.Vector3(0,0,-1));
-  assert.equal(ray.intersectObjects(sunflower.meshes,true)[0].object.userData.head,true,'Hiding the old head visually preserves its real headshot surface');
+  assert.equal(isHeadHit(ray.intersectObject(sunflower.group,true)[0]),true,'Hiding the old head visually preserves its real headshot surface');
   ray.set(new THREE.Vector3(0,1.17,5),new THREE.Vector3(0,0,-1));
-  assert.equal(Boolean(ray.intersectObjects(sunflower.meshes,true)[0].object.userData.head),false,'The new dress preserves the original body hit');
+  assert.equal(isHeadHit(ray.intersectObject(sunflower.group,true)[0]),false,'The new dress preserves the original body hit');
   const redSunflower=createAgentModel(THREE,{bot:{id:'red-sunflower'},team:'red',character:'mend'});
   const visibleRing=model=>{
     let result;model.group.traverseVisible(object=>{if(object.isMesh&&object.geometry.type==='RingGeometry')result=object;});
@@ -426,9 +427,9 @@ async function main() {
   const earSampleY=mascotEars.geometry.boundingBox.max.y-.05;
   assert.ok(mascotEars.geometry.boundingBox.max.y-mascotEars.geometry.boundingBox.min.y>.25,'The upright ears retain a real raised silhouette');
   for(const mesh of starMeshes(starModel)){
-    assert.equal(effectivelyVisible(mesh),true);assert.equal(starModel.meshes.includes(mesh),false);assert.equal(mesh.userData.solid,false);assert.equal(mesh.userData.bot,undefined);assert.equal(mesh.userData.head,undefined);
+    assert.equal(effectivelyVisible(mesh),true);assert.equal(starModel.meshes.includes(mesh),false);assert.equal(mesh.userData.solid,false);assert.ok(mesh.userData.bot);assert.equal(typeof mesh.userData.head,'boolean');
     for(const attribute of Object.values(mesh.geometry.attributes))for(const value of attribute.array)assert.ok(Number.isFinite(value),'All mascot vertex buffers remain finite');
-    const hits=[];mesh.raycast(ray,hits);assert.equal(hits.length,0,'The visible mascot cannot add an accidental bullet shield');
+    const hits=[];mesh.raycast(ray,hits);for(const hit of hits)assert.ok(hit.object.userData.bot&&Number.isFinite(hit.distance),'Visible replacement hits resolve to an actor');
   }
   assert.ok(starModel.meshes.filter(mesh=>mesh.userData.head).every(mesh=>!effectivelyVisible(mesh)),'The old tactical helmet is hidden for WIND');
   const rawStarRay=(model,x,y)=>{
@@ -449,11 +450,11 @@ async function main() {
     assert.ok([eye,highlights].includes(rawStarRay(starModel,side*.122,.009).hits[0]?.object),'Both black oval eyes remain visible from the front');
     const earRay=rawStarRay(starModel,side*.205,earSampleY);
     assert.ok(earRay.hits.length>0&&earRay.hits[0].object.name.includes('ear'),'The non-hit test really crosses visible tall ear geometry');
-    assert.equal(earRay.probe.intersectObjects(starMeshes(starModel),true).length,0,'A large ear cannot block a bullet');
-    assert.equal(earRay.probe.intersectObjects(starModel.meshes,true).length,0,'A large ear cannot extend the real headshot proxy');
+    assert.ok(earRay.probe.intersectObjects(starMeshes(starModel),true).some(isHeadHit),'The actual visible ear is a head surface');
+    assert.ok(earRay.probe.intersectObject(starModel.group,true).some(isHeadHit),'The visible ear extends the head, with no invisible box');
   }
   for(const [height,headshot]of [[1.65,true],[1.17,false]]){
-    ray.set(new THREE.Vector3(0,height,5),new THREE.Vector3(0,0,-1));assert.equal(Boolean(ray.intersectObjects(starModel.meshes,true)[0].object.userData.head),headshot,'The mascot still uses the unchanged physical head/body hit surface');
+    ray.set(new THREE.Vector3(0,height,5),new THREE.Vector3(0,0,-1));assert.equal(isHeadHit(ray.intersectObject(starModel.group,true)[0]),headshot,'The mascot still uses the unchanged physical head/body hit surface');
   }
   const redStar=createAgentModel(THREE,{bot:{id:'red-star'},team:'red',character:'duelist'}),redStarAssets=starResources(redStar);
   assert.equal(hitSignature(redStar),hitBaseline);assert.deepEqual(redStarAssets.geometries,starAssets.geometries);assert.deepEqual(redStarAssets.textures,starAssets.textures);
@@ -549,14 +550,14 @@ async function main() {
     assert.ok(hits.some(hit=>hit.object===workerPupils),'The original pupil geometry survives behind the intentionally opaque white glasses');workerEyeSamples++;
   }
   for(const mesh of solderMeshes(solderModel)){
-    assert.equal(effectivelyVisible(mesh),true);assert.equal(solderModel.meshes.includes(mesh),false);assert.equal(mesh.userData.solid,false);assert.equal(mesh.userData.head,undefined);assert.equal(mesh.userData.bot,undefined);
-    const hits=[];mesh.raycast(ray,hits);assert.equal(hits.length,0,'The goggles, shirt, board and iron cannot change the combat hit surface');
+    assert.equal(effectivelyVisible(mesh),true);assert.equal(solderModel.meshes.includes(mesh),false);assert.equal(mesh.userData.solid,false);assert.equal(typeof mesh.userData.head,'boolean');assert.ok(mesh.userData.bot);
+    const hits=[];mesh.raycast(ray,hits);for(const hit of hits)assert.ok(hit.object.userData.bot&&Number.isFinite(hit.distance),'Visible replacement hits resolve to an actor');
     for(const attribute of Object.values(mesh.geometry.attributes))for(const value of attribute.array)assert.ok(Number.isFinite(value),'Worker geometry contains no invalid vertices');
   }
   assert.ok(solderModel.meshes.filter(mesh=>mesh.userData.head).every(mesh=>!effectivelyVisible(mesh)),'The worker fully replaces the old helmet visually');
   solderModel.group.traverseVisible(object=>assert.ok(!object.name.startsWith('Character gear / ember / '),'The obsolete heat-carrier exterior cannot show through the work shirt'));
   for(const [height,headshot]of [[1.65,true],[1.17,false]]){
-    ray.set(new THREE.Vector3(0,height,5),new THREE.Vector3(0,0,-1));assert.equal(Boolean(ray.intersectObjects(solderModel.meshes,true)[0].object.userData.head),headshot,'The worker preserves the established head/body shots');
+    ray.set(new THREE.Vector3(0,height,5),new THREE.Vector3(0,0,-1));assert.equal(isHeadHit(ray.intersectObject(solderModel.group,true)[0]),headshot,'The worker preserves the established head/body shots');
   }
   const redSolder=createAgentModel(THREE,{bot:{id:'red-solder'},team:'red',character:'ember'}),redSolderAssets=solderResources(redSolder);
   assert.equal(hitSignature(redSolder),hitBaseline);assert.deepEqual(redSolderAssets.geometries,solderAssets.geometries);assert.deepEqual(redSolderAssets.textures,solderAssets.textures);
@@ -625,7 +626,7 @@ async function main() {
     assert.equal(front.hits[0]?.object,cap,`${letter} has an actual visible front stroke`);assert.equal(back.hits[0]?.object,cap,`${letter} has an actual modeled reverse face`);
     const frontPoint=iagnuModel.head.worldToLocal(front.hits[0].point.clone()),backPoint=iagnuModel.head.worldToLocal(back.hits[0].point.clone());
     assert.ok(frontPoint.z-backPoint.z>.04,'Front and back intersections cross a solid three-dimensional glyph');
-    assert.equal(front.probe.intersectObjects(iagnuMeshes(iagnuModel),true).length,0,'Even an actual metallic letter stroke cannot block a bullet');letterRaySamples+=2;
+    assert.ok(front.probe.intersectObjects(iagnuMeshes(iagnuModel),true).some(isHeadHit),'The visible letter stroke registers head damage');letterRaySamples+=2;
   }
   for(const [label,x,y]of [['A counter',-.2121,.10],['G interior',-.03528,.12],['G right opening',.02772,.12],['U interior',.31248,.12],['U top opening',.31248,.39],['I beside stem',-.32172,.02]]){
     assert.equal(rawWordRay(iagnuModel,x,y).hits.length,0,`${label} is free space through all letter geometry, including side walls`);letterRaySamples++;
@@ -633,16 +634,15 @@ async function main() {
   for(const [label,x,y,letter]of [['I upper serif',-.32172,.39,'I'],['G crossbar',.01512,.007,'G'],['N diagonal',.13902,.02,'N'],['U rounded bottom',.31164,-.365,'U']]){
     assert.equal(rawWordRay(iagnuModel,x,y).hits[0]?.object,letters['IAGNU'.indexOf(letter)],`${label} contributes real geometry to the recognizable glyph`);letterRaySamples++;
   }
-  const outsideHead=rawWordRay(iagnuModel,-.35028,.30);assert.ok(outsideHead.hits.length);assert.equal(outsideHead.probe.intersectObjects(iagnuModel.meshes,true).length,0,'The broad word silhouette cannot extend the real headshot proxy');
+  const outsideHead=rawWordRay(iagnuModel,-.35028,.30);assert.ok(outsideHead.hits.length);assert.ok(outsideHead.probe.intersectObject(iagnuModel.group,true).some(isHeadHit),'The real letter silhouette extends the head surface');
   for(const mesh of iagnuMeshes(iagnuModel)){
-    assert.equal(effectivelyVisible(mesh),true);assert.equal(iagnuModel.meshes.includes(mesh),false);assert.equal(mesh.userData.solid,false);assert.equal(mesh.userData.head,undefined);assert.equal(mesh.userData.bot,undefined);
+    assert.equal(effectivelyVisible(mesh),true);assert.equal(iagnuModel.meshes.includes(mesh),false);assert.equal(mesh.userData.solid,false);assert.equal(typeof mesh.userData.head,'boolean');assert.ok(mesh.userData.bot);
     for(const attribute of Object.values(mesh.geometry.attributes))for(const value of attribute.array)assert.ok(Number.isFinite(value),'Letter and stylized limb buffers remain finite');
   }
   assert.ok(iagnuModel.meshes.filter(mesh=>mesh.userData.head).every(mesh=>!effectivelyVisible(mesh)),'IAGNU replaces the old head visually');
   iagnuModel.group.traverseVisible(object=>assert.ok(!object.name.startsWith('Character gear / echo / '),'No obsolete sensor headset or pack shows through the letters'));
-  for(const [height,headshot]of [[1.65,true],[1.17,false]]){
-    ray.set(new THREE.Vector3(0,height,5),new THREE.Vector3(0,0,-1));assert.equal(Boolean(ray.intersectObjects(iagnuModel.meshes,true)[0].object.userData.head),headshot,'The letter skin preserves the original head/body combat surfaces');
-  }
+  assert.ok(isHeadHit(rawWordRay(iagnuModel,-.35028,.02).probe.intersectObject(iagnuModel.group,true)[0]),'The visible I stroke is a headshot, not the empty gap at the old helmet centre');
+  ray.set(new THREE.Vector3(0,1.17,5),new THREE.Vector3(0,0,-1));assert.equal(isHeadHit(ray.intersectObject(iagnuModel.group,true)[0]),false,'The torso remains a body hit');
   const redIagnu=createAgentModel(THREE,{bot:{id:'red-iagnu'},team:'red',character:'echo'}),redIagnuAssets=iagnuResources(redIagnu);
   assert.equal(hitSignature(redIagnu),hitBaseline);assert.deepEqual(redIagnuAssets.geometries,iagnuAssets.geometries);assert.deepEqual(redIagnuAssets.textures,iagnuAssets.textures);
   for(const resource of [...redIagnuAssets.geometries,...redIagnuAssets.materials,...redIagnuAssets.textures])if(!iagnuShared.has(resource)){
@@ -725,14 +725,14 @@ async function main() {
     assert.ok(hits.some(hit=>hit.object===onoFace),'The crown test ray really crosses the otherwise exposed head skin');onoCrownSamples++;
   }
   for(const mesh of onoMeshes(onoModel)){
-    assert.equal(effectivelyVisible(mesh),true);assert.equal(onoModel.meshes.includes(mesh),false);assert.equal(mesh.userData.solid,false);assert.equal(mesh.userData.head,undefined);assert.equal(mesh.userData.bot,undefined);
+    assert.equal(effectivelyVisible(mesh),true);assert.equal(onoModel.meshes.includes(mesh),false);assert.equal(mesh.userData.solid,false);assert.equal(typeof mesh.userData.head,'boolean');assert.ok(mesh.userData.bot);
     for(const attributes of [Object.values(mesh.geometry.attributes),...Object.values(mesh.geometry.morphAttributes)])for(const attribute of attributes)for(const value of attribute.array)assert.ok(Number.isFinite(value),'Ono base and interaction-morph geometry stays finite');
-    const hits=[];mesh.raycast(ray,hits);assert.equal(hits.length,0,'Hair, blouse, skirt and ribbon never become a bullet shield');
+    const hits=[];mesh.raycast(ray,hits);for(const hit of hits)assert.ok(hit.object.userData.bot&&Number.isFinite(hit.distance),'Visible replacement hits resolve to an actor');
   }
   assert.ok(onoModel.meshes.filter(mesh=>mesh.userData.head).every(mesh=>!effectivelyVisible(mesh)),'Ono fully replaces the old cold-weather helmet visually');
   onoModel.group.traverseVisible(object=>assert.ok(!object.name.startsWith('Character gear / frost / '),'No obsolete visor or coolant carrier shows through the new uniform'));
   for(const [height,headshot]of [[1.65,true],[1.17,false]]){
-    ray.set(new THREE.Vector3(0,height,5),new THREE.Vector3(0,0,-1));assert.equal(Boolean(ray.intersectObjects(onoModel.meshes,true)[0].object.userData.head),headshot,'Ono preserves the old head/body shot surfaces');
+    ray.set(new THREE.Vector3(0,height,5),new THREE.Vector3(0,0,-1));assert.equal(isHeadHit(ray.intersectObject(onoModel.group,true)[0]),headshot,'Ono preserves the old head/body shot surfaces');
   }
   assert.equal(onoSkirt.geometry.morphAttributes.position.length,1);assert.equal(onoSkirt.geometry.morphAttributes.normal.length,1,'The skirt has a real shared interaction shape');
   const redOno=createAgentModel(THREE,{bot:{id:'red-ono'},team:'red',character:'frost'}),redOnoAssets=onoResources(redOno),redOnoSkirt=onoPart(redOno,'knee-length plaid pleated skirt');
@@ -833,15 +833,15 @@ async function main() {
   assert.ok(greenTop>=7&&brownBottom>=7&&greenFringe>=8&&brownSides>=10,'Actual top/side/bottom UVs show green grass, a green upper fringe, and brown earth on every side and underneath');
   matrixClose(grassCube.parent.matrixWorld,grassModel.head.parent.matrixWorld,'The cube follows the original animated upper body');
   for(const mesh of grassMeshes(grassModel)){
-    assert.equal(effectivelyVisible(mesh),true);assert.equal(mesh.userData.solid,false);assert.equal(mesh.userData.bot,undefined);assert.equal(mesh.userData.head,undefined);assert.equal(grassModel.meshes.includes(mesh),false);
+    assert.equal(effectivelyVisible(mesh),true);assert.equal(mesh.userData.solid,false);assert.ok(mesh.userData.bot);assert.equal(typeof mesh.userData.head,'boolean');assert.equal(grassModel.meshes.includes(mesh),false);
     for(const attribute of Object.values(mesh.geometry.attributes))for(const value of attribute.array)assert.ok(Number.isFinite(value),'Block positions, normals and atlas coordinates remain finite');
-    const hits=[];mesh.raycast(ray,hits);assert.equal(hits.length,0,'Grass and dirt never become an extra bullet shield');
+    const hits=[];mesh.raycast(ray,hits);for(const hit of hits)assert.ok(hit.object.userData.bot&&Number.isFinite(hit.distance),'Visible replacement hits resolve to an actor');
   }
   const outerBlock=cubeRay(new THREE.Vector3(cubeBox.max.x-.025,cubeBox.max.y-.04,cubeBox.max.z),new THREE.Vector3(0,0,1));
-  assert.equal(outerBlock.probe.intersectObjects(grassModel.meshes,true).length,0,'The visible outer block corner cannot enlarge the old headshot proxy');
+  assert.ok(outerBlock.probe.intersectObject(grassModel.group,true).some(isHeadHit),'The visible upper block corner registers head damage');
   assert.ok(grassModel.meshes.filter(mesh=>mesh.userData.head).every(mesh=>!effectivelyVisible(mesh)),'The old VEIL tactical body and helmet are completely replaced');
   grassModel.group.traverseVisible(object=>assert.ok(!object.name.startsWith('Character gear / veil / '),'The obsolete visor and canisters do not show through the cube'));
-  for(const [height,headshot]of [[1.65,true],[1.17,false]]){ray.set(new THREE.Vector3(0,height,5),new THREE.Vector3(0,0,-1));assert.equal(Boolean(ray.intersectObjects(grassModel.meshes,true)[0].object.userData.head),headshot,'Grass block retains the original head/body hit surface');}
+  for(const [height,headshot]of [[1.65,true],[1.17,false]]){ray.set(new THREE.Vector3(0,height,5),new THREE.Vector3(0,0,-1));assert.equal(isHeadHit(ray.intersectObject(grassModel.group,true)[0]),headshot,'Grass block retains the original head/body hit surface');}
   const redGrass=createAgentModel(THREE,{bot:{id:'red-grass'},team:'red',character:'veil'}),redGrassAssets=grassResources(redGrass);
   assert.deepEqual(redGrassAssets.geometries,grassAssets.geometries);assert.deepEqual(redGrassAssets.textures,grassAssets.textures);assert.equal(hitSignature(redGrass),hitBaseline);
   for(const resource of [...redGrassAssets.geometries,...redGrassAssets.materials,...redGrassAssets.textures])if(!grassShared.has(resource)){grassShared.add(resource);grassDisposal.set(resource,0);resource.addEventListener('dispose',()=>grassDisposal.set(resource,grassDisposal.get(resource)+1));}
@@ -857,8 +857,8 @@ async function main() {
   const nopeArt=[...nopeAssets.textures][0];assert.equal(nopeArt.image.width,512);assert.equal(nopeArt.image.height,512);assert.equal(nopeArt.colorSpace,THREE.SRGBColorSpace);
   for(const token of ['rounded pink face cushion','crossed X eyes','wide curved smile','protruding tongue silhouette','pink tongue crease','charcoal utility suit','pink gripping mittens','rounded charcoal shoes','pink shoe sole edging','belt NOPE bottle / shell','belt NOPE bottle / hardware','belt NOPE bottle / label'])nopePart(nopeModel,token);
   for(const mesh of nopeMeshes(nopeModel)){
-    assert.equal(effectivelyVisible(mesh),true);assert.equal(mesh.userData.solid,false);assert.equal(mesh.userData.bot,undefined);assert.equal(mesh.userData.head,undefined);assert.equal(nopeModel.meshes.includes(mesh),false);
-    const hits=[];mesh.raycast(ray,hits);assert.equal(hits.length,0,'The expressive face, tongue, mittens and bottle cannot change combat hits');
+    assert.equal(effectivelyVisible(mesh),true);assert.equal(mesh.userData.solid,false);assert.ok(mesh.userData.bot);assert.equal(typeof mesh.userData.head,'boolean');assert.equal(nopeModel.meshes.includes(mesh),false);
+    const hits=[];mesh.raycast(ray,hits);for(const hit of hits)assert.ok(hit.object.userData.bot&&Number.isFinite(hit.distance),'Visible replacement hits resolve to an actor');
   }
   assert.ok(nopeModel.meshes.filter(mesh=>mesh.userData.head).every(mesh=>!effectivelyVisible(mesh)),'NOPE fully replaces the old helmet and face');
   nopeModel.group.traverseVisible(object=>assert.ok(!object.name.startsWith('Character gear / nope / '),'The old cosmetic badge cannot show through the mascot'));
@@ -973,7 +973,7 @@ async function main() {
   for(const resource of [...recreatedNopeAssets.geometries,...recreatedNopeAssets.materials,...recreatedNopeAssets.textures])assert.equal(nopeShared.has(resource),false,'NOPE cannot resurrect disposed shared resources');
   assert.equal(avatarGeometrySignature(recreatedNopeAssets.geometries),nopeGeometryHash);assert.deepEqual(new Map([...recreatedNopeAssets.textures].map(texture=>[texture.name,digest(texture.image.data)])),nopePixels,'The modeled expression and original label regenerate deterministically');
   const recreatedNopeAll=resources(recreatedNope.group),recreatedNopeDisposal=watch([...recreatedNopeAll.geometries,...recreatedNopeAll.materials,...recreatedNopeAll.textures]);recreatedNope.dispose();recreatedNope.dispose();allCounts(recreatedNopeDisposal,1,'Recreated NOPE shared assets and private combat rig release once');
-  console.log('PASS: six unchanged exteriors, curved NOPE face and cola bottle, original 52 combat surfaces/weapons, all poses, 300 switches and single-owner resource cleanup');
+  console.log('PASS: six unchanged exteriors, curved NOPE face and cola bottle, original 52 geometry references/weapons plus visible hit surfaces, all poses, 300 switches and single-owner resource cleanup');
   console.log(JSON.stringify({nopeFaceSamples,nopeGeometries:nopeAssets.geometries.size,nopeMaterials:nopeShared.size-nopeAssets.geometries.size-nopeAssets.textures.size,nopeTextures:nopeAssets.textures.size,nopeTextureBytes:512*512*4}));
   console.log(JSON.stringify({visibleMeshes, triangles, sharedTextures:4, sharedBaseBytes:baseBytes, sharedMippedKiB:+(baseBytes*4/3/1024).toFixed(1)}));
   console.log(JSON.stringify({roles:roleMetrics,roleSwitches:300,clothedKneeSamples,avatarSharedGeometries:avatarResources.geometries.size,avatarSharedMaterials:avatarResources.materials.size,avatarSharedTextures:avatarResources.textures.size,avatarSharedBaseBytes:avatarBytes,mascotEyeStars:eyeStars,mascotMouthSamples:mouthSamples,mascotSharedGeometries:starAssets.geometries.size,mascotSharedMaterials:starShared.size-starAssets.geometries.size-starAssets.textures.size,mascotSharedTextures:starAssets.textures.size,mascotSharedBaseBytes:starBytes,workerEyeSamples,whiteTempleVertices,workerSharedGeometries:solderAssets.geometries.size,workerSharedMaterials:solderShared.size-solderAssets.geometries.size-solderAssets.textures.size,workerSharedTextures:solderAssets.textures.size,workerSharedBaseBytes:solderBytes,letterRaySamples,letterSharedGeometries:iagnuAssets.geometries.size,letterSharedMaterials:iagnuShared.size-iagnuAssets.geometries.size-iagnuAssets.textures.size,letterSharedTextures:iagnuAssets.textures.size,onoEyeSamples,onoCrownSamples,onoClothedKneeSamples,onoSharedGeometries:onoAssets.geometries.size,onoSharedMaterials:onoShared.size-onoAssets.geometries.size-onoAssets.textures.size,onoSharedTextures:onoAssets.textures.size,onoSharedBaseBytes:onoBytes,grassCubeSamples,grassSharedGeometries:grassAssets.geometries.size,grassSharedMaterials:grassShared.size-grassAssets.geometries.size-grassAssets.textures.size,grassSharedTextures:grassAssets.textures.size,grassSharedBaseBytes:grassBytes}));

@@ -3,7 +3,7 @@ export function createCatAvatar(THREE,{rig,upper,head,rightArm,leftArm,leftLeg,r
  const group=new THREE.Group();group.name='猫の画像 / white plush';rig.add(group);
  const geometries=new Set(),materials=new Map(),frames=[];
  for(const[name,color,roughness]of [['white','#f4f0e8',.94],['shade','#d9d4d4',.92],['skin','#efdfd5',.9],['eye','#3977cf',.35],['black','#292426',.85],['gold','#d3b455',.5],['team',team==='blue'?'#55bfc7':'#dc7478',.7]])materials.set(name,new THREE.MeshStandardMaterial({color,roughness}));
- function frame(source){const f=new THREE.Group();f.matrixAutoUpdate=false;group.add(f);frames.push([f,source]);return f;}
+ function frame(source){const f=new THREE.Group();f.userData.agentHead=source===head;f.matrixAutoUpdate=false;group.add(f);frames.push([f,source]);return f;}
  function ellipsoid(parent,name,p,s,finish,segments=20){const geometry=new THREE.SphereGeometry(1,segments,12);geometries.add(geometry);const mesh=new THREE.Mesh(geometry,materials.get(finish));mesh.name='Cat / '+name;mesh.position.set(...p);mesh.scale.set(...s);mesh.castShadow=true;mesh.receiveShadow=true;mesh.raycast=()=>{};mesh.userData.solid=false;mesh.userData.character='cat';parent.add(mesh);return mesh;}
  const body=frame(upper),face=frame(head);
  ellipsoid(body,'plush overalls',[0,1.02,-.01],[.275,.36,.21],'white');

@@ -4,7 +4,7 @@ export function createDuckAvatar(THREE,{rig,upper,head,rightArm,leftArm,leftLeg,
   const geometries=new Set(),materials=new Map(),frames=[];
   const finish=(name,color,roughness=.72)=>{const m=new THREE.MeshStandardMaterial({color,roughness,metalness:0});m.name=`Duck finish / ${name}`;materials.set(name,m);return m;};
   finish('green','#377326');finish('deep green','#245b27');finish('bill','#f8d25d',.48);finish('eye','#232b31',.25);finish('white','#f7f5e8');finish('brown','#9a684d');finish('wing','#705642');finish('feather','#b79b79');finish('web','#e8a43b');finish('team',team==='blue'?'#56c9c3':'#d67776');
-  function frame(source){const f=new THREE.Group();f.matrixAutoUpdate=false;group.add(f);frames.push([f,source]);return f;}
+  function frame(source){const f=new THREE.Group();f.userData.agentHead=source===head;f.matrixAutoUpdate=false;group.add(f);frames.push([f,source]);return f;}
   function ellipsoid(parent,name,p,s,material,segments=20){const g=new THREE.SphereGeometry(1,segments,12);geometries.add(g);const m=new THREE.Mesh(g,materials.get(material));m.name=`Duck / ${name}`;m.position.set(...p);m.scale.set(...s);m.userData.character='duck';m.userData.solid=false;m.raycast=()=>{};m.castShadow=true;m.receiveShadow=true;parent.add(m);return m;}
   const body=frame(upper),face=frame(head);
   ellipsoid(body,'rounded chest',[0,1.03,-.015],[.275,.38,.22],'brown');

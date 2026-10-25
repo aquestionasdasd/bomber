@@ -3,7 +3,7 @@ export function createUrchinAvatar(THREE,{rig,upper,head,rightArm,leftArm,leftLe
  const group=new THREE.Group();group.name='青ウニ / mint radial spines';rig.add(group);
  const geometry=new Set(),materials=new Map(),frames=[];
  for(const[n,c]of[['mint','#a9f1e4'],['spine','#70cabe'],['tip','#e0fff6'],['dark','#194b52'],['white','#f2fffa'],['team',team==='blue'?'#229fb2':'#c95969']])materials.set(n,new THREE.MeshStandardMaterial({color:c,roughness:.7}));
- function frame(s){const f=new THREE.Group();f.matrixAutoUpdate=false;group.add(f);frames.push([f,s]);return f;}
+ function frame(s){const f=new THREE.Group();f.userData.agentHead=s===head;f.matrixAutoUpdate=false;group.add(f);frames.push([f,s]);return f;}
  function part(p,name,g,x,scale,m){geometry.add(g);const mesh=new THREE.Mesh(g,materials.get(m));mesh.name='青ウニ / '+name;mesh.position.set(...x);mesh.scale.set(...scale);mesh.castShadow=true;mesh.receiveShadow=true;mesh.raycast=()=>{};p.add(mesh);return mesh;}
  const ball=(p,n,x,s,m)=>part(p,n,new THREE.SphereGeometry(1,18,12),x,s,m);
  const face=frame(head),body=frame(upper);
