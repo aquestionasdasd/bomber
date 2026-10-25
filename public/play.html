@@ -11,12 +11,6 @@
   <style>#detonation-flash{position:fixed;inset:0;background:radial-gradient(ellipse at 50% 48%,#fff8d8,#ffad53);opacity:0;pointer-events:none;z-index:4;mix-blend-mode:screen}@media(prefers-reduced-motion:reduce){#detonation-flash{display:none}}</style>
 </head>
 <body>
-  <aside id="fullscreen-notice" class="fullscreen-notice" aria-label="全画面のご案内" hidden>
-    <span class="fullscreen-notice-icon" aria-hidden="true">⛶</span>
-    <p id="fullscreen-notice-message" role="status">フルスクリーン推奨</p>
-    <button id="fullscreen-notice-enable" type="button">全画面にする</button>
-    <button id="fullscreen-notice-dismiss" class="fullscreen-notice-dismiss" type="button" aria-label="全画面の案内を閉じる">×</button>
-  </aside>
   <canvas id="game" aria-label="橋本駅前をモチーフにした3D競技マップ"></canvas>
   <div class="scene-grain" aria-hidden="true"></div>
   <div id="detonation-flash" aria-hidden="true"></div>
@@ -24,6 +18,12 @@
   <div id="skill-blind-overlay" aria-hidden="true" hidden><svg viewBox="0 0 80 70" focusable="false"><path d="m16 17 14 14m0-14L16 31m34-14 14 14m0-14L50 31M21 46q19 16 38 0"/></svg></div>
 
   <main id="menu" class="menu-screen screen">
+    <aside id="fullscreen-notice" class="fullscreen-notice" aria-label="全画面のご案内" hidden>
+      <span class="fullscreen-notice-icon" aria-hidden="true">⛶</span>
+      <p id="fullscreen-notice-message" role="status">フルスクリーン推奨</p>
+      <button id="fullscreen-notice-enable" type="button">全画面にする</button>
+      <button id="fullscreen-notice-dismiss" class="fullscreen-notice-dismiss" type="button" aria-label="全画面の案内を閉じる">×</button>
+    </aside>
     <div class="menu-shade" aria-hidden="true"></div>
     <header class="menu-topbar">
       <a class="brand-mark" href="#" aria-label="ボンバーディフューザー3Dオンライン">
