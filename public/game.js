@@ -54,6 +54,7 @@ import { createStationDetonation } from './detonation.js';
 import { createBuildingCollapse } from './building-collapse.js';
 import { createStationTakeover } from './station-takeover.js';
 import { createKeyboardProtection } from './keyboard-protection.js';
+import { bindFullscreenNotice } from './fullscreen-notice.js';
 import { getCharacterSkill } from './abilities.js';
 import { CHARACTER_SKILLS, createCharacterSkills, skillProjectilePosition, selectMendTarget } from './character-skills.js';
 import { createCharacterSkillUI } from './character-skill-ui.js';
@@ -218,6 +219,7 @@ const keyboardProtection=createKeyboardProtection({document,navigator,onStatus:s
   if($('keyboard-protect'))$('keyboard-protect').disabled=state==='enabling';
 }});
 
+const fullscreenNotice=bindFullscreenNotice({document,onEnable:()=>keyboardProtection.enable()});
 let victoryMusicEnabled=settings.victoryMusicEnabled!==false;
 let victoryMusicVolume=Number.isFinite(Number(settings.victoryMusicVolume))?clamp(Number(settings.victoryMusicVolume),0,1):.6;
 let victoryMusicUI;
@@ -3666,7 +3668,7 @@ if($('sensitivity')){$('sensitivity').value=sensitivity;$('sensitivity').addEven
 if($('volume')){$('volume').value=volume;$('volume').addEventListener('input',e=>{volume=Number(e.target.value);syncVictoryMusic();saveSettings();});}
 
 victoryMusicUI=bindVictoryMusicSettings({document,music:victoryMusic,preferences:{enabled:victoryMusicEnabled,volume:victoryMusicVolume},onChange:next=>{if(next.enabled!==undefined)victoryMusicEnabled=next.enabled;if(next.volume!==undefined)victoryMusicVolume=next.volume;syncVictoryMusic();saveSettings();}});
-window.addEventListener('pagehide',event=>{if(event.persisted)victoryMusic.stop();else {victoryMusic.dispose();victoryDance.dispose();}});
+window.addEventListener('pagehide',event=>{if(event.persisted)victoryMusic.stop();else {victoryMusic.dispose();victoryDance.dispose();fullscreenNotice.dispose();}});
 
 // Touch controls use separate pointers for movement, aiming, and firing.
 const pad=$('move-pad');

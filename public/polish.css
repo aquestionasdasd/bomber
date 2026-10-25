@@ -170,6 +170,13 @@
 #onnara-orb-label{position:fixed;right:18px;top:50px;width:min(288px,32vw);padding:5px 8px;border:1px solid #e5b64e;background:#251b0fee;color:#ffe19a;text-align:center;font:600 12px system-ui;z-index:19;pointer-events:none}#onnara-orb-label[hidden]{display:none}
 
 .audio-credit{white-space:normal;max-width:34vw}
+/* Compact, optional fullscreen hint below the desktop HUD. */
+.fullscreen-notice{position:fixed;left:50%;bottom:max(12px,env(safe-area-inset-bottom));transform:translateX(-50%);z-index:30;display:flex;align-items:center;gap:12px;max-width:calc(100vw - 24px);padding:9px 10px 9px 14px;border:1px solid #9edbc45c;border-radius:5px;background:#102833f5;box-shadow:0 5px 24px #0005;color:#edf2e6;font:12px/1.4 system-ui,sans-serif}
+.fullscreen-notice-icon{font-size:22px;color:var(--mint)}
+.fullscreen-notice p{margin:0;max-width:240px}
+.fullscreen-notice button{flex-shrink:0;padding:7px 10px;border:1px solid #9edbc44a;border-radius:3px;background:#254a51;color:var(--mint);font:inherit;white-space:nowrap}
+.fullscreen-notice button:hover{background:#32616a}.fullscreen-notice .fullscreen-notice-dismiss{border:0;background:transparent;padding:5px 8px;color:#b8c7cc;font-size:19px}
+@media(max-width:600px){.fullscreen-notice{gap:8px;padding:7px 8px;bottom:auto;top:max(70px,env(safe-area-inset-top));font-size:11px;width:max-content}.fullscreen-notice-icon{display:none}.fullscreen-notice p{max-width:180px}.fullscreen-notice button{padding:7px}}
 /* Purchase menu: weapons in five lanes, abilities below, one consistent trade gesture. */
 .shop-screen{padding:18px;background:#07141be8;backdrop-filter:blur(7px)}
 .shop-screen .shop-panel{width:min(1370px,97vw);max-height:96vh;padding:20px 24px;border-top:3px solid #91edcc;background:#122733f2;scrollbar-color:#639e90 #142c35}
