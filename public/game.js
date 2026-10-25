@@ -34,7 +34,7 @@ import { createNavigation } from './navigation.js';
 import { createViewmodel } from './viewmodel.js';
 import { createAgentModel } from './agent-model.js';
 import { createCharacterPicker } from './character-preview.js';
-import { roundDanceState, createVictoryDance } from './victory-dance.js';
+import { roundDanceState, createVictoryCamera } from './victory-dance.js';
 import { createGameAudio } from './audio.js';
 import { createVictoryMusic, bindVictoryMusicSettings } from './victory-music.js';
 import { createDeathView } from './death-view.js';
@@ -93,8 +93,8 @@ renderer.toneMappingExposure = 1.02;
 const camera = new THREE.PerspectiveCamera(76, innerWidth / innerHeight, 0.06, 500);
 const deathView=createDeathView();
 function syncDeathUI(){
-  setVisible('death-card',!player.alive&&deathView.holding&&mode==='play');
-  setVisible('crosshair',player.alive);
+  setVisible('death-card',!victoryCamera.active&&!player.alive&&deathView.holding&&mode==='play');
+  setVisible('crosshair',player.alive&&!victoryCamera.active);
 }
 function beginDeathView(){
   deathView.begin([camera.position.x,camera.position.y,camera.position.z],[camera.rotation.x,camera.rotation.y,camera.rotation.z]);
@@ -195,7 +195,7 @@ let ammoStore = {};
 let roundPurchases = {};
 let skillPurchaseLedger=new WeakMap(),bomberNoticeKey='',bomberNoticeUntil=0;
 let roster = [];
-let redLossStreak=0,spectateIndex=0,spectatedBot=null,interactionHeld=false,shotSequence=0,stepClock=0;
+let redLossStreak=0,spectateIndex=0,spectatedBot=null,lastSpectatedId=null,interactionHeld=false,shotSequence=0,stepClock=0;
 let targetSite='A',lastSpikeBeep=0,botThinkTick=0;
 const sideNames={attack:'ATTACKERS / 攻撃',defend:'DEFENDERS / 防衛'};
 let mode = 'menu', pausedFrom = 'play', locked = false, firing = false, aiming = false;
@@ -211,7 +211,26 @@ const savedSensitivity=Number(settings.sensitivity);
 if(Number.isFinite(savedSensitivity)&&savedSensitivity>0)sensitivity=clamp(savedSensitivity*(settings.lookVersion===2?1:.35),.05,1.5);
 if (settings.volume !== undefined) volume = clamp(Number(settings.volume), 0, 1);
 const characterPicker=createCharacterPicker(THREE,{document});
-const victoryDance=createVictoryDance(THREE,{document});
+// Collision-index rays include walls/ceilings and omit demolished geometry.
+function victoryCameraClearance(origin, direction, distance) {
+  if (!map.collision?.rayClear) return distance;
+  const clear = length => [-.14, 0, .14].every(offset => map.collision.rayClear(
+    origin.x + direction.z * offset, origin.y, origin.z - direction.x * offset,
+    origin.x + direction.x * length + direction.z * offset, origin.y + direction.y * length,
+    origin.z + direction.z * length - direction.x * offset));
+  if (clear(distance + .18)) return distance;
+  let low = 0, high = distance + .18;
+  for (let i = 0; i < 9; i++) { const middle = (low + high) / 2; if (clear(middle)) low = middle; else high = middle; }
+  return Math.max(0, low - .18);
+}
+const victoryCamera=createVictoryCamera(THREE,{camera,scene,clearDistance:victoryCameraClearance});
+function updateVictoryCamera(dt=0) {
+  const active=(!isGuest()||netHasSnapshot)&&victoryCamera.update({match,player,actors:bots,watchedId:lastSpectatedId,
+    weapon:inventory.active,mode,dt:netHostPaused||mode==='pause'?0:dt,reducedMotion:reducedMotion.matches});
+  $('hud').classList.toggle('victory-camera',!!active);
+  if(active){gun.visible=false;flash.visible=false;setVisible('sniper-scope',false);setVisible('spectator-hint',false);}
+  return active;
+}
 const skillUI=createCharacterSkillUI({document});
 const keyboardProtection=createKeyboardProtection({document,navigator,onStatus:state=>{
   const messages={idle:'しゃがみは V 長押し。Ctrl＋Wなどはブラウザーによって停止できません。',enabling:'全画面とキー保護を準備しています…',protected:'ゲームキー保護中。Escで一時停止。全画面が戻らない場合はEscを長押し。',fullscreen:'全画面モード。キー保護の対応はブラウザー次第です。しゃがみは V を使えます。',unavailable:'この環境では全画面のキー保護を使えません。しゃがみは V を使ってください。'};
@@ -559,7 +578,7 @@ function renderWithDetonation(dt=0){
     if($('detonation-flash'))$('detonation-flash').style.opacity=String(clamp(fx.flash,0,1)*.32);
     // Last render gate also covers an asynchronous guest snapshot/equip and pause.
     const scopeActive=aiming&&player.alive&&weapon().scope&&!reloading&&!player.serviceReload&&!interactionHeld&&!busSeat()&&['play','pause'].includes(mode);
-    if(scopeActive)gun.visible=false;
+    if(scopeActive||victoryCamera.active)gun.visible=false;
     renderer.render(scene,camera);
     renderOnnaraOrb();
   }finally{camera.position.copy(renderCameraPosition);camera.rotation.copy(renderCameraRotation);renderer.toneMappingExposure=exposure;}
@@ -637,6 +656,7 @@ const viewmodel=createViewmodel(THREE,camera);
 const gun=viewmodel.group,flash=viewmodel.flash;
 let equipmentActor=null;
 function firstPersonActor(){
+  if(victoryCamera.active)return null;
   if(!['play','pause','shop','map','score'].includes(mode)||isGuest()&&!netHasSnapshot)return null;
   if(player.alive)return player;
   return !deathView.holding&&spectatedBot?.alive&&spectatedBot.team===player.team?spectatedBot:null;
@@ -955,11 +975,13 @@ function makeBot(spawn,index,team='red',record=null) {
   visual.update(0,{...agentEquipment(bot),time:elapsed,alive:bot.alive});
 }
 function clearBots() {
+  victoryCamera.reset();lastSpectatedId=null;
   spectatedBot=null;
   for(const bot of bots)bot.visual.dispose();
   bots.length=0;
 }
 function spawnRound(reset=false) {
+  victoryCamera.reset();lastSpectatedId=null;
   player.trcStepClock=0;
   deathView.reset();syncDeathUI();
   resetTraffic(true);
@@ -1126,6 +1148,7 @@ function updateTraffic(dt){
   }
 }
 function startGame() {
+  victoryCamera.reset();lastSpectatedId=null;
   resetKillSounds();
   roundDamage.reset();combatReportKey='';setVisible('combat-report',false);
   deathView.reset();
@@ -1187,6 +1210,7 @@ function resumeGame() {
   victoryMusicUI?.close();clearCombatInput();mode='play';for(const id of ['pause-menu','map-overlay','shop-overlay','scoreboard'])setVisible(id,false);audioInit();requestLock();
 }
 function backMenu() {
+  victoryCamera.reset();lastSpectatedId=null;
   resetKillSounds();
   roundDamage.reset();combatReportKey='';setVisible('combat-report',false);
   fullComboTracker.reset();
@@ -1202,6 +1226,7 @@ function backMenu() {
   if(document.pointerLockElement)document.exitPointerLock();
 }
 function finish(won) {
+  victoryCamera.reset();lastSpectatedId=null;
   deathView.reset();syncDeathUI();
   resetTeamAbilities();
   if(!match||mode==='result')return;mode='result';clearCombatInput();reloading=0;gun.visible=false;buyBarrier.visible=false;
@@ -2990,7 +3015,7 @@ function updatePlay(dt){
   }
   else{
     const team=bots.filter(b=>b.alive&&b.team===player.team);const watched=team[spectateIndex%Math.max(1,team.length)];
-    if(watched){spectatedBot=watched;watched.group.visible=false;camera.position.set(watched.x,1.65+(watched.y||0)-(watched.crouch||0)*.55,watched.z);camera.rotation.set(0,watched.group.rotation.y+Math.PI,0);$('spectator-hint').textContent=`${watched.record.name} を観戦中 · クリックで切り替え`;}
+    if(watched){spectatedBot=watched;if(match.phase==='live')lastSpectatedId=watched.id;watched.group.visible=victoryCamera.active&&victoryCamera.subject!==watched;camera.position.set(watched.x,1.65+(watched.y||0)-(watched.crouch||0)*.55,watched.z);camera.rotation.set(0,watched.group.rotation.y+Math.PI,0);$('spectator-hint').textContent=`${watched.record.name} を観戦中 · クリックで切り替え`;}
     else $('spectator-hint').textContent='倒されました · 次のラウンドで復帰します';
     setVisible('spectator-hint',true);
   }
@@ -3642,7 +3667,6 @@ function suspendSession(){
 window.addEventListener('blur',suspendSession);
 document.addEventListener('visibilitychange',()=>{if(document.hidden)suspendSession();else resetMouseLook();if(onlinePlaying&&online?.host){if(!document.hidden)online.cancelPausedRelay();netHostPaused=document.hidden;tickOnline(.1);updateHUD();}});
 $('start').addEventListener('click',startGame);$('resume').addEventListener('click',resumeGame);
-$('victory-dance-preview')?.addEventListener('click',()=>victoryDance.preview(selectedCharacter(),performance.now()));
 $('explore-start')?.addEventListener('click',()=>{$('match-format').value='explore';updateFormatSummary();startGame();});
 $('range-start')?.addEventListener('click',()=>{$('match-format').value='range';updateFormatSummary();startGame();});
 $('restart').addEventListener('click',startGame);$('play-again').addEventListener('click',startGame);$('back-menu').addEventListener('click',backMenu);
@@ -3684,7 +3708,7 @@ if($('sensitivity')){$('sensitivity').value=sensitivity;$('sensitivity').addEven
 if($('volume')){$('volume').value=volume;$('volume').addEventListener('input',e=>{volume=Number(e.target.value);syncVictoryMusic();saveSettings();});}
 
 victoryMusicUI=bindVictoryMusicSettings({document,music:victoryMusic,preferences:{enabled:victoryMusicEnabled,volume:victoryMusicVolume},onChange:next=>{if(next.enabled!==undefined)victoryMusicEnabled=next.enabled;if(next.volume!==undefined)victoryMusicVolume=next.volume;syncVictoryMusic();saveSettings();}});
-window.addEventListener('pagehide',event=>{if(event.persisted)victoryMusic.stop();else {victoryMusic.dispose();victoryDance.dispose();fullscreenNotice.dispose();}});
+window.addEventListener('pagehide',event=>{if(event.persisted)victoryMusic.stop();else {victoryMusic.dispose();victoryCamera.dispose();fullscreenNotice.dispose();}});
 
 // Touch controls use separate pointers for movement, aiming, and firing.
 const pad=$('move-pad');
@@ -3729,7 +3753,7 @@ function frame(now){
     while(remaining>1e-8&&(['play','shop','map','score'].includes(mode)||onlinePlaying&&mode==='pause')){const step=Math.min(remaining,.05);updatePlay(step);remaining-=step;}
   }
   tickOnline(dt);
-  victoryDance.sync({match,player,mode,character:player.kit?.character||selectedCharacter(),now,paused:netHostPaused});
+  updateVictoryCamera(dt);
   for(let i=effects.length-1;i>=0;i--){const effect=effects[i];if(['play','shop','map','score'].includes(mode)){effect.life-=dt;if(effect.velocity){effect.velocity.y-=6*dt;effect.object.position.addScaledVector(effect.velocity,dt);}}
     if(effect.life<=0){effectsGroup.remove(effect.object);effect.object.geometry.dispose();effect.object.material.dispose();effects.splice(i,1);}else effect.object.material.opacity=Math.min(1,effect.life/effect.max);
   }

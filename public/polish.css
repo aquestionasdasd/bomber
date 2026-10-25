@@ -159,13 +159,7 @@
 .music-note{margin:0;color:#8da5ad;line-height:1.8;font-size:11px}
 @media(max-width:480px){.victory-music-dialog{padding:14px}.victory-music-panel{padding:24px 21px}.victory-music-header h2{font-size:26px}.victory-track{padding:17px 13px}}
 @media(max-width:480px){#pause-menu{padding:16px}.pause-panel{max-height:calc(100dvh - 32px)}}
-/* A compact, silent celebration keeps the first-person camera in place. */
-.victory-dance{position:fixed;right:24px;bottom:130px;width:190px;height:280px;z-index:22;pointer-events:none;border:1px solid #d4edb355;border-radius:14px;background:radial-gradient(ellipse at 50% 80%,#9ec77c26,transparent 70%),linear-gradient(155deg,#142c34ed,#09191fec);box-shadow:0 15px 45px #0005;overflow:hidden}
-.victory-dance[hidden]{display:none}
-.victory-dance-heading{display:flex;justify-content:space-between;gap:8px;padding:14px 12px 0;color:#d4efab;font-size:10px;font-weight:800;letter-spacing:.08em}
-#victory-dance-canvas{display:block;width:100%;height:245px}
-#victory-dance-preview{pointer-events:auto;position:absolute;right:44px;top:12px;z-index:2;border:1px solid #d4edb355;background:#132a32cc;border-radius:4px;padding:6px 8px;color:#d4efab;font:inherit;font-size:10px;font-weight:600;cursor:pointer}
-@media(max-height:650px),(max-width:600px){.victory-dance{right:12px;bottom:100px;width:135px;height:210px}.victory-dance-heading{font-size:8px;padding:10px 8px 0}#victory-dance-canvas{height:180px}}
+@media(max-height:650px),(max-width:600px){}
 
 #onnara-orb-label{position:fixed;right:18px;top:50px;width:min(288px,32vw);padding:5px 8px;border:1px solid #e5b64e;background:#251b0fee;color:#ffe19a;text-align:center;font:600 12px system-ui;z-index:19;pointer-events:none}#onnara-orb-label[hidden]{display:none}
 
@@ -195,3 +189,8 @@
 
 @media(max-height:760px) and (min-width:801px){.shop-screen .buy-card,.shop-screen .arsenal-card{height:76px;min-height:76px}.shop-screen .ability-buy-card{height:90px;min-height:90px}.shop-screen .weapon-details{max-height:32px;min-height:30px;padding:4px 10px}.shop-screen .ability-buy-card svg{min-height:32px;max-height:32px}}
 @media(max-height:760px) and (min-width:801px){.shop-screen .buy-card:not(.ability-buy-card) .buy-price{position:absolute;left:10px;bottom:18px;width:auto;margin:0}.shop-screen .buy-card:not(.ability-buy-card) .buy-state{position:absolute;left:10px;bottom:5px;margin:0;line-height:10px}.shop-screen .buy-card:not(.ability-buy-card) svg{position:absolute;right:10px;top:34px;width:48%;height:16px;min-height:16px;max-height:16px}.shop-screen .weapon-silhouette{position:absolute;right:10px;top:34px;width:68%;height:13px;min-height:13px;margin:0}.shop-screen .ability-buy-card{height:96px;min-height:96px;grid-template-rows:auto minmax(14px,1fr) auto}.shop-screen .ability-buy-description{min-height:14px;max-height:14px;white-space:nowrap;text-overflow:ellipsis;overflow:hidden;margin:1px 0}.shop-screen .ability-buy-card .buy-price{margin-top:0}.shop-screen .ability-buy-stock{line-height:1.2}.shop-screen .weapon-details{min-height:24px;max-height:24px}}
+/* Leave the world-space winner's face and full body visible. */
+#hud.victory-camera #round-banner{top:14%;box-sizing:border-box;width:min(430px,62vw);min-width:0;padding:8px 20px;font-size:12px;letter-spacing:.05em;pointer-events:none}
+#hud.victory-camera #round-banner::first-line{font-size:clamp(24px,4vw,36px);line-height:1.12}
+#hud.victory-camera #round-banner .full-combo-title{font-size:clamp(22px,4vw,34px)}
+#hud.victory-camera #round-banner small{margin-top:4px;font-size:9px;letter-spacing:.05em}
