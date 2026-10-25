@@ -34,9 +34,9 @@ const sha=value=>crypto.createHash('sha256').update(value).digest('hex');
 const settle=()=>new Promise(resolve=>setImmediate(resolve));
 const newTypes=['buy','skill-throw','bottle-pop','flash','decoy','takeover','seed-bloom','pollen','flower-heal','heal','recon','veil','ember-warning','round-win','round-loss','match-win','match-loss'];
 function decodedSample(file){
-  const seed=Number.parseInt(sha(file).slice(0,6),16),length=96000;
+  const seed=Number.parseInt(sha(file).slice(0,6),16),length=file==='kill-sequence-user.wav'?343501:96000;
   const channels=[Float32Array.from({length},(_,i)=>Math.sin((i+seed)*.013)*1.6),Float32Array.from({length},(_,i)=>Math.cos((i+seed)*.017)*.8)];
-  return {duration:2,length,sampleRate:48000,numberOfChannels:2,getChannelData:channel=>channels[channel]};
+  return {duration:length/48000,length,sampleRate:48000,numberOfChannels:2,getChannelData:channel=>channels[channel]};
 }
 function bufferHash(buffer){const data=buffer.getChannelData(0);return sha(Buffer.from(data.buffer,data.byteOffset,data.byteLength));}
 function voiceTrace(context,nodeStart,sourceStart){
@@ -70,7 +70,7 @@ async function main(){
   const {createGameAudio,SAMPLE_CUES}=await import(pathToFileURL(path.join(__dirname,'public/audio.js')).href),types=Object.keys(SAMPLE_CUES),files=new Set(Object.values(SAMPLE_CUES).flatMap(l=>l.map(x=>x.file)));
   const manifests=JSON.parse(fs.readFileSync(path.join(__dirname,'public/audio/manifest.json'),'utf8'));
   assert.equal(manifests.filter(e=>e.adopted_cycle===71).length,22);assert.equal(new Set(manifests.map(e=>e.file)).size,manifests.length);
-  const signature=(b,file)=>{if(file.endsWith('.mp3'))assert.ok(b.subarray(0,3).toString()==='ID3'||b[0]===255&&(b[1]&224)===224,'MP3 frame/header');else if(file.endsWith('.wav')){assert.equal(b.subarray(0,4).toString(),'RIFF');assert.equal(b.subarray(8,16).toString(),'WAVEfmt ');assert.equal(b.readUInt16LE(20),1);assert.equal(b.readUInt16LE(22),1);assert.equal(b.readUInt16LE(34),16);assert.equal(b.readUInt32LE(40),b.length-44);}else assert.equal(b.subarray(0,4).toString(),'OggS');};
+  const signature=(b,file)=>{if(file.endsWith('.mp3'))assert.ok(b.subarray(0,3).toString()==='ID3'||b[0]===255&&(b[1]&224)===224,'MP3 frame/header');else if(file==='kill-sequence-user.wav'){assert.equal(sha(b),'8c42d678fdaed891decec3690146308dd31387331ad7a3072d06b7b9151fc1d0');assert.equal(b.length,1893662);assert.equal(b.subarray(0,4).toString(),'RIFF');assert.equal(b.subarray(8,12).toString(),'WAVE');let at=12,format,data;while(at+8<=b.length){const id=b.subarray(at,at+4).toString(),size=b.readUInt32LE(at+4);if(id==='fmt ')format=b.subarray(at+8,at+8+size);if(id==='data')data=b.subarray(at+8,at+8+size);at+=8+size+(size%2);}assert.equal(format.readUInt16LE(0),1);assert.equal(format.readUInt16LE(2),2);assert.equal(format.readUInt32LE(4),44100);assert.equal(format.readUInt16LE(14),24);assert.equal(data.length,1893546);}else if(file.endsWith('.wav')){assert.equal(b.subarray(0,4).toString(),'RIFF');assert.equal(b.subarray(8,16).toString(),'WAVEfmt ');assert.equal(b.readUInt16LE(20),1);assert.equal(b.readUInt16LE(22),1);assert.equal(b.readUInt16LE(34),16);assert.equal(b.readUInt32LE(40),b.length-44);}else assert.equal(b.subarray(0,4).toString(),'OggS');};
   for(const e of manifests){const b=fs.readFileSync(path.join(__dirname,'public/audio',e.file));assert.equal(sha(b),e.sha256);assert.equal(b.length,e.bytes);signature(b,e.file);}
   for(const file of files)signature(fs.readFileSync(path.join(__dirname,'public/audio',file)),file);
   for(const pack of ['rpg-audio','impact-sounds','music-jingles']){const license=fs.readFileSync(path.join(__dirname,'public/audio/LICENSE-'+pack+'.txt'),'utf8');assert.match(license,/CC0/);assert.match(license,/commercial/i);}
@@ -80,7 +80,7 @@ async function main(){
   assert.ok([...files].every(file=>[...adopted,...manifests].some(entry=>entry.file===file)),'Every active cue has documented provenance');
   assert.deepEqual(SAMPLE_CUES.jump.map(cue=>cue.file),['lab-cloth.ogg']);assert.ok(SAMPLE_CUES.jump[0].length<=.2);
   assert.deepEqual(SAMPLE_CUES['gun-hit'].map(l=>l.file),['lab-punch-light1.ogg']);assert.ok(SAMPLE_CUES['gun-hit'][0].length<=.14);assert.ok(SAMPLE_CUES['gun-hit'][0].gain>SAMPLE_CUES.hit[0].gain);
-  assert.deepEqual(SAMPLE_CUES['gun-kill'].map(l=>l.file),['lab-punch-light1.ogg','jingle-PIZZI07.ogg']);assert.ok(SAMPLE_CUES['gun-kill'][1].length<=.7);
+  assert.equal(SAMPLE_CUES['gun-kill'],undefined);for(let i=1;i<=5;i++){const spec=SAMPLE_CUES['kill-'+i][0];assert.equal(spec.file,'kill-sequence-user.wav');assert.equal(spec.offset||0,(i-1)*.75);assert.equal(spec.rate,1);assert.equal(spec.length,i===5?4.156258503401361:.75);}
   assert.ok(types.length>=70);assert.ok(![...files].some(f=>f.startsWith('interface-')||f.includes('forceField')||f.includes('doorClose_001')));
   assert.equal(manifests.filter(e=>e.adopted_cycle===102).length,1);assert.equal(SAMPLE_CUES['bus-break'][0].file,'bus-wall-break-user.mp3');assert.equal(SAMPLE_CUES['bus-break'][0].rate,1);
   assert.equal(manifests.filter(e=>e.adopted_cycle===99).length,1);assert.equal(SAMPLE_CUES['vehicle-hit'].length,1);assert.equal(SAMPLE_CUES['vehicle-hit'][0].file,'vehicle-impact-user.mp3');assert.equal(SAMPLE_CUES['vehicle-hit'][0].rate,1);assert.equal(manifests.find(e=>e.adopted_cycle===99).sha256,'ae00f7eee68c22f65d1800f52b545ec73930b30f4253d4b54bc877fa3b21cc01');
@@ -109,7 +109,7 @@ async function main(){
    assert.equal(layers.length,recipe.length,type);assert.ok(layers.length>=1&&layers.length<=3);assert.ok(layers.every(x=>x.kind==='buffer'),type+' contains no oscillator');
    assert.deepEqual(layers.map(x=>decodedHashes.get(bufferHash(x.buffer))),recipe.map(x=>x.file));assert.ok(Math.abs(nodes[0].gain.value-.7/(1+9*.11)*.4)<1e-12);assert.equal(nodes.find(x=>x.kind==='panner').pan.value,.65);
    let peakBound=0;
-   for(let i=0;i<layers.length;i++){const source=layers[i],spec=recipe[i],filter=source.connections[0],amp=filter.connections[0];assert.equal(filter.frequency.value,1600);assert.equal(source.started,ctx.currentTime+spec.delay);assert.equal(source.playbackRate.value,spec.rate);assert.equal(source.duration,Math.min(2/spec.rate,spec.length)*spec.rate);assert.equal(source.buffer.numberOfChannels,1);assert.ok(source.buffer.getChannelData(0).every(n=>Number.isFinite(n)&&Math.abs(n)<=.850001));peakBound+=.85*amp.gain.events[0];}
+   for(let i=0;i<layers.length;i++){const source=layers[i],spec=recipe[i],filter=source.connections[0],amp=filter.connections[0];assert.equal(filter.frequency.value,1600);assert.equal(source.started,ctx.currentTime+spec.delay);assert.equal(source.playbackRate.value,spec.rate);assert.equal(source.offset,spec.offset||0);assert.equal(source.duration,Math.min((source.buffer.duration-(spec.offset||0))/spec.rate,spec.length)*spec.rate);assert.equal(source.buffer.numberOfChannels,1);assert.ok(source.buffer.getChannelData(0).every(n=>Number.isFinite(n)&&Math.abs(n)<=.850001));peakBound+=.85*amp.gain.events[0];}
    assert.ok(peakBound<=.650001,type+' headroom '+peakBound);
    const longest=layers.reduce((a,b)=>a.started+a.duration/a.playbackRate.value>b.started+b.duration/b.playbackRate.value?a:b);for(const source of layers)if(source!==longest)source.end();assert.ok(nodes.every(n=>n.disconnects===0));longest.end();assert.ok(nodes.every(n=>n.disconnects===1));longest.end();
    const at=ctx.sources.length;audio.play('step');const step=ctx.sources[at];assert.equal(decodedHashes.get(bufferHash(step.buffer)),stepIndex++%2?'footstep_concrete_001.ogg':'footstep_concrete_000.ogg');step.end();

@@ -1,5 +1,5 @@
 // Recorded skill/UI/TRC effects from Sound Effect Lab, OtoLogic and On-Jin plus user impacts. Collaborator weapon recordings; original step/landing graph is preserved. See audio/CREDITS.txt.
-const layer=(file,gain=.15,length=.35,delay=0,rate=1)=>Object.freeze({file,gain,length,delay,rate});
+const layer=(file,gain=.15,length=.35,delay=0,rate=1,offset=0)=>Object.freeze({file,gain,length,delay,rate,...(offset?{offset}:{})});
 const cloth=(gain=.18,length=.28,delay=0)=>layer('lab-cloth.ogg',gain,length,delay);
 const air=(gain=.18,length=.28,delay=0)=>layer('onjin-dash.ogg',gain,length,delay);
 const glass=(gain=.13,length=.3,delay=0)=>layer('lab-ice.ogg',gain,length,delay);
@@ -15,7 +15,12 @@ export const SAMPLE_CUES=Object.freeze({
  'weapon-knife':[layer('lab-knife-slash-1.ogg',.22,.36)],'weapon-pump':[layer('lab-handgun-firing1.ogg',.40,.42,0,.78)],'weapon-drum':[layer('lab-machinegun-firing1.ogg',.36,.12,0,.85)],
  'weapon-scout':[layer('lab-handgun-firing1.ogg',.36,.42,0,.92)],'weapon-atlas':[layer('lab-handgun-firing1.ogg',.43,.5,0,.68)],'weapon-forge':[layer('lab-machinegun-firing2.ogg',.31,.12,0,.8)],
  'gun-hit':[soft(.48,.12)],
- 'gun-kill':[soft(.38,.14),layer('jingle-PIZZI07.ogg',.30,.65,.025)],
+ // Owner's 160 BPM recording: beats 1,3,5,7,9, with the fifth tail intact.
+ 'kill-1':[layer('kill-sequence-user.wav',.75,.75)],
+ 'kill-2':[layer('kill-sequence-user.wav',.75,.75,0,1,.75)],
+ 'kill-3':[layer('kill-sequence-user.wav',.75,.75,0,1,1.5)],
+ 'kill-4':[layer('kill-sequence-user.wav',.75,.75,0,1,2.25)],
+ 'kill-5':[layer('kill-sequence-user.wav',.75,4.156258503401361,0,1,3)],
  'vehicle-hit':[layer('vehicle-impact-user.mp3',.65,1.1)],
  'bus-break':[layer('bus-wall-break-user.mp3',.55,5.55)],
  'bus-horn':[layer('bus-horn.wav',.60,.72)],
@@ -88,7 +93,7 @@ export function createGameAudio(){
     const protectedSound=['step','land'].includes(type);
     const cueType=type==='shot'||type==='enemy'?'weapon-'+(Object.hasOwn(SAMPLE_CUES,'weapon-'+weapon)?weapon:'classic'):type;
     const recipe=Object.hasOwn(SAMPLE_CUES,cueType)?SAMPLE_CUES[cueType]:null;
-    const layers=protectedSound?null:recipe?.filter(layer=>samples.has(layer.file));
+    const layers=protectedSound?null:recipe?.filter(layer=>samples.has(layer.file)&&samples.get(layer.file).duration>(layer.offset||0));
     // Failed or not-yet-decoded samples stay silent: never queue a late cue or emit a beep.
     if(!protectedSound&&!layers?.length)return;
     const t=context.currentTime,out=context.createGain(),nodes=[out],sources=[];
@@ -120,10 +125,10 @@ export function createGameAudio(){
     }else{
       for(const layer of layers){
         const source=context.createBufferSource(),filter=context.createBiquadFilter(),amp=context.createGain();source.buffer=samples.get(layer.file);
-        const {rate,length,gain,delay}=layer,duration=Math.min(source.buffer.duration/rate,length);
+        const {rate,length,gain,delay,offset=0}=layer,duration=Math.min((source.buffer.duration-offset)/rate,length);
         source.playbackRate.value=rate;filter.type='lowpass';filter.frequency.value=occluded?1600:10000;filter.Q.value=.65;
         amp.gain.setValueAtTime(gain,t+delay);amp.gain.setValueAtTime(gain,t+delay+Math.max(0,duration-.025));amp.gain.exponentialRampToValueAtTime(.0001,t+delay+duration);
-        source.connect(filter);filter.connect(amp);amp.connect(out);source.start(t+delay,0,duration*rate);sources.push({source,end:delay+duration});nodes.push(source,filter,amp);
+        source.connect(filter);filter.connect(amp);amp.connect(out);source.start(t+delay,offset,duration*rate);sources.push({source,end:delay+duration});nodes.push(source,filter,amp);
       }
     }
     active++;const last=sources.reduce((a,b)=>a.end>b.end?a:b);let released=false;

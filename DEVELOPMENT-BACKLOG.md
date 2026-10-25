@@ -617,3 +617,11 @@ TRC通常対戦・購入終了後の周期的停止を実updatePlayの600frame�
 購入中にも視点角度が飛ぶとの追加回答あり。非ロック入力の一致が1回だけの直後に座標recenterが来ると、旧2回一致条件を通り抜けることを実savedgameで再現。1回一致から既存の軸別warp/return補正を有効にし、感度/速いflick/相対値の壊れたbrowserへのfallbackは保持。実ブラウザーでの所有者と同じ症状はまだ再現しておらず、これを全原因確定とは扱わない。
 
 CPU harness最終は600frame合計4348.94→1865.94ms、最大319.39→78.67ms、p95 10.54→4.34ms、50ms超15→3frame。中間57.31ms標本を最終値へすり替えない。描画/GPU/実ユーザー環境のFPS保証ではない。最終と測定sourceSHA/初回失敗/専用・関連検査/公開/GitHubの確定はworkspace cycle128-test-report.jsonとcycle128-release.jsonへ記録。物理地形/強さ/音源/wire/HTTPは変更しない。自動更新fps-19はPAUSEDを維持。
+
+## 第129巡（手動依頼） — 制作された5段階キル音
+
+所有者制作のkillsound.wavをbyte変更なしで同梱。160 BPMの1/3/5/7/9拍目（0/.75/1.5/2.25/3秒）をラウンド内の1〜5キルへ割当てる。最初の4音は次音直前で切り、5音目は末尾の余韻まで再生する。速度1/既存mono・短fade・master/SOUND OFF/48voiceを使用。訓練や復活で6キル以上になったら5音目を使う。
+
+hostが実撃破時に本人別/ラウンド別の順番を確定し、既存cueのtypeだけをkill-1〜kill-5へ変えてguest本人へ届ける。銃/ナイフ/スキル/対敵車両の撃破が対象。味方・運転手・デコイ・非致死・拒否予測は進めず、重複/旧R/初回同期/古い/未来の受信・mute/未読込は消費して鳴り直さない。実HP/撃破報酬/フルコンボ/通信field/頻度を変えない。共同版10銃/ナイフ、足音/着地34voice/元8素材、命中音と勝利BGMは保持。
+
+元WAVはPCM24/stereo/44100Hz/7.1562585034秒/1893662B、SHA256 8c42d678fdaed891decec3690146308dd31387331ad7a3072d06b7b9151fc1d0。制作本人の指定素材として記録しCC0とは称さない。素材PCM/区間/offset/音量/48voice/失敗無音をofflineとmockで確認し、実音の試聴はしていない。専用savedgame/独立hostguest JSON/故障検出/既存関連検査、公開とGitHubの最終確定はworkspace cycle129-test-report.json / cycle129-release.json。自動更新fps-19はPAUSEDのまま。

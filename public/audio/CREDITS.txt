@@ -187,3 +187,10 @@ sandstorm.wav -> victory-sandstorm.wav (unchanged bytes).
 Bundled at the owner's explicit request as the sole victory BGM.
 Separate from the CC0 packs and Sound Effect Lab; no third-party license or
 artist attribution is inferred. Inspected as PCM offline; no audition.
+
+Owner-created kill sequence (cycle129)
+killsound.wav -> kill-sequence-user.wav (unchanged PCM24 stereo WAV bytes).
+160 BPM; kills 1-5 start at beats 1/3/5/7/9 (0/.75/1.5/2.25/3 seconds).
+First four clips stop before the next note; fifth retains its recorded tail.
+Bundled at the creator/owner's explicit request. Not claimed as CC0.
+Offline PCM inspection and mock playback scheduling only; no listening.

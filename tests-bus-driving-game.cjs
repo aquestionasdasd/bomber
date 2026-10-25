@@ -146,7 +146,7 @@ async function main() {
  check('driver last hit gives exactly one capped ULT point, no reward for preview or repeat',()=>{
   setup();board();local.run(`player.kit.ultPoints=3;var driverHit={object:{userData:{busDriver:bus.id}},point:new THREE.Vector3(bus.x,1.6,bus.z)};shootBusDriver(driverHit,player,99)`);assert.equal(local.run('player.kit.ultPoints'),3);
   local.run(`shootBusDriver(driverHit,player,1,{visualOnly:true})`);assert.equal(local.run('player.kit.ultPoints'),3);
-  local.run(`shootBusDriver(driverHit,player,1);shootBusDriver(driverHit,player,100)`);assert.equal(local.run('player.kit.ultPoints'),4);
+  local.run(`shootBusDriver(driverHit,player,1);shootBusDriver(driverHit,player,100)`);assert.equal(local.run('player.kit.ultPoints'),4);assert.equal(local.run('killSoundCounts.size'),0);
   setup();board();local.run(`player.kit.ultPoints=7;var driverHit={object:{userData:{busDriver:bus.id}},point:new THREE.Vector3(bus.x,1.6,bus.z)};shootBusDriver(driverHit,player,100)`);assert.equal(local.run('player.kit.ultPoints'),7);
  });
  console.log('TOTAL '+Math.round(performance.now()-started)+'ms wall / '+Math.round(process.cpuUsage(cpuStarted).user/1000)+'ms CPU');

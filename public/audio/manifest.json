@@ -420,5 +420,28 @@
     "source": "scripts/generate-bus-horn.cjs; original additive two-tone electric horn, no third-party samples",
     "license": "Project-original waveform; no third-party sample license required",
     "adopted_cycle": 124
+  },
+  {
+    "file": "kill-sequence-user.wav",
+    "original": "killsound.wav",
+    "bytes": 1893662,
+    "sha256": "8c42d678fdaed891decec3690146308dd31387331ad7a3072d06b7b9151fc1d0",
+    "seconds": 7.156258503401361,
+    "format": "wav",
+    "channels": 2,
+    "sample_rate": 44100,
+    "bits_per_sample": 24,
+    "bpm": 160,
+    "kill_start_beats": [
+      1,
+      3,
+      5,
+      7,
+      9
+    ],
+    "pack": "user-provided",
+    "source": "Owner-created attachment explicitly requested as first through fifth kill sounds in this game",
+    "license": "Owner-created/user-provided; no CC0 or third-party license claim",
+    "adopted_cycle": 129
   }
 ]

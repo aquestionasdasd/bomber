@@ -6,12 +6,12 @@ async function main({mutate=s=>s,only=()=>true}={}){
  const mod=new Module(path.join(__dirname,'combat-audio-harness.cjs'),module);mod.filename=path.join(__dirname,'combat-audio-harness.cjs');mod.paths=module.paths;mod.mutateGameSource=mutate;mod._compile(prefix+'\n return {harness};\n}\nmodule.exports=main;',mod.filename);
  const {harness}=await mod.exports(),local=harness(),host=harness(),guest=harness();let groups=0;
  const test=(name,fn)=>{if(!only(name))return;fn();groups++;console.log('PASS: '+name);},copy=v=>JSON.parse(JSON.stringify(v));
- const notes=p=>(p.sandbox.document.audioLog||[]).filter(n=>['gun-hit','gun-kill'].includes(n.type));
+ const notes=p=>(p.sandbox.document.audioLog||[]).filter(n=>n.type==='gun-hit'||/^kill-[1-5]$/.test(n.type));
  const clear=p=>{p.sandbox.document.audioLog=[];};
  function setup(p){p.reset();clear(p);p.run(`soundEnabled=true;volume=1;makeBot({x:0,z:-5},0,'red',{id:'red-0',team:'red',name:'TARGET',primary:'vandal',secondary:'classic'});var victim=bots[0];victim.rangeTarget=true;victim.kit=new DuelistKit({character:'frost'});victim.group.position.set(0,0,-5);player.pitch=-.10;`);}
  test('actual torso hit and final bullet use distinct close confirmation, one sound and no legacy double',()=>{
   setup(local);local.run('shoot()');assert.ok(local.run('victim.hp<100&&victim.alive'));assert.deepEqual(notes(local).map(n=>n.type),['gun-hit']);assert.equal(notes(local)[0].distance,0);assert.equal(notes(local)[0].pan,0);
-  clear(local);local.run('victim.hp=1;elapsed+=1;lastShot=-10;shoot()');assert.equal(local.run('victim.alive'),false);assert.deepEqual(notes(local).map(n=>n.type),['gun-kill']);assert.equal(local.sandbox.document.audioLog.filter(n=>['hit','kill'].includes(n.type)).length,0);
+  clear(local);local.run('victim.hp=1;elapsed+=1;lastShot=-10;shoot()');assert.equal(local.run('victim.alive'),false);assert.deepEqual(notes(local).map(n=>n.type),['kill-1']);assert.equal(local.sandbox.document.audioLog.filter(n=>['hit','kill'].includes(n.type)).length,0);
  });
  test('all10 guns including multi-pellet pump confirm at most once per victim per cartridge',()=>{
   for(const id of ['classic','ghost','spectre','phantom','vandal','pump','drum','scout','atlas','forge']){setup(local);local.sandbox.gunId=id;local.run(`victim.hp=1000;equip(gunId,true);shoot()`);assert.ok(local.run('victim.hp<1000'),id);assert.deepEqual(notes(local).map(n=>n.type),['gun-hit'],id);}
@@ -36,7 +36,7 @@ async function main({mutate=s=>s,only=()=>true}={}){
   for(const gun of ['classic','pump']){peers(gun);guest.run(`player.yaw=0;player.pitch=-.1;lastShot=-10;renderedRecoil=0;player.recoil=0;shoot();tickOnline(.1)`);assert.equal(notes(guest).length,0,gun+' prediction');const input=deliver(guest,host,'friend');host.run('updateRemoteActor(remote,.05)');assert.ok(host.run('victim.hp<1000'));assert.equal(notes(host).length,0,'Other shooter must not hear the guest receipt');host.sandbox.replay=input;host.run(`receiveNetPacket('friend',replay);updateRemoteActor(remote,.05);tickOnline(.1)`);const accepted=deliver(host,guest,'host');assert.deepEqual(notes(guest).map(n=>n.type),['gun-hit']);guest.sandbox.again=accepted;guest.run(`receiveNetPacket('host',again);applyNetCues(again,false,player.id)`);assert.equal(notes(guest).length,1);}
  });
  test('guest kill receipt remains audible at round end and only its shooter hears it',()=>{
-  peers();host.run(`victim.hp=1;damageEntity(victim,100,remote,{firearm:true});match.phase='post';match.phaseTime=5;tickOnline(.1)`);const last=deliver(host,guest,'host');assert.deepEqual(notes(guest).map(n=>n.type),['gun-kill']);assert.equal(last.cues.filter(c=>c.type==='gun-kill').length,1);clear(guest);guest.run(`netSeenCueSequence=0;applyNetCues(packet,false,'other-actor')`);assert.equal(notes(guest).length,0);
+  peers();host.run(`victim.hp=1;damageEntity(victim,100,remote,{firearm:true});match.phase='post';match.phaseTime=5;tickOnline(.1)`);const last=deliver(host,guest,'host');assert.deepEqual(notes(guest).map(n=>n.type),['kill-1']);assert.equal(last.cues.filter(c=>c.type==='kill-1').length,1);clear(guest);guest.run(`netSeenCueSequence=0;applyNetCues(packet,false,'other-actor')`);assert.equal(notes(guest).length,0);
  });
  test('fresh, stale, future, old-round and invalid receipts are consumed silently; mute/volume0 cannot replay after enabling',()=>{
   peers();host.run('damageEntity(victim,10,remote,{firearm:true});tickOnline(.1)');const good=copy(host.run('online.sent.at(-1)'));assert.ok(good.cues.some(c=>c.type==='gun-hit'));
