@@ -668,3 +668,9 @@ BOTは精鋭だけに固定し難易度の選択を削除。現在視認した�
 - 保存: このブラウザーのlocalStorage。上限999999999、破損値拒否/例外時は現在page内保持。storage eventで別tab表示更新。アカウント同期/改竄防止付きのサーバー財布ではない。将来用途追加時に要再設計。
 - 再確認: 専用unit/実savedgame、独立hostguestJSON、既存経済/勝利演出/SQLite、所有hidden表示を検証。最新公開/GitHubの確定値はworkspace直下cycle134-release/test-reportを正本に。
 - 残課題: 視点飛びは未解決でowner inputTrace待ちを維持。fps-19はPAUSED。実スマホ/新実2タブ/端末間/聴感は未確認。
+
+## 第135巡 / 人間指定のバス停車5秒
+
+南北4台の共通定期停車を12秒から5秒へ変更。開扉/発車/周回周期/到着案内は同じBUS_SERVICE.dwellを参照し、別々の時計を追加しない。全4台の到着から4.999秒の開扉停止と5.001秒の発車を検査。後続待機/連続再発進20/60/144Hz、乗車と実運転、BOT迂回、退役、SQLiteを確認した。接触150raw/運転手100HP/燃料25秒/破壊/ホスト権威/通信形式/音源は維持。製品変更はbus-service.jsの定数1箇所のみ。
+
+service8/queue4/実savedgame運転10/BOT迂回7/退役6/SQLite21が成功。全mainや音検査の反復、ブラウザー起動/試聴はなし。公開とGitHubの最終状態はworkspace cycle135-release.jsonを正本とする。自動fps-19はPAUSED、所有者Chrome視点飛びは未解決でinputTrace待ちを維持。489coinは人間の遅着回答でも1キル10/試合勝利100を指定され、既存実装と一致。

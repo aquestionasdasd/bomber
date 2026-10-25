@@ -1,5 +1,5 @@
 // Host-owned vehicle state. Inputs contain controls, never seats, HP or fuel.
-export const BUS_SERVICE=Object.freeze({dwell:12,fuel:25,driverHP:100,maxSpeed:17,reverse:6,capacity:7});
+export const BUS_SERVICE=Object.freeze({dwell:5,fuel:25,driverHP:100,maxSpeed:17,reverse:6,capacity:7});
 const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 const round=n=>Math.round(n*1000)/1000;
 export function busPoint(p,x,z,y=0){return{x:p.x+x*Math.cos(p.yaw)+z*Math.sin(p.yaw),y,z:p.z-x*Math.sin(p.yaw)+z*Math.cos(p.yaw)};}
