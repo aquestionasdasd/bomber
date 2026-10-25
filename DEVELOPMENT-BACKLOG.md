@@ -609,3 +609,11 @@ Qとデコイ反撃フラッシュ半径12→30m、向き/壁/煙/味方や自�
 専用6群/既存キー保護16群/勝利BGM無音mock8群成功。所有hidden207は初手SOUND OFF/AX0/aria-pressed=false、タイトルと射撃訓練で通知表示/HUDの下への配置、Enterで閉じる/メニュー移動後も閉じたままを確認、warn/error0。Space操作はIABでは閉じる結果にならなかったため実ブラウザー成功として数えない。実全画面化は共有画面に影響しないよう行わず、既存コントローラーとfullscreen遷移は独立DOM mockで検査。207閉鎖、8057保持session停止、ユーザータブ/OS/他アプリ不操作、再生試聴なし。
 
 自動更新fps-19はPAUSED維持。GitHubと同URL公開の最終結果はworkspace cycle127-release.json/test-reportを正本とする。音源/試合/通信/物理は変更しない。既存全main床ボンバー/hold4 fixture債務は未完了で同全mainを反復しない。
+
+## 第128巡（手動依頼） — TRCの経路探索と視点入力
+
+TRC通常対戦・購入終了後の周期的停止を実updatePlayの600frame（10人/固定seed134/1frame1回）で調査。8508ノードのA-starの線形open探索、全ノードconnector走査、長い直線の反復sweepが集中していた。priority heap/4m局所connector/指数lookaheadと二分探索/8192件上限のsegment cacheへ変更。壁と支持の0.13m刻み検査、はしごとしゃがみの遷移は保持。実衝突revision/起爆collapse変化でsegment cacheを破棄する。A-starのcost/tie順は旧方式と検査、簡略化の有効waypointは変わり得る。
+
+購入中にも視点角度が飛ぶとの追加回答あり。非ロック入力の一致が1回だけの直後に座標recenterが来ると、旧2回一致条件を通り抜けることを実savedgameで再現。1回一致から既存の軸別warp/return補正を有効にし、感度/速いflick/相対値の壊れたbrowserへのfallbackは保持。実ブラウザーでの所有者と同じ症状はまだ再現しておらず、これを全原因確定とは扱わない。
+
+CPU harness最終は600frame合計4348.94→1865.94ms、最大319.39→78.67ms、p95 10.54→4.34ms、50ms超15→3frame。中間57.31ms標本を最終値へすり替えない。描画/GPU/実ユーザー環境のFPS保証ではない。最終と測定sourceSHA/初回失敗/専用・関連検査/公開/GitHubの確定はworkspace cycle128-test-report.jsonとcycle128-release.jsonへ記録。物理地形/強さ/音源/wire/HTTPは変更しない。自動更新fps-19はPAUSEDを維持。

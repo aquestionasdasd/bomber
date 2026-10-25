@@ -3552,11 +3552,13 @@ function mouseLook(event){
       if(Math.abs(delta-relative)<=.500001){
         next[field]=delta===0&&relative===0?matches:Math.min(2,matches+1);
         next[offsetField]=offset;
-      }else if(matches>=2&&offset*(delta-relative)<0&&Math.abs(offset+delta-relative)<=1.000001){
+      }else if(matches>=1&&offset*(delta-relative)<0&&Math.abs(offset+delta-relative)<=1.000001){
         // The return from a small warp may be below the detection threshold.
         // Preserve real motion if the return and a flick arrive in one sample.
         next[field]=matches;return relative;
-      }else if(matches>=2&&Math.abs(delta)>=4&&Math.abs(relative)<=Math.abs(delta)*.25){
+      }else if(matches>=1&&Math.abs(delta)>=4&&Math.abs(relative)<=Math.abs(delta)*.25){
+        // One agreeing physical sample is enough. Waiting for a second lets a
+        // recenter immediately after entry, a pause or a viewport reset turn us.
         // Seed from the new position even when rejecting a warp, so both its
         // outward and return samples are harmless without delaying real motion.
         next[field]=matches;next[offsetField]=offset+delta-relative;return 0;
