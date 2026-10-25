@@ -589,7 +589,7 @@ function renderWithDetonation(dt=0){
     }
     if($('detonation-flash'))$('detonation-flash').style.opacity=String(clamp(fx.flash,0,1)*.32);
     // Last render gate also covers an asynchronous guest snapshot/equip and pause.
-    const scopeActive=aiming&&player.alive&&weapon().scope&&!reloading&&!player.serviceReload&&!interactionHeld&&!busSeat()&&['play','pause'].includes(mode);
+    const scopeActive=aiming&&!sniperCycleRemaining()&&player.alive&&weapon().scope&&!reloading&&!player.serviceReload&&!interactionHeld&&!busSeat()&&['play','pause'].includes(mode);
     if(scopeActive||victoryCamera.active)gun.visible=false;
     renderer.render(scene,camera);
     renderOnnaraOrb();
@@ -683,12 +683,14 @@ function updateFirstPersonEquipment(dt){
   const local=actor===player,id=firstPersonWeapon(actor),spec=WEAPONS[id]||WEAPONS.knife,state=local?null:actor.netTarget;
   const reload=local?reloading:state?.reloading??(actor.remoteId?actor.netReload:actor.aiReload)??0;
   const interacting=local?interactionHeld&&mode==='play':!!(actor.planting||actor.defusing||state?.planting||state?.defusing);
-  const scoped=!!(local&&aiming&&spec.scope&&!reload&&!actor.serviceReload&&!interactionHeld&&!busSeat(actor)&&['play','pause'].includes(mode));
+  const cycle=local?sniperCycleRemaining():0;
+  const scoped=!!(local&&aiming&&!cycle&&spec.scope&&!reload&&!actor.serviceReload&&!interactionHeld&&!busSeat(actor)&&['play','pause'].includes(mode));
   const throwing=local?(ordinaryFX.throwing(elapsed)||mendSkillFX.throwing(elapsed)||iagnuSkillFX.throwing(elapsed)||grassSkillFX.throwing(elapsed)||emberSkillFX.throwing(elapsed)||frostSkillFX.throwing(elapsed)||duelistSkillFX.throwing(elapsed)):elapsed<(actor.skillThrowUntil||0);
   gun.visible=id!=='spike'&&!busDriving(actor)&&!scoped&&!throwing;
   viewmodel.setWeapon(id==='spike'?'knife':id,actor!==equipmentActor);equipmentActor=actor;
   viewmodel.update(dt,{character:actor.kit?.character||state?.kit?.character,scoped,
-    aiming:local&&aiming&&mode==='play'&&!netHostPaused,reloading:reload,
+    aiming:local&&aiming&&!cycle&&mode==='play'&&!netHostPaused,reloading:reload,
+    cycleProgress:cycle?1-cycle/nobiShotInterval(spec,actor):undefined,
     reloadDuration:actor.serviceReload||state?.serviceReload?EMBER_SKILLS.serviceDuration:spec.reload,
     kick:local?kick:actor.flash>0?.035:0,moving:local?Math.hypot(actor.vx,actor.vz)>.5:!!actor.moving,
     time:elapsed,crouching:actor.crouch,interacting,ultimate:actor.kit?.knivesActive&&id==='knife',
@@ -770,12 +772,19 @@ function pickupDroppedWeapon(actor,dropId,{catFetch=false}={}){
 }
 const BLADE={name:'BLADE STORM',mag:0,reserve:0,interval:.23,reload:0,spread:0,head:150,body:50,leg:42,auto:true,slot:'ultimate'};
 function weapon(){return player.kit.knivesActive&&inventory.active==='knife'?BLADE:WEAPONS[inventory.active]||WEAPONS.classic;}
+let sniperCycleAt=null;
+function sniperCycleRemaining(){
+  if(!weapon().scope||sniperCycleAt!==lastShot)return 0;
+  // Share the shot gate, including a live fire-rate impairment and its epsilon.
+  const remaining=nobiShotInterval(weapon(),player)-(elapsed-lastShot);
+  return remaining>1e-8?remaining:0;
+}
 function equip(id,fresh=false){
   if(netHostPaused&&!fresh)return;
   if(isGuest()&&!fresh)queueNetAction('equip',{weapon:id});
   if(!id)return;if(!fresh)ammoStore[inventory.active]={ammo:player.ammo,reserve:player.reserve};
   cancelServiceReload(player);inventory.active=id;const spec=WEAPONS[id]||WEAPONS.classic;const saved=ammoStore[id];
-  player.ammo=saved?.ammo??spec.mag;player.reserve=saved?.reserve??spec.reserve;reloading=0;shotSequence=0;kick=0;firing=false;aiming=false;
+  player.ammo=saved?.ammo??spec.mag;player.reserve=saved?.reserve??spec.reserve;reloading=0;shotSequence=0;kick=0;firing=false;aiming=false;sniperCycleAt=null;
   refillRangeAmmo();
   gun.visible=player.alive&&id!=='spike';
   viewmodel.setWeapon(id==='spike'?'knife':id);
@@ -1059,7 +1068,7 @@ function clearCombatInput(){duckAim=null;
   keys.clear();firing=false;aiming=false;interactionHeld=false;touchMove={x:0,y:0};touchLook=null;movePointer=null;
   player.planting=false;player.defusing=false;
   const movePad=$('move-pad');if(movePad){movePad.style.setProperty('--stick-x','0px');movePad.style.setProperty('--stick-y','0px');}
-  setVisible('interaction',false);resetMouseLook();
+  setVisible('interaction',false);setVisible('sniper-cycle',false);resetMouseLook();
 }
 function requestLock() {
   resetMouseLook();
@@ -1529,7 +1538,9 @@ function shoot(shotTime=elapsed) {
   camera.getWorldDirection(direction);
   if(spec.arsenal){
     if(isGuest())queueNetAction('fire',{yaw:player.yaw,pitch:player.pitch+renderedRecoil,ultimate:false,ads:aiming===true});
-    fireArsenal(player,camera.position,direction,spec,aiming,{visualOnly:isGuest()});if(!spec.auto)firing=false;updateHUD();return;
+    fireArsenal(player,camera.position,direction,spec,aiming,{visualOnly:isGuest()});
+    if(spec.scope){sniperCycleAt=lastShot;setVisible('sniper-scope',false);}
+    if(!spec.auto)firing=false;updateHUD();return;
   }
   const moving=Math.hypot(player.vx,player.vz)>1.2,steadyAir=duckAirAim(player);
   const spread=ultimate||steadyAir?0:spec.spread*(aiming?.65:player.crouch>.5?.8:1)+carMovementSpread({airborne:!actorGrounded(player),moving,gyro:ordinarySkills.carGyro(player.id,elapsed)&&actorGrounded(player)})+Math.min(.04,Math.max(0,shotSequence-3)*.004);
@@ -2333,6 +2344,14 @@ function updateHUD(){
   $('ammo').style.color=firearm&&player.ammo<8?'#ff5a67':'';
   $('reload-state').textContent=player.serviceReload?'クイックソルダー…':reloading>0?'RELOADING…':firearm&&player.ammo===0?(player.reserve>0?'R  リロード':'弾薬切れ · 武器を持ち替え'):'';
   $('reload-state').hidden=!player.alive||!firearm||!(reloading>0||player.serviceReload||player.ammo===0);
+  const cycle=sniperCycleRemaining(),cycleHUD=$('sniper-cycle');
+  cycleHUD.hidden=!(cycle&&mode==='play'&&match.phase==='live'&&player.alive&&firearm&&player.ammo>0&&!reloading&&!player.serviceReload&&!interactionHeld&&!busSeat()&&!carMotionActive(player));
+  if(!cycleHUD.hidden){
+    const progress=clamp(1-cycle/nobiShotInterval(armedWeapon,player),0,1);
+    $('sniper-cycle-label').textContent=`次の射撃まで ${Math.max(.1,Math.ceil(cycle*10)/10).toFixed(1)}秒`;
+    cycleHUD.setAttribute('aria-valuenow',String(Math.floor(progress*100)));
+    $('sniper-cycle-fill').style.transform=`scaleX(${progress})`;
+  }
   const kit=player.kit,k=kit.snapshot();
   const character=CHARACTER_DEFS[normalizeCharacter(k.character)];
   if($('ability-x-glyph'))$('ability-x-glyph').setAttribute('d',character.ultIcon);
@@ -3082,9 +3101,10 @@ function updatePlay(dt){
   const withinSmoke=smokes.find(s=>camera.position.distanceToSquared(s.mesh.position)<s.radius*s.radius),withinField=activeOrdinarySmokeFields().find(s=>(camera.position.x-s.x)**2+(camera.position.y-s.y)**2+(camera.position.z-s.z)**2<s.radius*s.radius),obscured=withinSmoke||withinField;scene.fog.near=obscured?.1:145;scene.fog.far=obscured?2.5:380;scene.fog.color.set(withinSmoke?.kind==='veil'?'#77718f':withinField?.type==='veil-dust'?'#8d7659':withinField?.type==='frost-mist'?'#c3bfdb':withinField?.type==='duelist-comet'?'#abcddd':withinField?'#b6bb72':withinSmoke?'#a9c6d2':'#b7d0dd');
   const sightViewer=!player.alive&&spectatedBot?spectatedBot:player;
   if(ordinarySkills.nearsightUntil(sightViewer.id,elapsed)>elapsed&&!obscured){scene.fog.near=URCHIN_SKILLS.gloomSight*.45;scene.fog.far=URCHIN_SKILLS.gloomSight;scene.fog.color.set('#071d29');}
-  const scoped=!!(aiming&&controlled&&weapon().scope&&!reloading&&!player.serviceReload&&!interactionHeld);
+  const cycle=sniperCycleRemaining();
+  const scoped=!!(aiming&&!cycle&&controlled&&weapon().scope&&!reloading&&!player.serviceReload&&!interactionHeld);
   setVisible('sniper-scope',scoped);gun.visible=player.alive&&inventory.active!=='spike'&&!scoped;
-  camera.fov=THREE.MathUtils.lerp(camera.fov,scoped?weapon().scope:aiming&&controlled?62:76,Math.min(1,dt*12));camera.updateProjectionMatrix();
+  camera.fov=THREE.MathUtils.lerp(camera.fov,scoped?weapon().scope:aiming&&!cycle&&controlled?62:76,Math.min(1,dt*12));camera.updateProjectionMatrix();
   if(firing&&mode==='play'&&player.alive&&!busDriving()){
     for(let count=0;count<12&&firing&&elapsed-lastShot+1e-8>=nobiShotInterval(weapon(),player);count++){
       const previousShot=lastShot;

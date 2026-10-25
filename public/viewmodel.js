@@ -309,7 +309,13 @@ export function createViewmodel(THREE, camera) {
     const remaining = typeof state.reloading === 'number' ? state.reloading : Math.max(0, duration - reloadClock);
     const progress = isReloading ? THREE.MathUtils.clamp(1 - remaining / duration, 0, 1) : 0;
     wasReloading = isReloading;
-    const aiming = state.aiming && !weapon.knife && !isReloading && !state.interacting;
+    const cycling = (current === 'scout' || current === 'atlas') && !isReloading && !state.interacting && Number.isFinite(state.cycleProgress) && state.cycleProgress < 1;
+    const cycleProgress = cycling ? THREE.MathUtils.clamp(state.cycleProgress, 0, 1) : 0;
+    const cycleWave = cycling ? Math.sin(cycleProgress * Math.PI) : 0;
+    const cycleGrip = cycling ? smooth(cycleProgress / .2) * (1 - smooth((cycleProgress - .76) / .2)) : 0;
+    const cyclePull = cycling ? pulse(cycleProgress, .28, .48, .68) : 0;
+    const cycleLift = cycling ? pulse(cycleProgress, .14, .25, .76) : 0;
+    const aiming = state.aiming && !cycling && !weapon.knife && !isReloading && !state.interacting;
     aimBlend += ((aiming ? 1 : 0) - aimBlend) * smoothing;
     equipBlend = Math.max(0, equipBlend - dt * 4.6);
     const movement = THREE.MathUtils.clamp(Number(state.moving) || 0, 0, 1);
@@ -322,25 +328,28 @@ export function createViewmodel(THREE, camera) {
     const reloadWave = isReloading ? Math.sin(progress * Math.PI) : 0;
     const framing = bladeStorm ? bladeFraming : model.framing;
     const targetX = THREE.MathUtils.lerp(framing.x, 0, aimBlend) + sway - reloadWave * .018;
-    const targetY = THREE.MathUtils.lerp(framing.y, -weapon.sightY * framing.scale, aimBlend) + bob - reloadWave * .057 - equipBlend * .13 - (state.interacting ? .22 : 0);
+    const targetY = THREE.MathUtils.lerp(framing.y, -weapon.sightY * framing.scale, aimBlend) + bob - reloadWave * .057 - cycleWave * .025 - equipBlend * .13 - (state.interacting ? .22 : 0);
     const targetZ = THREE.MathUtils.lerp(framing.z, framing.adsZ, aimBlend) + kick * .72 + equipBlend * .07;
     group.position.x += (targetX - group.position.x) * smoothing;
     group.position.y += (targetY - group.position.y) * smoothing;
     group.position.z += (targetZ - group.position.z) * smoothing;
-    group.rotation.set(kick * 1.13 - reloadWave * .17 + (state.interacting ? .37 : 0) + slash * .15,
-      reloadWave * -.13 - slash * .38,
-      (weapon.knife ? -.12 : 0) * (1 - aimBlend) + sway - reloadWave * .34 + slash * .3);
+    group.rotation.set(kick * 1.13 - reloadWave * .17 + cycleWave * .04 + (state.interacting ? .37 : 0) + slash * .15,
+      reloadWave * -.13 - cycleWave * .05 - slash * .38,
+      (weapon.knife ? -.12 : 0) * (1 - aimBlend) + sway - reloadWave * .34 - cycleWave * .16 + slash * .3);
     if (bladeStorm) group.rotation.set(-throwFlick * .035, 0, sway);
     const magDrop = isReloading ? magazineOffset(progress) : 0;
     weapon.magazine.position.set(0, magDrop, isReloading ? -magDrop * .18 : 0);
     weapon.magazine.rotation.set(isReloading ? -magDrop * .55 : 0, 0, isReloading ? -magDrop * .15 : 0);
     weapon.magazine.visible = !(isReloading && progress > .41 && progress < .56);
     const charge = isReloading ? pulse(progress, .78, .835, .91) : 0;
-    weapon.bolt.position.z = boltKick * .027 + charge * .041;
+    weapon.bolt.position.z = boltKick * .027 + charge * .041 + cyclePull * .08;
+    weapon.bolt.rotation.z = cycling ? -cycleLift * .75 : 0;
     weapon.slide.position.z = boltKick * .032 + charge * .045;
     wrist.copy(model.rear);
+    if (cycling) wrist.lerp(chargeHand.set(.065, .008, .064 + cyclePull * .08).multiply(weapon.group.scale), cycleGrip);
     if (bladeStorm) wrist.set(.235, .005 + throwFlick * .018, .045 - throwFlick * .19);
     poseArm(model.right, wrist, model, progress, isReloading);
+    if (cycling) model.right.hand.rotation.z -= cycleLift * .5;
     wrist.copy(model.front);
     if (isReloading) reloadHand(wrist, progress, model);
     else if (state.interacting) wrist.lerp(magazineHand.set(-.15, -.22, -.16), .9);
