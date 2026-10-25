@@ -681,3 +681,9 @@ service8/queue4/実savedgame運転10/BOT迂回7/退役6/SQLite21が成功。全m
 - 権威/操作: hostの実設置完了でlocal/remoteを切替。remoteは既存equipの所有検査と弾保存を再利用し、作業済みflagを解除。guestは既存snapshotの装備だけを反映し、確定した自分の設置時に4保持を解除。新wire/action/HTTPなし。中断/他人の設置/死亡者には切替なし、後の手動選択を繰り返し上書きしない。
 - 検証: 旧実savedgameはspikeのままで失敗を再現。新専用6群（全primary/secondary、弾保存、3.99秒未完了/4秒完了、中断/他人/死亡、練習、独立hostguestJSON/重複/後の手動選択、即射撃と報酬）、既存bomber/shop13・経済6・観戦手元7・CAT実作業8・SQLite21成功。初回fixtureの現在弾数と保存弾数の不一致、未定義fire名を修正し、製品条件は緩めず停止log保持。
 - 最新公開/GitHub: workspace cycle136-release/test-reportを正本にする。正規Sites helperで同URL/publicへ公開し、PR63へ通常push。実ブラウザー/新実2タブ/実端末/聴感は未確認。音源/物理/地形/バス停車5秒/489coinは維持。fps-19はPAUSED、所有者Chrome視点飛びは未解決・inputTrace待ち、旧fullmain fixture債務は継続。
+
+## 第137巡 / 勝利BGMの開始待ち
+
+- 根拠/優先度: 最新人間報告「勝ったら音楽流れ出すの遅いときがある」。旧は結果時にAudio新造/preload none、停止でsrc解除。最初の画面と開始/再開入力で再生せず準備し、同一mediaを次Rも再利用する。停止はpause/先頭巻戻し、破棄/実エラーだけ解放。
+- 再確認: 専用準備8群、既存BGM8、実savedgame勝利カメラ7、録音mock4/実命中音8成功。700ms仮想ロードを勝利前に完了するmockは勝利時刻と開始時刻が一致し、5勝でも1media/1load。古いplay reject/timerは世代検査で新しい勝利を停止せず、cold待機playの消音後ロード完了も鳴らない。旧テストの1mediaごとpause1という期待だけ、再利用mediaのpause増分検査へ変更し初回log保持。製品消音は緩めない。
+- 最新公開/GitHub: workspace cycle137-release/test-reportを正本。正規Sites helperで同URL/publicへ反映し、PR63へ通常push。提供WAV/共同銃声/足音/他音源/ゲーム強さ/物理/地形/通信は保持。実Chrome開始時間/聴感/新実2タブ/実端末は未確認で、preloadは回線/ブラウザーの方針による。fps-19 PAUSED、視点飛び未解決/inputTrace待ち、旧fullmain fixture債務を維持。

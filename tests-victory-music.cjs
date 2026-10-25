@@ -24,10 +24,10 @@ async function main(){
   assert.equal(m.result({key:'3:blue',won:true,audible:false}),false);assert.equal(m.result({key:'3:blue',won:true}),false,'Fresh rejoin consumes result silently');
   console.log('PASS: own win only, nonlooping bounded duration, master multiplication, duplicate/fresh suppression');
   for(const gate of [{soundEnabled:false},{enabled:false},{masterVolume:0},{musicVolume:0},{hidden:true}]){
-    m.reset();m.setGate({soundEnabled:true,enabled:true,masterVolume:.5,musicVolume:.6,hidden:false});m.result({key:'4:blue',won:true});const active=media.at(-1);m.setGate(gate);assert.equal(active.pauses,1);assert.equal(m.result({key:'5:blue',won:true}),false);m.setGate({soundEnabled:true,enabled:true,masterVolume:.5,musicVolume:.6,hidden:false});assert.equal(m.result({key:'5:blue',won:true}),false,'Unmuting never replays an old result');
+    m.reset();m.setGate({soundEnabled:true,enabled:true,masterVolume:.5,musicVolume:.6,hidden:false});m.result({key:'4:blue',won:true});const active=media.at(-1),beforePause=active.pauses;m.setGate(gate);assert.equal(active.pauses,beforePause+1);assert.equal(m.result({key:'5:blue',won:true}),false);m.setGate({soundEnabled:true,enabled:true,masterVolume:.5,musicVolume:.6,hidden:false});assert.equal(m.result({key:'5:blue',won:true}),false,'Unmuting never replays an old result');
   }
-  m.reset();m.result({key:'6:blue',won:true});const last=media.at(-1);[...timers.values()][0].fn();assert.equal(last.pauses,1);assert.equal(timers.size,0);
-  m.reset();m.result({key:'7:blue',won:true});const failing=media.at(-1);failing.onerror();assert.match(m.state().error,/再生できませんでした/);assert.equal(failing.pauses,1);assert.equal(m.result({key:'7:blue',won:true}),false);
+  m.reset();m.result({key:'6:blue',won:true});const last=media.at(-1),beforeTimerPause=last.pauses;[...timers.values()][0].fn();assert.equal(last.pauses,beforeTimerPause+1);assert.equal(timers.size,0);
+  m.reset();m.result({key:'7:blue',won:true});const failing=media.at(-1),beforeFailPause=failing.pauses;failing.onerror();assert.match(m.state().error,/再生できませんでした/);assert.equal(failing.pauses,beforeFailPause+1);assert.equal(m.result({key:'7:blue',won:true}),false);
   console.log('PASS: global/BGM mute, zero volumes, hidden tab, immediate stop, timer and decode error cleanup');
   const bad=createVictoryMusic({...options,config:{src:'bad',maxSeconds:99},createAudio:()=>({play(){return Promise.reject(Error('blocked'));},pause(){},load(){},removeAttribute(){}})});bad.result({key:'a',won:true});await Promise.resolve();assert.match(bad.state().error,/再生できませんでした/);assert.equal(timers.size,0);bad.dispose();
   m.dispose();m.dispose();assert.equal(m.result({key:'dead',won:true}),false);assert.equal(timers.size,0);

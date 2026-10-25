@@ -254,11 +254,11 @@ let victoryMusicEnabled=settings.victoryMusicEnabled!==false;
 let victoryMusicVolume=Number.isFinite(Number(settings.victoryMusicVolume))?clamp(Number(settings.victoryMusicVolume),0,1):.6;
 let victoryMusicUI;
 const victoryMusic=createVictoryMusic({onChange:()=>victoryMusicUI?.render()});
-function syncVictoryMusic(){victoryMusic.setGate({enabled:victoryMusicEnabled,musicVolume:victoryMusicVolume,soundEnabled,masterVolume:volume,hidden:document.hidden});}
+function syncVictoryMusic(){victoryMusic.setGate({enabled:victoryMusicEnabled,musicVolume:victoryMusicVolume,soundEnabled,masterVolume:volume,hidden:document.hidden});victoryMusic.prepare();}
 syncVictoryMusic();
 const gameAudio=createGameAudio();
 const botHearing=createBotHearing();
-function audioInit(){gameAudio.init();}
+function audioInit(){gameAudio.init();victoryMusic.prepare();}
 function sound(type,{weapon:id=inventory.active,entity=null,localOnly=false}={}){
   if(type==='step'&&map.ductAt?.((entity||player).x,(entity||player).z,(entity||player).y))type='duct-step';
   if(['step','land','duct-step'].includes(type)&&ordinarySkills.quiet((entity||player).id,elapsed))return;

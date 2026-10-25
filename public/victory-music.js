@@ -4,13 +4,37 @@ const unit=(value,fallback)=>Number.isFinite(Number(value))?Math.min(1,Math.max(
 
 // Separate from weapon/footstep audio. Settings never start playback.
 export function createVictoryMusic({config=VICTORY_MUSIC,createAudio=()=>new Audio(),schedule=setTimeout,cancel=clearTimeout,onChange=()=>{}}={}){
-  let current=null,timer=null,disposed=false,error='';
+  let prepared=null,current=null,timer=null,generation=0,disposed=false,error='';
   let gate={enabled:true,soundEnabled:true,masterVolume:.45,musicVolume:.6,hidden:false};
   const seen=new Set();
   const canPlay=()=>!disposed&&gate.enabled&&gate.soundEnabled&&!gate.hidden&&gate.masterVolume>0&&gate.musicVolume>0;
   function stop(){
+    generation++;
     if(timer!==null){cancel(timer);timer=null;}
-    if(current){const old=current;current=null;old.onended=null;old.onerror=null;old.pause();old.removeAttribute('src');old.load();}
+    if(current){const old=current;current=null;old.onended=null;old.pause();try{old.currentTime=0;}catch{}}
+  }
+  function release(media){
+    if(!media)return;
+    if(prepared===media)prepared=null;
+    media.onended=null;media.onerror=null;try{media.removeAttribute('src');media.load();}catch{}
+  }
+  function fail(media,message){
+    if(prepared!==media)return;
+    stop();release(media);error=message;onChange();
+  }
+  // Load ahead of the result without play(), and retain that media across rounds.
+  function prepare(){
+    if(!canPlay()||!config.src)return false;
+    if(prepared)return true;
+    let media;
+    try{
+      media=createAudio();prepared=media;media.preload='auto';media.loop=false;media.src=config.src;
+      media.onerror=()=>fail(media,'BGMを再生できませんでした。次の勝利時に再試行します。');
+      media.load();return prepared===media;
+    }catch{
+      if(prepared===media){stop();release(media);}
+      error='BGMを開始できませんでした。次の勝利時に再試行します。';onChange();return false;
+    }
   }
   function reset(){stop();seen.clear();}
   function setGate(next){
@@ -22,18 +46,20 @@ export function createVictoryMusic({config=VICTORY_MUSIC,createAudio=()=>new Aud
     seen.add(key);while(seen.size>32)seen.delete(seen.values().next().value);
     stop();
     if(!won||!audible||!canPlay()||!config.src)return false;
-    let media;
+    if(!prepare())return false;
+    const media=prepared,run=++generation;
+    const active=()=>current===media&&generation===run;
     try{
-      media=createAudio();current=media;media.preload='none';media.loop=false;media.volume=gate.masterVolume*gate.musicVolume;media.src=config.src;
-      const fail=()=>{if(current!==media)return;stop();error='BGMを再生できませんでした。次の勝利時に再試行します。';onChange();};
-      media.onerror=fail;media.onended=()=>{if(current===media)stop();};
-      timer=schedule(()=>{if(current===media)stop();},Math.min(30,Math.max(1,Number(config.maxSeconds)||15))*1000);
-      const attempt=media.play();attempt?.catch(fail);return true;
-    }catch{if(current===media)stop();error='BGMを開始できませんでした。次の勝利時に再試行します。';onChange();return false;}
+      current=media;media.currentTime=0;media.volume=gate.masterVolume*gate.musicVolume;
+      media.onended=()=>{if(active())stop();};
+      timer=schedule(()=>{if(active())stop();},Math.min(30,Math.max(1,Number(config.maxSeconds)||15))*1000);
+      const attempt=media.play();attempt?.catch(()=>{if(active())fail(media,'BGMを再生できませんでした。次の勝利時に再試行します。');});
+      if(error){error='';onChange();}return true;
+    }catch{if(active())fail(media,'BGMを開始できませんでした。次の勝利時に再試行します。');return false;}
   }
   function state(){return {configured:!!config.src,title:config.title||'未設定',error};}
-  function dispose(){if(disposed)return;reset();disposed=true;}
-  return {result,stop,reset,setGate,state,dispose};
+  function dispose(){if(disposed)return;reset();disposed=true;if(prepared)release(prepared);}
+  return {prepare,result,stop,reset,setGate,state,dispose};
 }
 
 export function bindVictoryMusicSettings({document,music,preferences,onChange}){
