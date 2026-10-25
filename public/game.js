@@ -212,6 +212,7 @@ let elapsed = 0, timeLeft = 150, round = 1, totalKills = 0, shots = 0, hits = 0,
 let lastShot = -10, damageFlash = 0, hitFlash = 0, scanTime = 0, roundWait = 0, kick = 0;
 let difficulty = 'hard', soundEnabled = true, volume = .45, sensitivity = .35;
 let menuT = 0, pointerRequested = false, inputActive = false;
+let pointerLockRequest=0,pointerLockInput='unlocked';
 let touchMove = { x:0, y:0 }, touchLook = null, movePointer = null;
 let mouseAnchor=null,renderedRecoil=0;
 // Explicit local diagnosis only. No storage, network transmission or per-event DOM work.
@@ -1054,6 +1055,7 @@ function autoBuyBot(r){
 }
 function setVisible(id,visible) { if($(id))$(id).hidden=!visible; if(visible&&(id==='menu'||id==='result'))keyboardProtection.release(); if(id==='menu'||id==='online-overlay'||id==='online-lobby')characterPicker.sync(); }
 function clearCombatInput(){duckAim=null;
+  pointerLockRequest++;pointerLockInput='unlocked';
   keys.clear();firing=false;aiming=false;interactionHeld=false;touchMove={x:0,y:0};touchLook=null;movePointer=null;
   player.planting=false;player.defusing=false;
   const movePad=$('move-pad');if(movePad){movePad.style.setProperty('--stick-x','0px');movePad.style.setProperty('--stick-y','0px');}
@@ -1064,7 +1066,27 @@ function requestLock() {
   if(document.fullscreenElement&&!keyboardProtection.pending&&keyboardProtection.state!=='protected')void keyboardProtection.enable();
   if (navigator.maxTouchPoints>0 && matchMedia('(pointer:coarse)').matches) return;
   pointerRequested=true;
-  try { const p=canvas.requestPointerLock(); if(p?.catch)p.catch(()=>{inputActive=true;showMessage('MOUSE LOOK','マウスを動かすだけで視点を操作できます',3);}); } catch { inputActive=true; }
+  const request=++pointerLockRequest;
+  const current=()=>request===pointerLockRequest&&mode==='play'&&player.alive&&!netHostPaused;
+  const failed=()=>{if(!current())return;pointerLockInput='unlocked';inputActive=true;showMessage('MOUSE LOOK','マウスを動かすだけで視点を操作できます',3);};
+  const capture=raw=>{
+    if(!current())return;
+    pointerLockInput=raw?'requesting-raw':'requesting-adjusted';
+    const rejected=error=>{
+      if(!current())return;
+      // Only an unsupported raw backend warrants a single adjusted retry.
+      // Permission/activation failures must not cause repeated lock requests.
+      if(raw&&error?.name==='NotSupportedError')capture(false);else failed();
+    };
+    try{
+      // Raw input bypasses the OS-adjusted/recenter path. Do not trim real
+      // flicks by guessing a maximum speed from mouse event timestamps.
+      const result=raw?canvas.requestPointerLock({unadjustedMovement:true}):canvas.requestPointerLock();
+      if(result?.then)result.then(()=>{if(current()&&document.pointerLockElement===canvas)pointerLockInput=raw?'raw':'adjusted';},rejected);
+      else pointerLockInput='legacy-unconfirmed';
+    }catch(error){rejected(error);}
+  };
+  capture(true);
 }
 function selectArena(id){
   id=normalizeMapId(id);if((map.id||'hashimoto')===id){updateMapLabels();return;}
@@ -3606,7 +3628,7 @@ function flushMouseInputTrace(){
   const rows=[];
   for(let i=0;i<mouseInputTrace.size;i++)rows.push(mouseInputTrace.rows[(mouseInputTrace.next-mouseInputTrace.size+i+2048)%2048]);
   const output=$('mouse-input-diagnostics');
-  if(output)output.textContent=JSON.stringify({version:1,mode,phase:match?.phase,sensitivity,columns:['time','clientX','clientY','movementX','movementY','locked','yawBefore','pitchBefore','yawAfter','pitchAfter','cameraX','cameraY','width','height','anchorX','anchorY','matchesX','matchesY'],rows});
+  if(output)output.textContent=JSON.stringify({version:1,mode,phase:match?.phase,sensitivity,pointerLockInput,columns:['time','clientX','clientY','movementX','movementY','locked','yawBefore','pitchBefore','yawAfter','pitchAfter','cameraX','cameraY','width','height','anchorX','anchorY','matchesX','matchesY'],rows});
 }
 function observeMouseLook(event){
   if(!mouseInputTrace||mode!=='play'||!player.alive||event.sourceCapabilities?.firesTouchEvents){mouseLook(event);return;}
@@ -3689,7 +3711,7 @@ document.addEventListener('pointerlockchange',()=>{
   const wasLocked=locked;locked=document.pointerLockElement===canvas;resetMouseLook();
   if(wasLocked&&!locked&&mode==='play')pauseGame();
 });
-document.addEventListener('pointerlockerror',()=>{inputActive=true;resetMouseLook();if(mode==='play')showMessage('MOUSE LOOK','マウスを動かすだけで視点を操作できます',3);});
+document.addEventListener('pointerlockerror',()=>{if(document.pointerLockElement===canvas||pointerLockInput.startsWith('requesting-'))return;resetMouseLook();pointerLockInput='unlocked';inputActive=true;if(mode==='play')showMessage('MOUSE LOOK','マウスを動かすだけで視点を操作できます',3);});
 document.addEventListener('mousemove',observeMouseLook);
 canvas.addEventListener('mouseenter',resetMouseLook);canvas.addEventListener('mouseleave',resetMouseLook);
 canvas.addEventListener('mousedown',e=>{if(duckAim){e.preventDefault();if(e.button===2){duckAim=null;showMessage('スキルを取り消しました','回数は消費していません',1);return;}if(e.button===0){const key=duckAim;duckAim=null;confirmDuckSkill(key);return;}}if(netHostPaused||mode!=='play')return;if(!player.alive){if(e.button===0&&!deathView.holding)spectateIndex++;return;}if(e.button===0){firing=true;shoot();}if(e.button===2)aiming=weapon().slot==='primary'&&!ordinarySkills.capLocked(player.id,elapsed);});

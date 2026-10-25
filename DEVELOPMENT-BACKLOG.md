@@ -687,3 +687,11 @@ service8/queue4/実savedgame運転10/BOT迂回7/退役6/SQLite21が成功。全m
 - 根拠/優先度: 最新人間報告「勝ったら音楽流れ出すの遅いときがある」。旧は結果時にAudio新造/preload none、停止でsrc解除。最初の画面と開始/再開入力で再生せず準備し、同一mediaを次Rも再利用する。停止はpause/先頭巻戻し、破棄/実エラーだけ解放。
 - 再確認: 専用準備8群、既存BGM8、実savedgame勝利カメラ7、録音mock4/実命中音8成功。700ms仮想ロードを勝利前に完了するmockは勝利時刻と開始時刻が一致し、5勝でも1media/1load。古いplay reject/timerは世代検査で新しい勝利を停止せず、cold待機playの消音後ロード完了も鳴らない。旧テストの1mediaごとpause1という期待だけ、再利用mediaのpause増分検査へ変更し初回log保持。製品消音は緩めない。
 - 最新公開/GitHub: workspace cycle137-release/test-reportを正本。正規Sites helperで同URL/publicへ反映し、PR63へ通常push。提供WAV/共同銃声/足音/他音源/ゲーム強さ/物理/地形/通信は保持。実Chrome開始時間/聴感/新実2タブ/実端末は未確認で、preloadは回線/ブラウザーの方針による。fps-19 PAUSED、視点飛び未解決/inputTrace待ち、旧fullmain fixture債務を維持。
+
+## 第138巡 / Chrome視点飛びの実入力と生入力への切替
+
+- 人間が診断を止めたChromeを読み取り、ロック中に異常に大きい縦入力が短時間で3回届き約46度の角度飛びになることを実savedgame再生でも確認。イベント間で向きの上書きはなく、以前の非ロックclient座標補正とは別の入力経路だった。個人の生記録と実行履歴は共有GitHubへ含めない。
+- 標準のpointer lockから`unadjustedMovement:true`の要求へ変更し、OS調整を通さない生入力を優先。NotSupportedErrorだけ通常lockへ一度代替、権限/activation失敗は再要求しない。停止/menu/死亡/新しい要求後の古いPromiseは無効。voidを返す旧実装は未確認として区別する。明示診断にbackendを加え、通常URLには記録しない。
+- 既存の感度/最初のlockサンプル除外/非ロック補正/高速フリックは保持。記録された悪い値を人工的に再注入すれば同じ角度になる。恣意的な速度フィルターで症状を隠していない。生入力要求が実機で許可され、物理操作の飛びが消えたかは所有者の再テスト待ちで、完全修正済みとはしない。
+- 専用raw入力8群/3メモリ故障、既存mouse6/continuity7/故障3/診断4、キー保護16/実勝利camera7/BGM準備8が成功。mockの125/1000/8000Hz入力は全感度を維持。実savedgame/模擬APIの検査で、実Chromeのraw許可取得を自動で実証したものではない。所有者タブの再開/reload/閉鎖/音設定は操作しない。
+- 仕様根拠: https://www.w3.org/TR/pointerlock-2/ と https://web.dev/articles/disable-mouse-acceleration 。公式APIはOS調整を避ける仕組みを説明するが、このPCの原因がOS/Chrome/機器のどれかは未確定。最新公開/GitHubの確定値はworkspace cycle138-release/test-reportを正本。音源/BGM/ゲーム強さ/物理/通信は保持し、自動fps-19はPAUSED。
