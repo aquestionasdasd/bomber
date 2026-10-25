@@ -3578,11 +3578,21 @@ function mouseLook(event){
   if(event.target!==canvas||!Number.isFinite(event.clientX)||!Number.isFinite(event.clientY)){resetMouseLook();return;}
   mouseAnchor=next;
   // Use viewport positions outside pointer lock, where relative browser deltas may jump.
-  if(!previous||previous.locked||previous.width!==next.width||previous.height!==next.height||time<previous.time||time-previous.time>250)return;
+  if(!previous||previous.locked||previous.width!==next.width||previous.height!==next.height||time<previous.time)return;
+  if(time-previous.time>250){
+    // Reseed stale positions, but an idle mouse has not changed the browser's
+    // relative input channel. Its first return/recenter must stay protected.
+    next.relativeMatchesX=previous.relativeMatchesX;
+    next.relativeMatchesY=previous.relativeMatchesY;
+    next.rebased=true;return;
+  }
   // Validate axes independently: ordinary horizontal movement must not hide a
   // vertical recenter. Keep coordinate gain, including fractional-pixel motion.
   const axisDelta=(delta,relative,field)=>{
-    const matches=previous[field]||0;
+    // A stationary axis supplies no moving samples. Evidence from the other
+    // axis still establishes the same browser's relative coordinate stream.
+    const otherField=field==='relativeMatchesX'?'relativeMatchesY':'relativeMatchesX';
+    const matches=previous[field]||Math.min(1,previous[otherField]||0);
     const offsetField=field==='relativeMatchesX'?'relativeOffsetX':'relativeOffsetY';
     const offset=previous[offsetField]||0;
     if(Number.isFinite(relative)){
@@ -3600,7 +3610,11 @@ function mouseLook(event){
         // recenter immediately after entry, a pause or a viewport reset turn us.
         // Seed from the new position even when rejecting a warp, so both its
         // outward and return samples are harmless without delaying real motion.
-        next[field]=matches;next[offsetField]=offset+delta-relative;return 0;
+        next[field]=matches;next[offsetField]=previous.rebased?0:offset+delta-relative;return 0;
+      }else if(matches>=1&&Math.abs(delta-relative)<4&&Math.abs(relative)<=500){
+        // Fractional scaling/rounded or coalesced samples may disagree by a
+        // pixel or two. Do not forget a proven channel immediately before a warp.
+        next[field]=matches;next[offsetField]=offset;
       }
     }
     return delta;
