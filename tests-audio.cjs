@@ -70,7 +70,7 @@ async function main(){
   const {createGameAudio,SAMPLE_CUES}=await import(pathToFileURL(path.join(__dirname,'public/audio.js')).href),types=Object.keys(SAMPLE_CUES),files=new Set(Object.values(SAMPLE_CUES).flatMap(l=>l.map(x=>x.file)));
   const manifests=JSON.parse(fs.readFileSync(path.join(__dirname,'public/audio/manifest.json'),'utf8'));
   assert.equal(manifests.filter(e=>e.adopted_cycle===71).length,22);assert.equal(new Set(manifests.map(e=>e.file)).size,manifests.length);
-  const signature=(b,file)=>{if(file.endsWith('.mp3'))assert.ok(b.subarray(0,3).toString()==='ID3'||b[0]===255&&(b[1]&224)===224,'MP3 frame/header');else assert.equal(b.subarray(0,4).toString(),'OggS');};
+  const signature=(b,file)=>{if(file.endsWith('.mp3'))assert.ok(b.subarray(0,3).toString()==='ID3'||b[0]===255&&(b[1]&224)===224,'MP3 frame/header');else if(file.endsWith('.wav')){assert.equal(b.subarray(0,4).toString(),'RIFF');assert.equal(b.subarray(8,16).toString(),'WAVEfmt ');assert.equal(b.readUInt16LE(20),1);assert.equal(b.readUInt16LE(22),1);assert.equal(b.readUInt16LE(34),16);assert.equal(b.readUInt32LE(40),b.length-44);}else assert.equal(b.subarray(0,4).toString(),'OggS');};
   for(const e of manifests){const b=fs.readFileSync(path.join(__dirname,'public/audio',e.file));assert.equal(sha(b),e.sha256);assert.equal(b.length,e.bytes);signature(b,e.file);}
   for(const file of files)signature(fs.readFileSync(path.join(__dirname,'public/audio',file)),file);
   for(const pack of ['rpg-audio','impact-sounds','music-jingles']){const license=fs.readFileSync(path.join(__dirname,'public/audio/LICENSE-'+pack+'.txt'),'utf8');assert.match(license,/CC0/);assert.match(license,/commercial/i);}

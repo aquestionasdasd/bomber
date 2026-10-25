@@ -2,6 +2,7 @@ import { createRoundDamageTracker, renderCombatReport } from './combat-report.js
 import { createFlashStatusFX } from './flash-status-fx.js';
 import { planNopeWalk, nopeWalkPose } from './nope-walk.js';
 import {busPoint} from './bus-service.js';
+import { createBusHornScheduler } from './bus-horn.js';
 import {busHitsBox} from './bus-destruction.js';
 import { createSkillSpectacle, createSkillFeedback, SKILL_LOOKS } from './skill-spectacle.js';
 import { createFullComboTracker, renderRoundBanner } from './full-combo.js';
@@ -1032,6 +1033,7 @@ function updateMapLabels(){
   if($('start-subtitle'))$('start-subtitle').textContent=(['explore','range','plant','defuse'].includes($('match-format')?.value)?'PRACTICE IN ':'DEPLOY TO ')+short;
 }
 const busBreakAudioAt=new Map();
+const busHorns=createBusHornScheduler(pose=>sound('bus-horn',{entity:{id:'bus-horn:'+pose.id,x:pose.x,y:0,z:pose.z},localOnly:true}));
 function busSeat(actor=player){return map.traffic?.service.seat(actor.id)||null;}
 function busDriving(actor=player){return busSeat(actor)?.driving===true;}
 function busCanExit(p){return canStand(p.x,p.z,.34,0)&&getZoneFloor(p.x,p.z,.6)<.45;}
@@ -1078,12 +1080,13 @@ function shootBusDriver(hit,actor,damage,{visualOnly=false}={}){
  }
  burst(hit.point,'#e9c586',3);return true;
 }
-function resetTraffic(preserveHijacked=false){busBreakAudioAt.clear();map.traversal?.reset();player.trcLadder=null;map.traffic?.reset(null,{preserveHijacked});map.busModels?.update(elapsed);map.destruction?.reset();for(const actor of [player,...bots]){actor.trafficLaunch=null;delete actor.busFrameYaw;}}
+function resetTraffic(preserveHijacked=false){busHorns.reset();busBreakAudioAt.clear();map.traversal?.reset();player.trcLadder=null;map.traffic?.reset(null,{preserveHijacked});map.busModels?.update(elapsed);map.destruction?.reset();for(const actor of [player,...bots]){actor.trafficLaunch=null;delete actor.busFrameYaw;}}
 function updateTraffic(dt){
-  if(!map.traffic)return;
+  if(!map.traffic){busHorns.reset();return;}
   const actors=[player,...bots];
   if(!isGuest())map.traffic.service.tick(dt,elapsed,actors,{enabled:match.phase==='live',controls:busControls,canDrive:busCanDrive,canExit:busCanExit});
   else for(const actor of actors)map.traffic.service.place(actor,elapsed);
+  busHorns.update(elapsed,map.traffic.poses(elapsed),match.phase==='live'&&!netHostPaused&&!document.hidden);
   for(const actor of actors)if(busSeat(actor)&&actor.group)actor.group.position.set(actor.x,actor.y,actor.z);
   map.destruction?.update(elapsed);map.busModels?.update(elapsed);
   if(!isGuest()){
@@ -3196,6 +3199,7 @@ function applyNetSnapshot(packet){
   netActionSequence=Math.max(netActionSequence,ack,...netActions.map(a=>a.seq));
   applyNetCues(packet,fresh,ownId);
   Object.assign(match,packet.rules);match.events=[];match.credits=self.credits;elapsed=packet.time;roster=packet.roster;
+  if(fresh)busHorns.reset();
   map.busModels?.update(elapsed);
   if(match.phase==='buy'){if(packet.damageReport!==undefined)roundDamage.restore(packet.damageReport,roster,match.round,self.team);else roundDamage.reset();}
 if(map.destruction){if(fresh||!packet.busDamage)map.destruction.reset();map.destruction.restore(packet.busDamage??'',elapsed,{effects:!fresh&&match.phase==='live',impacts:map.traffic?.poses(elapsed)||[],contacts:Array.isArray(packet.cues)?packet.cues.filter(c=>validBusBreakCue(c,packet)):[]});map.destruction.update(elapsed);}

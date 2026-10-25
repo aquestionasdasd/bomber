@@ -174,3 +174,10 @@ Original source URLs, edits and SHA remain in soundeffect-lab-manifest.json.
 Self/enemy share the same weapon recording; distance/pan/occlusion remain.
 No playback/listening performed. Original footstep/landing graph and 8 asset
 bytes remain; earlier original-gunfire preservation notes above are history.
+
+Bus hijack horn (cycle124)
+bus-horn.wav: original project-authored two-tone electric horn waveform.
+Generated deterministically by scripts/generate-bus-horn.cjs; 185/233 Hz
+fundamentals and harmonics, PCM16 mono 44100 Hz, 0.72 seconds.
+No external samples or third-party recording licenses. Generated and checked
+offline only; no playback/listening performed. All existing recordings remain.

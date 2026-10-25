@@ -408,5 +408,17 @@
     "source": "User attachment explicitly requested for bus wall demolition in this game",
     "license": "User-provided; no CC0 or third-party license claim",
     "adopted_cycle": 102
+  },
+  {
+    "file": "bus-horn.wav",
+    "original": "bus-horn.wav",
+    "bytes": 63548,
+    "sha256": "1266317ca736ef8c14002b848adec0dab8656a3d1ca1e186000770352dbbabf7",
+    "seconds": 0.72,
+    "format": "wav",
+    "pack": "project-original",
+    "source": "scripts/generate-bus-horn.cjs; original additive two-tone electric horn, no third-party samples",
+    "license": "Project-original waveform; no third-party sample license required",
+    "adopted_cycle": 124
   }
 ]

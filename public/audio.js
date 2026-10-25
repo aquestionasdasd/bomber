@@ -18,6 +18,7 @@ export const SAMPLE_CUES=Object.freeze({
  'gun-kill':[soft(.38,.14),layer('jingle-PIZZI07.ogg',.30,.65,.025)],
  'vehicle-hit':[layer('vehicle-impact-user.mp3',.65,1.1)],
  'bus-break':[layer('bus-wall-break-user.mp3',.55,5.55)],
+ 'bus-horn':[layer('bus-horn.wav',.60,.72)],
  'duct-step':[layer('onjin-latch.ogg',.14,.16,0,.82)],
  'door-open':[layer('onjin-equipment.ogg',.20,.45),layer('onjin-latch.ogg',.12,.18,.22)],
  'door-close':[layer('onjin-equipment.ogg',.18,.35),layer('onjin-latch.ogg',.23,.23,.23)],
