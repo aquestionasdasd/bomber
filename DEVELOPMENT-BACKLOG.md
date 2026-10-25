@@ -717,3 +717,10 @@ SCOUT/ATLASは実発射後、次弾を撃てるまでスコープを外し、右
 - 変更: 実本人キルの既存host確定/guest受信cueに視覚通知を併設。1.6秒のtransform/opacity、連続キルで再pulse、縮小動作では静止、pause/次R/menu清掃。下HUDより上の中央。既存キル音/武器威力/判定/経済/wire不変。
 - 再確認: 新実savedgame6、kill7/combat audio8/victorycamera7成功。所有hidden9の固定配置rangeで実shoot1撃破/実バナー表示/透過/warnerror0。仮fixtureは製品byteへ復元し除外。ユーザーtab不操作/再生試聴なし。最新公開とGitHubの最終値はworkspace cycle141-release。
 - 残課題: 新実2タブ/実端末/聴感未確認、旧fullmain床ボンバーhold4fixture債務保持。fps-19 PAUSED、次は手動指定のみ。
+
+## 第142巡 / 手動: 電源オフ開始音
+
+- 最新人間指定: 解除開始時に「ピピッ」。実ルールの担当獲得で一回、中断後の再開/交代で再度一回。同じ長押しは繰り返さず完了音は保持。本人/BOT/host remote/解除練習を共通化。
+- 既存録音を短く2回、ボンバー地点から定位・距離・遮蔽を反映。guest予測は無音、host確定の既存cueで本人にも通知。新field/HTTP頻度/作業速度/HP/経済は不変、全113録音cue。他の素材byte/共同銃声/足音/キル音/BGMは維持。
+- 再確認: 専用実savedgame9/メモリ故障3/録音mock4/ルール19/SQLite21成功。BOTは実役割・updatePlay一frame一回で20/60/144Hz。新fixtureのサイト座標と試験観測者が可聴65m外だった点だけ訂正し初回log保持、製品の距離減衰/作業条件は緩めない。関連検査/正規build/公開/GitHubの最終記録はworkspace cycle142-release/test-report。
+- 未確認: 新実ブラウザー2タブ/実端末/聴感。全main旧床ボンバーhold4fixture債務と全15人汎用性は保持、無用反復なし。fps-19 PAUSED、次も人間の手動指定のみ。

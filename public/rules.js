@@ -67,7 +67,7 @@ export class MatchRules {
     // Keep the first defuser until they cancel; another held key must not reset
     // their progress or add a second contribution during the same frame.
     if(s.defuseActor!==null&&s.defuseActor!==actorId)return false;
-    if(s.defuseActor!==actorId){s.defuseProgress=s.checkpoint;s.defuseActor=actorId;}
+    if(s.defuseActor!==actorId){s.defuseProgress=s.checkpoint;s.defuseActor=actorId;this.events.push({type:'defuse-start',actorId});}
     s.defuseProgress=Math.min(7,s.defuseProgress+Math.min(Math.max(0,dt),s.timer));
     if(s.defuseProgress>=3.5-1e-8){s.defuseProgress=Math.max(3.5,s.defuseProgress);s.checkpoint=3.5;}
     if(s.defuseProgress<7-1e-8)return false;

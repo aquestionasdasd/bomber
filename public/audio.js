@@ -33,6 +33,7 @@ export const SAMPLE_CUES=Object.freeze({
  jump:[cloth(.20,.16)],'duck-flap':[cloth(.18,.23)],'duck-launch':[air(.18,.3),cloth(.16,.2)],
  reload:[layer('lab-machinegun-magazine-set1.ogg',.22,.52)],hit:[soft(.23,.14)],
  spike:[layer('lab-beep1.ogg',.42,.18),bell(.18,.12)],plant:[bell(.34,.8),layer('onjin-latch.ogg',.25,.30),layer('lab-decision6.ogg',.12,.30,.20)],defuse:[layer('oto-cyber19-1.ogg',.2,.26),cloth(.18,.25,.08)],
+ 'defuse-start':[layer('lab-beep1.ogg',.34,.09,0,1.35),layer('lab-beep1.ogg',.34,.09,.16,1.35)],
  buy:[layer('lab-decision6.ogg',.20,.3),layer('onjin-equipment.ogg',.12,.22,.05)],scan:[page(.15,.18),bell(.07,.3,.06)],
  'skill-throw':[cloth(.26,.25),air(.13,.24,.03)],'bottle-pop':[liquid(.25,.45),layer('lab-ice.ogg',.16,.4,.025),soft(.15,.2)],
  flash:[air(.16,.24),glass(.11,.24,.04)],decoy:[layer('onjin-decoy.ogg',.20,.25),cloth(.17,.3,.04)],takeover:[layer('onjin-field.ogg',.21,.45),air(.20,.4,.07),liquid(.15,.45,.14)],

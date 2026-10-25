@@ -82,3 +82,11 @@ public/audio.jsのSAMPLE_CUESはスキル・通知82種を元のCC0素材で構�
 hostが実撃破時に本人別/ラウンド別の順番を確定し、既存cueのtypeだけをkill-1〜kill-5へ変えてguest本人へ届ける。銃/ナイフ/スキル/対敵車両の撃破が対象。味方・運転手・デコイ・非致死・拒否予測は進めず、重複/旧R/初回同期/古い/未来の受信・mute/未読込は消費して鳴り直さない。実HP/撃破報酬/フルコンボ/通信field/頻度を変えない。共同版10銃/ナイフ、足音/着地34voice/元8素材、命中音と勝利BGMは保持。
 
 元WAVはPCM24/stereo/44100Hz/7.1562585034秒/1893662B、SHA256 8c42d678fdaed891decec3690146308dd31387331ad7a3072d06b7b9151fc1d0。制作本人の指定素材として記録しCC0とは称さない。素材PCM/区間/offset/音量/48voice/失敗無音をofflineとmockで確認し、実音の試聴はしていない。専用savedgame/独立hostguest JSON/故障検出/既存関連検査、公開とGitHubの最終確定はworkspace cycle129-test-report.json / cycle129-release.json。自動更新fps-19はPAUSEDのまま。
+
+## 第142巡 / 電源オフ開始の「ピピッ」
+
+最新人間指定により、実ルールが解除担当を受け付けた遷移だけで `defuse-start` を発行する。同じ長押し中は一回、中断後の再開/担当交代は再度一回。既存の電源オフ完了音とは分ける。通常の本人/BOT/host remoteと設置解除練習を揃え、無効な操作/予測guest/待機中の二人目は発音しない。
+
+既存同梱 `lab-beep1.ogg` を2層、各90ms/間隔160ms/rate1.35/gain.34で使い、全体250ms。新素材は追加せず全113録音cue。ボンバー地点の定位/距離/遮蔽とSOUND OFF/volume0を尊重。既存64cueのseq/round/id/時刻/座標だけでhostから全近隣プレイヤーへ伝え、開始したguest本人も受信する。初回同期/重複/旧R/古い/未来/不正cueは消費して無音、後から鳴り直さない。postに届いた直近cueも受理。新wire field/HTTP頻度/解除7秒・チェックポイント3.5秒/経済/他の音は変更しない。
+
+専用実savedgame9群（実BOT役割・20/60/144Hz・独立hostguest JSON・再開/拒否/消音/清掃）と3メモリ故障、録音mock4/既存ルール19/SQLite21を検証。実音は再生・試聴しない。最終公開/GitHub値と関連検査の確定結果はworkspace cycle142-release/test-report。新実ブラウザー2タブ/実端末/聴感は未確認。

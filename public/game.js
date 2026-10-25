@@ -195,7 +195,7 @@ const netPositionHistory=new Map();
 let netPositionAck=0,netPositionCorrectionX=0,netPositionCorrectionZ=0;
 let netActions=[],netParticipants=new Map(),netApplied=new Map(),netInputs=new Map();
 let netCueSequence=0,netSeenCueSequence=0,skillImpactSequence=0;const netCues=[];
-const actionCueTypes=new Set(['vehicle-hit','bus-break','door-open','door-close','door-break','door-hit','duct-step','shot','enemy','smoke','frost','updraft','dash-armed','dash','knives','heal','recon','veil','ember-warning']);
+const actionCueTypes=new Set(['defuse-start','vehicle-hit','bus-break','door-open','door-close','door-break','door-hit','duct-step','shot','enemy','smoke','frost','updraft','dash-armed','dash','knives','heal','recon','veil','ember-warning']);
 const dashFeedback={round:null,state:null,expires:0,charge:null,signatureAt:0};
 const signatureReadyNotices=new Set();
 let signatureFeedbackMatch=null;
@@ -645,6 +645,8 @@ function applyNetCues(packet,fresh,ownId){
     }
     if(['skill-hit','skill-heal'].includes(cue.type)){if(!Object.hasOwn(SKILL_LOOKS,cue.weapon)||!Number.isFinite(cue.y)||Math.max(Math.abs(cue.x),Math.abs(cue.y),Math.abs(cue.z))>1000||packet.time-cue.time>.65||packet.rules.phase!=='live')continue;const kind=cue.type==='skill-heal'?'heal':'hit';skillSpectacle.impact(cue.weapon,cue,cue.time,{kind});if(cue.id===ownId)skillFeedback.note(kind,'receipt:'+cue.round+':'+cue.seq,cue.weapon,cue.time);continue;}
     if(cue.type==='bus-break'){if(validBusBreakCue(cue,packet))sound('bus-break',{entity:cue,localOnly:true});continue;}
+    // Defusing is confirmed by the host; the initiating guest has no predicted cue.
+    if(cue.type==='defuse-start'){if(['live','post'].includes(packet.rules.phase)&&packet.time-cue.time<=.65&&Number.isFinite(cue.time)&&Number.isFinite(cue.y)&&Math.max(Math.abs(cue.x),Math.abs(cue.y),Math.abs(cue.z))<=1000)sound('defuse-start',{entity:cue,localOnly:true});continue;}
     // Vehicle contact is host-confirmed even when this guest is the victim.
     if(cue.id===ownId&&cue.type!=='vehicle-hit'&&!String(cue.type).startsWith('door-')||!actionCueTypes.has(cue.type))continue;
     sound(cue.type,{weapon:cue.weapon,entity:cue,localOnly:cue.type==='vehicle-hit'});
@@ -955,6 +957,7 @@ function showRoundResult(team,reason,{audible=true}={}){
   const banner=$('round-banner');if(!banner)return;
   renderRoundBanner(banner,{document,match,roster,viewerTeam:player.team,team,reason});setVisible('round-banner',true);
 }
+function soundDefuseStart(event){sound('defuse-start',{entity:{id:event.actorId,x:match.spike.x,y:0,z:match.spike.z}});}
 function handleMatchEvents(){
   if(!match)return;
   for(const event of match.drainEvents()){
@@ -965,6 +968,7 @@ function handleMatchEvents(){
       for(const r of roster)if(r.id!=='player'&&r.team===event.team)r.credits=Math.min(9000,r.credits+300);
     }
     if(event.type==='dropped')showMessage('BOMBER DROPPED','落ちたボンバーは攻撃側が接近すると回収',2);
+    if(event.type==='defuse-start')soundDefuseStart(event);
     if(event.type==='defused'){sound('defuse',{entity:match.spike});const defuser=event.actorId==='player'?player:bots.find(b=>b.id===event.actorId);defuser?.kit?.awardPoint();}
     if(event.type==='detonated')startDetonation({id:`${match.round}:${elapsed.toFixed(6)}`,round:match.round,startedAt:elapsed,x:match.spike.x,z:match.spike.z,seed:(Math.imul(match.round,16807)+Math.floor(elapsed*1000))>>>0});
     if(event.type==='round-end'){
@@ -1411,7 +1415,8 @@ function resetObjectivePractice(siteId='A'){
 function updateObjectivePractice(dt){
   if(!objectivePractice)return;
   if(!objectivePractice.completed)objectivePractice.elapsed+=dt;
-  const event=match.drainEvents().find(e=>e.type===(objectivePractice.kind==='plant'?'planted':'defused'));
+  const events=match.drainEvents();for(const event of events)if(event.type==='defuse-start')soundDefuseStart(event);
+  const event=events.find(e=>e.type===(objectivePractice.kind==='plant'?'planted':'defused'));
   if(event&&!objectivePractice.completed){
     objectivePractice.completed=true;objectivePractice.duration=objectivePractice.elapsed;
     clearCombatInput();sound(objectivePractice.kind==='plant'?'plant':'defuse');
