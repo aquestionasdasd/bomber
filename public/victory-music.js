@@ -58,8 +58,10 @@ export function createVictoryMusic({config=VICTORY_MUSIC,createAudio=()=>new Aud
     }catch{if(active())fail(media,'BGMを開始できませんでした。次の勝利時に再試行します。');return false;}
   }
   function state(){return {configured:!!config.src,title:config.title||'未設定',error};}
+  // Read the actual media transport, so a blocked or buffering play has no lights.
+  function playback(){return {playing:!!current&&current.paused===false&&!current.ended&&!current.seeking&&current.readyState>=3,time:current&&Number.isFinite(current.currentTime)?current.currentTime:0};}
   function dispose(){if(disposed)return;reset();disposed=true;if(prepared)release(prepared);}
-  return {prepare,result,stop,reset,setGate,state,dispose};
+  return {prepare,result,stop,reset,setGate,state,playback,dispose};
 }
 
 export function bindVictoryMusicSettings({document,music,preferences,onChange}){

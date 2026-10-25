@@ -1,3 +1,11 @@
+## 第144巡 / 勝利BGM中のクラブ照明
+
+最新人間指定により、勝利BGMが実際に再生されている間だけカラフルな6本の光線・色の変化・滑らかな明暗を重ねる。既存HTMLAudioの再生位置を読み、独立音声/時計/timer/rendererは追加しない。160BPMの装飾用の脈動で、楽曲の拍を解析した機能ではない。現在の三人称ダンス/勝利カメラ/音源/設定/音量を保持。通常対戦・購入・負け・消音・読込待ち・buffer・seek・一時停止・非表示・次R/menuでは消す。縮小動作は固定色だけにする。pointer-events:noneの装飾レイヤーで操作を妨げない。
+
+新presentation6/実savedgame5、既存BGM8/事前準備8/勝利camera7が成功。20/60/144Hz、実media transportのread-only判定、重複結果・fresh結果のaudible:false・pause/hostpause/次R/menuの清掃を確認。新しい独立guestJSON検証ではなく既存勝利camera7の過去と今回回帰を根拠にする。所有hidden11の音声要素なし専用プレビューで最初OFF/AX0/ariafalse、6光線の実描画・縮小動作で光線0・停止非表示・warnerror0を確認。模擬時計と既存NOPEダンスによる見た目確認で、実BGMのbrowser同時再生/聴感検証ではない。画像cycle144-club-local.png。11閉鎖/8063保持sessionから停止listener0。一時previewは公開sourceから除去。初回非表示10は接続timeoutでhandleなし/UI操作なし、自動cleanup対象・手動閉鎖未確認。
+
+音素材/全113cue/共同版銃声/足音着地/ゲーム物理地形/判定/通信を変更しない。実音試聴/foreground/既存userタブ/OS/他アプリ操作なし。新実2タブ/端末/聴感は未確認。最終正規build/package/共有/公開/GitHubはworkspace cycle144-release/test-reportを正本とする。自動fps-19はPAUSED維持、手動依頼のみ。全main旧fixture債務を保持し無用反復なし。
+
 
 ## 第143巡 / 遠距離・壁越しの銃声
 

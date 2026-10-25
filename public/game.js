@@ -37,6 +37,7 @@ import { createViewmodel } from './viewmodel.js';
 import { createAgentModel } from './agent-model.js';
 import { createCharacterPicker } from './character-preview.js';
 import { roundDanceState, createVictoryCamera } from './victory-dance.js';
+import { createVictoryClub } from './victory-club.js';
 import { createGameAudio } from './audio.js';
 import { createVictoryMusic, bindVictoryMusicSettings } from './victory-music.js';
 import { createDeathView } from './death-view.js';
@@ -257,6 +258,8 @@ let victoryMusicEnabled=settings.victoryMusicEnabled!==false;
 let victoryMusicVolume=Number.isFinite(Number(settings.victoryMusicVolume))?clamp(Number(settings.victoryMusicVolume),0,1):.6;
 let victoryMusicUI;
 const victoryMusic=createVictoryMusic({onChange:()=>victoryMusicUI?.render()});
+const victoryClub=createVictoryClub({element:$('victory-club')});
+function updateVictoryClub(){return victoryClub.render({...victoryMusic.playback(),eligible:mode==='play'&&!document.hidden&&!netHostPaused&&match?.phase==='post'&&match.phaseTime>0&&match.lastRound?.team===player.team,reducedMotion:reducedMotion.matches});}
 function syncVictoryMusic(){victoryMusic.setGate({enabled:victoryMusicEnabled,musicVolume:victoryMusicVolume,soundEnabled,masterVolume:volume,hidden:document.hidden});victoryMusic.prepare();}
 syncVictoryMusic();
 const gameAudio=createGameAudio();
@@ -3853,7 +3856,7 @@ if($('sensitivity')){$('sensitivity').value=sensitivity;$('sensitivity').addEven
 if($('volume')){$('volume').value=volume;$('volume').addEventListener('input',e=>{volume=Number(e.target.value);syncVictoryMusic();saveSettings();});}
 
 victoryMusicUI=bindVictoryMusicSettings({document,music:victoryMusic,preferences:{enabled:victoryMusicEnabled,volume:victoryMusicVolume},onChange:next=>{if(next.enabled!==undefined)victoryMusicEnabled=next.enabled;if(next.volume!==undefined)victoryMusicVolume=next.volume;syncVictoryMusic();saveSettings();}});
-window.addEventListener('pagehide',event=>{if(event.persisted)victoryMusic.stop();else {victoryMusic.dispose();victoryCamera.dispose();fullscreenNotice.dispose();}});
+window.addEventListener('pagehide',event=>{victoryClub.reset();if(event.persisted)victoryMusic.stop();else {victoryMusic.dispose();victoryClub.dispose();victoryCamera.dispose();fullscreenNotice.dispose();}});
 
 // Touch controls use separate pointers for movement, aiming, and firing.
 const pad=$('move-pad');
@@ -3899,6 +3902,7 @@ function frame(now){
   }
   tickOnline(dt);
   updateVictoryCamera(dt);
+  updateVictoryClub();
   killBanner.render(elapsed,{active:!document.hidden&&!netHostPaused&&mode==='play'&&['live','post'].includes(match?.phase),currentRound:match?.round,reducedMotion:reducedMotion.matches});
   for(let i=effects.length-1;i>=0;i--){const effect=effects[i];if(['play','shop','map','score'].includes(mode)){effect.life-=dt;if(effect.velocity){effect.velocity.y-=6*dt;effect.object.position.addScaledVector(effect.velocity,dt);}}
     if(effect.life<=0){effectsGroup.remove(effect.object);effect.object.geometry.dispose();effect.object.material.dispose();effects.splice(i,1);}else effect.object.material.opacity=Math.min(1,effect.life/effect.max);
