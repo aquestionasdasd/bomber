@@ -273,7 +273,8 @@ function sound(type,{weapon:id=inventory.active,entity=null,localOnly=false}={})
   if(!localOnly&&!isGuest()&&match?.phase==='live'){const actor=entity||player;if(actor===player||bots.includes(actor))botHearing.emit(actor,type==='enemy'||type==='shot'?(id==='knife'?null:'shot'):type,elapsed);}
   if(!soundEnabled||!volume)return;
   const dx=entity?entity.x-player.x:0,dz=entity?entity.z-player.z:0,distance=Math.hypot(dx,dz);
-  if(!['explosion','plant','spike'].includes(type)&&distance>65)return;
+  const gunshot=(type==='shot'||type==='enemy')&&(WEAPONS[id]?.mag||0)>0;
+  if(!['explosion','plant','spike'].includes(type)&&distance>(gunshot?100:65))return;
   const pan=distance?(dx*Math.cos(player.yaw)-dz*Math.sin(player.yaw))/distance:0;
   const occluded=entity&&distance>2&&!map.collision.rayClear(player.x,player.y+1.5,player.z,entity.x,(entity.y||0)+1.3,entity.z);
   const plantedNotice=type==='plant',bomberTick=type==='spike';

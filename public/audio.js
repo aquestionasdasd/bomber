@@ -93,13 +93,15 @@ export function createGameAudio(){
     if(!context||context.state!=='running'||volume<=0||active>=48)return;
     const protectedSound=['step','land'].includes(type);
     const cueType=type==='shot'||type==='enemy'?'weapon-'+(Object.hasOwn(SAMPLE_CUES,'weapon-'+weapon)?weapon:'classic'):type;
+    const gunshot=(type==='shot'||type==='enemy')&&cueType!=='weapon-knife';
     const recipe=Object.hasOwn(SAMPLE_CUES,cueType)?SAMPLE_CUES[cueType]:null;
     const layers=protectedSound?null:recipe?.filter(layer=>samples.has(layer.file)&&samples.get(layer.file).duration>(layer.offset||0));
     // Failed or not-yet-decoded samples stay silent: never queue a late cue or emit a beep.
     if(!protectedSound&&!layers?.length)return;
     const t=context.currentTime,out=context.createGain(),nodes=[out],sources=[];
-    const attenuation=1/(1+Math.max(0,distance)*.11);
-    out.gain.value=volume*attenuation*(occluded?.40:1);
+    // Gunfire carries farther than movement; fade its last20m instead of cutting at65m.
+    const attenuation=1/(1+Math.max(0,distance)*(gunshot?.035:.11)),range=gunshot?Math.max(0,Math.min(1,(100-distance)/20)):1;
+    out.gain.value=volume*attenuation*range*(occluded?(gunshot?.70:.40):1);
     if(context.createStereoPanner){const panner=context.createStereoPanner();panner.pan.value=Math.max(-1,Math.min(1,pan));out.connect(panner);panner.connect(context.destination);nodes.push(panner);}else out.connect(context.destination);
     function tone(frequency,end,length,gain,wave='sine',delay=0){
       const osc=context.createOscillator(),amp=context.createGain();osc.type=wave;
@@ -127,7 +129,7 @@ export function createGameAudio(){
       for(const layer of layers){
         const source=context.createBufferSource(),filter=context.createBiquadFilter(),amp=context.createGain();source.buffer=samples.get(layer.file);
         const {rate,length,gain,delay,offset=0}=layer,duration=Math.min((source.buffer.duration-offset)/rate,length);
-        source.playbackRate.value=rate;filter.type='lowpass';filter.frequency.value=occluded?1600:10000;filter.Q.value=.65;
+        source.playbackRate.value=rate;filter.type='lowpass';filter.frequency.value=occluded?(gunshot?3200:1600):10000;filter.Q.value=.65;
         amp.gain.setValueAtTime(gain,t+delay);amp.gain.setValueAtTime(gain,t+delay+Math.max(0,duration-.025));amp.gain.exponentialRampToValueAtTime(.0001,t+delay+duration);
         source.connect(filter);filter.connect(amp);amp.connect(out);source.start(t+delay,offset,duration*rate);sources.push({source,end:delay+duration});nodes.push(source,filter,amp);
       }
