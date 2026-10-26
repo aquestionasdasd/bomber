@@ -1526,7 +1526,7 @@ function moveEntity(entity,dx,dz,r=.34) {
       const controlled=entity===player||!!entity.remoteId||!!map.traversal;
       let feet=entity.y||0;
       const ramp=controlled?rampFloor(x,z):null;
-      const followsFloor=entity===player?player.vy===0:!!entity.remoteId||!!map.traversal&&!entity.vy;
+      const followsFloor=entity===player||map.traversal?!entity.vy:!!entity.remoteId;
       // Grounded feet may step up; an airborne actor must clear the slope rather
       // than enter just below it and miss the downward landing intersection.
       if(ramp!==null&&ramp>feet+(followsFloor?.22:.00001))return;
@@ -3490,7 +3490,13 @@ if(map.destruction){if(fresh||!packet.busDamage)map.destruction.reset();map.dest
     if(state.kit&&actor.kit)actor.kit.restore(state.kit);
   }
   if(busSeat()){map.traffic.service.place(player,elapsed);player.vx=player.vz=player.vy=0;}
-  if(map.traversal){const pending=netActions.some(a=>a.type==='trc-interact'&&a.kind==='ladder');if(!pending){player.trcLadder=self.trcLadder||null;if(player.trcLadder||Math.abs(player.y-self.y)>.55){player.x=self.x;player.z=self.z;player.y=self.y;player.vy=0;}}}
+  if(map.traversal){const pending=netActions.some(a=>a.type==='trc-interact'&&a.kind==='ladder');if(!pending){
+    // Ordinary stairs/jumps are predicted against the same solid map. A delayed
+    // host height is not a rejected input and must not rewind newer XYZ or vy.
+    // Explicit ladder state still belongs to the host.
+    const wasClimbing=!!player.trcLadder;player.trcLadder=self.trcLadder||null;
+    if(player.trcLadder||wasClimbing){player.x=self.x;player.z=self.z;player.y=self.y;player.vy=0;}
+  }}
   netHasSnapshot=true;setVisible('loading',false);setVisible('hud',true);setVisible('spectator-hint',!player.alive&&!deathView.holding);syncDeathUI();syncBuyBarrier();
   if(!netHostPaused&&!netCharacterRequested&&match.phase==='buy'&&match.round===1){netCharacterRequested=true;queueNetAction('character',{character:selectedCharacter()});player.kit.character=selectedCharacter();}
   if(match.phase==='match'&&mode!=='result')finish(match.winner===player.team);
@@ -3515,7 +3521,18 @@ function updateRemoteActor(actor,dt){
     if(requestedCrouch>=(actor.crouch||0)||canStand(actor.x,actor.z,.34,actor.y||0,1.7-requestedCrouch*.55))actor.crouch=requestedCrouch;
     moveEntity(actor,dx,dz);
     const blocked=Math.hypot(actor.x-previousX-dx,actor.z-previousZ-dz)>1e-5;
-    if(!wasDashing&&actor.netDashInputSequence!==data.seq&&(objectiveWork||Math.hypot(input.x-actor.x,input.z-actor.z)<1e-5||blocked||distance>2))actor.netPositionAck={seq:data.seq,connection:data.connection,round:data.round,x:actor.x,z:actor.z};
+    // A delayed jump can meet a stair riser before its feet have risen to the
+    // client's sampled height. Give that motion a bounded chance to finish;
+    // a persistently blocked request still receives an authoritative rejection.
+    let waitForStep=false;
+    if(map.traversal&&!duckPadAirborne(actor)&&!duckFlight(actor)&&!ordinarySkills.onnaraEvent?.('onnara-hover',actor.id,elapsed)){
+      const blockedKey=data.connection+':'+data.round;
+      if(!blocked||actor.netTrcBlockedKey!==blockedKey)actor.netTrcBlockedAt=null;
+      actor.netTrcBlockedKey=blockedKey;
+      if(blocked&&actor.netTrcBlockedAt==null)actor.netTrcBlockedAt=elapsed;
+      waitForStep=blocked&&(!!actor.vy||!inputGrounded)&&elapsed-actor.netTrcBlockedAt<.35;
+    }
+    if(!wasDashing&&actor.netDashInputSequence!==data.seq&&(objectiveWork||Math.hypot(input.x-actor.x,input.z-actor.z)<1e-5||blocked&&!waitForStep||distance>2))actor.netPositionAck={seq:data.seq,connection:data.connection,round:data.round,x:actor.x,z:actor.z};
     if(!objectiveWork&&Number.isFinite(input.y)&&!duckPadAirborne(actor)&&!carMotionActive(actor)&&elapsed>=Math.max(actor.carImpulseUntil||0,actor.trafficLaunch?.endsAt||0)){
       const floor=inputGrounded?getZoneFloor(actor.x,actor.z,Math.max(actor.y,inputFeet)+.22):null;
       // A capped stair input follows support at the accepted XZ, not the feet
@@ -3530,13 +3547,18 @@ function updateRemoteActor(actor,dt){
         }
       }
       if(map.traversal&&!flight&&!ordinarySkills.onnaraEvent?.('onnara-hover',actor.id,elapsed)){
-        if(inputFeet>actor.y+.1&&actorGrounded(actor))actor.vy=6.552;
+        // One airborne input stream can request one normal jump. Reusing its
+        // last height after landing must not repeatedly launch the remote.
+        const jumpKey=data.connection+':'+data.round;
+        if(actor.netTrcJumpKey!==jumpKey){actor.netTrcJumpKey=jumpKey;actor.netTrcJumpActive=false;}
+        if(inputGrounded)actor.netTrcJumpActive=false;
+        else if(!actor.netTrcJumpActive&&inputFeet>actor.y+.1&&actorGrounded(actor)){actor.vy=6.552;actor.netTrcJumpActive=true;}
         updateActorVertical(actor,dt);acceptedY=actor.y;
       }
       actor.y=acceptedY;
       // Remote motion is consumed from its accepted pose; a prior lift impulse
       // must not leave a landed actor permanently classified as airborne.
-      actor.vy=inputGrounded?0:(actor.y-previousY)/Math.max(dt,1e-6);
+      if(!map.traversal||flight||ordinarySkills.onnaraEvent?.('onnara-hover',actor.id,elapsed))actor.vy=inputGrounded?0:(actor.y-previousY)/Math.max(dt,1e-6);
     }
     applyStarHold(actor);
     actorMovementScale(actor);
