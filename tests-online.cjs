@@ -412,7 +412,7 @@ async function main() {
       assert.equal((await send(host, 'team:red', 'game', snapshot)).status, 201);
       const delivered = (await getMessages(guest)).value.messages;
       assert.equal(delivered.length, 1); assert.deepEqual(delivered[0].data, snapshot, 'HTTP fallback must preserve every state/effect/cue/marker/drop without truncation');
-      for(const type of ['duck-pad','duck-seal','duck-shield','cat-pluck','car-bumper','nobi-tag','nobi-brake','japan-levy','japan-border','cap-lock','cap-clean','urchin-lance','urchin-jam','urchin-disarm']){
+      for(const type of ['nobi-bell','nobi-whisker','nobi-toolbox','nobi-collar','duck-pad','duck-seal','duck-shield','cat-pluck','car-bumper','nobi-tag','nobi-brake','japan-levy','japan-border','cap-lock','cap-clean','urchin-lance','urchin-jam','urchin-disarm']){
         clock+=200; // Model the existing relay cadence while testing more roster payloads.
         const worst=JSON.parse(JSON.stringify(snapshot)),pool=createCharacterSkills();
         for(let i=0;i<20;i++)assert.ok(pool.cast(type,player,{x:player.x,y:0,z:player.z-3,targetId:'s'.repeat(64),yaw:1.2345678901234567},now,1));

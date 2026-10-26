@@ -23,7 +23,7 @@ export const CHARACTER_DEFS = Object.freeze({
     description:'C：全員が跳べる羽根床を設置 / Q：弾だけを止める羽盾 / E：10秒スペース連打で飛行、最初の5秒は消音。X：8秒、致死攻撃を2回までHP1で耐える（7pt）。', color:'#77b34c', ultIcon:'M18 2C9 2 5 16 5 21a13 9 0 0 0 26 0C31 16 27 2 18 2Zm-2 10 5 5-5 4 4 5' }),
   cat: Object.freeze({id:'cat',label:'猫の画像',role:'回収・時制',ultName:'白紙の8秒',ultShortName:'時止め',ultimatePoints:7,description:'C：保存地点へ帰還 / Q：敵の装填弾を最大5発裂き、1発12・最大60ダメージ / E：落ちた銃を遠隔回収。X：8秒、ラウンドとボンバーの時計を止める。行動と電源オフは進む（7pt）。',color:'#eee8dd',ultIcon:'M18 3a12 12 0 1 0 0 24 12 12 0 0 0 0-24ZM14 9v12m8-12v12'}),
   car: Object.freeze({id:'car',label:'トミカ',role:'排除・補給',ultName:'ピットクルー',ultShortName:'補給',ultimatePoints:7,description:'C：本体突進で75ダメージ＋最大24m吹き飛ばし / Q：狙った煙を一つ除去 / E：接地中の移動射撃を安定化。X：視線内24mの味方と自身のC/Q/Eを補給（7pt）。',color:'#e9ece8',ultIcon:'M4 23h28V10H4ZM8 14h8v5H8Zm12 0h8v5h-8ZM12 4v4m12-4v4M9 25v4m18-4v4'}),
-  nobi:Object.freeze({id:'nobi',label:'のび',role:'弱点・工作',ultName:'逆転えり',ultShortName:'逆転',ultimatePoints:7,description:'C：敵を銃に弱くする鈴 / Q：敵の連射を遅らせるひげ / E：設置と電源オフを加速。X：8秒、胴・脚への銃撃も頭相当の威力（7pt）。',color:'#f3cb48',ultIcon:'M18 3 3 13l15 15 15-15ZM10 13l8 8 8-8M18 3v11'}),
+  nobi:Object.freeze({id:'nobi',label:'のび',role:'弱点・工作',ultName:'逆転えり',ultShortName:'逆転',ultimatePoints:7,description:'4技とも構えて左クリックで投擲、右クリックで取消。C35m・Q40m・E/X35m。着地点の半径20mでCは敵の被銃撃1.35倍6秒、Qは敵の射撃間隔1.6倍5秒、Eは味方の作業1.5倍6秒。Xは0.6秒後から8秒、自身と味方の胴・脚への銃撃も頭相当。壁・煙越し無効、範囲外は通常。X7ポイント。',color:'#f3cb48',ultIcon:'M18 3 3 13l15 15 15-15ZM10 13l8 8 8-8M18 3v11'}),
   japan:Object.freeze({id:'japan',label:'しばくでジャパン',role:'国境・総動員',ultName:'総動員',ultShortName:'総動員',ultimatePoints:7,description:'C：越えた敵へ国境線 / Q：敵の装甲を接収 / E：被銃撃を撃ち手へ返送。X：倒れた味方全員を開始地点へ10HPで呼び戻す（7pt）。',color:'#e8ca91',ultIcon:'M3 15h30M18 2v26M7 4l22 22M29 4 7 26M4 23h28'}),
   cap:Object.freeze({id:'cap',label:'キャップは？',role:'光学・解除',ultName:'エンドレスマガジン',ultShortName:'無消費',ultimatePoints:7,description:'C：敵の銃の照準とADSを妨害 / Q：現在の妨害を解除 / E：壁で弾を一度反射。X：9秒、装填済みの銃弾を消費せず発射（7pt）。',color:'#e36336',ultIcon:'M5 7h26v16H5ZM12 11c-8 0-8 8 0 8s4-8 12-8 8 8 0 8-4-8-12-8'}),
   urchin:Object.freeze({id:'urchin',label:'青ウニ',role:'棘・弾道',ultName:'三叉潮',ultShortName:'三叉',ultimatePoints:7,description:'C：予告した直線へ棘を一斉射出 / Q：敵の購入主武器を床へ落とす / E：壁を抜ける潮の波で遠くの視界を奪う。X：9秒、銃弾が三方向へ分かれる（7pt）。',color:'#a9f1e4',ultIcon:'M18 28V4M18 20 5 7M18 20 31 7M2 11 5 7 9 8M27 8 31 7 34 11M14 8 18 4 22 8'}),
@@ -54,7 +54,7 @@ export const FROST_SKILLS = Object.freeze({ stitchRange: 16, stitchFlight: .55, 
   mistRange: 18, mistFlight: .5, mistDuration: 9, mistRadius: 3.5, mistCenterOffset: 1.4,
   unravelDuration: 5, unravelSlowFraction: .15, slideDuration: .9, slideStartSpeed: 12, slideEndSpeed: 7, signatureCooldown: 18 });
 export const JAPAN_SKILLS=Object.freeze({borderRange:40,borderWidth:10,borderHeight:2.8,borderArm:1,borderDuration:14,borderDamage:1000,levyRange:40,levyAmount:50,levyScale:10,armorCap:500,returnDuration:5,returnScale:6.5,signatureCooldown:20,musterDuration:1,musterHP:10});
-export const NOBI_SKILLS=Object.freeze({tagRange:35,tagDuration:6,vulnerability:1.35,brakeRange:40,brakeDuration:5,fireIntervalScale:1.6,toolDuration:6,toolScale:1.5,signatureCooldown:18,legendDuration:8});
+export const NOBI_SKILLS=Object.freeze({areaRadius:20,throwFlight:.6,toolRange:35,legendRange:35,tagRange:35,tagDuration:6,vulnerability:1.35,brakeRange:40,brakeDuration:5,fireIntervalScale:1.6,toolDuration:6,toolScale:1.5,signatureCooldown:18,legendDuration:8});
 export const CAR_SKILLS=Object.freeze({bumperRange:35,bumperDistance:24,bumperSpeed:26,bumperDamage:100,bumperStunTime:5,bumperLaunchTime:1,bumperLift:6,washRange:40,gyroDuration:4,signatureCooldown:18,pitRange:24});
 export const CAT_SKILLS=Object.freeze({bookmarkDuration:10,returnRange:24,pluckRange:30,pluckAmmo:5,pluckDamagePerRound:12,fetchRange:18,signatureCooldown:18,clockDuration:8});
 export const DUCK_SKILLS = Object.freeze({ sealRange:40, sealDuration:4, padRange:28, padRadius:2, padArm:.25, padDuration:8, padVelocity:11, shieldRange:28, shieldDuration:6, shieldHP:180, shieldWidth:3, shieldHeight:2.4, hushDuration:5, flightDuration:10, flapVelocity:5.8, flapInterval:.18, flightHeight:8, signatureCooldown:20, eggDuration:8, eggLives:2 });
@@ -124,9 +124,9 @@ const japanSkills={
  e:{name:'弾丸返送',shortName:'返送',description:'5秒、敵の銃撃で実際に失ったHPと装甲の650%を撃ち手へ返す。元の被害は受ける。ナイフ・スキルは対象外で返送は連鎖しない。20秒で再使用。',max:1,price:0,type:'japan-return',icon:'M4 10h19l-6-6m6 6-6 6M32 22H13l6-6m-6 6 6 6'}
 };
 const nobiSkills={
- c:{name:'鈴の弱点',shortName:'弱点の鈴',description:'Cで構え35mの見える敵へ左確定・右取消。6秒、その敵の被銃撃ダメージを1.35倍。位置は表示せず、同効果は重ならない。',max:2,price:100,type:'nobi-tag',icon:'M18 3a8 8 0 0 0-8 8v8l-4 5h24l-4-5v-8a8 8 0 0 0-8-8ZM15 27h6'},
- q:{name:'ひげブレーキ',shortName:'連射抑制',description:'Qで構え40mの見える敵へ左確定・右取消。5秒、その敵の銃の最小射撃間隔を1.6倍。弾・移動・ナイフ・スキルは奪わない。',max:1,price:100,type:'nobi-brake',icon:'M3 8l12 4M3 16h12M3 24l12-4M33 8l-12 4M33 16H21M33 24l-12-4'},
- e:{name:'ポケット工具',shortName:'工作加速',description:'6秒、自身の設置と電源オフの進みが1.5倍。Fを押す前に発動。場所・静止・作業者の条件は通常通り。18秒で再使用。',max:1,price:0,type:'nobi-tool',icon:'M8 3v12l5 5v9h10v-9l5-5V3l-6 7h-8ZM12 25h12'}
+ c:{name:'鈴の弱点',shortName:'弱点の鈴',description:'Cで構え左クリックで35m先へ鈴を投げる。0.6秒後の着地点から半径20mに6秒、範囲内の敵の被銃撃ダメージ1.35倍。壁・煙越し無効、範囲を出ると解除。右クリックで取消。',max:2,price:100,type:'nobi-bell',icon:'M18 3a8 8 0 0 0-8 8v8l-4 5h24l-4-5v-8a8 8 0 0 0-8-8ZM15 27h6'},
+ q:{name:'ひげブレーキ',shortName:'連射抑制',description:'Qで構え左クリックで40m先へひげ玉を投げる。0.6秒後の着地点から半径20mに5秒、範囲内の敵の銃の射撃間隔1.6倍。壁・煙越し無効、範囲を出ると解除。右クリックで取消。',max:1,price:100,type:'nobi-whisker',icon:'M3 8l12 4M3 16h12M3 24l12-4M33 8l-12 4M33 16H21M33 24l-12-4'},
+ e:{name:'ポケット工具',shortName:'工作加速',description:'Eで構え左クリックで35m先へ工具箱を投げる。0.6秒後の着地点から半径20mに6秒、自身と味方の設置・電源オフが1.5倍。壁・煙越し無効、範囲外は通常速度。作業は4キー、18秒で再使用。右クリックで取消。',max:1,price:0,type:'nobi-toolbox',icon:'M8 3v12l5 5v9h10v-9l5-5V3l-6 7h-8ZM12 25h12'}
 };
 const onnaraSkills={
  c:{name:'星跳び',shortName:'大ジャンプ',description:'接地中にCで即ジャンプ。頭上が開いていれば足元から約4.8m上昇する。空中移動・射撃は通常通りで、Eの13秒空中静止にもつなげられる。天井に当たると上昇停止。空中での追加発動はできない。',max:2,price:100,type:'onnara-jump',icon:'M18 29V6M9 15l9-9 9 9M7 29h22M11 22l7-7 7 7'},
@@ -186,7 +186,7 @@ export class DuelistKit {
         if(this.character==='urchin')return {type:'urchin-lance'};
         if(this.character==='cap')return {type:'cap-lock'};
         if(this.character==='japan')return {type:'japan-border'};
-        if(this.character==='nobi')return {type:'nobi-tag'};
+        if(this.character==='nobi')return {type:'nobi-bell'};
         if (this.character === 'car') return {type:'car-bumper'};
         if (this.character === 'cat') return {type:'cat-bookmark'};
         if (this.character === 'duck') return {type:'duck-pad'};
@@ -203,7 +203,7 @@ export class DuelistKit {
         if(this.character==='urchin')return {type:'urchin-disarm'};
         if(this.character==='cap')return {type:'cap-clean'};
         if(this.character==='japan')return {type:'japan-levy'};
-        if(this.character==='nobi')return {type:'nobi-brake'};
+        if(this.character==='nobi')return {type:'nobi-whisker'};
         if (this.character === 'car') return {type:'car-wash'};
         if (this.character === 'cat') return {type:'cat-pluck'};
         if (this.character === 'duck') return {type:'duck-shield'};
@@ -221,7 +221,7 @@ export class DuelistKit {
         if(this.character==='urchin')return {type:'urchin-gloom'};
         if(this.character==='cap')return {type:'cap-bank'};
         if(this.character==='japan')return {type:'japan-return'};
-        if(this.character==='nobi')return {type:'nobi-tool'};
+        if(this.character==='nobi')return {type:'nobi-toolbox'};
         if (this.character === 'car') return {type:'car-gyro'};
         if (this.character === 'cat') return {type:'cat-fetch'};
           if (this.character === 'duck') return {type:'duck-hush'};
@@ -246,7 +246,7 @@ export class DuelistKit {
         if(this.character==='urchin'){this.ultPoints-=DUELIST.ultimatePoints;return {type:'urchin-trident'};}
         if(this.character==='cap'){this.ultPoints-=DUELIST.ultimatePoints;return {type:'cap-magazine'};}
         if(this.character==='japan'){this.ultPoints-=DUELIST.ultimatePoints;return {type:'japan-muster'};}
-        if(this.character==='nobi'){this.ultPoints-=DUELIST.ultimatePoints;return {type:'nobi-legend'};}
+        if(this.character==='nobi'){this.ultPoints-=DUELIST.ultimatePoints;return {type:'nobi-collar'};}
         if (this.character === 'car') {this.ultPoints-=DUELIST.ultimatePoints;return {type:'car-pit'};}
         if (this.character === 'cat') {this.ultPoints-=DUELIST.ultimatePoints;return {type:'cat-clock'};}
         if (this.character === 'duck') { this.ultPoints -= DUELIST.ultimatePoints; return {type:'duck-egg'}; }

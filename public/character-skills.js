@@ -26,6 +26,10 @@ const specs = Object.freeze({
  'japan-levy':Object.freeze({flight:0,delay:0,tail:.8,radius:0}),
  'japan-return':Object.freeze({flight:0,delay:0,tail:JAPAN_SKILLS.returnDuration,radius:0}),
  'japan-muster':Object.freeze({flight:0,delay:0,tail:JAPAN_SKILLS.musterDuration,radius:0}),
+ 'nobi-bell':Object.freeze({flight:NOBI_SKILLS.throwFlight,delay:NOBI_SKILLS.throwFlight,tail:NOBI_SKILLS.tagDuration,radius:NOBI_SKILLS.areaRadius}),
+ 'nobi-whisker':Object.freeze({flight:NOBI_SKILLS.throwFlight,delay:NOBI_SKILLS.throwFlight,tail:NOBI_SKILLS.brakeDuration,radius:NOBI_SKILLS.areaRadius}),
+ 'nobi-toolbox':Object.freeze({flight:NOBI_SKILLS.throwFlight,delay:NOBI_SKILLS.throwFlight,tail:NOBI_SKILLS.toolDuration,radius:NOBI_SKILLS.areaRadius}),
+ 'nobi-collar':Object.freeze({flight:NOBI_SKILLS.throwFlight,delay:NOBI_SKILLS.throwFlight,tail:NOBI_SKILLS.legendDuration,radius:NOBI_SKILLS.areaRadius}),
  'nobi-tag':Object.freeze({flight:0,delay:0,tail:NOBI_SKILLS.tagDuration,radius:0}),
  'nobi-brake':Object.freeze({flight:0,delay:0,tail:NOBI_SKILLS.brakeDuration,radius:0}),
  'nobi-tool':Object.freeze({flight:0,delay:0,tail:NOBI_SKILLS.toolDuration,radius:0}),
@@ -86,9 +90,11 @@ const serviceWeapon = value => typeof value === 'string' && Object.hasOwn(WEAPON
   && ['primary', 'secondary'].includes(WEAPONS[value].slot) && WEAPONS[value].mag > 0;
 const personal = type => ['onnara-jump','onnara-orb','onnara-hover','onnara-chain','urchin-pearl','urchin-trident','cap-bank','cap-magazine','japan-return','nobi-tool','nobi-legend','car-gyro','cat-bookmark','cat-clock','duck-hush', 'duck-egg', 'echo-kerning', 'veil-turf', 'ember-shade', 'ember-service', 'frost-unravel'].includes(type);
 const groundedPersonal = type => type === 'veil-turf' || type === 'frost-unravel';
-const feetSource = type => type.startsWith('onnara-') || type.startsWith('urchin-')&&!['urchin-lance','urchin-gloom'].includes(type) || type.startsWith('cap-') || type.startsWith('japan-') || type.startsWith('nobi-') || type.startsWith('car-') || type.startsWith('cat-') || type === 'mend-heal' || type === 'duelist-lift' || personal(type) || type.startsWith('veil-');
+const nobiArea = type => ['nobi-bell','nobi-whisker','nobi-toolbox','nobi-collar'].includes(type);
+const nobiRange = type => type==='nobi-bell'?NOBI_SKILLS.tagRange:type==='nobi-whisker'?NOBI_SKILLS.brakeRange:type==='nobi-toolbox'?NOBI_SKILLS.toolRange:NOBI_SKILLS.legendRange;
+const feetSource = type => type.startsWith('onnara-') || type.startsWith('urchin-')&&!['urchin-lance','urchin-gloom'].includes(type) || type.startsWith('cap-') || type.startsWith('japan-') || type.startsWith('nobi-')&&!nobiArea(type) || type.startsWith('car-') || type.startsWith('cat-') || type === 'mend-heal' || type === 'duelist-lift' || personal(type) || type.startsWith('veil-');
 const eventFields = ['id', 'type', 'team', 'sourceId', 'round', 'fromX', 'fromY', 'fromZ', 'x', 'y', 'z', 'startedAt', 'flight', 'triggerAt', 'endsAt', 'radius'];
-const withinCastRange = (type, actor, target, sourceEyeY = eyeY(actor)) => type.startsWith('onnara-') ? feetDistance(actor,target)<=(type==='onnara-tax'?ONNARA_SKILLS.taxRange+.002:type==='onnara-orb'?ONNARA_SKILLS.orbRange+.002:1e-8)+1e-8 : type==='urchin-gloom' ? close(Math.hypot(target.x-actor.x,target.y-sourceEyeY,target.z-actor.z),URCHIN_SKILLS.gloomRange) : type==='urchin-lance' ? Math.hypot(target.x-actor.x,target.y-sourceEyeY,target.z-actor.z)<=URCHIN_SKILLS.lanceRange+1e-8 : type.startsWith('urchin-') ? feetDistance(actor,target)<=(type==='urchin-jam'?URCHIN_SKILLS.jamRange:type==='urchin-disarm'?URCHIN_SKILLS.disarmRange:1e-8)+1e-8 : type.startsWith('cap-') ? feetDistance(actor,target)<=(type==='cap-lock'?CAP_SKILLS.lockRange:type==='cap-clean'?CAP_SKILLS.cleanRange:1e-8)+1e-8 : type.startsWith('japan-') ? feetDistance(actor,target)<=(type==='japan-border'?JAPAN_SKILLS.borderRange:type==='japan-levy'?JAPAN_SKILLS.levyRange:1e-8)+1e-8 : type.startsWith('nobi-') ? feetDistance(actor,target)<=(type==='nobi-tag'?NOBI_SKILLS.tagRange:type==='nobi-brake'?NOBI_SKILLS.brakeRange:1e-8)+1e-8 : type.startsWith('car-') ? feetDistance(actor,target)<=(type==='car-bumper'?CAR_SKILLS.bumperRange:type==='car-wash'?CAR_SKILLS.washRange:1e-8)+1e-8 : type.startsWith('cat-') ? feetDistance(actor,target) <= (type==='cat-return'?CAT_SKILLS.returnRange:type==='cat-pluck'?CAT_SKILLS.pluckRange:type==='cat-fetch'?CAT_SKILLS.fetchRange:1e-8)+1e-8 : type === 'duck-pad' || type === 'duck-seal' || type === 'duck-shield' ? Math.hypot(target.x-actor.x,target.y-sourceEyeY,target.z-actor.z) <= (type === 'duck-seal' ? DUCK_SKILLS.sealRange : type === 'duck-pad'?DUCK_SKILLS.padRange:DUCK_SKILLS.shieldRange)+1e-8 : type === 'duelist-comet' ? Math.hypot(target.x - actor.x, target.y - sourceEyeY, target.z - actor.z) <= DUELIST_SKILLS.cometRange + 1e-8
+const withinCastRange = (type, actor, target, sourceEyeY = eyeY(actor)) => nobiArea(type) ? Math.hypot(target.x-actor.x,target.z-actor.z)<=nobiRange(type)+1e-8 : type.startsWith('onnara-') ? feetDistance(actor,target)<=(type==='onnara-tax'?ONNARA_SKILLS.taxRange+.002:type==='onnara-orb'?ONNARA_SKILLS.orbRange+.002:1e-8)+1e-8 : type==='urchin-gloom' ? close(Math.hypot(target.x-actor.x,target.y-sourceEyeY,target.z-actor.z),URCHIN_SKILLS.gloomRange) : type==='urchin-lance' ? Math.hypot(target.x-actor.x,target.y-sourceEyeY,target.z-actor.z)<=URCHIN_SKILLS.lanceRange+1e-8 : type.startsWith('urchin-') ? feetDistance(actor,target)<=(type==='urchin-jam'?URCHIN_SKILLS.jamRange:type==='urchin-disarm'?URCHIN_SKILLS.disarmRange:1e-8)+1e-8 : type.startsWith('cap-') ? feetDistance(actor,target)<=(type==='cap-lock'?CAP_SKILLS.lockRange:type==='cap-clean'?CAP_SKILLS.cleanRange:1e-8)+1e-8 : type.startsWith('japan-') ? feetDistance(actor,target)<=(type==='japan-border'?JAPAN_SKILLS.borderRange:type==='japan-levy'?JAPAN_SKILLS.levyRange:1e-8)+1e-8 : type.startsWith('nobi-') ? feetDistance(actor,target)<=(type==='nobi-tag'?NOBI_SKILLS.tagRange:type==='nobi-brake'?NOBI_SKILLS.brakeRange:1e-8)+1e-8 : type.startsWith('car-') ? feetDistance(actor,target)<=(type==='car-bumper'?CAR_SKILLS.bumperRange:type==='car-wash'?CAR_SKILLS.washRange:1e-8)+1e-8 : type.startsWith('cat-') ? feetDistance(actor,target) <= (type==='cat-return'?CAT_SKILLS.returnRange:type==='cat-pluck'?CAT_SKILLS.pluckRange:type==='cat-fetch'?CAT_SKILLS.fetchRange:1e-8)+1e-8 : type === 'duck-pad' || type === 'duck-seal' || type === 'duck-shield' ? Math.hypot(target.x-actor.x,target.y-sourceEyeY,target.z-actor.z) <= (type === 'duck-seal' ? DUCK_SKILLS.sealRange : type === 'duck-pad'?DUCK_SKILLS.padRange:DUCK_SKILLS.shieldRange)+1e-8 : type === 'duelist-comet' ? Math.hypot(target.x - actor.x, target.y - sourceEyeY, target.z - actor.z) <= DUELIST_SKILLS.cometRange + 1e-8
   : type === 'mend-heal' ? feetDistance(actor, target) <= MEND_SKILLS.healRange + 1e-8
   : personal(type) || type === 'duelist-lift' ? feetDistance(actor, target) <= 1e-8
   : type === 'veil-dust' ? Math.hypot(target.x - actor.x, target.z - actor.z) <= 1e-8 && close(target.y, (actor.y || 0) + VEIL_SKILLS.dustCenterOffset)
@@ -459,10 +465,18 @@ export function createCharacterSkills() {
     return scale;
   }
   function nobiActive(type,id,now,target=false){return events(now).some(e=>e.type===type&&(target?e.targetId:e.sourceId)===id&&now>=e.triggerAt);}
-  function nobiVulnerability(id,now){return nobiActive('nobi-tag',id,now,true)?NOBI_SKILLS.vulnerability:1;}
-  function nobiInterval(id,now){return nobiActive('nobi-brake',id,now,true)?NOBI_SKILLS.fireIntervalScale:1;}
-  function nobiWork(id,now){return nobiActive('nobi-tool',id,now)?NOBI_SKILLS.toolScale:1;}
-  function nobiLegend(id,now){return nobiActive('nobi-legend',id,now);}
+  // Fixed landing fields; query current pose, never a tracked enemy identifier.
+  function nobiField(type,id,now,actor,reachable){
+    if(!living(actor)||actor.id!==id)return false;
+    return events(now).some(e=>e.type===type&&now>=e.triggerAt
+      && (['nobi-bell','nobi-whisker'].includes(type)?actor.team!==e.team:actor.team===e.team)
+      && Math.hypot(actor.x-e.x,(actor.y||0)-(e.y-.12),actor.z-e.z)<=e.radius+1e-8
+      && safeReach(reachable,e,actor));
+  }
+  function nobiVulnerability(id,now,actor,reachable){return nobiActive('nobi-tag',id,now,true)||nobiField('nobi-bell',id,now,actor,reachable)?NOBI_SKILLS.vulnerability:1;}
+  function nobiInterval(id,now,actor,reachable){return nobiActive('nobi-brake',id,now,true)||nobiField('nobi-whisker',id,now,actor,reachable)?NOBI_SKILLS.fireIntervalScale:1;}
+  function nobiWork(id,now,actor,reachable){return nobiActive('nobi-tool',id,now)||nobiField('nobi-toolbox',id,now,actor,reachable)?NOBI_SKILLS.toolScale:1;}
+  function nobiLegend(id,now,actor,reachable){return nobiActive('nobi-legend',id,now)||nobiField('nobi-collar',id,now,actor,reachable);}
   function snapshot(observerTeam) { return { events: [...active.values()].map(copy), blinds: [...blinds.values(),...nearsights.values()].map(copy),
     markers: [...detections.values()].filter(marker => observerTeam === undefined || marker.team === observerTeam).map(copy) }; }
   function validEvent(value, now, round) {

@@ -803,3 +803,7 @@ X「リコンパルス」の半径30mを300mへ変更。実host索敵・キッ�
 人間「しばくでジャパンの総動員、起きた時のHP10にして」。共有JAPAN_SKILLS.musterHPだけ1000→10、選択/説明/HUDのX説明も10HPへ。既存japanReviveは本人・BOT・host remote全員で同定数を使う。死亡味方全員/安全な開始地点/装甲0/Classicと空スキル/7pt/統計・ボンバー不変、20event拒否/guest予測非復活/独立JSON/重複・復活後清掃を保持。C1000raw/Q10倍/E6.5倍と他キャラ/物理地形model音源/wireHTTPを変更しない。のびはCQEXすべて投擲・半径20mの回答を受領済み、今回はまだ製品未変更。自動PAUSED維持、音再生/試聴/browser/tab/server/foreground/userタブ/OS/他アプリ操作なし。正本workspace cycle156-test-report/release。全main無用反復なし。
 
 変更前実game16、最終契約6/実savedgame16/通常55/SQLite21成功。全死亡味方4名のHP10・装甲0、独立hostguestJSONで10HP復活と重複受信、低HPでE反射・実5damage後HP5、7pt/20event拒否/安全位置/古いremote入力清掃を確認。既存1000.01HP不正actor拒否は上限を変更せず維持。全main反復なし。新実browser/端末/聴感は未確認。公開/GitHubはworkspace最終記録へ。
+
+## 第157巡・のびCQEX投擲化（手動指定）
+人間が対象をC/Q/E/Xすべてと確定。4技とも構える→左投擲/右取消。C35m/Q40m/E・X35m、実放物線と壁/天井/床の着地点、0.6秒後に半径20mの固定球範囲。Cは敵被銃撃1.35倍6秒、Qは敵射撃間隔1.6倍5秒、Eは自身/味方作業1.5倍6秒、Xは自身/味方銃弾の胴脚を頭相当8秒。壁/煙越し無効、入退場で随時判定し重複乗算なし。C2/Q1各100coin/E18CD/X7ptを保持。E/Xの投擲距離は未指定のためC同値35mを採用。新4型strict16field、旧4型は旧snapshot互換だけ。hostだけ実HP/作業、guest在庫・手元だけ予測。20event拒否は在庫/ULT保全、死亡/team/次R/menu清掃。手元.24秒/射撃ロック.32秒、固定20m輪/4固有小物、既存録音cueを再利用し音源無変更。
+専用area7/実savedgame16/4memory故障、既存NOBI6/実BOT作業8+4memory故障、通常55/武器12/演出8/知覚8/戦術14行4実地seed/SQLite21成功。20新area最大62780B/65536B、既存複合最大65518B以下を保持（正本raw log）。実2タブ/端末/聴感/人間操作感は未確認。通常BOT勝率比較なし、全15人汎用性は未完了。全mainの旧床ボンバー/hold4/旧gyro/FROST説明fixture債務は未完了、反復しない。Japan総動員HP10を保持。
