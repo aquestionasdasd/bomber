@@ -57,7 +57,10 @@ async function main() {
   function simulate({ hz = 60, delay = .1, relay = false, seconds = 2, keys = ['KeyD'], jumpAt = -1, control = null, arena = 'trc', start = null } = {}) {
     const initial = setup({ arena, start }), dt = 1 / hz;
     for (const w of [guest, solo]) { w.sandbox.held = keys; w.run('for(const k of held)keys.add(k)'); }
-    const uplink = [], downlink = []; let hn = 1, gn = 0, pendingUp, pendingDown, corrections = 0, largest = 0, snapsY = 0, hostRises = 0, lastHostY = initial.y;
+    // setup already delivered the initial snapshot. Drain only new packets;
+    // recopying the entire sent history each frame made layered-map checks quadratic.
+    host.run('sent.length=0');
+    const uplink = [], downlink = []; let pendingUp, pendingDown, corrections = 0, largest = 0, snapsY = 0, hostRises = 0, lastHostY = initial.y;
     let jumped = false, uplinkTime = 0, downlinkTime = 0, lastClientVy = 0, clientLandings = 0;
     const frames = Math.ceil(seconds * hz), trace = [];
     const deliver = (queue, time, w, from, after) => { for (const row of queue) if (!row.used && row.at <= time + 1e-9) { row.used = true; w.sandbox.packet = row.packet; const before = pose(w); w.run(`receiveNetPacket('${from}',packet)`); after?.(before, pose(w)); } };
@@ -65,8 +68,8 @@ async function main() {
       const time = frame * dt;
       deliver(uplink, time, host, 'guest');
       host.sandbox.dt = dt; host.run('elapsed+=dt;updateRemoteActor(remote,dt);tickOnline(dt)');
-      const hp = copy(host.run('sent'));
-      for (; hn < hp.length; hn++) { if (relay) pendingDown = hp[hn]; else downlink.push({ at: time + delay, packet: hp[hn] }); }
+      const hp = copy(host.run('sent.splice(0)'));
+      for (const packet of hp) { if (relay) pendingDown = packet; else downlink.push({ at: time + delay, packet }); }
       if (relay && time >= downlinkTime + .2 - 1e-9 && pendingDown) { downlink.push({ at: time + delay, packet: pendingDown }); pendingDown = null; downlinkTime = time; }
       deliver(downlink, time, guest, 'host', (a, b) => {
         const progress = (b.x - a.x) * (keys.includes('KeyD') ? 1 : keys.includes('KeyA') ? -1 : 0) + (b.z - a.z) * (keys.includes('KeyS') ? 1 : keys.includes('KeyW') ? -1 : 0);
@@ -80,8 +83,8 @@ async function main() {
         w.run('updatePlay(dt);tickOnline(dt)');
       }
       if (jumpAt >= 0 && time >= jumpAt - 1e-9) jumped = true;
-      const gp = copy(guest.run('sent'));
-      for (; gn < gp.length; gn++) { if (relay) pendingUp = gp[gn]; else uplink.push({ at: time + Math.max(dt, delay), packet: gp[gn] }); }
+      const gp = copy(guest.run('sent.splice(0)'));
+      for (const packet of gp) { if (relay) pendingUp = packet; else uplink.push({ at: time + Math.max(dt, delay), packet }); }
       if (relay && time >= uplinkTime + .2 - 1e-9 && pendingUp) { uplink.push({ at: time + Math.max(dt, delay), packet: pendingUp }); pendingUp = null; uplinkTime = time; }
       const p = pose(guest), h = pose(host, 'remote');
       if (h.y > lastHostY + .001 && lastHostY === 0) hostRises++; lastHostY = h.y;
@@ -96,6 +99,9 @@ async function main() {
   }
 
   const measured = [];
+  const frameRates=process.env.TRC_SYNC_HZ?[Number(process.env.TRC_SYNC_HZ)]:[20,60,144];
+  assert.ok(frameRates.every(hz=>[20,60,144].includes(hz)));
+  const stairs=()=>copy(host.run('map.ramps')).filter(r=>!process.env.TRC_SYNC_STAIRS||process.env.TRC_SYNC_STAIRS.split(',').includes(r.id));
   check('TRC normal jumps retain all newer motion at 20/60/144Hz, delayed direct and coalesced HTTP', () => {
     for (const hz of [20, 60, 144]) for (const delay of [0, .1, .2]) for (const relay of [false, true]) {
       const r = simulate({ hz, delay, relay, seconds: 2.2, jumpAt: 0 });
@@ -103,8 +109,10 @@ async function main() {
     }
   });
   check('all real stairways ascend and descend without snapshot height rewinds', () => {
-    const ramps = copy(host.run('map.ramps'));
-    for (const ramp of ramps) for (const hz of [20, 60, 144]) for (const relay of [false, true]) for (const ascent of [true, false]) {
+    setup();
+    const ramps = stairs();
+    assert.ok(ramps.length);
+    for (const ramp of ramps) for (const hz of frameRates) for (const relay of [false, true]) for (const ascent of [true, false]) {
       const sign = ramp.direction * (ascent ? 1 : -1), length = ramp.maxZ - ramp.minZ + 1.1;
       const start = { x: (ramp.minX + ramp.maxX) / 2, z: sign > 0 ? ramp.minZ - .55 : ramp.maxZ + .55, y: ascent ? ramp.base : ramp.base+ramp.height };
       const r = simulate({ hz, delay: .1, relay, start, keys: [sign > 0 ? 'KeyS' : 'KeyW'], seconds: length / 2.8 + .45,
@@ -116,6 +124,12 @@ async function main() {
     for (const hz of [20, 60, 144]) for (const relay of [false, true]) {
       const start = { x: 37, y: 1.2, z: -36 };
       const r = simulate({ hz, relay, start, keys: ['KeyS'], seconds: 2 }); assert.equal(r.guest.y, 0); assert.equal(r.host.y, 0); measured.push(r);
+    }
+  });
+  check('basement travel beneath the stage stairs matches independent host and guest', () => {
+    for(const hz of frameRates)for(const relay of [false,true]){
+      const r=simulate({hz,relay,start:{x:39,y:-3.2,z:-33},keys:['KeyA'],seconds:2.7});
+      assert.ok(r.guest.x<30&&r.host.x<31);near(r.guest.y,-3.2,'basement client');near(r.host.y,-3.2,'basement host');measured.push(r);
     }
   });
   check('jumping beside stairs and onto the B stage retains predicted movement', () => {

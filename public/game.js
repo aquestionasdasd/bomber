@@ -1155,7 +1155,7 @@ function updateMapLabels(){
   if(map.id==='trc')Object.assign(copies,{'menu-map-name':name,'character-preview-map':name,'hud-map-name':'TRC / SOUND MARKET','map-route-copy':'屋外 A ロング / 正面ロビー・MID / 搬入 B メイン'});
   copies['map-site-a-name']=map.sites[0].name;copies['map-site-b-name']=map.sites[1].name;copies['map-detail']=map.id==='hirakata'?'対戦は従来の164m四方。マップ練習では周辺224m四方も探索できます。車道のしばくでバスに注意。':'橋本駅前の景観をもとに構成したオリジナルマップです。';
   copies['map-coordinate-copy']=copies['menu-coordinate-copy']=map.id==='hirakata'?'34.815°N / 135.649°E':'35°35′42″N / 139°20′42″E';copies['menu-map-note']=map.id==='hirakata'?'枚方市駅 / 南北広場・自由通路・駅周辺街区':'非公式ファンメイド / 橋本駅前をモチーフにしたオリジナルマップ';copies['radar-map-copy']=short+' / 2 SITES';
-  if(map.id==='trc')Object.assign(copies,{'map-detail':'屋外前庭から会場へ侵入する縦長マップ。上MIDを取り合い、Aは7mダクト・側面ヘブン、Bは地下搬入路で挟撃。主入口6.5m、設置床は広く維持。Fでドア・はしご、Vでダクト、Shiftで消音。','map-coordinate-copy':'TRC INSPIRED / OUTDOOR APPROACH','menu-coordinate-copy':'TRC INSPIRED / OUTDOOR APPROACH','menu-map-note':'同人音楽即売会 / オリジナル対戦レイアウト'});
+  if(map.id==='trc')Object.assign(copies,{'map-detail':'A・MID・Bの3本の進入路。MIDの上でA/Bへ分岐。AヘブンはA内の階段か7mダクト、B地下は専用入口から舞台裏へ。前室間の横連絡・上階の周回路はありません。Fでドア・はしご、Vでダクト、Shiftで消音。','map-coordinate-copy':'TRC INSPIRED / OUTDOOR APPROACH','menu-coordinate-copy':'TRC INSPIRED / OUTDOOR APPROACH','menu-map-note':'同人音楽即売会 / オリジナル対戦レイアウト'});
   canvas.setAttribute('aria-label',name+'の3D競技マップ');$('large-minimap')?.setAttribute('aria-label',name+'の戦術マップ');
   for(const[id,text]of Object.entries(copies))if($(id))$(id).textContent=text;
   for(const id of ['map-select','online-map'])if($(id)&&(!online||id==='map-select'))$(id).value=map.id||'hashimoto';
@@ -1531,9 +1531,11 @@ function canStand(x,z,r=.34,feet=player.y,height=1.7) {
   // Ground details under 2 cm are harmless; raised solids require feet above their real top.
   return !map.collision.blocked(x,z,r,feet,height);
 }
-function rampFloor(x,z) {
+function rampFloor(x,z,feet=Infinity) {
   let floor=null;
   for(const ramp of map.ramps||[]){
+    // An upper staircase cannot stop movement on a separate floor underneath.
+    if((ramp.base||0)>feet+.22)continue;
     if(x<ramp.minX||x>ramp.maxX||z<ramp.minZ||z>ramp.maxZ)continue;
     const along=ramp.axis==='x'?x:z,min=ramp.axis==='x'?ramp.minX:ramp.minZ,max=ramp.axis==='x'?ramp.maxX:ramp.maxZ;
     const fraction=clamp((along-min)/Math.max(.001,max-min),0,1);
@@ -1554,7 +1556,7 @@ function moveEntity(entity,dx,dz,r=.34) {
       if(!permitted(x,z))return;
       const controlled=entity===player||!!entity.remoteId||!!map.traversal;
       let feet=entity.y||0;
-      const ramp=controlled?rampFloor(x,z):null;
+      const ramp=controlled?rampFloor(x,z,feet):null;
       const followsFloor=entity===player||map.traversal?!entity.vy:!!entity.remoteId;
       // Grounded feet may step up; an airborne actor must clear the slope rather
       // than enter just below it and miss the downward landing intersection.

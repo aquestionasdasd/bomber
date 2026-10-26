@@ -117,10 +117,11 @@ async function main() {
     guest.run("receiveNetPacket('host',packet)");assert.equal(guest.run('map.traversal.doors[0].hp'),0);
     local.run(`Object.assign(remote,{x:0,z:25,y:0});applyRemoteAction(remote,{type:'trc-interact',kind:'door',id:'D2'});`);assert.equal(local.run('map.traversal.doors[1].open'),false);
   });
-  check('real BOT update follows the A duct to heaven and the B loading route',()=>{
-    for(const route of ['attackA','attackB']){setup();local.sandbox.routeName=route;local.run(`
+  check('real BOT update follows attacker side routes and the simplified defender stairs',()=>{
+    for(const route of ['attackA','attackB','defendA','defendB']){setup();local.sandbox.routeName=route;local.run(`
       Object.assign(match.spike,{status:'carried',carrier:player.id});
-      makeBot(map.teamSpawns.attack[0],3,'blue',{id:'blue-3',name:'climber',team:'blue',primary:'vandal',secondary:'classic',armor:0,credits:0,kit:new DuelistKit({character:'nope'})});
+      Object.assign(player,map.spawn);var attackingRoute=routeName.startsWith('attack'),routeTeam=attackingRoute?'blue':'red',routeSlot=routeName==='defendA'?1:3;
+      makeBot(map.teamSpawns[attackingRoute?'attack':'defend'][0],routeSlot,routeTeam,{id:routeTeam+'-'+routeSlot,name:'climber',team:routeTeam,primary:'vandal',secondary:'classic',armor:0,credits:0,kit:new DuelistKit({character:'nope'})});
       var climber=bots[0];climber.trcRoute={key:routeName,round:match.round,index:0};
       for(var i=0;i<1500;i++){elapsed+=.05;updateBots(.05);}
       var end=map.traversal.routes[routeName].at(-1);
@@ -147,7 +148,7 @@ async function main() {
       }
       for(const [a,b]of [[[13,94],[26,43]],[[91,96],[88,46]],[[54,81],[26,43]],[[54,81],[88,46]]]){const p=tp(...a),q=tp(...b);if(map.collision.rayClear(p.x,1.5,p.z,q.x,1.5,q.z))throw Error('unbroken approach sightline');}
       const heaven=tp(14,45,4.7),target=tp(26,43,1.5);if(!map.collision.rayClear(heaven.x,heaven.y,heaven.z,target.x,target.y,target.z))throw Error('heaven has no useful window');
-      for(const [x,z]of [[15,47],[35,37],[75,48],[98,39]]){const p=tp(x,z);if(!navigation.isWalkable(p.x,p.z)||!navigation.path(map.spawn.x,map.spawn.z,p.x,p.z).length)throw Error('hide inaccessible');}
+      for(const [x,z]of [[19,47],[35,37],[75,48],[98,39]]){const p=tp(x,z);if(!navigation.isWalkable(p.x,p.z)||!navigation.path(map.spawn.x,map.spawn.z,p.x,p.z).length)throw Error('hide inaccessible');}
     `);
   });
   check('plant anywhere on broad clear floors, including beside a door; upper floors reject planting',()=>{
