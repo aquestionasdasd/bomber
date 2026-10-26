@@ -231,7 +231,11 @@
     <div class="dialog-panel victory-music-panel">
       <header class="victory-music-header"><div><div class="dialog-eyebrow"><span class="signal-dot"></span> VICTORY MUSIC</div><h2 id="victory-music-heading">勝利BGM</h2></div><button id="victory-music-close" class="close-button" type="button" aria-label="勝利BGM設定を閉じる" autofocus>×</button></header>
       <div class="victory-music-controls">
-        <label class="victory-track"><input type="radio" name="victory-track" value="sandstorm" checked><span class="victory-track-icon" aria-hidden="true">♫</span><span><strong id="victory-music-title">sandstorm</strong><small>選択中 / 現在1曲</small></span></label>
+        <div class="victory-track-list" role="radiogroup" aria-label="勝利BGMの曲">
+          <label class="victory-track"><input type="radio" name="victory-track" value="sandstorm" checked><span class="victory-track-icon" aria-hidden="true">♫</span><strong>sandstorm</strong></label>
+          <label class="victory-track"><input type="radio" name="victory-track" value="break-the-dancefloor"><span class="victory-track-icon" aria-hidden="true">♫</span><strong>Break the dancefloor!!</strong></label>
+        </div>
+        <p class="dialog-description">選択中：<strong id="victory-music-title">sandstorm</strong></p>
         <label class="music-check"><input id="victory-music-enabled" type="checkbox" checked>勝利時にBGMを流す</label>
         <label class="music-volume-label" for="victory-music-volume">BGM音量 <output id="victory-music-value" for="victory-music-volume">60%</output></label>
         <input id="victory-music-volume" type="range" min="0" max="1" step="0.05" value="0.6">

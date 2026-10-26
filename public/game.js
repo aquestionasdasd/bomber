@@ -257,7 +257,7 @@ const fullscreenNotice=bindFullscreenNotice({document,onEnable:()=>keyboardProte
 let victoryMusicEnabled=settings.victoryMusicEnabled!==false;
 let victoryMusicVolume=Number.isFinite(Number(settings.victoryMusicVolume))?clamp(Number(settings.victoryMusicVolume),0,1):.6;
 let victoryMusicUI;
-const victoryMusic=createVictoryMusic({onChange:()=>victoryMusicUI?.render()});
+const victoryMusic=createVictoryMusic({trackId:settings.victoryMusicTrack,onChange:()=>victoryMusicUI?.render()});
 const victoryClub=createVictoryClub({element:$('victory-club')});
 function updateVictoryClub(){return victoryClub.render({...victoryMusic.playback(),eligible:mode==='play'&&!document.hidden&&!netHostPaused&&match?.phase==='post'&&match.phaseTime>0&&match.lastRound?.team===player.team,reducedMotion:reducedMotion.matches});}
 function syncVictoryMusic(){victoryMusic.setGate({enabled:victoryMusicEnabled,musicVolume:victoryMusicVolume,soundEnabled,masterVolume:volume,hidden:document.hidden});victoryMusic.prepare();}
@@ -3968,7 +3968,7 @@ function updateFormatSummary(){
 $('match-format')?.addEventListener('change',updateFormatSummary);updateFormatSummary();
 $('fullscreen').addEventListener('click',async()=>{try{if(document.fullscreenElement){keyboardProtection.release();await document.exitFullscreen();}else{const state=await keyboardProtection.enable();if(state==='unavailable')showMessage('全画面のキー保護を使えません','しゃがみは V 長押しで操作できます',3);}}catch{showMessage('FULLSCREEN','このブラウザでは全画面に切り替えられません',2);}});
 $('keyboard-protect')?.addEventListener('click',()=>keyboardProtection.enable());
-function saveSettings(){try{localStorage.setItem('hashimoto-settings',JSON.stringify({mapId:map.id||'hashimoto',sensitivity,volume,victoryMusicEnabled,victoryMusicVolume,lookVersion:2,character:selectedCharacter()}));}catch{}}
+function saveSettings(){try{localStorage.setItem('hashimoto-settings',JSON.stringify({mapId:map.id||'hashimoto',sensitivity,volume,victoryMusicEnabled,victoryMusicVolume,victoryMusicTrack:victoryMusic.trackId(),lookVersion:2,character:selectedCharacter()}));}catch{}}
 for(const id of ['agent-select','online-agent'])if($(id)){$(id).value=normalizeCharacter(settings.character);$(id).addEventListener('change',e=>{const value=normalizeCharacter(e.target.value);for(const other of ['agent-select','online-agent'])if($(other))$(other).value=value;updateCharacterDescription();saveSettings();});}
 updateCharacterDescription();
 function updateSensitivityLabel(){if($('sensitivity-value'))$('sensitivity-value').textContent=sensitivity.toFixed(2);}

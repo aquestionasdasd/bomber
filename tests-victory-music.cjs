@@ -16,7 +16,7 @@ async function main(){
   bundled.setGate({soundEnabled:true});assert.equal(bundled.result({key:'muted',won:true}),false);
   assert.ok(bundled.result({key:'bundled',won:true}));assert.match(media.at(-1).src,/\/audio\/victory-sandstorm\.wav$/);bundled.dispose();
   const empty=createVictoryMusic({...options,config:{src:'',title:''}});assert.equal(empty.result({key:'1:blue',won:true}),false);empty.dispose();
-  console.log('PASS: sole bundled sandstorm, lazy creation, mute consumes result, upload API removed, missing-source silence');
+  console.log('PASS: default bundled sandstorm, lazy creation, mute consumes result, upload API removed, missing-source silence');
   const m=createVictoryMusic({...options,config:{src:'/audio/future.mp3',title:'future',maxSeconds:15}});
   m.setGate({masterVolume:.5,musicVolume:.6});assert.ok(m.result({key:'1:blue',won:true}));const first=media.at(-1);assert.equal(first.src,'/audio/future.mp3');assert.equal(first.volume,.3);assert.equal(first.loop,false);assert.equal(timers.values().next().value.ms,15000);
   assert.equal(m.result({key:'1:blue',won:true}),false);assert.equal(first.plays,1,'Duplicate host snapshots never restart the track');
@@ -57,7 +57,7 @@ async function main(){
   const html=fs.readFileSync(path.join(__dirname,'public/play.html'),'utf8'),moduleSource=fs.readFileSync(path.join(__dirname,'public/victory-music.js'),'utf8');
   assert.doesNotMatch(html,/victory-music-file|victory-music-clear|type="file"/);assert.doesNotMatch(moduleSource,/selectFile|clearFile|createObjectURL|revokeObjectURL/);
   assert.match(html,/<dialog id="victory-music-settings"[^>]+aria-labelledby="victory-music-heading"/);
-  assert.equal([...html.matchAll(/name="victory-track"/g)].length,1,'Exactly one available track');
+  assert.equal([...html.matchAll(/name="victory-track"/g)].length,2,'Two selectable bundled tracks');
   assert.ok(html.indexOf('id="victory-music-open"')<html.indexOf('</main>'),'Settings reachable before starting the game');
   const ids=[...html.matchAll(/\bid="([^"]+)"/g)].map(m=>m[1]);assert.equal(new Set(ids).size,ids.length,'Unique document IDs');
   const bytes=fs.readFileSync(path.join(__dirname,'public/audio/victory-sandstorm.wav'));
@@ -65,12 +65,12 @@ async function main(){
   assert.equal(bytes.toString('ascii',0,4),'RIFF');assert.equal(bytes.toString('ascii',8,12),'WAVE');
   let format,dataBytes;for(let offset=12;offset+8<=bytes.length;){const size=bytes.readUInt32LE(offset+4),tag=bytes.toString('ascii',offset,offset+4);if(tag==='fmt ')format=[bytes.readUInt16LE(offset+8),bytes.readUInt16LE(offset+10),bytes.readUInt32LE(offset+12),bytes.readUInt16LE(offset+22)];if(tag==='data')dataBytes=size;offset+=8+size+size%2;}
   assert.deepEqual(format,[1,2,44100,24]);assert.equal(dataBytes,1872048);
-  console.log('PASS: native labelled dialog, one track, no upload UI/API, supplied WAV bytes/PCM24 stereo format exact');
+  console.log('PASS: native labelled dialog, two tracks, no upload UI/API, supplied WAV bytes/PCM24 stereo format exact');
   let saved;
   const saveStart=source.indexOf('function saveSettings()'),saveEnd=source.indexOf('\nfor(const id of',saveStart);
-  const settingsContext=vm.createContext({map:{id:"hashimoto"},sensitivity:.35,volume:.45,victoryMusicEnabled:false,victoryMusicVolume:.25,selectedCharacter:()=> 'nope',localStorage:{setItem(key,value){assert.equal(key,'hashimoto-settings');saved=JSON.parse(value);}}});
+  const settingsContext=vm.createContext({map:{id:"hashimoto"},sensitivity:.35,volume:.45,victoryMusicEnabled:false,victoryMusicVolume:.25,victoryMusic:{trackId:()=> 'break-the-dancefloor'},selectedCharacter:()=> 'nope',localStorage:{setItem(key,value){assert.equal(key,'hashimoto-settings');saved=JSON.parse(value);}}});
   vm.runInContext(source.slice(saveStart,saveEnd)+'\nsaveSettings();',settingsContext);
-  assert.deepEqual(saved,{mapId:"hashimoto",sensitivity:.35,volume:.45,victoryMusicEnabled:false,victoryMusicVolume:.25,lookVersion:2,character:'nope'});
+  assert.deepEqual(saved,{mapId:"hashimoto",sensitivity:.35,volume:.45,victoryMusicEnabled:false,victoryMusicVolume:.25,victoryMusicTrack:'break-the-dancefloor',lookVersion:2,character:'nope'});
   assert.doesNotMatch(JSON.stringify(saved),/blob:|\.mp3|\.ogg/,'Only preferences persist, never selected file data or local URLs');
   console.log('PASS: actual settings serialization retains sensitivity/character and stores only BGM preferences');
 }
