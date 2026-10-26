@@ -131,7 +131,7 @@ async function main() {
   test('ECHO spends seven points once and describes three fixed-center pulses with brief map-only reveals', () => {
     const kit = new DuelistKit({ character: 'echo' }); kit.ultPoints = 6;
     assert.equal(kit.activate('x', 0), null); assert.equal(kit.ultPoints, 6); kit.awardPoint();
-    assert.deepEqual(kit.activate('x', 1), { type: 'recon', radius: 30, duration: 6, pulses: 3, interval: 2, revealDuration: 1.25 });
+    assert.deepEqual(kit.activate('x', 1), { type: 'recon', radius: 300, duration: 6, pulses: 3, interval: 2, revealDuration: 1.25 });
     assert.equal(kit.ultPoints, 0); assert.equal(kit.activate('x', 1), null);
     assert.equal(kit.knivesActive, false); assert.equal(kit.knives, 0); assert.equal(kit.consumeKnife(), false);
     kit.awardKill(); assert.equal(kit.knives, 0);
@@ -300,7 +300,7 @@ async function main() {
     assert.deepEqual(kit.activate('q', 2), { type: 'echo-glint', flight: .5, radius: 10, duration: 2 }); assert.equal(kit.activate('q', 2), null);
     assert.deepEqual(kit.activate('e', 2), { type: 'echo-kerning', duration: 4, speedScale: 1.35, cooldown: 18 });
     assert.equal(kit.armReadyAt, null); assert.equal(kit.armExpiresAt, null); assert.equal(kit.activate('e', 3), null); assert.equal(kit.nextSignatureAt, 20);
-    assert.equal(kit.ultPoints, 7); assert.deepEqual(kit.activate('x', 3), { type: 'recon', radius: 30, duration: 6, pulses: 3, interval: 2, revealDuration: 1.25 });
+    assert.equal(kit.ultPoints, 7); assert.deepEqual(kit.activate('x', 3), { type: 'recon', radius: 300, duration: 6, pulses: 3, interval: 2, revealDuration: 1.25 });
     assert.equal(kit.ultPoints, 0); assert.equal(kit.knivesActive, false); assert.equal(kit.consumeKnife(), false);
   });
   test('IAGNU timed signature survives JSON, rejects borrowed dash arms and refills only by time or round reset', () => {

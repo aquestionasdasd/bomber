@@ -781,3 +781,7 @@ SCOUT/ATLASは実発射後、次弾を撃てるまでスコープを外し、右
 - 既存録音を短く2回、ボンバー地点から定位・距離・遮蔽を反映。guest予測は無音、host確定の既存cueで本人にも通知。新field/HTTP頻度/作業速度/HP/経済は不変、全113録音cue。他の素材byte/共同銃声/足音/キル音/BGMは維持。
 - 再確認: 専用実savedgame9/メモリ故障3/録音mock4/ルール19/SQLite21成功。BOTは実役割・updatePlay一frame一回で20/60/144Hz。新fixtureのサイト座標と試験観測者が可聴65m外だった点だけ訂正し初回log保持、製品の距離減衰/作業条件は緩めない。関連検査/正規build/公開/GitHubの最終記録はworkspace cycle142-release/test-report。
 - 未確認: 新実ブラウザー2タブ/実端末/聴感。全main旧床ボンバーhold4fixture債務と全15人汎用性は保持、無用反復なし。fps-19 PAUSED、次も人間の手動指定のみ。
+
+## 第152巡 / IAGNU索敵範囲10倍（手動指定）
+
+X「リコンパルス」の半径30mを300mへ変更。実host索敵・キット効果・選択/説明/HUD・地表リングを同じ半径へ合わせる。3回（0/2/4秒）、6秒、7pt、壁越し索敵、検知時の固定地点1.25秒だけ味方へ共有する契約を保持。移動した敵の現在地へ追尾しない。Cの警戒文字4.5m/投擲18mとQ/Eは保持。新wirefield/HTTP頻度/音源変更なし。範囲・境界・3pulse・独立hostguest復元・描画・SQLite容量を関連試験で確認し、同URL公開/GitHub反映はworkspace第152巡release正本。自動fps-19はPAUSED。

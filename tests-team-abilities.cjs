@@ -29,12 +29,12 @@ async function main(){
     assert.equal(kit.castMend({...self,alive:false},[ally],1,1,()=>true),null);
     assert.equal(kit.castMend(self,[ally],NaN,1,()=>true),null);assert.equal(kit.castMend(self,[ally],1,0,()=>true),null);
   });
-  test('RECON samples three fixed-center30m pulses, even through walls, without allies/dead/invalid targets',()=>{
-    const kit=createTeamAbilities(),self=actor('self'),enemy=actor('enemy','red',30,0),outside=actor('outside','red',30.001,0),ally=actor('ally'),dead={...actor('dead','red',1,0),alive:false},bad={...actor('bad','red'),z:Infinity};
-    const event=kit.castRecon(self,10,1),actors=[enemy,outside,ally,dead,bad,enemy];assert.equal(event.type,'recon');assert.equal(event.radius,30);
-    const wall=createCollisionIndex([{minX:10,maxX:11,minZ:-2,maxZ:2,height:5}]);assert.equal(wall.rayClear(0,1.4,0,30,1.4,0),false);
-    assert.deepEqual(kit.update(actors,10,1),[{observerTeam:'blue',targetId:'enemy',x:30,z:0,seenAt:10}]);
-    enemy.x=5;self.x=100;assert.equal(kit.markers('blue',10.5)[0].x,30,'A moving target/caster must not drag the recorded detection or scan center');
+  test('RECON samples three fixed-center300m pulses, even through walls, without allies/dead/invalid targets',()=>{
+    const kit=createTeamAbilities(),self=actor('self'),enemy=actor('enemy','red',300,0),outside=actor('outside','red',300.001,0),ally=actor('ally'),dead={...actor('dead','red',1,0),alive:false},bad={...actor('bad','red'),z:Infinity};
+    const event=kit.castRecon(self,10,1),actors=[enemy,outside,ally,dead,bad,enemy];assert.equal(event.type,'recon');assert.equal(event.radius,300);
+    const wall=createCollisionIndex([{minX:10,maxX:11,minZ:-2,maxZ:2,height:5}]);assert.equal(wall.rayClear(0,1.4,0,300,1.4,0),false);
+    assert.deepEqual(kit.update(actors,10,1),[{observerTeam:'blue',targetId:'enemy',x:300,z:0,seenAt:10}]);
+    enemy.x=5;self.x=100;assert.equal(kit.markers('blue',10.5)[0].x,300,'A moving target/caster must not drag the recorded detection or scan center');
     assert.deepEqual(kit.markers('red',10.5),[]);assert.deepEqual(kit.update(actors,10.5,1),[]);
     assert.deepEqual(kit.markers('blue',11.25),[],'Marker lifetime excludes its exact1.25s expiry');
     assert.equal(kit.update(actors,12,1)[0].x,5);assert.equal(kit.update(actors,14,1).length,1);
@@ -76,7 +76,7 @@ async function main(){
       value=>value.events[0].x=NaN,value=>value.events[0].y=Infinity,value=>value.events[0].x=1001,value=>value.events[0].radius=999,
       value=>value.events[0].endsAt=100,value=>value.events[0].startedAt=1,value=>value.events[0].id='bad',value=>value.events[0].team='green',value=>value.events[0].type='heal',
       value=>value.events.push({...value.events[0]}),value=>value.pings[0].observerTeam='red',value=>value.pings[0].round=2,value=>value.pings[0].eventId='missing',
-      value=>value.pings[0].targetId='',value=>value.pings[0].x=NaN,value=>value.pings[0].x=31,value=>value.pings[0].seenAt=.5,value=>value.pings[0].endsAt=99,
+      value=>value.pings[0].targetId='',value=>value.pings[0].x=NaN,value=>value.pings[0].x=301,value=>value.pings[0].seenAt=.5,value=>value.pings[0].endsAt=99,
       value=>value.pings[0].pulse=3,value=>value.pings.push({...value.pings[0]}),value=>value.events=Array(21).fill(value.events[0]),value=>value.pings=Array(51).fill(value.pings[0])
     ];
     for(const change of mutations){const bad=wire(clean);change(bad);assert.equal(guest.restore(bad,.1,1),false);assert.deepEqual(guest.snapshot(),before);}

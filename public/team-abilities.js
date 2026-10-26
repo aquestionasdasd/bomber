@@ -1,6 +1,6 @@
 // Original team ultimates. Only local casts own sampling rights; restored events are visual state.
 export const TEAM_ABILITIES = Object.freeze({ mendRadius:18, mendAmount:75, mendDuration:1.5,
-  reconRadius:30, reconDuration:6, reconPulses:Object.freeze([0,2,4]), markerDuration:1.25,
+  reconRadius:300, reconDuration:6, reconPulses:Object.freeze([0,2,4]), markerDuration:1.25,
   maxEvents:20, maxPings:50 });
 const team=value=>value==='blue'||value==='red';
 const identifier=value=>typeof value==='string'&&value.length>0&&value.length<=64&&!/[\u0000-\u001f\u007f]/.test(value);

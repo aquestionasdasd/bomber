@@ -72,3 +72,7 @@ Qとデコイ反撃フラッシュ半径12→30m、向き/壁/煙/味方や自�
 枚方市は南北のガラス外壁/駅名銀帯/実屋根/屋内通路に32面を配置し、HIRAKATASHI文字/銀帯/南北矢印の専用オリジナルtextureへ切替。橋本の38面と元画像は保持。写真転載/地形衝突変更/音源追加なし。
 
 関連suiteと新専用5群/実game4群、既存NOPE実game9群/20群SQLite/音mock4、両mapの全30経路の実支持を確認。全mainは今回反復せずcycle92の82PASSを過去根拠と区別する。local所有hidden188（初手/reload初手OFFfalse/AX0）で実Eの武器と姿勢/X南口装飾を確認、warnerror0、再生試聴なし。初回preview CSS配信形式、古い半径fixture/newhelperのdataURL参照/BOT抽出fixtureのactorBodyHeight漏れ、対戦map.id未指定の期待失敗を修正した履歴はworkspaceのcycle94-test-report/logを保持。正規公開/GitHub反映の成否はcycle94-releaseを正本とする。実2タブ/実端末/聴感、全15人の強弱調整は未完了。PR49音変更は保全・未統合。
+
+## 第152巡 / IAGNU索敵範囲10倍（手動指定）
+
+X「リコンパルス」の半径30mを300mへ変更。実host索敵・キット効果・選択/説明/HUD・地表リングを同じ半径へ合わせる。3回（0/2/4秒）、6秒、7pt、壁越し索敵、検知時の固定地点1.25秒だけ味方へ共有する契約を保持。移動した敵の現在地へ追尾しない。Cの警戒文字4.5m/投擲18mとQ/Eは保持。新wirefield/HTTP頻度/音源変更なし。範囲・境界・3pulse・独立hostguest復元・描画・SQLite容量を関連試験で確認し、同URL公開/GitHub反映はworkspace第152巡release正本。自動fps-19はPAUSED。
