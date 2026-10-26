@@ -797,3 +797,9 @@ X「リコンパルス」の半径30mを300mへ変更。実host索敵・キッ�
 のびの半径20m投擲変更は対象技の回答待ちで製品未変更。自動fps-19はPAUSED維持、音再生/試聴/browser/tab/server/foreground/userタブ/OS/他アプリ操作なし。実端末/本人操作感は未確認。正本workspace cycle155-test-report/release。旧fullmain床ボンバーhold4/旧gyro/general FROST説明fixture債務は保持し無用反復なし。
 
 専用実savedgame8/3memory故障（全10銃/20・60・144Hz/full updatePlay/独立hostguestJSON/偽精度拒否/床侵入・停止ID/通常ジャンプ/壁・装甲・弾数・間隔）、既存ONNARA15+game12+Cjump9/鴨空中9+3memory故障/武器12/知覚8/戦術14行4実mapseed/SQLite21/精鋭照準9成功。初回の部分戦術fixtureが新しい共通精度関数を取り込まずReferenceErrorで停止。実関数と実starHoldの取込を補い再成功、製品判断は緩めず初回logを保持。同じ成功済み全試験/全mainの反復なし。公開とGitHubは最終workspace記録へ。
+
+## 第156巡 / 総動員の復活HP10（手動依頼）
+
+人間「しばくでジャパンの総動員、起きた時のHP10にして」。共有JAPAN_SKILLS.musterHPだけ1000→10、選択/説明/HUDのX説明も10HPへ。既存japanReviveは本人・BOT・host remote全員で同定数を使う。死亡味方全員/安全な開始地点/装甲0/Classicと空スキル/7pt/統計・ボンバー不変、20event拒否/guest予測非復活/独立JSON/重複・復活後清掃を保持。C1000raw/Q10倍/E6.5倍と他キャラ/物理地形model音源/wireHTTPを変更しない。のびはCQEXすべて投擲・半径20mの回答を受領済み、今回はまだ製品未変更。自動PAUSED維持、音再生/試聴/browser/tab/server/foreground/userタブ/OS/他アプリ操作なし。正本workspace cycle156-test-report/release。全main無用反復なし。
+
+変更前実game16、最終契約6/実savedgame16/通常55/SQLite21成功。全死亡味方4名のHP10・装甲0、独立hostguestJSONで10HP復活と重複受信、低HPでE反射・実5damage後HP5、7pt/20event拒否/安全位置/古いremote入力清掃を確認。既存1000.01HP不正actor拒否は上限を変更せず維持。全main反復なし。新実browser/端末/聴感は未確認。公開/GitHubはworkspace最終記録へ。
