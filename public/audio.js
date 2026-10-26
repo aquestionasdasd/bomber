@@ -14,7 +14,9 @@ export const SAMPLE_CUES=Object.freeze({
  'weapon-spectre':[layer('lab-machinegun-firing2.ogg',.27,.12,0,1.18)],'weapon-phantom':[layer('lab-machinegun-firing2.ogg',.25,.12,0,.94)],'weapon-vandal':[layer('lab-machinegun-firing1.ogg',.40,.12)],
  'weapon-knife':[layer('lab-knife-slash-1.ogg',.22,.36)],'weapon-pump':[layer('lab-handgun-firing1.ogg',.40,.42,0,.78)],'weapon-drum':[layer('lab-machinegun-firing1.ogg',.36,.12,0,.85)],
  'weapon-scout':[layer('lab-handgun-firing1.ogg',.36,.42,0,.92)],'weapon-atlas':[layer('lab-handgun-firing1.ogg',.43,.5,0,.68)],'weapon-forge':[layer('lab-machinegun-firing2.ogg',.31,.12,0,.8)],
- 'gun-hit':[soft(.48,.12)],
+ // The punch's main transient is at 164ms; the old 120ms cut missed it.
+ // Start at that impact, with a simultaneous short latch for a clear hit cue.
+ 'gun-hit':[layer('lab-punch-light1.ogg',.44,.055,0,1,.145),layer('onjin-latch.ogg',.30,.09,0,1.35)],
  // Owner's 160 BPM recording: beats 1,3,5,7,9, with the fifth tail intact.
  'kill-1':[layer('kill-sequence-user.wav',.75,.75)],
  'kill-2':[layer('kill-sequence-user.wav',.75,.75,0,1,.75)],

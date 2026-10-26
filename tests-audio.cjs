@@ -79,7 +79,12 @@ async function main(){
   for(const entry of adopted){const bytes=fs.readFileSync(path.join(__dirname,'public/audio',entry.file));assert.equal(sha(bytes),entry.sha256);assert.equal(bytes.length,entry.bytes);}
   assert.ok([...files].every(file=>[...adopted,...manifests].some(entry=>entry.file===file)),'Every active cue has documented provenance');
   assert.deepEqual(SAMPLE_CUES.jump.map(cue=>cue.file),['lab-cloth.ogg']);assert.ok(SAMPLE_CUES.jump[0].length<=.2);
-  assert.deepEqual(SAMPLE_CUES['gun-hit'].map(l=>l.file),['lab-punch-light1.ogg']);assert.ok(SAMPLE_CUES['gun-hit'][0].length<=.14);assert.ok(SAMPLE_CUES['gun-hit'][0].gain>SAMPLE_CUES.hit[0].gain);
+  const hitCue=SAMPLE_CUES['gun-hit'];
+  assert.deepEqual(hitCue.map(l=>l.file),['lab-punch-light1.ogg','onjin-latch.ogg']);
+  assert.ok(hitCue.every(l=>l.delay===0&&l.length<=.09),'Hit confirmation starts immediately and stays short');
+  assert.ok(hitCue[0].offset<=.1644&&hitCue[0].offset+hitCue[0].length*hitCue[0].rate>.1645,'Include the recorded punch transient, not only its quiet lead-in');
+  assert.ok(hitCue.reduce((sum,l)=>sum+l.gain,0)*.85<=.65,'Bound even coincident full-peak layers');
+  assert.notDeepEqual(hitCue,SAMPLE_CUES.hit,'Dealing a hit differs from taking damage');
   assert.equal(SAMPLE_CUES['gun-kill'],undefined);for(let i=1;i<=5;i++){const spec=SAMPLE_CUES['kill-'+i][0];assert.equal(spec.file,'kill-sequence-user.wav');assert.equal(spec.offset||0,(i-1)*.75);assert.equal(spec.rate,1);assert.equal(spec.length,i===5?4.156258503401361:.75);}
   assert.ok(types.length>=70);assert.ok(![...files].some(f=>f.startsWith('interface-')||f.includes('forceField')||f.includes('doorClose_001')));
   assert.equal(manifests.filter(e=>e.adopted_cycle===102).length,1);assert.equal(SAMPLE_CUES['bus-break'][0].file,'bus-wall-break-user.mp3');assert.equal(SAMPLE_CUES['bus-break'][0].rate,1);

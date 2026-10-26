@@ -194,3 +194,12 @@ killsound.wav -> kill-sequence-user.wav (unchanged PCM24 stereo WAV bytes).
 First four clips stop before the next note; fifth retains its recorded tail.
 Bundled at the creator/owner's explicit request. Not claimed as CC0.
 Offline PCM inspection and mock playback scheduling only; no listening.
+
+Gun-hit confirmation clarity (cycle147)
+Existing lab-punch-light1.ogg (Sound Effect Lab) starts at 0.145 seconds to
+include its main impact; onjin-latch.ogg (On-Jin) supplies a simultaneous
+short click. Total cue is 90ms. Existing source URLs, terms and SHA remain
+in soundeffect-lab-manifest.json and extra-sources-manifest.json.
+No new recordings, synthesized sound, or modifications to asset bytes.
+Owner-created five-stage kill sequence and all other cue recipes unchanged.
+Offline PCM/reference model and mock scheduling only; no listening.
