@@ -27,16 +27,28 @@ async function main({mutate=s=>s,only=()=>true,measure=false}={}){
   assert.doesNotMatch(fs.readFileSync(path.join(__dirname,'public/play.html'),'utf8'),/<select[^>]+id="difficulty"/);
   const rows=[];for(const level of['easy','normal','hard']){setup({seed:3});h.sandbox.level=level;h.run('difficulty=level');for(let i=0;i<60;i++)step();const s=state();rows.push([s.hp,s.armor,s.ammo,s.yaw])}assert.deepEqual(rows[0],rows[1]);assert.deepEqual(rows[1],rows[2]);
  });
- test('navigation and repeated combat facing share a180degree-per-second budget at20/60/144Hz',()=>{
-  for(const hz of[20,60,144]){setup({z:-20});h.run('goal={x:0,z:-30};urgent=true');let before=0;for(let i=0;i<hz;i++){step(1/hz);const after=state().yaw,delta=Math.abs(Math.atan2(Math.sin(after-before),Math.cos(after-before)));assert.ok(delta<=Math.PI/hz+1e-8,`${hz}Hz step${i}: ${delta}`);before=after}
-   setup({x:15,z:15});h.run('goal={x:0,z:-30};urgent=true');before=0;for(let i=0;i<hz/2;i++){step(1/hz);const after=state().yaw;assert.ok(Math.abs(after-before)<=Math.PI/hz+1e-8);before=after}
+ test('requested0.8x turn rate applies exactly to navigation and visible enemy aiming at20/60/144Hz',()=>{
+  const rows=[];
+  for(const hz of[20,60,144]){
+   for(const combat of[false,true]){
+    setup(combat?{x:15,z:15}:{z:-20});if(!combat)h.run('goal={x:0,z:-30};urgent=true');step(1/hz);
+    const s=state(),delta=Math.abs(Math.atan2(Math.sin(s.yaw),Math.cos(s.yaw))),oldStep=Math.PI/hz;
+    assert.ok(Math.abs(delta-oldStep*.8)<1e-8,`${hz}Hz ${combat?'combat':'navigation'}: ${delta} versus ${oldStep*.8}`);
+    assert.equal(s.ammo,25,'An unaligned gun must not shoot while turning');rows.push({hz,combat,oldStepRadians:oldStep,actualStepRadians:delta,ratio:delta/oldStep});
+   }
+  }
+  console.log('TURN0.8 MEASURE: '+JSON.stringify(rows));
+ });
+ test('navigation and repeated combat facing share a144degree-per-second budget at20/60/144Hz',()=>{
+  for(const hz of[20,60,144]){setup({z:-20});h.run('goal={x:0,z:-30};urgent=true');let before=0;for(let i=0;i<hz;i++){step(1/hz);const after=state().yaw,delta=Math.abs(Math.atan2(Math.sin(after-before),Math.cos(after-before)));assert.ok(delta<=Math.PI*.8/hz+1e-8,`${hz}Hz step${i}: ${delta}`);before=after}
+   setup({x:15,z:15});h.run('goal={x:0,z:-30};urgent=true');before=0;for(let i=0;i<hz/2;i++){step(1/hz);const after=state().yaw;assert.ok(Math.abs(after-before)<=Math.PI*.8/hz+1e-8);before=after}
   }
  });
  test('silent rear enemy supplies neither instant acquisition nor a gunshot',()=>{
   setup({z:-20});for(let i=0;i<90;i++)step();assert.equal(state().ammo,25);assert.equal(state().target,undefined);assert.equal(state().yaw,0);assert.equal(state().hp,100);
  });
  test('audible rear shot turns gradually to its fixed location before firing',()=>{
-  setup({z:-20});h.run("botHearing.emit(player,'shot',elapsed)");let firstShot=null,start=state().elapsed,before=0;for(let i=0;i<120;i++){step();const s=state();assert.ok(Math.abs(s.yaw-before)<=Math.PI/60+1e-8);before=s.yaw;if(s.ammo<25){firstShot=s.elapsed-start;break}}
+  setup({z:-20});h.run("botHearing.emit(player,'shot',elapsed)");let firstShot=null,start=state().elapsed,before=0;for(let i=0;i<120;i++){step();const s=state();assert.ok(Math.abs(s.yaw-before)<=Math.PI*.8/60+1e-8);before=s.yaw;if(s.ammo<25){firstShot=s.elapsed-start;break}}
   assert.ok(firstShot>=.8&&firstShot<2,`first rear shot after ${firstShot}`);
   setup({z:-20});h.run("botHearing.emit(player,'shot',elapsed);player.x=35;player.z=-35");for(let i=0;i<30;i++)step();assert.equal(state().ammo,25);assert.equal(h.run('worker.lastHeard.x'),0);assert.equal(h.run('worker.lastHeard.z'),-20);
  });

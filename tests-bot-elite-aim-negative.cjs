@@ -2,6 +2,7 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('n
 (async()=>{
  const source=fs.readFileSync(path.join(__dirname,'public/game.js'),'utf8').replace(/\r\n/g,'\n');
  const variants=[
+  ['old180degree turn speed',s=>s.replace('turnRate:Math.PI*.8','turnRate:Math.PI'),'requested0.8x turn rate'],
   ['instant navigation turn',s=>s.replace('if(!bot.target)face(bot,{x:bot.x+dx,z:bot.z+dz});','bot.group.rotation.y=Math.atan2(dx,dz);'),'navigation and repeated'],
   ['unbounded gun turn',s=>s.replace('const limit=Math.min(speed*dt,bot.turnBudget),step=clamp(delta,-limit,limit);','const limit=100,step=delta;'),'audible rear'],
   ['old weak gun aim',s=>s.replace('cfg.aim*(settled?1:.76)*Math.max(.6,1-enemyDistance/160)','cfg.aim*.54*Math.max(.48,1-enemyDistance/65)'),'stationary frontal'],

@@ -220,7 +220,7 @@ let touchMove = { x:0, y:0 }, touchLook = null, movePointer = null;
 let mouseAnchor=null,renderedRecoil=0;
 // Explicit local diagnosis only. No storage, network transmission or per-event DOM work.
 const mouseInputTrace=typeof location!=='undefined'&&new URLSearchParams(location.search).has('inputTrace')?{rows:new Array(2048),next:0,size:0}:null;
-const levels = { hard:{ interval:.7, aim:.94, speed:2.7, turnRate:Math.PI, reaction:.14 } };
+const levels = { hard:{ interval:.7, aim:.94, speed:2.7, turnRate:Math.PI*.8, reaction:.14 } };
 const settings = (() => { try { return JSON.parse(localStorage.getItem('hashimoto-settings') || '{}'); } catch { return {}; } })();
 const savedSensitivity=Number(settings.sensitivity);
 if(Number.isFinite(savedSensitivity)&&savedSensitivity>0)sensitivity=clamp(savedSensitivity*(settings.lookVersion===2?1:.35),.05,1.5);
