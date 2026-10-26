@@ -34,7 +34,9 @@
 | `tests-trc-navigation.cjs` | 6群。全スポーン・サイト・高所の経路と実寸の通行判定、階層、キャッシュ、崩壊と復元 |
 | `tests-trc-reconciliation.cjs` | 独立host/guestの9群・176パターン。20/60/144Hz、遅延direct・200ms中継モデル、全階段・ジャンプ・権威補正 |
 | `tests-trc-reconciliation-negative.cjs` | 高さ巻戻りなど4種類の故障をメモリー上に入れ、検査が検出することを確認 |
-| 関連検査 | rules、bot-tactics、site-areas、movement-inertia、round-start-separation、online、cat-game、duelist-skill-fx、nope-walk-game |
+| 関連検査 | rules、bot-tactics、site-areas、movement-inertia、round-start-separation、online、cat-game、duelist-skill-fx、nope-walk-game。統合後のparty-game 12群・victory-music-tracks 8群も成功 |
+
+最新2bb02a0までを統合後、onlineは25群成功。地下/上階の武器32個と地下ボンバーの高さを含むTRC上限snapshotは65,418 / 65,536 bytesで、権威状態を保持して中継できることを検査した。
 
 実ブラウザーのマップ練習で屋外・Aヘブン・上MID・B地下の表示を確認。音声は消音、試験中はmock。形状検査は特定点と生成した接合部の標本検査であり、全射角・全GPU・あらゆるスキルの組み合わせを網羅するものではない。実回線の10人対戦、実スマホ、対人バランス・挟撃の到着時間の評価は別途必要。
 
