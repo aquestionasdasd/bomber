@@ -1051,7 +1051,8 @@ function spawnRound(reset=false) {
   victoryCamera.reset();lastSpectatedId=null;
   player.trcStepClock=0;
   deathView.reset();syncDeathUI();
-  resetTraffic(true);
+  // Half-time and overtime side switches reset the round's economy and fleet.
+  resetTraffic(!reset);
   victoryMusic.stop();lastRoundAudio='';
   fullComboTracker.reset();delete $('round-banner').dataset.roundResult;
   clearCombatInput();
