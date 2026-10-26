@@ -102,19 +102,19 @@ async function main() {
       assert.equal(r.guest.y, 0); assert.equal(r.host.y, 0); assert.equal(r.hostRises, 1); assert.equal(r.clientLandings, 1); measured.push(r);
     }
   });
-  check('both real stairways ascend and descend without snapshot height rewinds', () => {
+  check('all real stairways ascend and descend without snapshot height rewinds', () => {
     const ramps = copy(host.run('map.ramps'));
     for (const ramp of ramps) for (const hz of [20, 60, 144]) for (const relay of [false, true]) for (const ascent of [true, false]) {
       const sign = ramp.direction * (ascent ? 1 : -1), length = ramp.maxZ - ramp.minZ + 1.1;
-      const start = { x: (ramp.minX + ramp.maxX) / 2, z: sign > 0 ? ramp.minZ - .55 : ramp.maxZ + .55, y: ascent ? 0 : ramp.height };
+      const start = { x: (ramp.minX + ramp.maxX) / 2, z: sign > 0 ? ramp.minZ - .55 : ramp.maxZ + .55, y: ascent ? ramp.base : ramp.base+ramp.height };
       const r = simulate({ hz, delay: .1, relay, start, keys: [sign > 0 ? 'KeyS' : 'KeyW'], seconds: length / 2.8 + .45,
         control: `keys.add('ShiftLeft');if(testTime>${length / 2.8})keys.clear()` });
-      near(r.guest.y, ascent ? ramp.height : 0, 'stair landing'); measured.push(r);
+      near(r.guest.y, ascent ? ramp.base+ramp.height : ramp.base, 'stair landing'); measured.push(r);
     }
   });
   check('dropping from the real B stage is predicted once and lands on its lower floor', () => {
     for (const hz of [20, 60, 144]) for (const relay of [false, true]) {
-      const start = { x: 29, y: 1.2, z: -46 };
+      const start = { x: 37, y: 1.2, z: -36 };
       const r = simulate({ hz, relay, start, keys: ['KeyS'], seconds: 2 }); assert.equal(r.guest.y, 0); assert.equal(r.host.y, 0); measured.push(r);
     }
   });
@@ -123,10 +123,10 @@ async function main() {
     const ramps = copy(host.run('map.ramps'));
     for (const hz of [20, 60, 144]) for (const relay of [false, true]) {
       for (const ramp of ramps) {
-        const sign = ramp.direction, start = { x: (ramp.minX + ramp.maxX) / 2, z: sign > 0 ? ramp.minZ - .55 : ramp.maxZ + .55, y: 0 };
+        const sign = ramp.direction, start = { x: (ramp.minX + ramp.maxX) / 2, z: sign > 0 ? ramp.minZ - .55 : ramp.maxZ + .55, y: ramp.base };
         measured.push(simulate({ hz, relay, start, keys: [sign > 0 ? 'KeyS' : 'KeyW'], jumpAt: .05, seconds: 1.3 }));
       }
-      const r = simulate({ hz, relay, start: { x: 29, y: 0, z: -43 }, keys: ['KeyW'], jumpAt: .1, seconds: 1.1,
+      const r = simulate({ hz, relay, start: { x: 37, y: 0, z: -33 }, keys: ['KeyW'], jumpAt: .1, seconds: 1.1,
         control: "if(testTime>.65)keys.clear()" });
       near(r.guest.y, 1.2, 'jump onto stage'); measured.push(r);
     }
@@ -152,7 +152,7 @@ async function main() {
     host.run(`var oldX=remote.x,oldZ=remote.z;receiveNetPacket('guest',{type:'input',seq:100,round:match.round,input:{x:999,z:999,y:99},actions:[]});elapsed+=1/60;updateRemoteActor(remote,1/60);`);
     assert.ok(host.run('Math.hypot(remote.x-oldX,remote.z-oldZ)<=8.05/60+1e-7'));
     assert.ok(host.run('remote.y<=6.552/60'));
-    const duct = { x: -49.8, y: 0, z: -30 };
+    const duct = { x: -46, y: 0, z: -8 };
     setup({ start: duct });
     host.run(`remote.crouch=1;netInputs.set('guest',{seq:1,connection:'ceiling',round:match.round,input:{x:remote.x,z:remote.z,y:99,crouch:1},actions:[],received:elapsed});var top=0;
       for(var i=0;i<90;i++){elapsed+=1/60;netInputs.get('guest').received=elapsed;updateRemoteActor(remote,1/60);top=Math.max(top,remote.y);if(!canStand(remote.x,remote.z,.34,remote.y,actorBodyHeight(remote)))throw Error('ceiling entered')}`);
