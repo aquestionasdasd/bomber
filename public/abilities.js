@@ -14,7 +14,7 @@ export const CHARACTER_DEFS = Object.freeze({
   veil: Object.freeze({ id: 'veil', label: '草ブロック', role: '制圧', ultName: 'ブラックアウトドーム', ultShortName: 'ドーム', ultimatePoints: 7,
     description: 'C：近距離の土煙 / Q：地表の根の帯 / E：接地中の芝走り。X：自身を中心に半径9mの視界を12秒遮断（7pt）。', color: '#b0abd8', ultIcon: 'M4 24a14 14 0 0 1 28 0M3 24h30M9 24v-8m18 8v-8M18 6V3' }),
   ember: Object.freeze({ id: 'ember', label: 'はんだごて握り太郎', role: '攻撃', ultName: 'フレアストライク', ultShortName: '爆撃', ultimatePoints: 7,
-    description: 'C：小さく弾けるはんだ玉 / Q：新しい閃光を軽減する遮光眼鏡 / E：予備弾で素早く整備。X：半径6m・30ダメージ×3回の爆撃（7pt）。', color: '#eaa36f', ultIcon: 'M18 2v5m0 16v5M2 15h5m22 0h5M8 5l4 4m12 12 4 4M28 5l-4 4M12 21l-4 4M18 8l3 5 5 2-5 2-3 5-3-5-5-2 5-2Z' }),
+    description: 'C：小さく弾けるはんだ玉 / Q：新しい閃光を軽減する遮光眼鏡 / E：予備弾で素早く整備。X：半径6m・80ダメージ×3回の爆撃（通常装甲・7pt）。', color: '#eaa36f', ultIcon: 'M18 2v5m0 16v5M2 15h5m22 0h5M8 5l4 4m12 12 4 4M28 5l-4 4M12 21l-4 4M18 8l3 5 5 2-5 2-3 5-3-5-5-2 5-2Z' }),
   frost: Object.freeze({ id: 'frost', label: '尾野', role: '守備', ultName: 'クライオフィールド', ultShortName: '足止め', ultimatePoints: 7,
     description: 'C：円環の霜のステッチ / Q：遠くのドールミスト / E：低い姿勢で滑り込み、減速にも耐える。X：最大20m先に半径7mの減速場を10秒展開（7pt）。', color: '#96dce5', ultIcon: 'M18 2v26M6 8l24 14M6 22 30 8M14 5l4 4 4-4M14 25l4-4 4 4M6 13l6-1-1-6M30 17l-6 1 1 6M6 17l6 1-1 6M30 13l-6-1 1-6' }),
   duck: Object.freeze({ id:'duck', label:'🦆', role:'跳躍・防護', ultName:'不屈の卵', ultShortName:'卵', ultimatePoints:7,
@@ -252,7 +252,7 @@ export class DuelistKit {
         if (this.character === 'mend') { this.ultPoints -= DUELIST.ultimatePoints; return { type: 'mend', radius: 18, healing: 75 }; }
         if (this.character === 'echo') { this.ultPoints -= DUELIST.ultimatePoints; return { type: 'recon', radius: 30, duration: 6, pulses: 3, interval: 2, revealDuration: 1.25 }; }
         if (this.character === 'veil') { this.ultPoints -= DUELIST.ultimatePoints; return { type: 'veil', radius: 9, duration: 12 }; }
-        if (this.character === 'ember') { this.ultPoints -= DUELIST.ultimatePoints; return { type: 'ember', radius: 6, duration: 4.8, pulses: [1.2, 2.4, 3.6], damage: 30 }; }
+        if (this.character === 'ember') { this.ultPoints -= DUELIST.ultimatePoints; return { type: 'ember', radius: 6, duration: 4.8, pulses: [1.2, 2.4, 3.6], damage: 80 }; }
         if (this.character === 'frost') { this.ultPoints -= DUELIST.ultimatePoints; return { type: 'frost', radius: 7, duration: 10, warmup: .8, slowMultiplier: .55 }; }
         this.ultPoints -= DUELIST.ultimatePoints; this.knives = DUELIST.knives; this.knivesActive = true;
         return { type: 'knives', count: this.knives };

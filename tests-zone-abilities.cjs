@@ -23,7 +23,7 @@ async function main() {
     assert.deepEqual(zones.update([caster], 10, 2), [], 'Casting must not add an immediate damage pulse');
   });
 
-  test('EMBER samples exactly three30-damage pulses with enemy/alive/radius/feet-height filtering', () => {
+  test('EMBER samples exactly three80-damage pulses with enemy/alive/radius/feet-height filtering', () => {
     const zones = createZoneAbilities(), caster = actor('caster'), near = actor('near', 'red', 2), edge = actor('edge', 'red', 6, 0, 2.5);
     const outside = actor('outside', 'red', 6.001), high = actor('high', 'red', 1, 0, 2.501), ally = actor('ally'), dead = { ...actor('dead', 'red'), alive: false }, invalid = { ...actor('invalid', 'red'), x: NaN };
     const targets = [caster, near, edge, outside, high, ally, dead, invalid, near];
@@ -31,8 +31,8 @@ async function main() {
     assert.deepEqual(zones.update(targets, 1.199, 1), []);
     for (const now of [1.2, 2.4, 3.6]) {
       assert.deepEqual(zones.update(targets, now, 1), [
-        { targetId: 'near', sourceId: 'caster', team: 'blue', damage: 30 },
-        { targetId: 'edge', sourceId: 'caster', team: 'blue', damage: 30 },
+        { targetId: 'near', sourceId: 'caster', team: 'blue', damage: 80 },
+        { targetId: 'edge', sourceId: 'caster', team: 'blue', damage: 80 },
       ]);
       assert.deepEqual(zones.update(targets, now, 1), [], 'A duplicate update cannot repeat a consumed pulse');
     }
@@ -45,7 +45,7 @@ async function main() {
     zones.cast('ember', caster, point(), 0, 1); caster.x = 30;
     assert.equal(zones.update([enemy], 1.2, 1).length, 1);
     enemy.x = 8; assert.deepEqual(zones.update([enemy], 2.4, 1), []);
-    enemy.x = -5; assert.equal(zones.update([enemy], 3.6, 1)[0].damage, 30);
+    enemy.x = -5; assert.equal(zones.update([enemy], 3.6, 1)[0].damage, 80);
   });
 
   test('missed EMBER pulses are consumed without bursts, stale hits or time-reversal replay', () => {

@@ -151,7 +151,7 @@ async function main() {
   });
   test('EMBER and FROST consume seven points once and expose independent exact zone contracts', () => {
     const definitions = [
-      ['ember', { type: 'ember', radius: 6, duration: 4.8, pulses: [1.2, 2.4, 3.6], damage: 30 }],
+      ['ember', { type: 'ember', radius: 6, duration: 4.8, pulses: [1.2, 2.4, 3.6], damage: 80 }],
       ['frost', { type: 'frost', radius: 7, duration: 10, warmup: .8, slowMultiplier: .55 }],
     ];
     for (const [id, expected] of definitions) {
@@ -380,7 +380,7 @@ async function main() {
     assert.deepEqual(kit.activate('q', 2), { type: 'ember-shade', duration: 8, flashScale: .15 }); assert.equal(kit.activate('q', 2), null);
     assert.deepEqual(kit.activate('e', 2), { type: 'ember-service', duration: .8, cooldown: 18 }); assert.equal(kit.activate('e', 3), null);
     assert.equal(kit.nextSignatureAt, 20); assert.equal(kit.armReadyAt, null); assert.equal(kit.armExpiresAt, null); assert.equal(kit.ultPoints, 7);
-    assert.deepEqual(kit.activate('x', 3), { type: 'ember', radius: 6, duration: 4.8, pulses: [1.2, 2.4, 3.6], damage: 30 });
+    assert.deepEqual(kit.activate('x', 3), { type: 'ember', radius: 6, duration: 4.8, pulses: [1.2, 2.4, 3.6], damage: 80 });
     assert.equal(kit.ultPoints, 0); assert.equal(kit.knivesActive, false); assert.equal(kit.consumeKnife(), false);
   });
   test('EMBER service cooldown survives JSON, rejects dash arms and invalid clocks, and refills by time or round rather than kills', () => {
