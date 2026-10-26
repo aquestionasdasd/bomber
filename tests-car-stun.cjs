@@ -1,0 +1,52 @@
+const fs=require('node:fs'),path=require('node:path'),Module=require('node:module');
+const base=fs.readFileSync(path.join(__dirname,'tests-car-game.cjs'),'utf8');
+const cut=base.indexOf('  const local=harness();');if(cut<0)throw Error('Saved-game fixture anchor missing');
+const checks=String.raw`
+ const h=harness();
+ function setup(){h.reset();h.clearWalls();h.run("player.armor=50;player.kit=new DuelistKit({character:'nope'});makeBot({x:0,z:-10},0,'red',{id:'caster',team:'red',secondary:'classic',kit:new DuelistKit({character:'car'})});var caster=bots[0];caster.kit.smoke=2;caster.remoteId='passive';caster.fire=999;caster.reactionUntil=999;match.phase='live'");}
+ function step(seconds,hz=120,game=false){h.sandbox.duration=seconds;h.sandbox.hz=hz;h.run(game?'for(let t=0;t<duration-1e-8;t+=1/hz)updatePlay(Math.min(1/hz,duration-t))':'for(let t=0;t<duration-1e-8;t+=1/hz){var d=Math.min(1/hz,duration-t);elapsed+=d;updateCarMotions(d)}');}
+ function hit(hz=120){h.run("activateAbility(caster,'c',{aim:{yaw:Math.PI,pitch:-.04}})");for(let i=0;i<hz;i++){step(1/hz,hz);if(h.run('player.carMotion?.phase===2'))return;}throw Error('Real charge missed');}
+ check('100 raw uses ordinary armor; naked victim dies, while armored victim loses100 combined exactly once',()=>{
+  setup();hit();assert.equal(h.run('player.hp'),50);assert.equal(h.run('player.armor'),0);step(.5);assert.equal(h.run('player.hp'),50);
+  setup();h.run('player.armor=0');hit();assert.equal(h.run('player.hp'),0);assert.equal(h.run('player.alive'),false);
+ });
+ check('20/60/144Hz: one-second24m arc then zero voluntary movement, contact-to-expiry exactly5 seconds',()=>{
+  for(const hz of[20,60,144]){setup();hit(hz);const end=h.run('carStunUntil(player)');near(end-h.run('player.carMotion.endsAt-1'),5,'contact duration');step(1.2,hz);assert.equal(h.run('player.carMotion?.phase'),3);near(h.run('player.z'),24,'original arc',.03);const z=h.run('player.z');h.run("keys.add('KeyW');firing=true;interactionHeld=true");step(.5,hz,true);near(h.run('player.z'),z,'no voluntary displacement',.03);assert.ok(h.run('carStunUntil(player)')>h.run('elapsed'));h.sandbox.end=end;h.run('elapsed=end-1e-6;updateCarMotions(0)');assert.equal(h.run('carMotionActive(player)'),true);h.run('elapsed=end;updateCarMotions(0)');assert.equal(h.run('carMotionActive(player)'),false,JSON.stringify({hz,end,elapsed:h.run('elapsed'),motion:copy(h.run('player.carMotion'))}));assert.equal(h.run('player.carMotion'),null);}
+ });
+ check('stun blocks fire/reload/jump/CQEX/plant/defuse, shows remaining seconds, then actions resume',()=>{
+  setup();hit();step(1.2);h.run('player.ammo=5;player.reserve=20;var stock=player.kit.snapshot();var ammo=player.ammo;var z=player.z;shoot();reload();jump();for(const key of["c","q","e","x"])activateAbility(player,key);updateHUD()');assert.equal(h.run('player.ammo'),5);assert.equal(h.run('reloading'),0);assert.equal(h.run('player.vy'),0);assert.deepEqual(copy(h.run('player.kit.snapshot()')),copy(h.run('stock')));assert.match(h.elements.get('status-effects').textContent,/STUN/);
+  h.run("player.team=match.attackerTeam;player.carMotion.team=player.team;match.spike={...match.spike,status:'carried',carrier:player.id};player.x=map.sites[0].x;player.z=map.sites[0].z");assert.equal(h.run('objectiveActionFor(player)'),null);
+  h.run("player.team=match.defenderTeam;player.carMotion.team=player.team;match.spike={...match.spike,status:'planted',x:player.x,z:player.z,defuseActor:null}");assert.equal(h.run('objectiveActionFor(player)'),null);
+  h.run('elapsed=player.carMotion.endsAt;updateCarMotions(0);reload();jump()');assert.ok(h.run('reloading')>0);assert.ok(h.run('player.vy')>0);assert.equal(h.run('objectiveActionFor(player)'),null);
+ });
+ check('the arc-to-stun transition has no action window; a subsequent physical bus impact retains its deadline',()=>{
+  setup();hit();h.run('elapsed=player.carMotion.endsAt;firing=true;var ammo=player.ammo;shoot();jump()');assert.equal(h.run('player.ammo'),h.run('ammo'));assert.equal(h.run('carMotionActive(player)'),true);h.run('updateCarMotions(0)');assert.equal(h.run('player.carMotion?.phase'),3);
+  const end=h.run('carStunUntil(player)');h.run("player.hp=100;player.armor=500;map.traffic={service:{tick(){},seat(){return null}},poses(){return[]},impacts(){return[{actorId:player.id,sequence:1,endsAt:elapsed+1,vx:2,vz:0,vy:6,damage:150}]}};updateTraffic(.1);updateCarMotions(.1)");near(h.run('carStunUntil(player)'),end,'bus does not cancel stun');assert.equal(h.run('player.carMotion?.phase'),3);assert.equal(h.run('player.alive'),true);assert.ok(h.run('player.x')>0);assert.ok(h.run('player.y')>0);h.run('map.traffic=null');
+ });
+ check('early wall contact ends knockback but retains original5s deadline; falling keeps gravity; death/team/round/menu clear',()=>{
+  setup();h.wall({z:3,height:6});hit();const end=h.run('carStunUntil(player)');step(.3);assert.equal(h.run('player.carMotion?.phase'),3);near(h.run('player.carMotion.endsAt'),end,'wall does not shorten stun');const y=h.run('player.y');step(1);assert.ok(h.run('player.y')<=y);assert.equal(h.run('player.vy'),0);
+  for(const cleanup of["player.alive=false;player.hp=0;updateCarMotions(0)","player.team='red';updateCarMotions(0)","match.round++;resetOrdinarySkills()","backMenu()"]){setup();hit();step(1.2);h.run(cleanup);assert.equal(h.run('carMotionActive(player)'),false);assert.equal(h.run('player.carMotion'),null);}
+ });
+ check('strict six-field stun marker rejects added fields, expired/long/nonfinite time and any horizontal velocity',()=>{
+  setup();for(const value of[['skill-car-bumper-1',3,15,0,0,0,1],['skill-car-bumper-1',3,10,0,0,0],['skill-car-bumper-1',3,15.1,0,0,0],['skill-car-bumper-1',3,12,.001,0,0],['skill-car-bumper-1',3,12,0,.001,0],['skill-car-bumper-1',3,12,0,0,NaN],['skill-car-bumper-1',3,12,0,0,33]]){h.sandbox.row=value;assert.equal(h.run('carMotionMarker(row,10)'),null);}
+  h.sandbox.row=['skill-car-bumper-1',3,15,0,0,-10];assert.equal(h.run('carMotionMarker(row,10).phase'),3);
+ });
+ check('independent host/guest JSON restores remaining stun with no predicted damage and no duplicate timer restart',()=>{
+  setup();const guest=harness();guest.reset();guest.run("onlinePlaying=true;online={host:false,room:{code:'ABCDEFGH'},session:{memberId:'guest',hostId:'host'},send:()=>{}};netParticipants.set('guest','player')");h.run("onlinePlaying=true;online={host:true,session:{memberId:'host'},send:p=>{captured=p;}};var captured;tickOnline(.1)");guest.sandbox.packet=copy(h.run('captured'));guest.run("receiveNetPacket('host',packet)");hit();step(1.2);h.run('tickOnline(.1)');const packet=copy(h.run('captured'));const self=packet.actors.find(a=>a.id==='player');assert.equal(self.carMove.length,6);assert.equal(self.carMove[1],3);guest.sandbox.packet=packet;guest.run("receiveNetPacket('host',packet)");assert.equal(guest.run('player.hp'),50);const end=guest.run('player.carMotion.endsAt');guest.run("receiveNetPacket('host',packet);shoot();jump();activateAbility(player,'e')");assert.equal(guest.run('player.carMotion.endsAt'),end);assert.equal(guest.run('player.vy'),0);assert.equal(guest.run('player.hp'),50);guest.run('netHasSnapshot=false');h.run('tickOnline(.1)');guest.sandbox.packet=copy(h.run('captured'));guest.run('receiveNetPacket("host",packet)');assert.equal(guest.run('player.carMotion.phase'),3);assert.equal(guest.run('player.carMotion.endsAt'),end);
+  h.run('elapsed=player.carMotion.endsAt;updateCarMotions(0);tickOnline(.1)');guest.sandbox.packet=copy(h.run('captured'));guest.run("receiveNetPacket('host',packet)");assert.equal(guest.run('player.carMotion'),null);
+ });
+ check('host denies remote pose and stale fire/ability/reload attempts throughout stun',()=>{
+  setup();h.run("player.kit=new DuelistKit({character:'car'});player.kit.smoke=2;caster.kit=new DuelistKit({character:'nope'});caster.armor=50;caster.remoteId='guest';caster.netWeapon='classic';caster.netAmmo=5;caster.netReserve=36;caster.netReload=0;onlinePlaying=true;online={host:true,session:{memberId:'host'}};netParticipants.set('guest',caster.id);activateAbility(player,'c',{aim:{yaw:0,pitch:-.04}})");step(1.6);assert.equal(h.run('caster.carMotion.phase'),3);const z=h.run('caster.z');h.run("receiveNetPacket('guest',{type:'input',seq:1,connection:'stun',round:match.round,input:{x:0,y:0,z:0,yaw:0,pitch:0,interact:true},actions:[{type:'fire',seq:1,round:match.round,yaw:0,pitch:0},{type:'ability',seq:2,round:match.round,key:'e',yaw:0,pitch:0},{type:'reload',seq:3,round:match.round}]});var stock=caster.kit.snapshot();updateRemoteActor(caster,.1)");near(h.run('caster.z'),z,'remote cannot move');assert.equal(h.run('caster.netAmmo'),5);assert.equal(h.run('caster.netReload'),0);assert.deepEqual(copy(h.run('caster.kit.snapshot()')),copy(h.run('stock')));assert.equal(h.run("netApplied.get('guest')"),3);assert.equal(h.run('caster.planting||caster.defusing'),false);
+ });
+ check('ten stunned actors use bounded existing carMove markers in a fitted HTTP-sized snapshot',()=>{
+  setup();h.run("for(let i=1;i<9;i++)makeBot({x:i*2,z:-50},i,i%2?'red':'blue',{id:'seat'+i,secondary:'classic',kit:new DuelistKit({character:'car'})});for(const a of[player,...bots]){a.carMotion={id:'skill-car-bumper-1',phase:3,endsAt:elapsed+5,vx:0,vz:0,round:match.round,team:a.team,lastAt:elapsed};}onlinePlaying=true;online={host:true,session:{memberId:'host'},send:p=>{captured=p;}};var captured;tickOnline(.1)");const p=copy(h.run('captured'));assert.equal(p.actors.length,10);assert.equal(p.actors.filter(a=>a.carMove?.length===6&&a.carMove[1]===3).length,10);assert.ok(Buffer.byteLength(JSON.stringify(p))<=65536);
+ });
+ console.log('PASS: '+groups+' actual saved-game car stun groups; no playback');
+`;
+async function run({mutate=s=>s,only=()=>true}={}){
+ const runner=new Module(path.join(__dirname,'car-stun-harness.cjs'),module);runner.filename=path.join(__dirname,'car-stun-harness.cjs');runner.paths=module.paths;
+ runner.actualSource=mutate(fs.readFileSync(path.join(__dirname,'public/game.js'),'utf8'));runner.only=only;
+ const prefix=base.slice(0,cut).replace("source = fs.readFileSync(path.join(__dirname, 'public/game.js'), 'utf8')",'source = module.actualSource').replace('fn(); groups++;','if(!module.only(label))return;fn(); groups++;');
+ runner._compile(prefix+checks+'\n}\nmodule.exports=main;',runner.filename);await runner.exports();
+}
+module.exports=run;if(require.main===module)run().catch(e=>{console.error(e);process.exitCode=1;});

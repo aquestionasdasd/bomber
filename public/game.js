@@ -1218,7 +1218,8 @@ function updateTraffic(dt){
   map.destruction?.update(elapsed);map.busModels?.update(elapsed);
   if(!isGuest()){
     for(const hit of map.traffic.impacts(actors,elapsed,{enabled:match.phase==='live'})){
-      const actor=actors.find(a=>a.id===hit.actorId);actor.carMotion=null;actor.carImpulseUntil=0;actor.carFallUntil=0;actor.trafficLaunch={seq:hit.sequence,endsAt:hit.endsAt,vx:hit.vx,vz:hit.vz,vy:hit.vy};actor.vy=hit.vy;actor.dashTimer=0;actor.vx=0;actor.vz=0;actor.path=[];actor.planAt=0;
+      const actor=actors.find(a=>a.id===hit.actorId),stunUntil=carStunUntil(actor);
+      actor.carMotion=stunUntil>elapsed?{...actor.carMotion,phase:3,endsAt:stunUntil,vx:0,vz:0,lastAt:elapsed}:null;actor.carImpulseUntil=stunUntil;actor.carFallUntil=0;actor.trafficLaunch={seq:hit.sequence,endsAt:hit.endsAt,vx:hit.vx,vz:hit.vz,vy:hit.vy};actor.vy=hit.vy;actor.dashTimer=0;actor.vx=0;actor.vz=0;actor.path=[];actor.planAt=0;
       sound('vehicle-hit',{entity:actor});
       cancelServiceReload(actor);match.cancelPlant(actor.id);match.cancelDefuse(actor.id);damageEntity(actor,hit.damage,actors.find(a=>a.id===hit.owner)||null,{vehicle:true});
       if(actor===player){damageFlash=.55;showMessage('しばくでバスと接触',`${hit.damage}ダメージ · 車道から離れてください`,3);}
@@ -1230,7 +1231,7 @@ function updateTraffic(dt){
     if(match.phase!=='live'&&!(match.phase==='post'&&!actor.alive)){actor.trafficLaunch=null;continue;}
     if(elapsed<hit.endsAt)moveEntity(actor,hit.vx*dt,hit.vz*dt,actor===player?.34:.4);
     // Living vertical physics already ran once. Dead bodies still fly and land.
-    if(!actor.alive||actor.remoteId&&!isGuest())updateActorVertical(actor,dt,actor===player?.34:.4);
+    if(!actor.alive||actor.remoteId&&!isGuest()&&actor.carMotion?.phase!==3)updateActorVertical(actor,dt,actor===player?.34:.4);
     if(elapsed>=hit.endsAt&&(actor.alive||actor.vy===0))actor.trafficLaunch=null;
     if(actor.group){actor.group.position.set(actor.x,actor.y,actor.z);if(!actor.alive){actor.death=Math.max(actor.death||0,hit.endsAt-elapsed+.2);actor.group.visible=true;}}
   }
@@ -2060,14 +2061,24 @@ function carSkillTarget(actor,key,aim=null){
  }return best;
 }
 // Only the host starts collision/damage. Guests animate accepted markers, never hits.
-function carMotionActive(actor,now=elapsed){const m=actor?.carMotion;return !!(m&&m.round===match?.round&&m.team===actor.team&&now<m.endsAt&&(match.phase==='live'&&(actor.alive||m.phase===2)||match.phase==='post'&&!actor.alive&&m.phase===2));}
+function carMotionActive(actor,now=elapsed){const m=actor?.carMotion,until=m?.endsAt+(m?.phase===2&&actor.alive?CAR_SKILLS.bumperStunTime-CAR_SKILLS.bumperLaunchTime:0);return !!(m&&m.round===match?.round&&m.team===actor.team&&now<until&&(match.phase==='live'&&(actor.alive||m.phase===2)||match.phase==='post'&&!actor.alive&&m.phase===2));}
+function carStunUntil(actor){const m=actor?.carMotion;return carMotionActive(actor)&&m.phase!==1?(m.phase===2?m.endsAt+CAR_SKILLS.bumperStunTime-CAR_SKILLS.bumperLaunchTime:m.endsAt):0;}
+function finishCarMotion(actor,m){
+ // The five seconds start at contact, including the existing one-second arc.
+ const endsAt=m.endsAt+CAR_SKILLS.bumperStunTime-CAR_SKILLS.bumperLaunchTime;
+ if(m.phase===2&&actor.alive&&m.round===match.round&&m.team===actor.team&&match.phase==='live'&&elapsed<endsAt){
+  actor.carMotion={...m,phase:3,endsAt,vx:0,vz:0,lastAt:elapsed};actor.carImpulseUntil=endsAt;actor.vx=0;actor.vz=0;
+ }else{actor.carMotion=null;actor.carImpulseUntil=0;}
+}
 function beginCarMotion(actor,m,targetId=null){
  actor.carMotion={...m,round:match.round,team:actor.team,targetId,lastAt:elapsed};actor.carImpulseUntil=m.endsAt;actor.carFallUntil=m.phase===2?m.endsAt+1:0;actor.vx=0;actor.vz=0;actor.dashTimer=0;actor.vy=m.phase===2?CAR_SKILLS.bumperLift:0;
  actor.path=[];actor.pathIndex=0;actor.planAt=0;cancelServiceReload(actor);actor.planting=false;actor.defusing=false;match.cancelPlant(actor.id);match.cancelDefuse(actor.id);
+ if(m.phase===2)actor.trcLadder=null;
  if(actor===player){clearCombatInput();interactionHeld=false;reloading=0;}
 }
 function carMotionMarker(value,now){
- if(!Array.isArray(value)||value.length!==6||!/^skill-car-bumper-[1-9][0-9]*$/.test(value[0])||![1,2].includes(value[1])||!value.slice(2).every(Number.isFinite))return null;
+ if(!Array.isArray(value)||value.length!==6||!/^skill-car-bumper-[1-9][0-9]*$/.test(value[0])||![1,2,3].includes(value[1])||!value.slice(2).every(Number.isFinite))return null;
+ if(value[1]===3){const[id,phase,endsAt,vx,vz,vy]=value;if(endsAt<=now||endsAt>now+CAR_SKILLS.bumperStunTime+.002||vx!==0||vz!==0||Math.abs(vy)>32)return null;return{id,phase,endsAt,vx,vz,vy,round:match.round};}
  const[id,phase,endsAt,vx,vz,vy]=value,speed=phase===1?CAR_SKILLS.bumperSpeed:CAR_SKILLS.bumperDistance/CAR_SKILLS.bumperLaunchTime;
  if(endsAt<=now||endsAt>now+(phase===1?CAR_SKILLS.bumperRange/CAR_SKILLS.bumperSpeed:CAR_SKILLS.bumperLaunchTime)+.002||Math.abs(Math.hypot(vx,vz)-speed)>.003||Math.abs(vy)>16)return null;
  return{id,phase,endsAt,vx,vz,vy,round:match.round};
@@ -2082,8 +2093,9 @@ function reconcileCarPose(self){
 function updateCarMotions(dt){
  for(const actor of[player,...bots]){
   const m=actor.carMotion;if(!m)continue;
-  if(!carMotionActive(actor,Math.min(elapsed,m.lastAt??elapsed))){actor.carMotion=null;actor.carImpulseUntil=0;continue;}
+  if(!carMotionActive(actor,Math.min(elapsed,m.lastAt??elapsed))){finishCarMotion(actor,m);continue;}
   if(isGuest()&&actor!==player)continue;
+  if(m.phase===3){m.lastAt=elapsed;actor.vx=0;actor.vz=0;actor.moving=false;updateActorVertical(actor,dt,actor===player?.34:.4);actor.group?.position.set(actor.x,actor.y||0,actor.z);if(elapsed>=m.endsAt)finishCarMotion(actor,m);continue;}
   const duration=Math.max(0,Math.min(elapsed,m.endsAt)-(m.lastAt??elapsed-dt));m.lastAt=elapsed;const n=Math.max(1,Math.ceil(duration*60)),step=duration/n;
   for(let i=0;i<n;i++){
    const px=actor.x,pz=actor.z,py=actor.y||0,nx=px+m.vx*step,nz=pz+m.vz*step;
@@ -2100,9 +2112,10 @@ function updateCarMotions(dt){
      sound('vehicle-hit',{entity:victim});damageEntity(victim,CAR_SKILLS.bumperDamage,actor,{skill:'car'});burst(new THREE.Vector3(victim.x,(victim.y||0)+1,victim.z),'#ffe18c',18);break;
     }
    }
-   if(blocked){actor.carMotion=null;actor.carImpulseUntil=0;break;}
+   if(blocked){finishCarMotion(actor,m);break;}
   }
-  actor.moving=true;
+  if(actor.carMotion===m&&elapsed>=m.endsAt)finishCarMotion(actor,m);
+  actor.moving=actor.carMotion?.phase!==3;
   if(actor.group){actor.group.position.set(actor.x,actor.y||0,actor.z);if(!actor.alive){actor.group.visible=true;actor.death=Math.max(actor.death||0,m.endsAt-elapsed+.2);}}
  }
 }
@@ -2409,6 +2422,7 @@ function updateHUD(){
     if(ordinarySkills.nobiInterval(player.id,elapsed)>1)statuses.push('ひげブレーキ · 銃の射撃間隔160%');
     if(ordinarySkills.nobiWork(player.id,elapsed)>1)statuses.push('ポケット工具 · 設置・電源オフ150%');
     if(ordinarySkills.nobiLegend(player.id,elapsed))statuses.push('逆転えり · 胴・脚も頭相当');
+    const stunUntil=carStunUntil(player);if(stunUntil>elapsed)statuses.push(`STUN · 残り${Math.ceil(stunUntil-elapsed)}秒 / 移動・射撃・スキル・設置/解除不可`);
     const catBook=ordinarySkills.catBookmark(player.id,elapsed),catClock=ordinarySkills.clockFrozen(elapsed);
     const duckFlying=duckFlight(player);const duckSeal=ordinarySkills.sealUntil(player.id,elapsed)>elapsed,duckQuiet=ordinarySkills.quiet(player.id,elapsed),duckEgg=ordinarySkills.events(elapsed).find(e=>e.type==='duck-egg'&&e.sourceId===player.id);
     const personal=player.alive?ordinarySkills.events(elapsed).filter(event=>event.sourceId===player.id):[],shade=personal.some(event=>event.type==='ember-shade'),unravel=personal.some(event=>event.type==='frost-unravel')&&actorGrounded(player);
@@ -2606,7 +2620,7 @@ function updateBots(dt){
     }
     bot.turnBudget=cfg.turnRate*dt;
     if(busSeat(bot)){bot.group.position.set(bot.x,bot.y||0,bot.z);continue;}
-    if(carMotionActive(bot)){bot.group.position.set(bot.x,bot.y||0,bot.z);bot.visual.update(dt,{...agentEquipment(bot),time:elapsed,moving:true,alive:true});continue;}
+    if(carMotionActive(bot)){bot.group.position.set(bot.x,bot.y||0,bot.z);bot.visual.update(dt,{...agentEquipment(bot),time:elapsed,moving:bot.carMotion.phase!==3,alive:true});continue;}
     if(bot.trcLadder){const previous={x:bot.x,y:bot.y,z:bot.z};map.traversal.climb(bot,bot.trcClimbDirection||1,dt);trcMotionSound(bot,dt,previous,false);bot.group.position.set(bot.x,bot.y,bot.z);bot.moving=true;bot.visual.update(dt,{...agentEquipment(bot),time:elapsed,moving:true,alive:true});continue;}
     if(bot.vy||bot.y)updateActorVertical(bot,dt,.4);
     bot.fire=Math.max(0,(bot.fire||0)-dt);
@@ -3506,7 +3520,7 @@ function updateRemoteActor(actor,dt){
   const data=netInputs.get(actor.remoteId);if(!data){actor.planting=false;actor.defusing=false;match.cancelPlant(actor.id);match.cancelDefuse(actor.id);return;}
   const input=data.input,active=elapsed-data.received<.8&&actor.alive&&data.round===match.round,objectiveWork=active&&input.interact===true?objectiveActionFor(actor):null,previousX=actor.x,previousY=actor.y||0,previousZ=actor.z,wasDashing=actor.dashTimer>0;
   if(active&&duckPadAirborne(actor)&&actorGrounded(actor)&&Number.isFinite(input.y)&&Math.abs(input.y-actor.y)<.08)actor.duckPadUntil=0;
-  const wasClimbing=!!actor.trcLadder;if(wasClimbing){const previous={x:actor.x,y:actor.y,z:actor.z};map.traversal.climb(actor,active&&[-1,0,1].includes(input.climb)?input.climb:0,dt,input.quiet===true);trcMotionSound(actor,dt,previous,input.quiet===true);}
+  const wasClimbing=!!actor.trcLadder&&!carMotionActive(actor);if(wasClimbing){const previous={x:actor.x,y:actor.y,z:actor.z};map.traversal.climb(actor,active&&[-1,0,1].includes(input.climb)?input.climb:0,dt,input.quiet===true);trcMotionSound(actor,dt,previous,input.quiet===true);}
   if(active&&!wasClimbing&&!busSeat(actor)&&Number.isFinite(input.x)&&Number.isFinite(input.z)){
     // An accepted airborne pose ends turf before applying this input's speed cap.
     const inputFeet=Number.isFinite(input.y)?clamp(input.y,0,11):actor.y;

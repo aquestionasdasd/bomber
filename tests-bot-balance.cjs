@@ -19,11 +19,11 @@ const suite=String.raw`
    setup();h.run('var tickCount=0;const realTick=player.kit.tick.bind(player.kit);player.kit.tick=function(now){tickCount++;return realTick(now)}');
    tick(12);near(h.run('elapsed'),10.1,'one clock');assert.equal(h.run('tickCount'),12);assert.equal(h.run('bench.carMotionFrames'),12);
  });
- check('measured C includes source travel, real contact75 and continuous24m victim arc',()=>{
-   setup();cast();tick(24);assert.equal(h.run('enemy.hp'),100);assert.ok(h.run('player.z')<-4);
-   tick(24);assert.equal(h.run('enemy.hp'),25);assert.ok(h.run('enemy.y')>0);
+ check('measured C includes source travel, real contact100 and continuous24m victim arc',()=>{
+   setup();h.run('enemy.armor=50');cast();tick(24);assert.equal(h.run('enemy.hp'),100);assert.ok(h.run('player.z')<-4);
+   tick(24);assert.equal(h.run('enemy.hp'),50);assert.ok(h.run('enemy.y')>0);
    tick(132);near(h.run('enemy.z'),-34,'actual24m',.03);
-   assert.equal(h.run('bench.actors.player.ramHits'),1);assert.equal(h.run('bench.actors.player.ramDamage'),75);assert.equal(h.run('bench.actors.player.damage'),75);
+   assert.equal(h.run('bench.actors.player.ramHits'),1);assert.equal(h.run('bench.actors.player.ramDamage'),100);assert.equal(h.run('bench.actors.player.damage'),100);
    assert.ok(h.run('bench.actors.player.ramTravel')>8);near(h.run('bench.actors.enemy.launchedTravel'),24,'measured launch24m',.03);
  });
  check('focal C ablation preserves stock and reports no cast/hit/forced travel',()=>{
@@ -35,8 +35,8 @@ const suite=String.raw`
    assert.equal(h.run('enemy.hp'),100);assert.equal(h.run('bench.actors.player.ramHits'),0);assert.ok(h.run('player.z')>-4);
  });
  check('damage accounting records armor plus HP once and final contact kill attribution',()=>{
-   setup();h.run('enemy.armor=50;enemy.hp=30');cast();tick(180);
-   assert.equal(h.run('enemy.alive'),true);assert.equal(h.run('bench.actors.player.kills'),0);assert.equal(h.run('bench.actors.player.ramHits'),1);near(h.run('bench.actors.player.damage'),75,'effective armor+hp damage');
+   setup();h.run('enemy.armor=50;enemy.hp=60');cast();tick(180);
+   assert.equal(h.run('enemy.alive'),true);assert.equal(h.run('bench.actors.player.kills'),0);assert.equal(h.run('bench.actors.player.ramHits'),1);near(h.run('bench.actors.player.damage'),100,'effective armor+hp damage');
    setup();h.run('enemy.hp=60');cast();tick(180);assert.equal(h.run('enemy.alive'),false);assert.equal(h.run('bench.actors.player.kills'),1);near(h.run('bench.actors.player.damage'),60,'overkill excluded');
  });
  check('frame driver advances and resolves objective clock rather than leaving a stuck live round',()=>{
@@ -69,7 +69,7 @@ const suite=String.raw`
    assert.equal(h.run('bench.actors.player.clockCasts'),undefined);assert.equal(h.run('player.kit.ultPoints'),7);
  });
  check('EMBER C counts actual armor and HP loss once, separating ultimate and requested overkill',()=>{
-   setup();h.run("player.kit=new DuelistKit({character:'ember'});player.kit.smoke=2;enemy.z=-16;enemy.armor=50;enemy.hp=30;bench.actors.player.character='ember';activateAbility(player,'c',{zonePoint:{x:0,z:-16},aim:{yaw:0,pitch:0}})");
+   setup();h.run("player.kit=new DuelistKit({character:'ember'});player.kit.smoke=2;enemy.z=-16;enemy.armor=50;enemy.hp=60;bench.actors.player.character='ember';activateAbility(player,'c',{zonePoint:{x:0,z:-16},aim:{yaw:0,pitch:0}})");
    tick(84);near(h.run('bench.actors.player.solderDamage'),75,'real C armor+HP loss');assert.equal(h.run('bench.actors.player.solderHits'),1);assert.equal(h.run('bench.actors.player.solderKills||0'),0);
    h.run("damageEntity(enemy,1000,player,{skill:'ember'})");near(h.run('bench.actors.player.solderDamage'),75,'non-ordinary damage excluded');assert.equal(h.run('bench.actors.player.solderHits'),1);
    setup();h.run("player.kit=new DuelistKit({character:'ember'});player.kit.smoke=2;enemy.z=-16;enemy.hp=10;bench.actors.player.character='ember';activateAbility(player,'c',{zonePoint:{x:0,z:-16},aim:{yaw:0,pitch:0}})");tick(84);near(h.run('bench.actors.player.solderDamage'),10,'overkill excluded');assert.equal(h.run('bench.actors.player.solderKills'),1);
