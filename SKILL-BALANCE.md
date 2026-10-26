@@ -314,3 +314,11 @@ X8秒/7pt・人間操作・猫CQE・能力の強さ・設置4秒/電源オフ7�
 ## 第153巡 / CPU照準旋回を0.8倍（手動指定）
 
 人間「CPUがフリックで敵の頭に合わせる視点移動をちょっとだけおそくして、0.8倍くらい」。精鋭BOTの共有旋回速度だけ180→144度/秒（Math.PI×.8）へ。移動/交戦/作業が同一frame budgetを共有し、一瞬の背後フリックをしない。精度/静止判定/頭狙い率/反応.14秒/射撃間隔/移動速度/視認/固定聴覚/人間とremote操作/通信/音源は保持。実updatePlayの20/60/144Hzで移動と視認敵照準の0.8比を測り、背後/遮蔽/閃光/guestとmemory故障を関連試験。通常対戦の勝率比較は今回なし。公開/GitHub結果はworkspace cycle153 release正本。自動fps-19 PAUSED。
+
+## 第155巡 / 星留め中の射撃精度（手動依頼）
+
+人間「おんなら、空中静止中は球がぶれないようにして」。実際にE星留めで保持している間だけ単発銃は照準方向へ、散弾は通常の粒配置を維持し空中/水平移動/連射による追加拡散を除く。実保持の高さ/速度/床/頭上/停止IDと既存host確定eventを確認し、通常Cジャンプ・E予測だけ・期限/死亡/team/次R/接地・高い床侵入は通常精度。既存鴨C/Eと共通の射撃入口を使用。銃威力/弾数/間隔/照準反動/星留め13秒/18CD/C大ジャンプ/QX/物理地形/音源/wire/HTTPを保持。guestの命中HP権威は増やさない。
+
+のびの半径20m投擲変更は対象技の回答待ちで製品未変更。自動fps-19はPAUSED維持、音再生/試聴/browser/tab/server/foreground/userタブ/OS/他アプリ操作なし。実端末/本人操作感は未確認。正本workspace cycle155-test-report/release。旧fullmain床ボンバーhold4/旧gyro/general FROST説明fixture債務は保持し無用反復なし。
+
+専用実savedgame8/3memory故障（全10銃/20・60・144Hz/full updatePlay/独立hostguestJSON/偽精度拒否/床侵入・停止ID/通常ジャンプ/壁・装甲・弾数・間隔）、既存ONNARA15+game12+Cjump9/鴨空中9+3memory故障/武器12/知覚8/戦術14行4実mapseed/SQLite21/精鋭照準9成功。初回の部分戦術fixtureが新しい共通精度関数を取り込まずReferenceErrorで停止。実関数と実starHoldの取込を補い再成功、製品判断は緩めず初回logを保持。同じ成功済み全試験/全mainの反復なし。公開とGitHubは最終workspace記録へ。

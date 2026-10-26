@@ -1,5 +1,6 @@
 # ボンバーディフューザー3Dオンライン — 開発指示
 
+- おんならEの星留めで実際に空中静止している間、単発弾は照準方向へ飛ぶ。散弾の通常粒配置は保持。通常ジャンプ・未承認予測・終了/接地/床侵入へ精度効果を残さず、hostだけ命中HPを確定。既存鴨の空中精度も保持。
 - 最新人間指定によりおんならCは「星跳び」：接地中のC単押しで上向き速度12、通常重力15で足元から最大約4.8m。C2回/100coin、天井停止/空中追加発動不可、既存E13秒静止と連携。旧徴税Cは新規発行せず旧snapshot互換のみ。host権威/guest単発予測と拒否ACKで位置・在庫rollback、新wire fieldなし。
 - 起動・共同開発は README.md と CONTRIBUTING.md、次の依頼は DEVELOPMENT-BACKLOG.md を読む。最新人間指示を優先。
 - public/ がゲームのソース、public/play.html が入口。dist/ は生成物で編集しない。オンラインAPIは app/api/rooms と server/、DBは db/ と drizzle/。

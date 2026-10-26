@@ -1586,7 +1586,7 @@ function shoot(shotTime=elapsed) {
     if(spec.scope){sniperCycleAt=lastShot;setVisible('sniper-scope',false);}
     if(!spec.auto)firing=false;updateHUD();return;
   }
-  const moving=Math.hypot(player.vx,player.vz)>1.2,steadyAir=duckAirAim(player);
+  const moving=Math.hypot(player.vx,player.vz)>1.2,steadyAir=steadyAirAim(player);
   const spread=ultimate||steadyAir?0:spec.spread*(aiming?.65:player.crouch>.5?.8:1)+carMovementSpread({airborne:!actorGrounded(player),moving,gyro:ordinarySkills.carGyro(player.id,elapsed)&&actorGrounded(player)})+Math.min(.04,Math.max(0,shotSequence-3)*.004);
   direction.x+=(Math.random()-.5)*spread;direction.y+=(Math.random()-.5)*spread;direction.normalize();
   if(!ultimate&&!steadyAir&&shotSequence>3)direction.x+=Math.sin(shotSequence*1.8)*.008;
@@ -1627,7 +1627,7 @@ function fireArsenal(actor,origin,aim,spec,ads=false,{visualOnly=false}={}){
   botsGroup.updateMatrixWorld(true);
   const targets=[environment,botsGroup];
   let anyHit=false,headHit=false,bounced=false,rangeStartHit=false;
-  for(const offset of shotPattern(id,{ads,moving,airborne:!actorGrounded(actor),steadyAir:duckAirAim(actor),sequence})){
+  for(const offset of shotPattern(id,{ads,moving,airborne:!actorGrounded(actor),steadyAir:steadyAirAim(actor),sequence})){
     const dir=forward.clone().addScaledVector(right,offset.x).addScaledVector(up,offset.y).normalize();
     const ray=new THREE.Raycaster(origin,dir,0,120);
     let hit=ray.intersectObjects(targets,true).find(h=>busSurfaceVisible(h)&&h.object.userData.bot!==actor&&(!h.object.userData.bot||h.object.userData.bot.alive));
@@ -1883,9 +1883,15 @@ function confirmOnnaraSkill(key){
  if(!effect)showMessage('発動できません','Cは接地中 / Qは見える実床 / Eは空中で使用 · 重複や満杯は消費しません',2);
  refillMapPracticeSkills();updateHUD();
 }
+function starHoldClear(actor,event){return canStand(actor.x,actor.z,.34,event.y)&&getZoneFloor(actor.x,actor.z,event.y+.04)<event.y-.035;}
+function onnaraAirAim(actor){
+ const event=ordinarySkills.onnaraEvent?.('onnara-hover',actor?.id,elapsed);
+ return !!(actor?.alive&&match?.phase==='live'&&event&&event.round===match.round&&event.team===actor.team&&!starHold.stopped(event.id)&&!actor.trcLadder&&!carMotionActive(actor)&&!busSeat(actor)&&Math.abs(actor.y-event.y)<1e-6&&Math.abs(actor.vy||0)<1e-6&&starHoldClear(actor,event));
+}
+function steadyAirAim(actor){return duckAirAim(actor)||onnaraAirAim(actor);}
 function applyStarHold(actor){
  const event=ordinarySkills.onnaraEvent?.('onnara-hover',actor.id,elapsed);if(!event||match?.phase!=='live')return false;
- const held=starHold.apply(actor,event,elapsed,(a,e)=>canStand(a.x,a.z,.34,e.y)&&getZoneFloor(a.x,a.z,e.y+.04)<e.y-.035);
+ const held=starHold.apply(actor,event,elapsed,starHoldClear);
  if(!held&&starHold.stopped(event.id))ordinarySkills.cancelOnnaraEvent(event.id,actor.id);return held;
 }
 function renderOnnaraOrb(){
@@ -2940,7 +2946,7 @@ function updateBots(dt){
           if(spec.mag>0)bot.fire*=ordinarySkills.nobiInterval?.(bot.id,elapsed)||1;
           let chance=cfg.aim*(settled?1:.76)*Math.max(.6,1-enemyDistance/160);
           if(targetSpeed>2.5)chance*=.78;
-          if(bot.moving&&!duckAirAim(bot)&&!(ordinarySkills.carGyro(bot.id,elapsed)&&actorGrounded(bot)))chance*=.72;
+          if(bot.moving&&!steadyAirAim(bot)&&!(ordinarySkills.carGyro(bot.id,elapsed)&&actorGrounded(bot)))chance*=.72;
           if(spec.mag>0&&!spec.arsenal&&ordinarySkills.capLocked?.(bot.id,elapsed))chance*=CAP_SKILLS.lockAimScale;
           const hit=Math.random()<chance,head=hit&&Math.random()<(settled?.34:.13);
           const from=new THREE.Vector3(bot.x,(bot.y||0)+1.2,bot.z);
