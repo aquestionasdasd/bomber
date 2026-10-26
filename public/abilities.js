@@ -6,7 +6,7 @@ import { TEAM_ABILITIES } from './team-abilities.js';
 
 export const CHARACTER_DEFS = Object.freeze({
   duelist: Object.freeze({ id: 'duelist', label: 'ちぬつてのとのへめほ', role: '突入', ultName: 'ブレードストーム', ultShortName: 'ナイフ', ultimatePoints: 7,
-    description: 'C：空中に短い流れ星の幕 / Q：アンテナリフトで上昇 / E：2段階のダッシュ。X：ナイフ5本・撃破で補充（7pt）。', color: '#a7e3e7', ultIcon: 'm24 3 5 2-13 17-6 4 1-7L24 3M11 19l5 3M9 23l-4 5M22 7l4 3M4 7l4-3m21 18 4 2' }),
+    description: 'C：空中に短い流れ星の幕 / Q：アンテナリフトで上昇 / E：2段階のダッシュ。X：ナイフ5本。左クリックで1本、右クリックで残り最大5本を同時に散開投擲。撃破で5本補充（7pt）。', color: '#a7e3e7', ultIcon: 'm24 3 5 2-13 17-6 4 1-7L24 3M11 19l5 3M9 23l-4 5M22 7l4 3M4 7l4-3m21 18 4 2' }),
   nope: Object.freeze({ id: 'nope', label: 'NOPE', role: '特殊', ultName: 'ノープ・テイクオーバー', ultShortName: 'ノープ', ultimatePoints: 7,
     description: 'C：瓶グレネード / Q：顔フラッシュ / E：銃を持って歩く全身の囮。撃たれると閃光。X：駅ごとのロゴ柄と、銃を持って歩く囮30体を12秒展開（7pt）。', color: '#d7a8f1', ultIcon: 'M7 25V5l22 20V5M7 5l22 20M14 5h7M15 25h7' }),
   mend: Object.freeze({ id: 'mend', label: '丱凵してね', role: '支援', ultName: 'リカバリーウェーブ', ultShortName: '回復', ultimatePoints: 7,
@@ -23,7 +23,7 @@ export const CHARACTER_DEFS = Object.freeze({
     description:'C：全員が跳べる羽根床を設置 / Q：弾だけを止める羽盾 / E：10秒スペース連打で飛行、最初の5秒は消音。X：8秒、致死攻撃を2回までHP1で耐える（7pt）。', color:'#77b34c', ultIcon:'M18 2C9 2 5 16 5 21a13 9 0 0 0 26 0C31 16 27 2 18 2Zm-2 10 5 5-5 4 4 5' }),
   cat: Object.freeze({id:'cat',label:'猫の画像',role:'回収・時制',ultName:'白紙の8秒',ultShortName:'時止め',ultimatePoints:7,description:'C：保存地点へ帰還 / Q：敵の装填弾を最大5発裂き、1発12・最大60ダメージ / E：落ちた銃を遠隔回収。X：8秒、ラウンドとボンバーの時計を止める。行動と電源オフは進む（7pt）。',color:'#eee8dd',ultIcon:'M18 3a12 12 0 1 0 0 24 12 12 0 0 0 0-24ZM14 9v12m8-12v12'}),
   car: Object.freeze({id:'car',label:'トミカ',role:'排除・補給',ultName:'ピットクルー',ultShortName:'補給',ultimatePoints:7,description:'C：本体突進で75ダメージ＋最大24m吹き飛ばし / Q：狙った煙を一つ除去 / E：接地中の移動射撃を安定化。X：視線内24mの味方と自身のC/Q/Eを補給（7pt）。',color:'#e9ece8',ultIcon:'M4 23h28V10H4ZM8 14h8v5H8Zm12 0h8v5h-8ZM12 4v4m12-4v4M9 25v4m18-4v4'}),
-  nobi:Object.freeze({id:'nobi',label:'のび',role:'弱点・工作',ultName:'逆転えり',ultShortName:'逆転',ultimatePoints:7,description:'4技とも構えて左クリックで投擲、右クリックで取消。C35m・Q40m・E/X35m。着地点の半径20mでCは敵の被銃撃1.35倍6秒、Qは敵の射撃間隔1.6倍5秒、Eは味方の作業1.5倍6秒。Xは0.6秒後から8秒、自身と味方の胴・脚への銃撃も頭相当。壁・煙越し無効、範囲外は通常。X7ポイント。',color:'#f3cb48',ultIcon:'M18 3 3 13l15 15 15-15ZM10 13l8 8 8-8M18 3v11'}),
+  nobi:Object.freeze({id:'nobi',label:'のび',role:'弱点・工作',ultName:'逆転えり',ultShortName:'逆転',ultimatePoints:7,description:'4技とも構えて左クリックで投擲、右クリックで取消。C35m・Q40m・E/X35m。着地点の半径20mでCは敵の被銃撃1.35倍6秒、Qは敵の射撃間隔1.6倍5秒、Eは味方の作業1.5倍6秒。X：0.6秒後から8秒、自身と味方の胴・脚への銃撃も頭相当。壁・煙越し無効、範囲外は通常。X7ポイント。',color:'#f3cb48',ultIcon:'M18 3 3 13l15 15 15-15ZM10 13l8 8 8-8M18 3v11'}),
   japan:Object.freeze({id:'japan',label:'しばくでジャパン',role:'国境・総動員',ultName:'総動員',ultShortName:'総動員',ultimatePoints:7,description:'C：越えた敵へ国境線 / Q：敵の装甲を接収 / E：被銃撃を撃ち手へ返送。X：倒れた味方全員を開始地点へ10HPで呼び戻す（7pt）。',color:'#e8ca91',ultIcon:'M3 15h30M18 2v26M7 4l22 22M29 4 7 26M4 23h28'}),
   cap:Object.freeze({id:'cap',label:'キャップは？',role:'光学・解除',ultName:'エンドレスマガジン',ultShortName:'無消費',ultimatePoints:7,description:'C：敵の銃の照準とADSを妨害 / Q：現在の妨害を解除 / E：壁で弾を一度反射。X：9秒、装填済みの銃弾を消費せず発射（7pt）。',color:'#e36336',ultIcon:'M5 7h26v16H5ZM12 11c-8 0-8 8 0 8s4-8 12-8 8 8 0 8-4-8-12-8'}),
   urchin:Object.freeze({id:'urchin',label:'青ウニ',role:'棘・弾道',ultName:'三叉潮',ultShortName:'三叉',ultimatePoints:7,description:'C：予告した直線へ棘を一斉射出 / Q：敵の購入主武器を床へ落とす / E：壁を抜ける潮の波で遠くの視界を奪う。X：9秒、銃弾が三方向へ分かれる（7pt）。',color:'#a9f1e4',ultIcon:'M18 28V4M18 20 5 7M18 20 31 7M2 11 5 7 9 8M27 8 31 7 34 11M14 8 18 4 22 8'}),
@@ -261,7 +261,7 @@ export class DuelistKit {
       default: return null;
     }
   }
-  consumeKnife() { if (!this.knivesActive || this.knives <= 0) return false; this.knives--; return true; }
+  consumeKnife(count=1) { if (!Number.isSafeInteger(count) || count<1 || count>DUELIST.knives || !this.knivesActive || this.knives<count) return false; this.knives-=count; return true; }
   awardKill() {
     this.awardPoint();
     if (this.character === 'duelist' && this.dash === 0 && ++this.dashKills >= DUELIST.signatureKills) { this.dash = 1; this.dashKills = 0; }

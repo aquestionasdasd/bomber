@@ -208,6 +208,15 @@ async function main() {
       assert.equal((await send(host, host.memberId, 'game', { type: 'state' })).status, 400);
     });
 
+    await test('five-knife burst remains one bounded guest action through authenticated HTTP and direct channel', async () => {
+      const host=await create(),guest=await join(host),peer=await join(host,'red','PEER');await ready(peer);await start(host,guest);
+      const payload={type:'input',seq:1,round:1,input:{x:0,y:0,z:0,yaw:0,pitch:0},actions:[{type:'fire',seq:1,round:1,at:10,yaw:0,pitch:0,ultimate:true,burst:true}]};
+      assert.equal((await send(guest,'host','game',payload)).status,201);const inbox=(await getMessages(host)).value;assert.equal(inbox.messages.length,1);assert.deepEqual(inbox.messages[0].data,payload);assert.equal((await getMessages(peer)).value.messages.length,0);
+      const {RoomClient}=await import(pathToFileURL(path.join(__dirname,'public/online.js')).href),delivered=[];
+      const client=Object.assign(Object.create(RoomClient.prototype),{host:false,closed:false,room:{status:'playing'},session:{code:host.code,memberId:guest.memberId,hostId:host.memberId},connectionId:'blade-test',peers:new Map([[host.memberId,{channel:{readyState:'open',bufferedAmount:0,send:value=>delivered.push(JSON.parse(value))}}]]),pendingState:null,pendingTeamStates:new Map(),lastRelay:clock,relayBusy:false});
+      client.send(payload);assert.equal(delivered.length,1);assert.equal(delivered[0].actions.length,1);assert.deepEqual(delivered[0].actions,payload.actions);assert.equal(delivered[0].room,host.code);assert.equal(delivered[0].connection,'blade-test');
+    });
+
     await test('team snapshots remain private to authenticated membership and preserve relay limits', async () => {
       const host = await create(), red = await join(host), blue = await join(host, 'blue', 'ALLY');
       await ready(blue); await start(host, red);

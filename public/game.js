@@ -1569,17 +1569,24 @@ function burst(position,color='#ffac6b',number=7) {
     effects.push({object:m,life:.3+Math.random()*.22,max:.52,velocity:new THREE.Vector3((Math.random()-.5)*3,Math.random()*3,(Math.random()-.5)*3)});
   }
 }
-function shoot(shotTime=elapsed) {
+function shoot(shotTime=elapsed,alternate=false) {
   refillRangeAmmo();
   const spec=weapon();
   if(netHostPaused||mode!=='play'||!player.alive||busDriving()||carMotionActive(player)||match?.phase!=='live'||inventory.active==='spike'||interactionHeld||ordinaryFX.throwing(elapsed)||nobiSkillFX.throwing(elapsed)||mendSkillFX.throwing(elapsed)||iagnuSkillFX.throwing(elapsed)||grassSkillFX.throwing(elapsed)||emberSkillFX.throwing(elapsed)||frostSkillFX.throwing(elapsed)||duelistSkillFX.throwing(elapsed)||player.serviceReload||reloading>0||shotTime-lastShot+1e-8<nobiShotInterval(spec,player))return;
   const ultimate=player.kit.knivesActive&&inventory.active==='knife',melee=inventory.active==='knife'&&!ultimate;
-  if(ultimate&&!player.kit.consumeKnife())return;
+  if(alternate&&(!ultimate||isGuest()&&netActions.length>=64))return;
+  const knifeCount=alternate?Math.min(DUELIST.knives,player.kit.knives):1;
+  if(ultimate&&!player.kit.consumeKnife(knifeCount))return;
   if(!melee&&!ultimate&&player.ammo<=0){reload();return;}
   if(!melee&&!ultimate&&!rangeInfiniteResources()&&!ordinarySkills.capMagazine(player.id,elapsed))player.ammo--;if(!melee&&!ultimate)crownShot(player);shots++;rangeSession?.recordShot();lastShot=shotTime;kick=melee?.1:.035;shotSequence++;
   if(!ultimate)player.recoil=Math.min(.085,player.recoil+(spec.slot==='primary'?.012:.008));sound('shot');
   camera.position.set(player.x,1.7-player.crouch*.55+player.y,player.z);camera.rotation.set(player.pitch+renderedRecoil,player.yaw,0);
   camera.getWorldDirection(direction);
+  if(alternate){
+    if(isGuest())queueNetAction('fire',{yaw:player.yaw,pitch:player.pitch+renderedRecoil,ultimate:true,burst:true});
+    fireKnifeBurst(player,camera.position,direction,knifeCount,{visualOnly:isGuest()});
+    firing=false;aiming=false;updateHUD();return;
+  }
   if(spec.arsenal){
     if(isGuest())queueNetAction('fire',{yaw:player.yaw,pitch:player.pitch+renderedRecoil,ultimate:false,ads:aiming===true});
     fireArsenal(player,camera.position,direction,spec,aiming,{visualOnly:isGuest()});
@@ -1615,6 +1622,35 @@ function shoot(shotTime=elapsed) {
   if(!melee&&!ultimate)urchinTridentShot(player,camera.position,direction,spec);
   if(!spec.auto)firing=false;
   raycaster.far=190;updateHUD();
+}
+// One alternate trigger spends a bounded stock once. Resolve all five rays before
+// actor damage so a kill/refill cannot add knives to the same burst.
+function fireKnifeBurst(actor,origin,aim,count,{visualOnly=false}={}){
+  if(!Number.isSafeInteger(count)||count<1||count>DUELIST.knives)return;
+  const forward=aim.clone().normalize(),right=new THREE.Vector3().crossVectors(forward,new THREE.Vector3(0,1,0)).normalize();
+  const up=new THREE.Vector3().crossVectors(right,forward).normalize(),offsets=[[0,0],[-.045,0],[.045,0],[0,.045],[0,-.045]],totals=new Map();
+  const muzzle=origin.clone();if(actor===player)viewmodel.muzzle.getWorldPosition(muzzle);
+  let anyHit=false;botsGroup.updateMatrixWorld(true);
+  for(const [x,y] of offsets.slice(0,count)){
+    const dir=forward.clone().addScaledVector(right,x).addScaledVector(up,y).normalize(),ray=new THREE.Raycaster(origin,dir,0,120);
+    let hit=ray.intersectObjects([environment,botsGroup],true).find(h=>busSurfaceVisible(h)&&h.object.userData.bot!==actor&&(!h.object.userData.bot||h.object.userData.bot.alive));
+    let target=hit?.object.userData.bot,point=hit?.point,nearest=hit?.distance??120;
+    if(actor!==player&&player.alive){const local=playerShotHit(ray);if(local&&local.distance<nearest){hit=local;target=player;point=local.point;nearest=local.distance;}}
+    const fake=raycastNopeDecoy(origin,dir,nearest,actor.team),part=shotZone(hit);
+    const shield=ordinarySkills.interceptShield(origin,dir,fake?.distance??nearest,BLADE.body,elapsed,match.round,{consume:!visualOnly});
+    const end=shield?new THREE.Vector3(shield.point.x,shield.point.y,shield.point.z):fake?.point||point||origin.clone().addScaledVector(dir,90);
+    tracer(muzzle,end,actor.team==='blue'?'#a5eee0':'#ff7b76',.07);
+    if(shield){burst(end,'#f8dc72',2);continue;}
+    if(fake){if(!visualOnly)hitNopeDecoy(fake.event,actor);continue;}
+    if(shootBusDriver(hit,actor,part==='head'?BLADE.head:BLADE.body,{visualOnly}))continue;
+    if(hit?.object.userData.rangeStart&&actor===player){if(!visualOnly)startRangeDrill();continue;}
+    if(target?.alive&&target.team!==actor.team){
+      const entry=totals.get(target)||{damage:0,head:false};entry.damage+=part==='head'?BLADE.head:part==='leg'?BLADE.leg:BLADE.body;entry.head||=part==='head';totals.set(target,entry);anyHit=true;
+      burst(end,part==='head'?'#fff3c8':'#ff737e',2);
+    }else if(hit)burst(end,'#f9ce9a',2);
+  }
+  if(!visualOnly)for(const [target,entry] of totals){damageEntity(target,entry.damage,actor,{firearm:false,skill:'duelist'});if(actor===player&&rangeSession&&target.rangeTarget)rangeSession.recordHit({head:entry.head,eliminated:!target.alive});}
+  if(actor===player&&anyHit){hits++;hitFlash=.14;if(!visualOnly)sound('hit');}
 }
 // Shared by local host, remote actions and BOTs. Geometry, stock, cadence and
 // damage remain host owned; the network carries only the trigger and aim.
@@ -2296,7 +2332,7 @@ function activateAbility(actor,key,{predict=false,zonePoint=null,aim=null}={}){
   if(ordinary){if(!effect.type.startsWith('veil-')&&!['mend-heal','nope-decoy','echo-kerning','ember-shade','ember-service','frost-unravel','duelist-lift','duck-hush'].includes(effect.type))sound('skill-throw',{entity:actor,localOnly:true});}
   else if(effect.type!=='nope')sound({mend:'heal',recon:'recon',veil:'veil',ember:'ember-warning'}[effect.type]||effect.type,{entity:actor});
   if(actor===player&&ordinary)showMessage(definition.name,definition.description,2);
-  if(actor===player){const texts={smoke:['CLOUD VEIL','4.5秒間、視線と射線の判断を遮る煙幕'],updraft:['UPDRAFT','上昇中もナイフは正確に飛びます'],'dash-armed':['TAILWIND READY',`${DUELIST.dashArmDelay}秒後から E でもう一度発動 · ${DUELIST.dashWindow}秒以内`],dash:['TAILWIND',`${DUELIST.signatureKills}キルで再チャージ`],knives:['BLADE STORM','5本 · 撃破すると全回復'],nope:['NOPE TAKEOVER','12秒間、街中にライフルを持つ歩行デコイ30体＋駅ロゴ化 · 敵が撃つと閃光'],mend:['RECOVERY WAVE','18m以内・視線の通る味方と自身を最大75HP回復'],recon:['RECON PULSE',`半径${effect.radius}mを3回索敵 · 検知した地点だけをミニマップへ表示`],veil:['BLACKOUT DOME','発動地点に半径9m・12秒の煙幕 · 敵味方双方の視界を遮断'],ember:['FLARE STRIKE','照準の先20m以内 · 1.2秒の予告後に3回爆撃 · 味方は無傷'],frost:['CRYO FIELD','照準の先20m以内 · 10秒の氷結地帯 · 敵の歩く速さを55%に']};const text=texts[effect.type];if(text)showMessage(...text,2);}
+  if(actor===player){const texts={smoke:['CLOUD VEIL','4.5秒間、視線と射線の判断を遮る煙幕'],updraft:['UPDRAFT','上昇中もナイフは正確に飛びます'],'dash-armed':['TAILWIND READY',`${DUELIST.dashArmDelay}秒後から E でもう一度発動 · ${DUELIST.dashWindow}秒以内`],dash:['TAILWIND',`${DUELIST.signatureKills}キルで再チャージ`],knives:['BLADE STORM','左クリック：1本 / 右クリック：残り最大5本を同時投げ · 撃破で補充'],nope:['NOPE TAKEOVER','12秒間、街中にライフルを持つ歩行デコイ30体＋駅ロゴ化 · 敵が撃つと閃光'],mend:['RECOVERY WAVE','18m以内・視線の通る味方と自身を最大75HP回復'],recon:['RECON PULSE',`半径${effect.radius}mを3回索敵 · 検知した地点だけをミニマップへ表示`],veil:['BLACKOUT DOME','発動地点に半径9m・12秒の煙幕 · 敵味方双方の視界を遮断'],ember:['FLARE STRIKE','照準の先20m以内 · 1.2秒の予告後に3回爆撃 · 味方は無傷'],frost:['CRYO FIELD','照準の先20m以内 · 10秒の氷結地帯 · 敵の歩く速さを55%に']};const text=texts[effect.type];if(text)showMessage(...text,2);}
   return effect;
 }
 function rangeInfiniteResources(){return !!rangeSession&&exploring&&!onlinePlaying&&player.alive;}
@@ -3492,7 +3528,7 @@ if(map.destruction){if(fresh||!packet.busDamage)map.destruction.reset();map.dest
       if(action.round!==match.round)continue;
       if(action.type==='character'&&match.phase==='buy'&&match.round===1&&characterIds.includes(action.character))player.kit.character=action.character;
       else if(action.type==='ability'&&!(player.kit.character==='cat'&&action.key==='c'&&action.catReturning===true)){const effect=player.kit.activate(action.key,action.at);if(effect?.type==='knives')predictedKnives=true;}
-      else if(action.type==='fire'&&action.ultimate)player.kit.consumeKnife();
+      else if(action.type==='fire'&&action.ultimate)player.kit.consumeKnife(action.burst===true?Math.min(DUELIST.knives,player.kit.knives):1);
     }
     player.kit.tick(elapsed);
   }
@@ -3667,11 +3703,14 @@ function applyRemoteAction(actor,action,actionTime=elapsed){
   }
   if(action.type!=='fire'||carMotionActive(actor)||match.phase!=='live'||actor.netWeapon==='spike'||actor.netReload>0||actor.serviceReload||actor.planting||actor.defusing||elapsed<(actor.skillThrowUntil||0)||actionTime-(actor.lastNetShot??-10)+1e-8<nobiShotInterval(spec,actor))return;
   const yaw=Number(action.yaw),pitch=Number(action.pitch);if(!Number.isFinite(yaw)||!Number.isFinite(pitch))return;
-  const melee=!knives&&actor.netWeapon==='knife';if(knives){if(!actor.kit.consumeKnife())return;}else{if(!melee&&!(actor.netAmmo>0))return;if(!melee&&!ordinarySkills.capMagazine(actor.id,elapsed))actor.netAmmo--;}
+  if(action.burst!==undefined&&typeof action.burst!=='boolean'||action.burst===true&&!knives)return;
+  const knifeCount=action.burst===true?Math.min(DUELIST.knives,actor.kit.knives):1;
+  const melee=!knives&&actor.netWeapon==='knife';if(knives){if(!actor.kit.consumeKnife(knifeCount))return;}else{if(!melee&&!(actor.netAmmo>0))return;if(!melee&&!ordinarySkills.capMagazine(actor.id,elapsed))actor.netAmmo--;}
   if(!melee&&!knives)crownShot(actor);
   if(spec.arsenal&&actionTime-(actor.lastNetShot??-10)>.3)actor.shotSequence=0;
   actor.lastNetShot=actionTime;actor.flash=.07;actor.shotSequence=(actor.shotSequence||0)+1;
   const origin=new THREE.Vector3(actor.x,1.7+(actor.y||0)-(actor.crouch||0)*.55,actor.z),aim=new THREE.Vector3(-Math.sin(yaw)*Math.cos(pitch),Math.sin(pitch),-Math.cos(yaw)*Math.cos(pitch));
+  if(knives&&action.burst===true){sound('shot',{weapon:actor.netWeapon,entity:actor});fireKnifeBurst(actor,origin,aim,knifeCount);return;}
   if(spec.arsenal){sound('shot',{weapon:actor.netWeapon,entity:actor});fireArsenal(actor,origin,aim,spec,action.ads===true);return;}
   if(!melee&&!knives)capDistortAim(actor,aim);
   botsGroup.updateMatrixWorld(true);const ray=new THREE.Raycaster(origin,aim,0,melee?2.2:120);
@@ -3818,7 +3857,7 @@ document.addEventListener('pointerlockchange',()=>{
 document.addEventListener('pointerlockerror',()=>{if(document.pointerLockElement===canvas||pointerLockInput.startsWith('requesting-'))return;resetMouseLook();pointerLockInput='unlocked';inputActive=true;if(mode==='play')showMessage('MOUSE LOOK','マウスを動かすだけで視点を操作できます',3);});
 document.addEventListener('mousemove',observeMouseLook);
 canvas.addEventListener('mouseenter',resetMouseLook);canvas.addEventListener('mouseleave',resetMouseLook);
-canvas.addEventListener('mousedown',e=>{if(duckAim){e.preventDefault();if(e.button===2){duckAim=null;showMessage('スキルを取り消しました','回数は消費していません',1);return;}if(e.button===0){const key=duckAim;duckAim=null;confirmDuckSkill(key);return;}}if(netHostPaused||mode!=='play')return;if(!player.alive){if(e.button===0&&!deathView.holding)spectateIndex++;return;}if(e.button===0){firing=true;shoot();}if(e.button===2)aiming=weapon().slot==='primary'&&!ordinarySkills.capLocked(player.id,elapsed);});
+canvas.addEventListener('mousedown',e=>{if(duckAim){e.preventDefault();if(e.button===2){duckAim=null;showMessage('スキルを取り消しました','回数は消費していません',1);return;}if(e.button===0){const key=duckAim;duckAim=null;confirmDuckSkill(key);return;}}if(netHostPaused||mode!=='play')return;if(!player.alive){if(e.button===0&&!deathView.holding)spectateIndex++;return;}if(e.button===0){firing=true;shoot();}if(e.button===2){if(player.kit.knivesActive&&inventory.active==='knife'){e.preventDefault();firing=false;shoot(elapsed,true);}else aiming=weapon().slot==='primary'&&!ordinarySkills.capLocked(player.id,elapsed);}});
 document.addEventListener('mouseup',e=>{if(e.button===0)firing=false;if(e.button===2)aiming=false;});
 window.addEventListener('contextmenu',e=>{if(mode==='play')e.preventDefault();});
 document.addEventListener('keydown',e=>{

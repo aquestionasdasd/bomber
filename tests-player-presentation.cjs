@@ -11,7 +11,8 @@ async function main(){
    for(const prefix of ['character-skill','online-character-skill','mobile-character-skill']){for(const field of ['name','description','meta'])assert.ok(html.includes(`id="${prefix}-x-${field}"`));assert.equal(get(prefix+'-x-name').textContent,x.name);assert.equal(get(prefix+'-x-description').textContent,x.description);assert.equal(get(prefix+'-x-meta').textContent,'7 ULTポイント');}
    assert.ok(get('mobile-skill-summary').textContent.includes(x.name));
   }
-  ui.updateSelection('japan');assert.match(get('character-skill-x-description').textContent,/1000HP/);
+  ui.updateSelection('duelist');assert.match(get('character-skill-x-description').textContent,/左クリックで1本/);assert.match(get('character-skill-x-description').textContent,/右クリックで残り最大5本/);
+  ui.updateSelection('japan');assert.match(get('character-skill-x-description').textContent,/10HP/);
   ui.updateSelection('onnara');assert.match(get('character-skill-e-description').textContent,/13秒/);assert.equal(ONNARA_SKILLS.hoverDuration,13);
  });
  const [{createCharacterSkills},{createTeamAbilities},{createZoneAbilities},{createNopeDecoys}]=await Promise.all(['character-skills.js','team-abilities.js','zone-abilities.js','nope-decoys.js'].map(load));
