@@ -58,13 +58,13 @@ async function main() {
     return result.value;
   }
   async function ready(member, team) {
-    const result = await api(`/${member.code}/ready`, { method: 'POST', member, body: { ready: true, ...(team ? { team } : {}) } });
+    const result = await api(`/${member.code}/ready`, { method: 'POST', member, body: { ready: true, epoch:JSON.parse(db.prepare('SELECT settings FROM online_rooms WHERE code=?').get(member.code).settings).matchEpoch||0, ...(team ? { team } : {}) } });
     assert.equal(result.status, 200, JSON.stringify(result.value));
     return result.value;
   }
   async function start(host, guest) {
     await ready(host); await ready(guest);
-    const result = await api(`/${host.code}/start`, { method: 'POST', member: host, body: { format: 'swift' } });
+    const result = await api(`/${host.code}/start`, { method: 'POST', member: host, body: { format: 'swift', epoch:JSON.parse(db.prepare('SELECT settings FROM online_rooms WHERE code=?').get(host.code).settings).matchEpoch||0 } });
     assert.equal(result.status, 200, JSON.stringify(result.value)); return result.value;
   }
   async function send(member, to, kind, data) {
@@ -141,6 +141,61 @@ async function main() {
       assert.equal((await api(`/${host.code}/start`,{method:'POST',member:host,body:{format:'swift',mapId:'invalid'}})).status,400);
       assert.equal((await api(`/${host.code}`,{member:host})).value.status,'lobby');
       const started=await api(`/${host.code}/start`,{method:'POST',member:host,body:{format:'swift',mapId:'hirakata'}});assert.equal(started.status,200);assert.equal(started.value.settings.mapId,'hirakata');assert.equal((await api(`/${host.code}`,{member:guest})).value.settings.mapId,'hirakata');
+    });
+    await test('same ten-player party rematches without replacing credentials, teams, code or settings',async()=>{
+      const host=await create('PARTY HOST'),members=[host];for(let i=0;i<9;i++)members.push(await join(host,i<4?'blue':'red','FRIEND '+i));
+      for(const m of members)await ready(m);
+      const before=(await api(`/${host.code}`,{member:host})).value;
+      const hashes=db.prepare('SELECT id,token_hash,team,name FROM online_members WHERE room_code=? ORDER BY id').all(host.code);
+      assert.equal((await api(`/${host.code}/start`,{method:'POST',member:host,body:{format:'standard',mapId:'trc'}})).status,200);
+      const again=(member,epoch)=>api(`/${host.code}/rematch`,{method:'POST',member,body:{epoch}});
+      assert.equal((await again(members[1],0)).status,403);assert.equal((await again({...host,token:'0'.repeat(64)},0)).status,401);
+      assert.equal((await again(host,-1)).status,400);assert.equal((await again(host,1)).status,409);
+      const [a,b]=await Promise.all([again(host,0),again(host,0)]);assert.equal(a.status,200);assert.equal(b.status,200);
+      const lobby=a.value;assert.equal(lobby.status,'lobby');assert.equal(lobby.code,before.code);assert.equal(lobby.hostId,before.hostId);assert.equal(lobby.settings.matchEpoch,1);assert.equal(lobby.settings.mapId,'trc');assert.equal(lobby.settings.format,'standard');
+      assert.equal(lobby.members.length,10);assert.equal(lobby.members.filter(m=>m.ready).length,1);assert.equal(lobby.members.find(m=>m.id===host.memberId).ready,true);
+      assert.deepEqual(db.prepare('SELECT id,token_hash,team,name FROM online_members WHERE room_code=? ORDER BY id').all(host.code),hashes);
+      await ready(members[1]);assert.equal((await again(host,0)).value.members.find(m=>m.id===members[1].memberId).ready,true,'Duplicate rematch must not cancel newly readied member');
+      assert.equal((await api(`/${host.code}/start`,{method:'POST',member:host,body:{format:'swift',epoch:1}})).status,409);
+      assert.equal((await api(`/${host.code}/ready`,{method:'POST',member:members[1],body:{ready:false,epoch:0}})).status,409);
+      assert.equal((await api(`/${host.code}/settings`,{method:'POST',member:host,body:{format:'swift',mapId:'hashimoto',epoch:0}})).status,409);
+      for(const m of members)await ready(m);
+      const next=await api(`/${host.code}/start`,{method:'POST',member:host,body:{format:'swift',mapId:'hirakata',epoch:1}});assert.equal(next.status,200);assert.equal(next.value.settings.matchEpoch,1);
+      assert.equal((await again(host,0)).status,409,'Late previous-match request cannot end the next match');
+      assert.equal((await again(host,1)).status,200);assert.equal((await api(`/${host.code}`,{member:members[9]})).value.settings.matchEpoch,2);
+      assert.equal((await api(`/${host.code}/leave`,{method:'POST',member:host,body:{}})).status,200);assert.equal((await again(host,2)).status,401);
+    });
+    await test('match epochs isolate old HTTP and direct packets, stale room responses and pending relay retries',async()=>{
+      const host=await create(),guest=await join(host);await start(host,guest);
+      assert.equal((await send(host,'team:red','game',{type:'snapshot',seq:99})).status,201);
+      const reset=await api(`/${host.code}/rematch`,{method:'POST',member:host,body:{epoch:0}});assert.equal(reset.status,200);
+      assert.equal((await getMessages(guest)).value.messages.length,0,'Old packets must not reappear in lobby');
+      await start(host,guest);
+      assert.equal((await send(host,'team:red','game',{type:'snapshot',seq:999})).status,409);
+      assert.equal((await send(guest,'host','game',{type:'input',epoch:0,seq:999})).status,409);
+      assert.equal((await send(host,'team:red','game',{type:'snapshot',epoch:1,seq:1})).status,201);
+      const packets=(await getMessages(guest)).value.messages;assert.equal(packets.length,1);assert.equal(packets[0].data.seq,1);
+      const {RoomClient}=await import(pathToFileURL(path.join(__dirname,'public/online.js')).href);
+      const seen=[],updates=[],old={...reset.value,status:'playing',settings:{...reset.value.settings,matchEpoch:0}},client=Object.assign(Object.create(RoomClient.prototype),{room:old,session:host,closed:false,pendingTeamStates:new Map(),onRoom:r=>updates.push(r),onData:(from,data)=>seen.push(data)});
+      client.ensureRelay();const state={slot:'red',packet:{type:'snapshot'},identity:client.relayIdentity,pauseEpoch:0};client.relayLatest.set('red',state);client.pendingTeamStates.set('red',state.packet);
+      client.acceptRoom(reset.value);assert.equal(client.room.status,'lobby');assert.equal(client.relayCurrent(state),false);assert.equal(client.pendingTeamStates.size,0);
+      client.acceptRoom(old);assert.equal(client.room.status,'lobby','Late old playing response cannot restart completed world');
+      const next={...reset.value,status:'playing'};client.acceptRoom(next);client.acceptRoom(reset.value);assert.equal(client.room.status,'playing','Late same-epoch lobby response cannot end next match');
+      const direct=[];client.host=true;client.peers=new Map([[guest.memberId,{channel:{readyState:'open',bufferedAmount:0,send:s=>direct.push(JSON.parse(s))}}]]);client.scheduleRelay=()=>{};client.send({type:'snapshot',seq:1},{team:'red'});assert.equal(direct[0].epoch,1);
+      client.receive(host.memberId,{room:host.code,epoch:0,seq:999});client.receive(host.memberId,{room:host.code,epoch:1,seq:1});assert.equal(seen.length,1);assert.equal(seen[0].seq,1);
+      client.closed=true;client.receive(host.memberId,{room:host.code,epoch:1,seq:2});assert.equal(seen.length,1);
+    });
+    await test('failed rematch transaction retains the party, and lobby host reload resumes without disbanding',async()=>{
+      const host=await create(),guest=await join(host);await start(host,guest);
+      const original=env.DB.batch;env.DB.batch=async()=>{throw Error('storage offline');};
+      const log=console.error;console.error=()=>{};let failure;try{failure=await api(`/${host.code}/rematch`,{method:'POST',member:host,body:{epoch:0}});}finally{env.DB.batch=original;console.error=log;}
+      assert.equal(failure.status,503);assert.equal((await api(`/${host.code}`,{member:guest})).value.status,'playing');
+      assert.equal((await api(`/${host.code}/rematch`,{method:'POST',member:host,body:{epoch:0}})).status,200);
+      const {RoomClient}=await import(pathToFileURL(path.join(__dirname,'public/online.js')).href),oldFetch=global.fetch,oldStorage=global.sessionStorage,values=new Map();
+      global.sessionStorage={getItem:k=>values.get(k)||null,setItem:(k,v)=>values.set(k,v),removeItem:k=>values.delete(k)};
+      global.fetch=(url,opts)=>handleRooms(new Request('https://hashimoto.test'+url,opts),env);
+      try{RoomClient.saveSession(host);const restored=await RoomClient.resumeSession();assert.equal(restored.session.memberId,host.memberId);assert.equal(restored.session.status,'lobby');assert.equal(restored.session.settings.matchEpoch,1);assert.equal((await api(`/${host.code}`,{member:guest})).value.status,'lobby');}
+      finally{global.fetch=oldFetch;global.sessionStorage=oldStorage;}
     });
     await test('room creation issues private hashed credentials and protects every member read', async () => {
       const host = await create('  ホスト  ');
@@ -395,7 +450,8 @@ async function main() {
       assert.deepEqual(sent.map(entry => entry.team), ['blue', 'red'], 'The actual host serializer must make two private team packets');
       assert.equal(sent[0].packet.seq, sent[1].packet.seq, 'A team split is one logical host frame');
       assert.equal(sent[0].packet.ordinarySkills.markers.length, 0); assert.equal(sent[0].packet.teamAbilities.pings.length, 0);
-      const snapshot = JSON.parse(JSON.stringify({ ...sent[1].packet, room: host.code, connection: '10000000-0000-4000-8000-000000000000' }));
+      db.prepare("UPDATE online_rooms SET settings=json_set(settings, '$.matchEpoch', 9999) WHERE code=?").run(host.code);
+      const snapshot = JSON.parse(JSON.stringify({ ...sent[1].packet, epoch:9999, room: host.code, connection: '10000000-0000-4000-8000-000000000000' }));
       assert.deepEqual([snapshot.actors.length, snapshot.roster.length, snapshot.cues.length, snapshot.smokes.length, snapshot.drops.length,
         snapshot.teamAbilities.events.length, snapshot.teamAbilities.pings.length, snapshot.zoneAbilities.events.length,
         snapshot.ordinarySkills.events.length, snapshot.ordinarySkills.blinds.length, snapshot.ordinarySkills.markers.length], [10, 10, 64, 20, 32, 20, 50, 20, 20, 20, 20]);
