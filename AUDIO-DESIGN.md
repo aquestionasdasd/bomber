@@ -1,3 +1,9 @@
+## 第162巡 / 勝利BGM「Break the dancefloor!!」追加（手動依頼）
+
+所有者提供btdf.wavをbyteそのまま同梱。PCM24 stereo/44.1kHz、約14.403秒、SHA f22110b562f125df2884cebeabade3d03d4ddaed961cfa1fe83d4b3288be386e。sandstormを残してタイトル/一時停止の既存勝利BGM画面を2曲のradioへ。選択曲ID/既存ONOFF/音量をブラウザーに保存し、未指定/不正IDはsandstormへ。設定変更は前音源を停止/解放し、新しい曲を無音で事前読込。次の新しい本人チーム勝利から使い、既に消費した勝利は再生し直さない。読込失敗/古いplay reject/timer、mute/hidden/停止/次R/menuと15秒/非loopの既存契約を保持。アップロード/試聴追加なし、銃/足音/キル音/通信/強さ不変。
+
+既存BGM mock8群/新2曲mock8群/事前読込mock8群/クラブmock6群と実game、提供PCMの有限数値/peak/RMS/SHAを検査する。公開/GitHubと最終検証結果はworkspace cycle162-release/test-reportを正本とする。聴感/新実browser/2端末未確認、全main旧fixture債務を保持して無用反復なし。音再生/ユーザータブ/OS/他アプリ操作なし、自動fps-19はPAUSED維持。
+
 ## 第147巡 — 命中音の打撃位置と明瞭さ（手動依頼）
 
 人間「敵に弾が当たった時効果音ほしい」に対応。既存gun-hitは録音先頭120msだけを使い、実PCMの主打撃164.417msを切っていた。既存lab-punch-light1の145msから55msを使い、onjin-latchを同時に短く重ねる。全体90ms、追加遅延なし。2層gain合計.74、デコード上限.85で保守的peak上限.629。素材byte/商用条件/出典は既存manifestを維持し、ダウンロード/合成/試聴なし。

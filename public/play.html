@@ -231,7 +231,11 @@
     <div class="dialog-panel victory-music-panel">
       <header class="victory-music-header"><div><div class="dialog-eyebrow"><span class="signal-dot"></span> VICTORY MUSIC</div><h2 id="victory-music-heading">勝利BGM</h2></div><button id="victory-music-close" class="close-button" type="button" aria-label="勝利BGM設定を閉じる" autofocus>×</button></header>
       <div class="victory-music-controls">
-        <label class="victory-track"><input type="radio" name="victory-track" value="sandstorm" checked><span class="victory-track-icon" aria-hidden="true">♫</span><span><strong id="victory-music-title">sandstorm</strong><small>選択中 / 現在1曲</small></span></label>
+        <div class="victory-track-list" role="radiogroup" aria-label="勝利BGMの曲">
+          <label class="victory-track"><input type="radio" name="victory-track" value="sandstorm" checked><span class="victory-track-icon" aria-hidden="true">♫</span><strong>sandstorm</strong></label>
+          <label class="victory-track"><input type="radio" name="victory-track" value="break-the-dancefloor"><span class="victory-track-icon" aria-hidden="true">♫</span><strong>Break the dancefloor!!</strong></label>
+        </div>
+        <p class="dialog-description">選択中：<strong id="victory-music-title">sandstorm</strong></p>
         <label class="music-check"><input id="victory-music-enabled" type="checkbox" checked>勝利時にBGMを流す</label>
         <label class="music-volume-label" for="victory-music-volume">BGM音量 <output id="victory-music-value" for="victory-music-volume">60%</output></label>
         <input id="victory-music-volume" type="range" min="0" max="1" step="0.05" value="0.6">
@@ -253,7 +257,8 @@
         <div class="range-metric personal-best"><span class="range-metric-label">PERSONAL BEST<small>自己ベスト</small></span><span id="range-best" class="range-metric-value">0</span></div>
         <span id="range-best-note" class="range-best-note">次の60秒で、記録を伸ばそう。</span>
       </div>
-      <button id="play-again" class="primary-button" type="button"><span>もう一度プレイ<small>PLAY AGAIN</small></span><span class="arrow">→</span></button><button id="back-menu" class="text-button" type="button">メインメニューへ <span>↗</span></button></div>
+      <p id="party-result-note" class="dialog-description" role="status" aria-live="polite" hidden></p>
+      <button id="play-again" class="primary-button" type="button"><span><span id="play-again-label">もう一度プレイ</span><small id="play-again-subtitle">PLAY AGAIN</small></span><span class="arrow">→</span></button><button id="back-menu" class="text-button" type="button"><span id="back-menu-label">メインメニューへ</span> <span>↗</span></button></div>
   </section>
 
   <section id="shop-overlay" class="overlay-screen shop-screen" hidden aria-label="武器購入">

@@ -1,3 +1,17 @@
+## 第162巡 / 勝利BGM「Break the dancefloor!!」追加（手動依頼）
+
+所有者提供btdf.wavをbyteそのまま同梱。PCM24 stereo/44.1kHz、約14.403秒、SHA f22110b562f125df2884cebeabade3d03d4ddaed961cfa1fe83d4b3288be386e。sandstormを残してタイトル/一時停止の既存勝利BGM画面を2曲のradioへ。選択曲ID/既存ONOFF/音量をブラウザーに保存し、未指定/不正IDはsandstormへ。設定変更は前音源を停止/解放し、新しい曲を無音で事前読込。次の新しい本人チーム勝利から使い、既に消費した勝利は再生し直さない。読込失敗/古いplay reject/timer、mute/hidden/停止/次R/menuと15秒/非loopの既存契約を保持。アップロード/試聴追加なし、銃/足音/キル音/通信/強さ不変。
+
+既存BGM mock8群/新2曲mock8群/事前読込mock8群/クラブmock6群と実game、提供PCMの有限数値/peak/RMS/SHAを検査する。公開/GitHubと最終検証結果はworkspace cycle162-release/test-reportを正本とする。聴感/新実browser/2端末未確認、全main旧fixture債務を保持して無用反復なし。音再生/ユーザータブ/OS/他アプリ操作なし、自動fps-19はPAUSED維持。
+
+## 第161巡 / 試合後も同じパーティーで連戦（手動依頼）
+
+人間報告「一回試合終わったら解散する」に対応。結果画面の再プレイが部屋退出へつながっていたため、オンラインだけホストの「みんなで待機室へ」へ変更。全員の結果受信を確認して同じ部屋へ戻し、コード/ID/token/名前/チーム/マップ/形式を維持。ゲストは新たに準備完了し、同じ部屋から次試合を開始できる。結果受信は最大8秒待ち、遅延/通信失敗でも部屋を保ち再試行可能。明示退出と試合中ホストreload終了、ソロ/練習再プレイは保持。待機室のホストreloadは同じ席へ復帰。
+
+host認証のrematchをD1 batchで待機室化+readyリセット+epoch更新し、重複呼出で新しいreadyを消さない。旧試合のdirect/HTTP/ready/settings/startをepochとSQL条件で拒否。新試合はスコア/経済/キル/予測action/能力/勝利演出を初期化し、部屋だけ維持。既存room TTLを連戦時に更新。gameに再戦後だけepoch（最大9999）/終了受信inputにmatchFinishedを付加、HTTP12msg/s/64KiB/20event/host権威と味方限定通信を保持。
+
+実SQLite25群（10人/2連続再戦/重複/拒否/障害/host待機復帰/全能力wire最大65531B）、独立savedgame12群（実結果→待機→新試合、遅延待ち/timeout/再試行/退出競合）、489coin実game6/ルール19/既存lobby6成功。共有checkoutと正規build/公開/GitHubの最終結果はworkspace cycle161-release/test-reportを正本とする。新実browser/2タブ/端末/実回線の連戦は未確認、全main旧fixture債務は保持し反復しない。音再生/ユーザータブ/OS/他アプリ操作なし、自動fps-19はPAUSED維持。
+
 ## 第160巡 / バンパーウェーブの対象選択距離1.5倍（手動依頼）
 
 人間指定で車Cの対象選択距離を35→52.5mへ。共有bumperRangeをlocal/host remote/BOT/guestの在庫予測/strict eventとphase1移動markerの許容時間へ反映。視認/照準/双方接地/壁煙/味方拒否を保持。突進26m毎秒、命中100raw、吹き飛ばし24m/1秒、接触から5秒スタン、C2回/100coin、QEXは変更しない。遠距離の突進と吹き飛ばし中に演出eventが切れないよう、既存tailを最大突進所要時間+1秒へ対応する3.1秒へ延ばす。新wirefield/HTTP頻度/地形/物理/音源変更なし。

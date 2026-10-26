@@ -149,7 +149,10 @@
 .victory-music-controls .music-check{display:flex;align-items:center;gap:10px}
 .victory-music-controls input{accent-color:var(--mint);max-width:100%;min-width:0}
 .victory-music-controls input[type=range]{width:100%;margin:0}
+.victory-track-list{display:grid;gap:10px}
 .victory-track{display:flex;align-items:center;gap:15px;padding:20px 17px;background:linear-gradient(120deg,#234b49,#142b35);border:1px solid #9ce2c875;border-radius:4px}
+.victory-track:not(:has(input:checked)){background:#142b3580;border-color:#9eb0b64a}
+.victory-track:focus-within{outline:2px solid var(--mint);outline-offset:3px}
 .victory-track-icon{font-size:32px;color:var(--mint)}
 .victory-track strong{display:block;font-size:23px;font-weight:500;letter-spacing:.6px;overflow-wrap:anywhere}
 .victory-track small{display:block;color:#b0ccc6;font-size:10px;margin-top:6px}

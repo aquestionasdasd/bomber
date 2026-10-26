@@ -184,7 +184,7 @@ offline only; no playback/listening performed. All existing recordings remain.
 
 User supplied victory BGM (cycle126)
 sandstorm.wav -> victory-sandstorm.wav (unchanged bytes).
-Bundled at the owner's explicit request as the sole victory BGM.
+Bundled at the owner's explicit request; remains available in the victory BGM selector.
 Separate from the CC0 packs and Sound Effect Lab; no third-party license or
 artist attribution is inferred. Inspected as PCM offline; no audition.
 
@@ -203,3 +203,9 @@ in soundeffect-lab-manifest.json and extra-sources-manifest.json.
 No new recordings, synthesized sound, or modifications to asset bytes.
 Owner-created five-stage kill sequence and all other cue recipes unchanged.
 Offline PCM/reference model and mock scheduling only; no listening.
+
+Owner supplied victory BGM (cycle162)
+Break the dancefloor!!: btdf.wav -> victory-break-the-dancefloor.wav.
+Original owner-supplied PCM24 stereo/44.1kHz WAV bytes, unchanged; ~14.403 seconds.
+Bundled at the owner's explicit request. No third-party artist or CC0 license inferred.
+Offline PCM inspection and mocked transport/selection tests only; no listening.

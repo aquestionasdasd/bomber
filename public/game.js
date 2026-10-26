@@ -257,7 +257,7 @@ const fullscreenNotice=bindFullscreenNotice({document,onEnable:()=>keyboardProte
 let victoryMusicEnabled=settings.victoryMusicEnabled!==false;
 let victoryMusicVolume=Number.isFinite(Number(settings.victoryMusicVolume))?clamp(Number(settings.victoryMusicVolume),0,1):.6;
 let victoryMusicUI;
-const victoryMusic=createVictoryMusic({onChange:()=>victoryMusicUI?.render()});
+const victoryMusic=createVictoryMusic({trackId:settings.victoryMusicTrack,onChange:()=>victoryMusicUI?.render()});
 const victoryClub=createVictoryClub({element:$('victory-club')});
 function updateVictoryClub(){return victoryClub.render({...victoryMusic.playback(),eligible:mode==='play'&&!document.hidden&&!netHostPaused&&match?.phase==='post'&&match.phaseTime>0&&match.lastRound?.team===player.team,reducedMotion:reducedMotion.matches});}
 function syncVictoryMusic(){victoryMusic.setGate({enabled:victoryMusicEnabled,musicVolume:victoryMusicVolume,soundEnabled,masterVolume:volume,hidden:document.hidden});victoryMusic.prepare();}
@@ -1303,7 +1303,7 @@ function resumeGame() {
   if(!['pause','map','shop','score'].includes(mode))return;
   victoryMusicUI?.close();clearCombatInput();mode='play';for(const id of ['pause-menu','map-overlay','shop-overlay','scoreboard'])setVisible(id,false);audioInit();requestLock();
 }
-function backMenu() {
+function backMenu({keepParty=false}={}) {
   careerCoins.stop();careerCoins.refresh();
   clearMouseInputTrace();
   victoryCamera.reset();lastSpectatedId=null;
@@ -1312,7 +1312,7 @@ function backMenu() {
   fullComboTracker.reset();
   deathView.reset();syncDeathUI();
   resetTraffic();victoryMusic.reset();victoryMusicUI?.close();
-  if(online){leaveOnline();return;}
+  if(online&&!keepParty){leaveOnline();return;}
   netHostPaused=false;syncSmokes([]);scene.fog.near=145;scene.fog.far=380;scene.fog.color.set('#b7d0dd');
   updateFormatSummary();
   mode='menu';clearCombatInput();gun.visible=false;spikeModel.visible=false;setVisible('loading',false);clearDrops();resetDetonation();resetTakeover();resetTeamAbilities();
@@ -1320,6 +1320,31 @@ function backMenu() {
   navigation=createNavigation({...map,bounds:activeArenaBounds()});updateBots.tactics=null;updateMapLabels();
   clearBots();for(const id of ['hud','result','pause-menu','shop-overlay','scoreboard','map-overlay'])setVisible(id,false);setVisible('menu',true);buyBarrier.visible=false;
   if(document.pointerLockElement)document.exitPointerLock();
+}
+function syncResultActions(){
+  const party=onlinePlaying&&!!online;
+  $('play-again-label').textContent=party?'みんなで待機室へ':'もう一度プレイ';
+  $('play-again-subtitle').textContent=party?'KEEP PARTY':'PLAY AGAIN';
+  $('play-again').disabled=party&&!online.host;
+  $('back-menu-label').textContent=party?'部屋を退出する':'メインメニューへ';
+  $('party-result-note').hidden=!party;
+  $('party-result-note').textContent=party?(online.host?'部屋とメンバーを保ったまま戻ります。次も同じ部屋から開始できます。':'接続は続いています。ホストが「みんなで待機室へ」を押すと全員で戻れます。'):'';
+}
+async function playAgain(){
+  if(!onlinePlaying||!online){startGame();return;}
+  const client=online;if(!client.host||mode!=='result'||match?.phase!=='match'||playAgain.pending)return;
+  playAgain.pending=true;$('play-again').disabled=true;
+  try{
+    // Wait for current-match result receipts before clearing anyone's world.
+    // A disconnected member does not hold the rest of the party indefinitely.
+    const until=Date.now()+8000;
+    while(client===online&&client.room.status==='playing'&&client.room.members.some(m=>m.id!==client.session.memberId&&m.connected&&netInputs.get(m.id)?.input?.matchFinished!==true)){
+      if(Date.now()>=until)throw Error('結果の受信待ちです。少し待ってからもう一度押してください。');
+      $('party-result-note').textContent='参加者へ試合結果を届けています…';await new Promise(resolve=>setTimeout(resolve,200));
+    }
+    if(client===online&&client.room.status==='playing')await client.rematch();
+  }catch(error){if(client===online){$('party-result-note').hidden=false;$('party-result-note').textContent=error.message;}}
+  finally{playAgain.pending=false;if(client===online)$('play-again').disabled=!client.host;}
 }
 function finish(won) {
   victoryCamera.reset();lastSpectatedId=null;
@@ -1336,6 +1361,7 @@ function finish(won) {
   $('result-kills').textContent=totalKills;
   $('result-accuracy').textContent=`${shots?Math.round(hits/shots*100):0}%`;
   $('result-time').textContent=formatTime(elapsed);
+  syncResultActions();
   sound(won?'match-win':'match-loss');
 }
 function prepareRangeStart(){
@@ -1368,7 +1394,7 @@ function finishRange(){
   rangeControl.hide();resetTeamAbilities();
   const result=rangeSession.summary();let best=0;
   try{best=Math.max(0,Math.min(1000000,Number(localStorage.getItem('hashimoto-range-best'))||0));if(result.score>best)localStorage.setItem('hashimoto-range-best',String(result.score));}catch{}
-  mode='result';keys.clear();firing=false;aiming=false;gun.visible=false;clearBots();
+  mode='result';keys.clear();firing=false;aiming=false;gun.visible=false;clearBots();syncResultActions();
   if(document.pointerLockElement)document.exitPointerLock();
   for(const id of ['hud','pause-menu','shop-overlay','scoreboard','map-overlay','interaction'])setVisible(id,false);
   setVisible('result',true);setVisible('range-result',true);
@@ -3314,13 +3340,19 @@ function updateRoom(room){
   $('online-ready').textContent=me?.ready?'準備を取り消す':'準備完了';$('online-team').value=me?.team||'red';$('online-team').disabled=online.host;
   characterPicker.sync();
   const saving=online.settingsPending,locked=!online.host||saving||room.status!=='lobby';
-  $('online-start').hidden=!online.host;$('online-start').disabled=!!saving;
+  $('online-start').hidden=!online.host;$('online-start').disabled=!!saving||room.status!=='lobby';
+  $('online-ready').disabled=room.status!=='lobby';
   $('online-format').disabled=locked;$('online-map').disabled=locked;
   if(!saving||room.status==='playing'){
     $('online-map').value=normalizeMapId(room.settings.mapId);$('online-format').value=room.settings.format;
   }
   const roomMap=room.settings.mapId==='trc'?'TRC 同人音楽即売会':room.settings.mapId==='hirakata'?'枚方市駅 / 南北ロータリー':'橋本駅';
   $('online-intro').textContent=saving?'マップと試合形式を保存しています…':`${roomMap} · ${room.settings.format==='standard'?'STANDARD / 13ラウンド先取':'SWIFT / 5ラウンド先取'}。最大10人、空き枠にはBOTが参加します。`;
+  if(room.status==='lobby'&&onlinePlaying){
+    onlinePlaying=false;netHasSnapshot=false;netHostPaused=false;netActions=[];netInputs.clear();netApplied.clear();netParticipants.clear();netPositionHistory.clear();
+    player.id='player';player.team='blue';backMenu({keepParty:true});
+    setVisible('online-entry',false);setVisible('online-lobby',true);setVisible('online-overlay',true);$('online-error').textContent='';
+  }
   if(room.status==='playing'&&!onlinePlaying){
     onlinePlaying=true;netSequence=0;netLastSnapshot=0;netActionSequence=0;netActions=[];netApplied.clear();netInputs.clear();netRound=0;netClock=0;netSeenCueSequence=0;netCues.length=0;
     $('match-format').value=room.settings.format;setVisible('online-overlay',false);startGame();
@@ -3735,7 +3767,7 @@ function tickOnline(dt){
     const teamState=teamAbilities.snapshot(),packet={type:'snapshot',mapId:map.id||'hashimoto',seq:++netSequence,time:elapsed,paused:netHostPaused,...(map.traversal?{trcDoors:map.traversal.snapshot()}:{}),cues:serializeNetCues(),smokes:serializeSmokes(),drops:serializeDrops(),detonation:detonationState?{...detonationState}:null,takeover:takeoverState?{...takeoverState}:null,zoneAbilities:zoneAbilities.snapshot(),...(map.traffic?{busTransit:map.traffic.service.snapshot([player,...bots].map(a=>a.id)),...(map.destruction?.snapshot()?{busDamage:map.destruction.snapshot()}:{})}:{}),rules,roster:roster.map(r=>({...r,kit:r.kit?.snapshot()})),actors:[player,...bots].map(captureNetActor),acks:Object.fromEntries(netApplied),positionAcks:Object.fromEntries(bots.filter(b=>b.remoteId&&b.netPositionAck).map(b=>[b.remoteId,{...b.netPositionAck}]))};
     for(const team of ['blue','red']){let state={...packet,teamAbilities:{...teamState,pings:teamState.pings.filter(ping=>ping.observerTeam===team)},ordinarySkills:ordinarySkills.snapshot(team),nopeDecoys:nopeDecoys.snapshot(),nopePops:serializeNopePops()};if(match.phase==='buy'){const report=roundDamage.snapshot(team,match.round);if(report)state.damageReport=report;}if(state.damageReport||state.nopeDecoys||state.ordinarySkills.events.some(e=>['nope-decoy','urchin-gloom'].includes(e.type))||state.ordinarySkills.blinds.some(b=>b.eventId.startsWith('skill-urchin-gloom-'))||map.traffic||map.traversal||packet.actors.some(a=>a.crouch>0)||[player,...bots].some(carMotionActive)||match.phase==='post'||state.cues.some(c=>(['skill-hit','skill-heal','gun-hit'].includes(c.type)||isKillSoundCue(c.type))))state=fitTrafficSnapshot(state);if(state)online.send(state,{team});}
   }else if(netHasSnapshot){
-    const seq=++netSequence,input={...(map.traversal?{climb:mode==='play'?Math.sign((keys.has('KeyW')?1:0)-(keys.has('KeyS')?1:0)-touchMove.y):0}:{}),x:player.x,z:player.z,y:player.y,yaw:player.yaw,pitch:player.pitch,crouch:player.crouch,quiet:keys.has('ShiftLeft')||keys.has('ShiftRight'),interact:mode==='play'&&interactionHeld,...(busDriving()?{bus:busControls(player.id)}:{})};
+    const seq=++netSequence,input={...(match.phase==='match'?{matchFinished:true}:{}),...(map.traversal?{climb:mode==='play'?Math.sign((keys.has('KeyW')?1:0)-(keys.has('KeyS')?1:0)-touchMove.y):0}:{}),x:player.x,z:player.z,y:player.y,yaw:player.yaw,pitch:player.pitch,crouch:player.crouch,quiet:keys.has('ShiftLeft')||keys.has('ShiftRight'),interact:mode==='play'&&interactionHeld,...(busDriving()?{bus:busControls(player.id)}:{})};
     netPositionHistory.set(seq,{x:input.x,z:input.z,correctionX:netPositionCorrectionX,correctionZ:netPositionCorrectionZ});while(netPositionHistory.size>128)netPositionHistory.delete(netPositionHistory.keys().next().value);
     online.send({type:'input',seq,round:match.round,input,actions:netActions});
   }
@@ -3907,7 +3939,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)suspendSess
 $('start').addEventListener('click',startGame);$('resume').addEventListener('click',resumeGame);
 $('explore-start')?.addEventListener('click',()=>{$('match-format').value='explore';updateFormatSummary();startGame();});
 $('range-start')?.addEventListener('click',()=>{$('match-format').value='range';updateFormatSummary();startGame();});
-$('restart').addEventListener('click',startGame);$('play-again').addEventListener('click',startGame);$('back-menu').addEventListener('click',backMenu);
+$('restart').addEventListener('click',startGame);$('play-again').addEventListener('click',playAgain);$('back-menu').addEventListener('click',backMenu);
 $('pause-back-menu')?.addEventListener('click',backMenu);
 $('pause').addEventListener('click',()=>pauseGame());$('map-toggle').addEventListener('click',()=>pauseGame(true));$('close-map').addEventListener('click',resumeGame);
 $('close-shop')?.addEventListener('click',resumeGame);$('start-round')?.addEventListener('click',startRound);$('scoreboard-close')?.addEventListener('click',resumeGame);
@@ -3936,7 +3968,7 @@ function updateFormatSummary(){
 $('match-format')?.addEventListener('change',updateFormatSummary);updateFormatSummary();
 $('fullscreen').addEventListener('click',async()=>{try{if(document.fullscreenElement){keyboardProtection.release();await document.exitFullscreen();}else{const state=await keyboardProtection.enable();if(state==='unavailable')showMessage('全画面のキー保護を使えません','しゃがみは V 長押しで操作できます',3);}}catch{showMessage('FULLSCREEN','このブラウザでは全画面に切り替えられません',2);}});
 $('keyboard-protect')?.addEventListener('click',()=>keyboardProtection.enable());
-function saveSettings(){try{localStorage.setItem('hashimoto-settings',JSON.stringify({mapId:map.id||'hashimoto',sensitivity,volume,victoryMusicEnabled,victoryMusicVolume,lookVersion:2,character:selectedCharacter()}));}catch{}}
+function saveSettings(){try{localStorage.setItem('hashimoto-settings',JSON.stringify({mapId:map.id||'hashimoto',sensitivity,volume,victoryMusicEnabled,victoryMusicVolume,victoryMusicTrack:victoryMusic.trackId(),lookVersion:2,character:selectedCharacter()}));}catch{}}
 for(const id of ['agent-select','online-agent'])if($(id)){$(id).value=normalizeCharacter(settings.character);$(id).addEventListener('change',e=>{const value=normalizeCharacter(e.target.value);for(const other of ['agent-select','online-agent'])if($(other))$(other).value=value;updateCharacterDescription();saveSettings();});}
 updateCharacterDescription();
 function updateSensitivityLabel(){if($('sensitivity-value'))$('sensitivity-value').textContent=sensitivity.toFixed(2);}
