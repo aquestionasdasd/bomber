@@ -55,7 +55,7 @@ export const FROST_SKILLS = Object.freeze({ stitchRange: 16, stitchFlight: .55, 
   unravelDuration: 5, unravelSlowFraction: .15, slideDuration: .9, slideStartSpeed: 12, slideEndSpeed: 7, signatureCooldown: 18 });
 export const JAPAN_SKILLS=Object.freeze({borderRange:40,borderWidth:10,borderHeight:2.8,borderArm:1,borderDuration:14,borderDamage:1000,levyRange:40,levyAmount:50,levyScale:10,armorCap:500,returnDuration:5,returnScale:6.5,signatureCooldown:20,musterDuration:1,musterHP:10});
 export const NOBI_SKILLS=Object.freeze({areaRadius:20,throwFlight:.6,toolRange:35,legendRange:35,tagRange:35,tagDuration:6,vulnerability:1.35,brakeRange:40,brakeDuration:5,fireIntervalScale:1.6,toolDuration:6,toolScale:1.5,signatureCooldown:18,legendDuration:8});
-export const CAR_SKILLS=Object.freeze({bumperRange:35,bumperDistance:24,bumperSpeed:26,bumperDamage:100,bumperStunTime:5,bumperLaunchTime:1,bumperLift:6,washRange:40,gyroDuration:4,signatureCooldown:18,pitRange:24});
+export const CAR_SKILLS=Object.freeze({bumperRange:52.5,bumperDistance:24,bumperSpeed:26,bumperDamage:100,bumperStunTime:5,bumperLaunchTime:1,bumperLift:6,washRange:40,gyroDuration:4,signatureCooldown:18,pitRange:24});
 export const CAT_SKILLS=Object.freeze({bookmarkDuration:10,returnRange:24,pluckRange:30,pluckAmmo:5,pluckDamagePerRound:12,fetchRange:18,signatureCooldown:18,clockDuration:8});
 export const DUCK_SKILLS = Object.freeze({ sealRange:40, sealDuration:4, padRange:28, padRadius:2, padArm:.25, padDuration:8, padVelocity:11, shieldRange:28, shieldDuration:6, shieldHP:180, shieldWidth:3, shieldHeight:2.4, hushDuration:5, flightDuration:10, flapVelocity:5.8, flapInterval:.18, flightHeight:8, signatureCooldown:20, eggDuration:8, eggLives:2 });
 const catSkills={
@@ -104,7 +104,7 @@ const frostSkills = {
   e: { name: 'リボンスライド', shortName: '滑走', description: `接地中に使用。移動入力で${FROST_SKILLS.slideDuration}秒の低姿勢スライド（${FROST_SKILLS.slideStartSpeed}→${FROST_SKILLS.slideEndSpeed}m/秒）。足音あり。${FROST_SKILLS.unravelDuration}秒間は地表の減速分を${FROST_SKILLS.unravelSlowFraction*100}%へ軽減。壁を抜けず、離地・死亡で終了。${FROST_SKILLS.signatureCooldown}秒で再使用。`, max: 1, price: 0, type: 'frost-unravel', icon: 'M18 15C9 1 1 7 7 15c4 4 8 2 11 0Zm0 0C27 1 35 7 29 15c-4 4-8 2-11 0Zm-2 2-5 11 7-3m2-8 5 11 3-6M5 22l-3 5m29-5 3 5' },
 };
 const carSkills={
- c:{name:'バンパーウェーブ',shortName:'突進',description:'Cで構え、35mの見える接地敵へ左確定・右取消。本体が26m/秒で直進し、接触で100ダメージ＋最大24mの放物線吹き飛ばし。命中から5秒スタン（移動・射撃・スキル・設置/解除不可）。壁で停止。相手が避けると外れる。',max:2,price:100,type:'car-bumper',icon:'M4 11h18v10H4ZM25 8l8 8-8 8M8 24v3m10-3v3'},
+ c:{name:'バンパーウェーブ',shortName:'突進',description:'Cで構え、52.5mの見える接地敵へ左確定・右取消。本体が26m/秒で直進し、接触で100ダメージ＋最大24mの放物線吹き飛ばし。命中から5秒スタン（移動・射撃・スキル・設置/解除不可）。壁で停止。相手が避けると外れる。',max:2,price:100,type:'car-bumper',icon:'M4 11h18v10H4ZM25 8l8 8-8 8M8 24v3m10-3v3'},
  q:{name:'ショールームクリア',shortName:'煙の除去',description:'Qで構え、40m以内の照準に重なる煙へ左確定・右取消。敵味方どちらの煙も一つだけ除去。壁越しや閃光中は使えない。',max:1,price:100,type:'car-wash',icon:'M5 21a7 7 0 0 1 3-13 9 9 0 0 1 17 2 6 6 0 0 1 3 11M7 28 28 5M5 28h24'},
  e:{name:'タイヤジャイロ',shortName:'移動射撃',description:'4秒、接地中だけ銃の移動による精度低下をなくす。反動・連射拡散・空中精度・速度は通常通り。18秒で再使用。',max:1,price:0,type:'car-gyro',icon:'M18 3a12 12 0 1 0 0 24 12 12 0 0 0 0-24ZM18 8v14M11 15h14M7 25l-3 4m25-4 3 4'}
 };

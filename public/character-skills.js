@@ -34,7 +34,7 @@ const specs = Object.freeze({
  'nobi-brake':Object.freeze({flight:0,delay:0,tail:NOBI_SKILLS.brakeDuration,radius:0}),
  'nobi-tool':Object.freeze({flight:0,delay:0,tail:NOBI_SKILLS.toolDuration,radius:0}),
  'nobi-legend':Object.freeze({flight:0,delay:0,tail:NOBI_SKILLS.legendDuration,radius:0}),
- 'car-bumper':Object.freeze({flight:0,delay:0,tail:2.5,radius:0}),
+ 'car-bumper':Object.freeze({flight:0,delay:0,tail:Math.max(2.5,Math.ceil((CAR_SKILLS.bumperRange/CAR_SKILLS.bumperSpeed+CAR_SKILLS.bumperLaunchTime)*10)/10),radius:0}),
  'car-wash':Object.freeze({flight:0,delay:0,tail:.8,radius:0}),
  'car-gyro':Object.freeze({flight:0,delay:0,tail:CAR_SKILLS.gyroDuration,radius:0}),
  'car-pit':Object.freeze({flight:0,delay:0,tail:1,radius:0}),

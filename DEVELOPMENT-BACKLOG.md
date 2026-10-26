@@ -1,3 +1,9 @@
+## 第160巡 / バンパーウェーブの対象選択距離1.5倍（手動依頼）
+
+人間指定で車Cの対象選択距離を35→52.5mへ。共有bumperRangeをlocal/host remote/BOT/guestの在庫予測/strict eventとphase1移動markerの許容時間へ反映。視認/照準/双方接地/壁煙/味方拒否を保持。突進26m毎秒、命中100raw、吹き飛ばし24m/1秒、接触から5秒スタン、C2回/100coin、QEXは変更しない。遠距離の突進と吹き飛ばし中に演出eventが切れないよう、既存tailを最大突進所要時間+1秒へ対応する3.1秒へ延ばす。新wirefield/HTTP頻度/地形/物理/音源変更なし。
+
+専用契約/実savedgameの境界52.49/52.51m、52m実接触20/60/144Hz、長距離の演出と既存100raw/24m/5秒、remote判定/guest非権威/独立JSON、既存スタン故障とSQLiteを確認。公開/GitHub最終結果はworkspace cycle160-release/test-report。新実browser/2端末/聴感/勝率は未確認。全main旧fixture債務を保持し反復なし、音再生/ユーザータブ/OS/他アプリ操作なし。自動fps-19はPAUSED維持。
+
 ## 第159巡 / 青ウニX13秒・連射1.5倍（手動依頼）
 
 人間指定で三叉潮を9→13秒、発動中の銃の連射速度を1.5倍（間隔2/3）へ。既存の本人eventをread-onlyで照会し、local/guest予測/host remote/BOTの通常・デコイ射撃へ同じ倍率を適用。通常銃/ナイフ/装填速度/三方向射線/左右65%/射程90m/1発1弾/7pt/20event拒否と権威を保持。のびQの射撃間隔1.6倍は合成し、終了/死亡/team/次R/menuで強化を清掃する。新wire/HTTP頻度/地形/物理/音源変更なし。
