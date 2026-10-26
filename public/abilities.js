@@ -1,4 +1,4 @@
-export const ONNARA_SKILLS=Object.freeze({taxRange:40,taxDuration:8,taxPerShot:30,taxBudget:300,taxHealthPerShot:4,orbRange:40,orbDuration:8,hoverDuration:13,signatureCooldown:18,chainDuration:8,chainRange:12,chainScale:.7});
+export const ONNARA_SKILLS=Object.freeze({jumpVelocity:12,jumpDuration:1.6,taxRange:40,taxDuration:8,taxPerShot:30,taxBudget:300,taxHealthPerShot:4,orbRange:40,orbDuration:8,hoverDuration:13,signatureCooldown:18,chainDuration:8,chainRange:12,chainScale:.7});
 export const URCHIN_SKILLS=Object.freeze({jamRange:40,jamDuration:8,lanceRange:40,lanceDelay:.65,lanceTail:.35,lanceRadius:.65,lanceDamage:80,disarmRange:32,gloomRange:36,gloomSpeed:24,gloomDelay:.25,gloomRadius:2,gloomDuration:3,gloomSight:8,tridentDuration:9,tridentAngle:Math.PI/45,tridentScale:.65,tridentRange:90,signatureCooldown:18});
 export const CAP_SKILLS=Object.freeze({lockRange:40,lockDuration:8,lockSpread:.07,lockAimScale:.55,cleanRange:24,bounceDuration:6,bounceScale:.75,bounceRange:90,magazineDuration:9,signatureCooldown:22});
 // Original fan-made tuning inspired by the duelist role; not an exact live-game ruleset.
@@ -25,7 +25,7 @@ export const CHARACTER_DEFS = Object.freeze({
   japan:Object.freeze({id:'japan',label:'しばくでジャパン',role:'国境・総動員',ultName:'総動員',ultShortName:'総動員',ultimatePoints:7,description:'C：越えた敵へ国境線 / Q：敵の装甲を接収 / E：被銃撃を撃ち手へ返送。X：倒れた味方全員を開始地点へ1000HPで呼び戻す（7pt）。',color:'#e8ca91',ultIcon:'M3 15h30M18 2v26M7 4l22 22M29 4 7 26M4 23h28'}),
   cap:Object.freeze({id:'cap',label:'キャップは？',role:'光学・解除',ultName:'エンドレスマガジン',ultShortName:'無消費',ultimatePoints:7,description:'C：敵の銃の照準とADSを妨害 / Q：現在の妨害を解除 / E：壁で弾を一度反射。X：9秒、装填済みの銃弾を消費せず発射（7pt）。',color:'#e36336',ultIcon:'M5 7h26v16H5ZM12 11c-8 0-8 8 0 8s4-8 12-8 8 8 0 8-4-8-12-8'}),
   urchin:Object.freeze({id:'urchin',label:'青ウニ',role:'棘・弾道',ultName:'三叉潮',ultShortName:'三叉',ultimatePoints:7,description:'C：予告した直線へ棘を一斉射出 / Q：敵の購入主武器を床へ落とす / E：壁を抜ける潮の波で遠くの視界を奪う。X：9秒、銃弾が三方向へ分かれる（7pt）。',color:'#a9f1e4',ultIcon:'M18 28V4M18 20 5 7M18 20 31 7M2 11 5 7 9 8M27 8 31 7 34 11M14 8 18 4 22 8'}),
-  onnara:Object.freeze({id:'onnara',label:'おんなら',role:'星冠・裁定',ultName:'星座裁定',ultShortName:'連鎖',ultimatePoints:7,description:'C：敵の発砲にHPとコインの代償 / Q：遠方を360度見回す宝玉 / E：空中で13秒静止。X：8秒、銃撃した敵から別の敵1人へ実被害の70%を連鎖（7pt）。',color:'#ffc948',ultIcon:'M18 2 22 11 32 12 24 19 27 29 18 23 9 29 12 19 4 12 14 11Z'}),
+  onnara:Object.freeze({id:'onnara',label:'おんなら',role:'星冠・裁定',ultName:'星座裁定',ultShortName:'連鎖',ultimatePoints:7,description:'C：その場から約4.8mの大ジャンプ / Q：遠方を360度見回す宝玉 / E：空中で13秒静止。X：8秒、銃撃した敵から別の敵1人へ実被害の70%を連鎖（7pt）。',color:'#ffc948',ultIcon:'M18 2 22 11 32 12 24 19 27 29 18 23 9 29 12 19 4 12 14 11Z'}),
 });
 export const getCharacterUltimate = character => { const id=normalizeCharacter(character),def=CHARACTER_DEFS[id]; return {key:'x',name:def.ultName,shortName:def.ultShortName,description:def.description.split('X：')[1]||'',points:def.ultimatePoints,icon:def.ultIcon}; };
 export const normalizeCharacter = value => typeof value === 'string' && Object.hasOwn(CHARACTER_DEFS, value) ? value : 'duelist';
@@ -127,7 +127,7 @@ const nobiSkills={
  e:{name:'ポケット工具',shortName:'工作加速',description:'6秒、自身の設置と電源オフの進みが1.5倍。Fを押す前に発動。場所・静止・作業者の条件は通常通り。18秒で再使用。',max:1,price:0,type:'nobi-tool',icon:'M8 3v12l5 5v9h10v-9l5-5V3l-6 7h-8ZM12 25h12'}
 };
 const onnaraSkills={
- c:{name:'王冠の徴税',shortName:'発砲の代償',description:'Cで構え40mの見える敵へ左確定・右取消。8秒、通常銃撃1回ごとHP4と最大30コインを失う（10回まで）。装甲を無視するがHP1で止まる。0コインでも有効。射撃を控えるか妨害解除で対処でき、重複刻印不可。',max:2,price:100,type:'onnara-tax',icon:'M5 8l5 5 8-10 8 10 5-5-3 18H8ZM12 19h12'},
+ c:{name:'星跳び',shortName:'大ジャンプ',description:'接地中にCで即ジャンプ。頭上が開いていれば足元から約4.8m上昇する。空中移動・射撃は通常通りで、Eの13秒空中静止にもつなげられる。天井に当たると上昇停止。空中での追加発動はできない。',max:2,price:100,type:'onnara-jump',icon:'M18 29V6M9 15l9-9 9 9M7 29h22M11 22l7-7 7 7'},
  q:{name:'星見の宝玉',shortName:'周回映像',description:'Qで構え40mの見える床へ左確定・右取消。8秒、固定地点から360度を一周見回す映像を本人の小窓に表示。脇道や背後の確認にも使える。壁・煙で遮られ、遠隔射撃や自動検知はしない。',max:1,price:100,type:'onnara-orb',icon:'M18 3a12 12 0 1 0 0 24 12 12 0 0 0 0-24ZM6 15h24M18 3v24'},
  e:{name:'星留め',shortName:'空中静止',description:'空中でE。13秒、その高さで静止し水平移動と射撃は継続。上昇はしない。接地・高い床への侵入で終了。18秒で再使用。',max:1,price:0,type:'onnara-hover',icon:'M18 3v18M10 13l8 8 8-8M5 28h26'}
 };
@@ -180,7 +180,7 @@ export class DuelistKit {
       case 'c':
         if (this.smoke <= 0) return null;
         this.smoke--;
-        if(this.character==='onnara')return {type:'onnara-tax'};
+        if(this.character==='onnara')return {type:'onnara-jump',velocity:ONNARA_SKILLS.jumpVelocity};
         if(this.character==='urchin')return {type:'urchin-lance'};
         if(this.character==='cap')return {type:'cap-lock'};
         if(this.character==='japan')return {type:'japan-border'};

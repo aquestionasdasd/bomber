@@ -16,7 +16,7 @@ async function main() {
     const replace = (before, after) => { assert.equal(game.split(before).length, 2); game = game.replace(before, after); };
     if (process.env.TRC_SYNC_FAULT === 'height-rewind') replace('if(player.trcLadder||wasClimbing){', 'if(player.trcLadder||wasClimbing||Math.abs(player.y-self.y)>.55){');
     else if (process.env.TRC_SYNC_FAULT === 'repeat-jump') replace('!actor.netTrcJumpActive&&inputFeet>actor.y+.1', 'inputFeet>actor.y+.1');
-    else if (process.env.TRC_SYNC_FAULT === 'vertical-velocity') replace("if(!map.traversal||flight||ordinarySkills.onnaraEvent?.('onnara-hover',actor.id,elapsed))actor.vy=", 'actor.vy=');
+    else if (process.env.TRC_SYNC_FAULT === 'vertical-velocity') replace("if((!map.traversal&&!starJump)||flight||ordinarySkills.onnaraEvent?.('onnara-hover',actor.id,elapsed))actor.vy=", 'actor.vy=');
     else if (process.env.TRC_SYNC_FAULT === 'early-stair-rejection') replace('waitForStep=blocked&&', 'waitForStep=false&&blocked&&');
     else throw Error('unknown fault');
     fixture = fixture.replace('vm.runInContext(source.replace(', `vm.runInContext((${JSON.stringify(game)}).replace(`);

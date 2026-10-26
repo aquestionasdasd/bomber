@@ -1,5 +1,6 @@
 # ボンバーディフューザー3Dオンライン — 開発指示
 
+- 最新人間指定によりおんならCは「星跳び」：接地中のC単押しで上向き速度12、通常重力15で足元から最大約4.8m。C2回/100coin、天井停止/空中追加発動不可、既存E13秒静止と連携。旧徴税Cは新規発行せず旧snapshot互換のみ。host権威/guest単発予測と拒否ACKで位置・在庫rollback、新wire fieldなし。
 - 起動・共同開発は README.md と CONTRIBUTING.md、次の依頼は DEVELOPMENT-BACKLOG.md を読む。最新人間指示を優先。
 - public/ がゲームのソース、public/play.html が入口。dist/ は生成物で編集しない。オンラインAPIは app/api/rooms と server/、DBは db/ と drizzle/。
 - 変更前に関連箇所を読み、実際の課題を一まとまりずつ直し、関連テストを実行して結果/限界を記録。無関係な大改修や同じ全試験の反復は避ける。

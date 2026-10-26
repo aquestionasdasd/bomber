@@ -6,7 +6,7 @@ export function createOnnaraSkillFX(T) {
   let disposed=false;
   const material=(color,opacity=1)=>{const m=new T.MeshBasicMaterial({color,transparent:true,opacity,depthWrite:false});materials.push(m);return m;};
   const gold=material('#ffd34c',.9),white=material('#fff4c9',.95);
-  const colors=Object.fromEntries([['onnara-tax','#ff674a'],['onnara-orb','#63dcff'],['onnara-hover','#fff4c9'],['onnara-chain','#ffd34c']].map(([key,color])=>{const m=new T.LineBasicMaterial({color,transparent:true,opacity:.85,depthWrite:false});materials.push(m);return[key,m];}));
+  const colors=Object.fromEntries([['onnara-jump','#ffd34c'],['onnara-tax','#ff674a'],['onnara-orb','#63dcff'],['onnara-hover','#fff4c9'],['onnara-chain','#ffd34c']].map(([key,color])=>{const m=new T.LineBasicMaterial({color,transparent:true,opacity:.85,depthWrite:false});materials.push(m);return[key,m];}));
   const gem=new T.OctahedronGeometry(.19),beam=new T.CylinderGeometry(1,1,1,6);geometries.push(gem,beam);
   function wire(build){const p=[];const line=(a,b)=>p.push(...a,...b);
     const circle=(radius,y,vertical=false)=>{for(let i=0;i<32;i++){const a=i*Math.PI/16,b=(i+1)*Math.PI/16;line(vertical?[Math.cos(a)*radius,y+Math.sin(a)*radius,0]:[Math.cos(a)*radius,y,Math.sin(a)*radius],vertical?[Math.cos(b)*radius,y+Math.sin(b)*radius,0]:[Math.cos(b)*radius,y,Math.sin(b)*radius]);}};
@@ -14,6 +14,7 @@ export function createOnnaraSkillFX(T) {
     build({line,circle,star});const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(p,3));geometries.push(g);return g;
   }
   const shapes={
+    'onnara-jump':wire(({line,circle,star})=>{circle(.68,0);star(.4,0);for(let i=0;i<4;i++){const a=i*Math.PI/2,x=Math.sin(a)*.6,z=Math.cos(a)*.6;line([x,-.25,z],[x,.45,z]);line([x,.45,z],[x+.14,.24,z]);line([x,.45,z],[x-.14,.24,z]);}}),
     'onnara-tax':wire(({line,circle})=>{circle(.48,0);circle(.48,-.13);for(let i=0;i<8;i++){const a=i*Math.PI/4,b=(i+.5)*Math.PI/4,c=(i+1)*Math.PI/4;line([Math.sin(a)*.48,0,Math.cos(a)*.48],[Math.sin(b)*.5,.32,Math.cos(b)*.5]);line([Math.sin(b)*.5,.32,Math.cos(b)*.5],[Math.sin(c)*.48,0,Math.cos(c)*.48]);}}),
     'onnara-orb':wire(({line,circle,star})=>{circle(.5,0);circle(.5,0,true);star(.79,0);line([0,0,-.5],[0,0,-1.05]);line([0,0,-1.05],[-.17,0,-.81]);line([0,0,-1.05],[.17,0,-.81]);}),
     'onnara-hover':wire(({line,circle,star})=>{star(.72,0);circle(.9,0);for(let i=0;i<6;i++){const a=i*Math.PI/3,x=Math.sin(a)*.6,z=Math.cos(a)*.6;line([x,-.3,z],[x,.23,z]);}}),
@@ -28,7 +29,7 @@ export function createOnnaraSkillFX(T) {
     for(const e of events){if(!shapes[e.type])continue;
       const actor=actors.find(a=>a.id===(e.targetId||e.sourceId));if(e.type!=='onnara-orb'&&!actor?.alive)continue;
       seen.add(e.id);let root=items.get(e.id);if(!root){root=makeRoot(e);items.set(e.id,root);}
-      const orb=e.type==='onnara-orb',hover=e.type==='onnara-hover',chain=e.type==='onnara-chain';
+      const orb=e.type==='onnara-orb',hover=e.type==='onnara-hover'||e.type==='onnara-jump',chain=e.type==='onnara-chain';
       root.position.set(orb?e.x:actor.x,orb?e.y+1.65:(actor.y||0)+(hover?.08:chain?1.22:2.12)-(hover?0:(actor.crouch||0)*.55),orb?e.z:actor.z);
       root.rotation.y=orb?orbViewYaw(e,now):reducedMotion?0:now*(hover?.15:.35);
       const age=now-e.startedAt;root.children[0].scale.setScalar(!reducedMotion&&age>=0&&age<.35?1+.5*(1-age/.35):1);
