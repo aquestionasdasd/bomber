@@ -2080,7 +2080,7 @@ function activateNobiAbility(actor,key,{predict=false,aim=null,zonePoint=null}={
  actor.skillThrowUntil=elapsed+.32;if(actor===player){nobiSkillFX.playThrow(type,elapsed);firing=false;reloading=0;showMessage(definition.name,definition.description,2.5);}return effect;
 }
 function confirmNobiSkill(key){if(netHostPaused||mode!=='play'||!player.alive||interactionHeld||objectivePractice)return;refillMapPracticeSkills();const aim={yaw:player.yaw,pitch:player.pitch},effect=activateAbility(player,key,{predict:isGuest(),aim});if(effect&&isGuest())queueNetAction('ability',{key,...aim});if(!effect)showMessage('投げられません','着地点・在庫・壁・天井を確認 · 回数は消費していません',2);refillMapPracticeSkills();updateHUD();}
-function nobiShotInterval(spec,actor){return spec.interval*(spec.mag>0?ordinarySkills.nobiInterval(actor.id,elapsed,actor,ordinaryReachable):1);}
+function nobiShotInterval(spec,actor){return spec.interval*(spec.mag>0?ordinarySkills.nobiInterval(actor.id,elapsed,actor,ordinaryReachable)*(ordinarySkills.urchinInterval?.(actor.id,elapsed)||1):1);}
 function nobiBulletDamage(source,target,damage,headDamage,firearm=true){if(!firearm)return damage;return (ordinarySkills.nobiLegend(source.id,elapsed,source,ordinaryReachable)?Math.max(damage,headDamage):damage)*ordinarySkills.nobiVulnerability(target.id,elapsed,target,ordinaryReachable);}
 function carAim(actor,aim=null){const input=netInputs.get(actor.remoteId)?.input;return carAimVector(aim?.yaw??(actor===player?player.yaw:input?.yaw??actor.yaw??0),aim?.pitch??(actor===player?player.pitch:input?.pitch??0));}
 function carSkillTarget(actor,key,aim=null){
@@ -2458,7 +2458,7 @@ function updateHUD(){
     if(ordinarySkills.onnaraEvent?.('onnara-chain',player.id,elapsed))statuses.push('星座裁定 · 近くの敵へ70%連鎖');
     if(ordinarySkills.urchinJammed(player.id,elapsed))statuses.push('棘錠 · 装填不可');
     if(ordinarySkills.nearsightUntil(player.id,elapsed)>elapsed)statuses.push('深潮 · 8mより先が見えない');
-    if(ordinarySkills.urchinTrident(player.id,elapsed))statuses.push('三叉潮 · 三方向射撃');
+    if(ordinarySkills.urchinTrident(player.id,elapsed))statuses.push('三叉潮 · 三方向射撃 · 連射1.5倍');
     if(ordinarySkills.capLocked(player.id,elapsed))statuses.push('レンズブレイク · 銃弾が拡散 / ADS不可');
     if(ordinarySkills.capBank(player.id,elapsed))statuses.push('バンクレンズ · 1回跳弾');
     if(ordinarySkills.capMagazine(player.id,elapsed))statuses.push('エンドレスマガジン · 銃弾消費なし');
@@ -2975,7 +2975,7 @@ function updateBots(dt){
           if(!ordinarySkills.capMagazine(bot.id,elapsed))bot.aiAmmo--;crownShot(bot);bot.flash=.065;if(spec.arsenal&&elapsed-(bot.lastArsenalShot??-10)>.3)bot.shotSequence=0;bot.lastArsenalShot=elapsed;bot.shotSequence=(bot.shotSequence||0)+1;bot.muzzle.visible=true;
           if(spec.auto){bot.burst=(bot.burst||0)+1;bot.fire=bot.burst<3?spec.interval+.035:cfg.interval*.46+Math.random()*.22;if(bot.burst>=3)bot.burst=0;}
           else bot.fire=Math.max(spec.interval,.19+cfg.interval*.25)+Math.random()*.12;
-          if(spec.mag>0)bot.fire*=ordinarySkills.nobiInterval?.(bot.id,elapsed,bot,ordinaryReachable)||1;
+          if(spec.mag>0)bot.fire*=(ordinarySkills.nobiInterval?.(bot.id,elapsed,bot,ordinaryReachable)||1)*(ordinarySkills.urchinInterval?.(bot.id,elapsed)||1);
           let chance=cfg.aim*(settled?1:.76)*Math.max(.6,1-enemyDistance/160);
           if(targetSpeed>2.5)chance*=.78;
           if(bot.moving&&!steadyAirAim(bot)&&!(ordinarySkills.carGyro(bot.id,elapsed)&&actorGrounded(bot)))chance*=.72;
@@ -3015,7 +3015,7 @@ function updateBots(dt){
           botsGroup.updateMatrixWorld(true);const ray=new THREE.Raycaster(from,aim,0,from.distanceTo(to)+1);
           const blocking=ray.intersectObjects([environment,botsGroup],true).find(hit=>hit.object.userData.bot!==bot&&(!hit.object.userData.bot||hit.object.userData.bot.alive));
           const fake=raycastNopeDecoy(from,aim,blocking?.distance??from.distanceTo(to)+1,bot.team);
-          if(!ordinarySkills.capMagazine(bot.id,elapsed))bot.aiAmmo--;crownShot(bot);bot.fire=Math.max(spec.interval,.4)*(spec.mag>0?(ordinarySkills.nobiInterval?.(bot.id,elapsed,bot,ordinaryReachable)||1):1);bot.flash=.065;bot.shotSequence=(bot.shotSequence||0)+1;bot.muzzle.visible=true;
+          if(!ordinarySkills.capMagazine(bot.id,elapsed))bot.aiAmmo--;crownShot(bot);bot.fire=Math.max(spec.interval,.4)*(spec.mag>0?(ordinarySkills.nobiInterval?.(bot.id,elapsed,bot,ordinaryReachable)||1)*(ordinarySkills.urchinInterval?.(bot.id,elapsed)||1):1);bot.flash=.065;bot.shotSequence=(bot.shotSequence||0)+1;bot.muzzle.visible=true;
           const shield=ordinarySkills.interceptShield(from,aim,fake?.distance??blocking?.distance??from.distanceTo(to)+1,spec.body||1,elapsed,match.round);
           urchinTridentShot(bot,from,aim,spec);
           tracer(from,shield?new THREE.Vector3(shield.point.x,shield.point.y,shield.point.z):fake?.point||blocking?.point||to,bot.team==='blue'?'#a5eee0':'#ff7b76',.09);sound('enemy',{weapon:weaponId,entity:bot});
