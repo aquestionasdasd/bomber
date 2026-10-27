@@ -216,6 +216,7 @@ export function createViewmodel(THREE, camera) {
   }
   group.traverse(object => { if (object.isMesh) { object.onBeforeRender = prepareEquipmentDepth; object.renderOrder = 100; } });
   flash.renderOrder = 118;
+  let wasUnarmed = false;
   let current = '', equipBlend = 0, aimBlend = 0, wasReloading = false, reloadClock = 0;
   let previousKick = 0, boltKick = 0, caseIndex = 0, slash = 0, throwClock = 0, disposed = false;
   const bladeFraming = { scale: .87, x: 0, y: -.235, z: -.60, adsZ: -.60 };
@@ -290,44 +291,48 @@ export function createViewmodel(THREE, camera) {
     if(state.character!==undefined)setCharacter(state.character);
     dt = Math.min(.1, Math.max(0, Number(dt) || 0));
     const model = models.get(current), weapon = model.weapon, time = Number(state.time) || 0;
+    const unarmed = state.unarmed === true;
+    if (wasUnarmed && !unarmed) equipBlend = 1;
+    wasUnarmed = unarmed;
     const smoothing = 1 - Math.exp(-dt * 17);
-    const thrown = model.fan?.update(dt, { active: Boolean(state.ultimate) && !state.interacting,
+    const thrown = model.fan?.update(dt, { active: !unarmed && Boolean(state.ultimate) && !state.interacting,
       count: state.knives, shotSequence: state.shotSequence, time });
     throwClock = thrown ? .20 : Math.max(0, throwClock - dt);
-    const bladeStorm = Boolean(model.fan && (state.ultimate || model.fan.group.userData.throwing));
+    const bladeStorm = !unarmed && Boolean(model.fan && (state.ultimate || model.fan.group.userData.throwing));
+    if (unarmed && model.fan) model.fan.group.visible = false;
     const throwFlick = Math.sin(Math.min(1, throwClock / .20) * Math.PI);
     // Also hide the solid equipment while looking through the optical overlay.
     // This guard survives an equip/snapshot arriving between gameplay frames.
-    weapon.group.visible = !bladeStorm && !state.scoped;
+    weapon.group.visible = !unarmed && !bladeStorm && !state.scoped;
     if (model.openRight) {
       model.openRight.visible = bladeStorm; model.right.closedHand.visible = !bladeStorm;
       model.right.hand = bladeStorm ? model.openRight : model.right.closedHand;
     }
-    const isReloading = Boolean(state.reloading);
+    const isReloading = !unarmed && Boolean(state.reloading);
     if (!wasReloading && isReloading) reloadClock = 0;
     if (isReloading) reloadClock += dt;
     const duration = Math.max(.1, Number(state.reloadDuration) || 2.5);
     const remaining = typeof state.reloading === 'number' ? state.reloading : Math.max(0, duration - reloadClock);
     const progress = isReloading ? THREE.MathUtils.clamp(1 - remaining / duration, 0, 1) : 0;
     wasReloading = isReloading;
-    const cycling = (current === 'scout' || current === 'atlas') && !isReloading && !state.interacting && Number.isFinite(state.cycleProgress) && state.cycleProgress < 1;
+    const cycling = !unarmed && (current === 'scout' || current === 'atlas') && !isReloading && !state.interacting && Number.isFinite(state.cycleProgress) && state.cycleProgress < 1;
     const cycleProgress = cycling ? THREE.MathUtils.clamp(state.cycleProgress, 0, 1) : 0;
     const cycleWave = cycling ? Math.sin(cycleProgress * Math.PI) : 0;
     const cycleGrip = cycling ? smooth(cycleProgress / .2) * (1 - smooth((cycleProgress - .76) / .2)) : 0;
     const cyclePull = cycling ? pulse(cycleProgress, .28, .48, .68) : 0;
     const cycleLift = cycling ? pulse(cycleProgress, .14, .25, .76) : 0;
-    const aiming = state.aiming && !cycling && !weapon.knife && !isReloading && !state.interacting;
+    const aiming = !unarmed && state.aiming && !cycling && !weapon.knife && !isReloading && !state.interacting;
     aimBlend += ((aiming ? 1 : 0) - aimBlend) * smoothing;
     equipBlend = Math.max(0, equipBlend - dt * 4.6);
     const movement = THREE.MathUtils.clamp(Number(state.moving) || 0, 0, 1);
     const bob = Math.sin(time * 9.5) * .0035 * movement * (1 - aimBlend * .86);
     const sway = Math.sin(time * 4.75) * .0035 * movement * (1 - aimBlend * .88);
-    const kick = Math.max(0, Number(state.kick) || 0);
-    const shot = kick > previousKick + .003 && !isReloading && !state.interacting;
+    const kick = unarmed ? 0 : Math.max(0, Number(state.kick) || 0);
+    const shot = !unarmed && kick > previousKick + .003 && !isReloading && !state.interacting;
     if (shot && !bladeStorm) { boltKick = 1; if (weapon.knife) slash = 1; else eject(model, state.spectating ? (Number(state.shotSequence)||0)>>>0 : null); }
     previousKick = kick; boltKick *= Math.exp(-dt * 24); slash = Math.max(0, slash - dt * 5);
     const reloadWave = isReloading ? Math.sin(progress * Math.PI) : 0;
-    const framing = bladeStorm ? bladeFraming : model.framing;
+    const framing = unarmed || bladeStorm ? bladeFraming : model.framing;
     const targetX = THREE.MathUtils.lerp(framing.x, 0, aimBlend) + sway - reloadWave * .018;
     const targetY = THREE.MathUtils.lerp(framing.y, -weapon.sightY * framing.scale, aimBlend) + bob - reloadWave * .057 - cycleWave * .025 - equipBlend * .13 - (state.interacting ? .22 : 0);
     const targetZ = THREE.MathUtils.lerp(framing.z, framing.adsZ, aimBlend) + kick * .72 + equipBlend * .07;
@@ -348,24 +353,26 @@ export function createViewmodel(THREE, camera) {
     weapon.slide.position.z = boltKick * .032 + charge * .045;
     wrist.copy(model.rear);
     if (cycling) wrist.lerp(chargeHand.set(.065, .008, .064 + cyclePull * .08).multiply(weapon.group.scale), cycleGrip);
+    if (unarmed) wrist.set(.18, -.045, .02);
     if (bladeStorm) wrist.set(.235, .005 + throwFlick * .018, .045 - throwFlick * .19);
     poseArm(model.right, wrist, model, progress, isReloading);
     if (cycling) model.right.hand.rotation.z -= cycleLift * .5;
     wrist.copy(model.front);
     if (isReloading) reloadHand(wrist, progress, model);
     else if (state.interacting) wrist.lerp(magazineHand.set(-.15, -.22, -.16), .9);
+    if (unarmed) wrist.set(-.18, -.045, .02);
     if (bladeStorm) wrist.set(-.235, -.012, .045);
     poseArm(model.left, wrist, model, progress, isReloading);
     if (bladeStorm) {
       model.right.hand.rotation.set(-.08, .10, -.40 + throwFlick * .16);
       model.left.hand.rotation.set(-.08, -.10, .40);
     }
-    if (weapon.knife || state.interacting || isReloading) flash.visible = false;
+    if (unarmed || weapon.knife || state.interacting || isReloading) flash.visible = false;
     group.updateMatrixWorld(true);
 
     for (const item of casings) {
       if (item.life <= 0) continue;
-      item.life -= dt; item.object.visible = item.life > 0 && group.visible;
+      item.life -= dt; item.object.visible = !unarmed && item.life > 0 && group.visible;
       item.object.position.addScaledVector(item.velocity, dt); item.velocity.y -= dt * 1.2;
       item.object.rotation.x += dt * item.spin; item.object.rotation.z += dt * item.spin * .63;
     }

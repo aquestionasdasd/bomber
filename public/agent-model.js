@@ -600,7 +600,7 @@ export function createAgentModel(THREE, { bot = null, team = 'red', variant = 0,
   let weapon = buildWeapon(kit, defaultWeapon, weaponPivot, false);
   weapon.group.rotation.y = Math.PI;
   const weapons = new Map([[defaultWeapon, weapon]]), ownedMaterials = [...kit.materials];
-  let knifeFan = null, ultimate = false, throwClock = 0;
+  let knifeFan = null, ultimate = false, throwClock = 0, unarmed = false;
   function selectWeapon(id = defaultWeapon) {
     if (!['pump', 'drum', 'scout', 'atlas', 'forge', 'classic', 'ghost', 'spectre', 'vandal', 'phantom', 'knife', 'spike'].includes(id)) id = defaultWeapon;
     if (id === 'spike') id = 'knife';
@@ -927,6 +927,7 @@ export function createAgentModel(THREE, { bot = null, team = 'red', variant = 0,
       b.set(side * .25, 1.09 + drop, .16);
       c.set(side * .235, 1.20 + drop + (isRight ? flick * .055 : 0), .38 + (isRight ? flick * .20 : 0));
     } else if (weapon.knife && !isRight) c.set(.18, 1.13 + drop, .18);
+    if (unarmed) { b.set(side * .28, 1.05 + drop, .08); c.set(side * .30, 1.20 + drop, .28); }
     if (interaction > 0) {
       b.lerp(target.set(side * .20, .95 + drop, .15), interaction);
       c.lerp(target.set(side * .085, .88 + drop, .365), interaction);
@@ -975,7 +976,8 @@ export function createAgentModel(THREE, { bot = null, team = 'red', variant = 0,
     // lowers the whole rig; applying crouch again would put its head underground.
     const crouch = state.alive === false || dancing || sliding ? 0 : Math.max(0, Math.min(1, Number(state.crouch) || 0));
     interactBlend += ((interacting ? 1 : 0) - interactBlend) * smooth;
-    ultimate = Boolean(state.ultimate) && state.alive !== false;
+    unarmed = state.unarmed === true && state.alive !== false;
+    ultimate = !unarmed && Boolean(state.ultimate) && state.alive !== false;
     selectWeapon(ultimate ? 'knife' : state.weapon || defaultWeapon);
     if (ultimate && !knifeFan) {
       knifeFan = createKnifeFan(THREE, { weapon }); upper.add(knifeFan.group);
@@ -985,7 +987,7 @@ export function createAgentModel(THREE, { bot = null, team = 'red', variant = 0,
       shotSequence: state.shotSequence, time });
     throwClock = thrown ? .20 : Math.max(0, throwClock - dt);
     if (knifeFan) {
-      if (!weapon.knife || state.alive === false) knifeFan.group.visible = false;
+      if (unarmed || !weapon.knife || state.alive === false) knifeFan.group.visible = false;
       else if (knifeFan.group.userData.throwing) { ultimate = true; weapon.group.visible = false; }
     }
     // Short snapshot flash flags can be missed between network frames. A new
@@ -993,12 +995,13 @@ export function createAgentModel(THREE, { bot = null, team = 'red', variant = 0,
     const hasSequence = Number.isFinite(state.shotSequence) && state.shotSequence >= 0;
     const newShot = hasSequence && lastShotSequence !== null && state.shotSequence > lastShotSequence;
     if (hasSequence) lastShotSequence = state.shotSequence;
-    const firing = Boolean(state.firing) && state.alive !== false && !weapon.knife;
+    if (unarmed) weapon.group.visible = false;
+    const firing = !unarmed && Boolean(state.firing) && state.alive !== false && !weapon.knife;
     flashTimer = Math.max(0, flashTimer - dt);
-    if (state.alive !== false && !weapon.knife && (newShot || firing && !wasFiring)) {
+    if (!unarmed && state.alive !== false && !weapon.knife && (newShot || firing && !wasFiring)) {
       fireKick = 1; flashTimer = .06;
     }
-    if (weapon.knife || state.alive === false) flashTimer = 0;
+    if (unarmed || weapon.knife || state.alive === false) flashTimer = 0;
     wasFiring = firing; fireKick *= Math.exp(-dt * 18);
     const gait = time * 10 + variant * 1.7, cycle = Math.sin(gait);
     const drop = -crouch * .55 - interactBlend * .19 * (1 - crouch) + Math.cos(gait * 2) * .012 * moveBlend;
@@ -1010,7 +1013,7 @@ export function createAgentModel(THREE, { bot = null, team = 'red', variant = 0,
     weaponPivot.position.z = (weapon.knife ? .28 : .345) - interactBlend * .11 - fireKick * .014;
     weaponPivot.rotation.set(interactBlend * .75 - fireKick * .055, 0, -interactBlend * .12);
     upper.updateMatrix(); weaponPivot.updateMatrix(); weapon.group.updateMatrix();
-    muzzle.visible = (firing || flashTimer > 0) && state.alive !== false && !weapon.knife;
+    muzzle.visible = !unarmed && (firing || flashTimer > 0) && state.alive !== false && !weapon.knife;
     muzzle.rotation.z = time * 39;
     poseArm(rightArm, -1, drop, interactBlend); poseArm(leftArm, 1, drop, interactBlend);
     poseLeg(leftLeg, cycle * .18 * moveBlend, Math.max(0, Math.cos(gait)) * .075 * moveBlend, drop);
