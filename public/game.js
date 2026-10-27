@@ -2216,7 +2216,13 @@ function normalJumpVelocity(actor){return 6.552*(renkoEvent(actor,'renko-drive')
 function renkoSliding(actor){const s=actor?.renkoDrive;return !!(renkoEvent(actor,'renko-drive')&&s&&elapsed-s.slideAt>=0&&elapsed-s.slideAt<RENKO_SKILLS.slideDuration&&actorGrounded(actor));}
 function renkoDartTarget(actor,aim){
  const d=carAim(actor,aim);if(!d)return null;const from={x:actor.x,y:(actor.y||0)+1.7-(actor.crouch||0)*.55,z:actor.z};
- return{x:from.x+d.x*RENKO_SKILLS.dartRange,y:from.y+d.y*RENKO_SKILLS.dartRange,z:from.z+d.z*RENKO_SKILLS.dartRange};
+ // The world edge, rather than an ability range, ends an empty trajectory.
+ const b=activeArenaBounds();let travel=Infinity;
+ for(const[axis,min,max]of[['x',b.minX,b.maxX],['y',-1000,1000],['z',b.minZ,b.maxZ]]){
+  if(Math.abs(d[axis])>1e-9)travel=Math.min(travel,((d[axis]>0?max:min)-from[axis])/d[axis]);
+ }
+ if(!Number.isFinite(travel)||travel<=1e-8)return null;
+ return{x:Math.max(b.minX,Math.min(b.maxX,from.x+d.x*travel)),y:Math.max(-1000,Math.min(1000,from.y+d.y*travel)),z:Math.max(b.minZ,Math.min(b.maxZ,from.z+d.z*travel))};
 }
 function releaseRenkoJet(){player.renkoJetHeld=false;if(!isGuest())ordinarySkills.holdRenkoJet(player.id,elapsed,false);}
 function syncRenkoJets(){
@@ -3131,7 +3137,7 @@ function updateBots(dt){
       // C needs a currently visible body; a frozen lastSeen is not a target.
       if(bot.kit?.character==='renko'&&aligned&&elapsed>=bot.reactionUntil&&!bot.serviceReload&&!(bot.aiReload>0)&&elapsed>=(bot.nextSkillAt||0)){
         let cast=null;
-        if(enemy.alive&&!carMotionActive(enemy)&&Math.hypot(enemy.x-bot.x,(enemy.y||0)+1-(enemy.crouch||0)*.4-((bot.y||0)+1.7-(bot.crouch||0)*.55),enemy.z-bot.z)<=RENKO_SKILLS.dartRange&&visibleBetween(bot,enemy)){
+        if(enemy.alive&&!carMotionActive(enemy)&&visibleBetween(bot,enemy)){
           const aim={yaw:Math.atan2(bot.x-enemy.x,bot.z-enemy.z),pitch:Math.atan2((enemy.y||0)+1-(enemy.crouch||0)*.4-((bot.y||0)+1.7-(bot.crouch||0)*.55),distance(bot,enemy))};
           cast=activateAbility(bot,'c',{aim});
         }

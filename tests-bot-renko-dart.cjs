@@ -19,7 +19,7 @@ async function main({mutate=s=>s,only=()=>true,baseline=false}={}){
  });
  test('close and distant visible body poses use real fixed projectile and dodge remains possible',()=>{
   for(const d of[3,24,39]){setup(d);step(.8);assert.equal(state().stock,1,String(d));assert.ok(state().z<-d,String(d));}
-  setup(42);step(.8);assert.equal(state().stock,2);
+  setup(42);step(.8);assert.equal(state().stock,1);assert.equal(state().phase,4);assert.ok(state().z<-42);
   setup();step(.16);assert.equal(state().stock,1);h.run('player.x=5');step(.6);assert.equal(state().z,-12);assert.equal(state().phase,undefined);
   setup();h.run('player.y=3;player.vy=0;updateActorVertical=()=>{}');step(.4);assert.equal(state().stock,1);assert.equal(state().phase,4);
  });
