@@ -125,6 +125,13 @@ const suite=String.raw`
    h.run('damageEntity(enemy,20,player,{firearm:true})');near(h.run('bench.actors.player.dartFollowupDamage'),20,'own firearm actual loss');h.run('damageEntity(enemy,10,player,{skill:"nope"})');near(h.run('bench.actors.player.dartFollowupDamage'),20,'skill excluded');tick(120);h.run('damageEntity(enemy,10,player,{firearm:true})');near(h.run('bench.actors.player.dartFollowupDamage'),20,'expired window excluded');
    for(const code of["bench.disabled='c'","enemy.x=5"]){setup();h.sandbox.code=code;h.run("player.kit=new DuelistKit({character:'renko'});player.kit.smoke=2;if(code.startsWith('bench'))eval(code);activateAbility(player,'c',{aim:{yaw:0,pitch:-.05}});if(code.startsWith('enemy'))eval(code)");tick(120);assert.equal(h.run('bench.actors.player.dartPushes'),undefined)}
  });
+ check('Renko X counts real lethal refill amounts and later C casts without activation or corpse credit',()=>{
+   setup();h.run("player.kit=new DuelistKit({character:'renko'});player.kit.ultPoints=7;player.kit.smoke=0;player.kit.updraft=0;player.kit.dash=0;activateAbility(player,'x')");assert.equal(h.run('bench.actors.player.restartRefills'),undefined);
+   h.run('damageEntity(enemy,10,player,{firearm:true})');assert.equal(h.run('bench.actors.player.restartRefills'),undefined);
+   h.run('damageEntity(enemy,999,player,{firearm:true})');assert.equal(h.run('bench.actors.player.restartRefills'),1);assert.equal(h.run('bench.actors.player.restartRestoredsmoke'),2);assert.equal(h.run('bench.actors.player.restartRestoredupdraft'),1);assert.equal(h.run('bench.actors.player.restartRestoreddash'),1);
+   h.run('damageEntity(enemy,999,player,{firearm:true})');assert.equal(h.run('bench.actors.player.restartRefills'),1);h.run("activateAbility(player,'c',{aim:{yaw:0,pitch:0}})");assert.equal(h.run('bench.actors.player.restartLaterCasts'),1);
+   setup();h.run("player.kit=new DuelistKit({character:'renko'});player.kit.smoke=0;damageEntity(enemy,999,player,{firearm:true})");assert.equal(h.run('bench.actors.player.restartRefills'),undefined);
+ });
  console.log('PASS: '+groups+' measurement pipeline/clock/contact/ablation/collision/accounting/objective groups; audio inert');
 }
 main().catch(e=>{console.error(e);process.exitCode=1;});

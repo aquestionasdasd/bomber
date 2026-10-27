@@ -39,8 +39,8 @@ async function main({mutate=s=>s,only=()=>true,baseline=false}={}){
   for(const code of["beginServiceReload(worker,{id:'fixture-service',weaponId:'vandal',endsAt:elapsed+1})","worker.aiReload=3","worker.remoteId='friend'","onlinePlaying=true;online={host:false,session:{memberId:'friend'}}","worker.alive=false;worker.hp=0","match.phase='buy'","match.phase='post'","netHostPaused=true","worker.nextSkillAt=100","beginCarMotion(player,{id:'existing',phase:4,endsAt:elapsed+1,vx:0,vz:-24})"]){setup();h.run(code);step(.4);assert.equal(state().stock,2,code)}
   setup();h.run("match.spike.status='planted';Object.assign(match.spike,{x:0,z:0,site:'A'});worker.team=match.defenderTeam;player.team=match.attackerTeam;updateBots.tactics.update=()=>({siteId:'A',defuserId:worker.id,roles:new Map([[worker.id,{goal:{x:0,z:0},role:'defuse',siteId:'A',urgent:true}]])})");step(.4);assert.ok(h.run('worker.defusing'));assert.equal(state().stock,2);
  });
- test('no available C preserves Q E X ammo and ordinary gun engagement',()=>{
-  setup();h.run('worker.kit.smoke=0;worker.kit.ultPoints=7;worker.fire=0');step(.5);assert.equal(h.run('worker.kit.updraft'),1);assert.equal(h.run('worker.kit.dash'),1);assert.equal(h.run('worker.kit.ultPoints'),7);assert.equal(h.run('worker.kit.renkoActive'),false);assert.ok(h.run('worker.aiAmmo')<25);assert.equal(darts().length,0);
+ test('no available C preserves Q E and unavailable X while ordinary gun engagement continues',()=>{
+  setup();h.run('worker.kit.smoke=0;worker.kit.ultPoints=6;worker.fire=0');step(.5);assert.equal(h.run('worker.kit.updraft'),1);assert.equal(h.run('worker.kit.dash'),1);assert.equal(h.run('worker.kit.ultPoints'),6);assert.equal(h.run('worker.kit.renkoActive'),false);assert.ok(h.run('worker.aiAmmo')<25);assert.equal(darts().length,0);
  });
  console.log(`PASS: ${groups} actual saved-game Renko BOT C groups; no audio`);return groups;
 }

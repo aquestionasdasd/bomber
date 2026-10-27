@@ -39,6 +39,7 @@ const body = `
    measuredDepth++;let effect;
    try{effect=fn(actor,key,options);}finally{measuredDepth--;}
    if(effect&&bench&&measuredDepth===0){const stat=bench.actors[actor.id];if(stat){stat.casts[key]=(stat.casts[key]||0)+1;
+     if(actor.kit?.character==='renko'&&key==='c'&&stat.restartRefills>0)stat.restartLaterCasts=(stat.restartLaterCasts||0)+1;
      if(actor.kit?.character==='cat'&&key==='x')(stat.clockCasts||=[]).push({at:elapsed,team:actor.team,attackerTeam:match.attackerTeam,status:match.spike.status,roundTime:match.roundTime,bomberTime:match.spike.timer});
    }}
    return effect;
@@ -101,9 +102,11 @@ const body = `
  const measuredDamage=damageEntity;
  damageEntity=function(target,amount,killer,options){
    const hp=target.hp,armor=target.armor||0,alive=target.alive;
+   const restart=killer?.alive&&killer.kit?.character==='renko'&&renkoUltimateActive(killer)?[killer.kit.smoke,killer.kit.updraft,killer.kit.dash]:null;
    const result=measuredDamage(target,amount,killer,options);
    if(bench&&alive){const actual=Math.max(0,hp-target.hp)+Math.max(0,armor-(target.armor||0)),stat=bench.actors[killer?.id];
      if(stat){stat.damage+=actual;if(options?.skill==='car'&&target.carMotion?.phase===2){stat.ramHits++;stat.ramDamage+=actual;}if(measuredOrdinaryDepth&&killer?.kit?.character==='ember'&&options?.skill==='ember'&&actual>0){stat.solderHits=(stat.solderHits||0)+1;stat.solderDamage=(stat.solderDamage||0)+actual;if(!target.alive)stat.solderKills=(stat.solderKills||0)+1;}if(measuredOrdinaryDepth&&killer?.kit?.character==='nope'&&options?.skill==='nope'&&actual>0){stat.bottleHits=(stat.bottleHits||0)+1;stat.bottleDamage=(stat.bottleDamage||0)+actual;if(!target.alive)stat.bottleKills=(stat.bottleKills||0)+1;}if(!target.alive)stat.kills++;
+       if(restart&&!target.alive&&actual>0&&target.team!==killer.team){stat.restartRefills=(stat.restartRefills||0)+1;for(const[i,key]of['smoke','updraft','dash'].entries()){const restored=Math.max(0,killer.kit[key]-restart[i]);stat['restartRestored'+key]=(stat['restartRestored'+key]||0)+restored;}}
        const push=renkoPushWindows.get(target.id);if(options?.firearm&&actual>0&&push?.sourceId===killer.id&&elapsed>=push.at&&elapsed-push.at<=2){stat.dartFollowupDamage=(stat.dartFollowupDamage||0)+actual;if(!target.alive)stat.dartFollowupKills=(stat.dartFollowupKills||0)+1;}
      }
    }return result;

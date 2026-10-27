@@ -1,6 +1,9 @@
 // Corrupt the measurement driver only in child memory, never game files.
 const fs=require('node:fs'),cp=require('node:child_process');
 const faults=[
+ ['Renko lost actual refill', 'stat.restartRefills=(stat.restartRefills||0)+1;', 'stat.restartRefills=(stat.restartRefills||0)+0;'],
+ ['Renko lost restored C stock', "stat['restartRestored'+key]=(stat['restartRestored'+key]||0)+restored;", "stat['restartRestored'+key]=(stat['restartRestored'+key]||0);"],
+ ['Renko lost post-refill use', 'stat.restartLaterCasts=(stat.restartLaterCasts||0)+1;', 'stat.restartLaterCasts=(stat.restartLaterCasts||0)+0;'],
  ['Renko lost accepted push', 'owner.dartPushes=(owner.dartPushes||0)+1;', 'owner.dartPushes=(owner.dartPushes||0)+0;'],
  ['Renko lost actual travel', 'owner.dartPushDistance=(owner.dartPushDistance||0)+moved;', 'owner.dartPushDistance=(owner.dartPushDistance||0)+0;'],
  ['Renko credits non-firearm loss', 'if(options?.firearm&&actual>0&&push?.sourceId===killer.id', 'if(actual>0&&push?.sourceId===killer.id'],
