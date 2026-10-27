@@ -85,6 +85,7 @@ async function main(){
   const source=fs.readFileSync(path.join(__dirname,'public/game.js'),'utf8');
   const {createStarHold}=await load('onnara-rules.js');
   const {renkoFlightVelocity}=await load('renko-motion.js');
+  const grassDependencies=await load('grass-platforms.js'),grassSource=source.slice(source.indexOf('let grassFrame='),source.indexOf('function actorGrounded('));
   const airAimSource=source.slice(source.indexOf('function starHoldClear('),source.indexOf('function applyStarHold('));
   const updateSource=source.slice(source.indexOf('function updateBots(dt)'),source.indexOf('function separateBots(dt)'));
   const serviceSource=source.slice(source.indexOf('function actorWeaponId('),source.indexOf('function ordinaryActorView('));
@@ -96,7 +97,7 @@ async function main(){
   function integration({map=makeMap(),player=actor('player','blue',0,0),bots=[],match=new MatchRules(),random=.99,ordinarySkills={interceptShield:()=>null,quiet:()=>false,sealUntil:()=>0,blindUntil:()=>0,events:()=>[],markers:()=>[]}}={}){
     match.startLive();let bulletHits=0,shots=0;const casts=[],traces=[];ordinarySkills={onnaraEvent:()=>null,capMagazine:()=>false,urchinJammed:()=>false,urchinTrident:()=>false,interceptShield:()=>null,quiet:()=>false,sealUntil:()=>0,cancelService(){},carGyro:()=>false,speedScale:()=>1,wouldRoot:createCharacterSkills().wouldRoot,wouldSeed:createCharacterSkills().wouldSeed,wouldTag:createCharacterSkills().wouldTag,wouldStitch:createCharacterSkills().wouldStitch,...ordinarySkills};
     const math=Object.create(Math);math.random=typeof random==='function'?random:()=>random;
-    const sandbox={renkoFlightVelocity,starHold:createStarHold(),busSeat:()=>null,busSurfaceVisible:()=>true,applyStarHold:()=>false,crownShot:()=>{},activateCapAbility:()=>null,activateJapanAbility:()=>null,nobiBulletDamage:(_s,_t,d)=>d,THREE,WEAPONS,skillProjectilePosition,activeArenaBounds:()=>map.bounds,NOBI_SKILLS,MEND_SKILLS,CHARACTER_SKILLS,NOPE_SKILLS,IAGNU_SKILLS,VEIL_SKILLS,EMBER_SKILLS,FROST_SKILLS,RENKO_SKILLS,...areas,createBotTactics,inVisionCone,createBotHearing,map,navigation:createNavigation(map),player,bots,match,elapsed:0,inventory:{active:'classic'},reloading:0,
+    const sandbox={...grassDependencies,renkoFlightVelocity,starHold:createStarHold(),busSeat:()=>null,busSurfaceVisible:()=>true,applyStarHold:()=>false,crownShot:()=>{},activateCapAbility:()=>null,activateJapanAbility:()=>null,nobiBulletDamage:(_s,_t,d)=>d,THREE,WEAPONS,skillProjectilePosition,activeArenaBounds:()=>map.bounds,NOBI_SKILLS,MEND_SKILLS,CHARACTER_SKILLS,NOPE_SKILLS,IAGNU_SKILLS,VEIL_SKILLS,EMBER_SKILLS,FROST_SKILLS,RENKO_SKILLS,...areas,createBotTactics,inVisionCone,createBotHearing,map,navigation:createNavigation(map),player,bots,match,elapsed:0,inventory:{active:'classic'},reloading:0,
       levels:Function(source.match(/const levels = (.*);/)[0]+'return levels;')(),difficulty:'hard',Math:math,clamp:(v,a,b)=>Math.max(a,Math.min(b,v)),
       isGuest:()=>false,botHearing:createBotHearing(),ordinarySkills,zoneAbilities:{speedMultiplier:()=>1},actorSpeedScale:()=>1,frostSlideSpeed:()=>0,agentEquipment:()=>({}),selectMendTarget,activePollenFields:()=>[],
       ordinaryActorView:value=>({...value,grounded:sandbox.actorGrounded(value)}),ordinaryGroundHeight:()=>0,rampFloor:()=>null,netInputs:new Map(),
@@ -110,7 +111,7 @@ async function main(){
       visibleBetween:(a,b)=>map.collision.rayClear(a.x,(a.y||0)+1.45,a.z,b.x,(b.y||0)+1.45,b.z),
       moveEntity(entity,dx,dz,r){const x=entity.x+dx,z=entity.z+dz;if(!map.collision.blocked(x,entity.z,r,0))entity.x=x;if(!map.collision.blocked(entity.x,z,r,0))entity.z=z;},
       urchinTridentShot:()=>[],direction:new THREE.Vector3(),raycaster:{set(){},intersectObject:()=>[],far:190},environment:new THREE.Group()};
-    vm.createContext(sandbox);vm.runInContext(`${source.slice(source.indexOf('function carMotionActive('),source.indexOf('function beginCarMotion('))}\n${renkoVerticalSource}\n${source.slice(source.indexOf('function duckFlight('),source.indexOf('function duckFlap('))}\n${source.slice(source.indexOf('function actorBodyHeight('),source.indexOf('function canStand('))}\n${serviceSource}\n${verticalSource}\n${rootsSource}\n${targetSource}\n${airAimSource}\n${updateSource}`,sandbox);
+    vm.createContext(sandbox);vm.runInContext(`${grassSource}\n${source.slice(source.indexOf('function carMotionActive('),source.indexOf('function beginCarMotion('))}\n${renkoVerticalSource}\n${source.slice(source.indexOf('function duckFlight('),source.indexOf('function duckFlap('))}\n${source.slice(source.indexOf('function actorBodyHeight('),source.indexOf('function canStand('))}\n${serviceSource}\n${verticalSource}\n${rootsSource}\n${targetSource}\n${airAimSource}\n${updateSource}`,sandbox);
     return {sandbox,casts,traces,step(count=1){for(let i=0;i<count;i++){sandbox.elapsed+=.05;vm.runInContext('updateBots(.05)',sandbox);}},get shots(){return shots;},get hits(){return bulletHits;}};
   }
   const sightMap=makeMap(),watcher=actor('red-0','red',0,10),target=actor('player','blue',0,25);watcher.group.rotation.y=0;

@@ -72,6 +72,7 @@ import { createNopeDecoyFX } from './nope-decoy-fx.js';
 import { createMendSkillFX } from './mend-skill-fx.js';
 import { createIagnuSkillFX } from './iagnu-skill-fx.js';
 import { createGrassSkillFX } from './grass-skill-fx.js';
+import { grassPlatform, grassLocal, grassWorld, grassOverlaps, grassBlocks, validGrassRide } from './grass-platforms.js';
 import { createEmberSkillFX } from './ember-skill-fx.js';
 import { createFrostSkillFX } from './frost-skill-fx.js';
 import { createDuelistSkillFX } from './duelist-skill-fx.js';
@@ -295,13 +296,60 @@ function resetTakeover(){takeoverState=null;takeoverClock=0;stationTakeover.rese
 function resetZoneAbilities(){zoneAbilities.reset();zoneFX.reset();zonePulseAudio.clear();zoneTargetPreview=null;zoneTargetPreviewAt=-Infinity;zoneTargetCharacter=null;if($('status-effects')){$('status-effects').hidden=true;$('status-effects').textContent='';}}
 const stoppedTurfEvents=new Map();
 const stoppedFrostEvents=new Map();
-function resetOrdinarySkills(){onnaraReveal.reset();preparedSkillFX.reset();renkoSkillFX.reset();flashStatusFX.reset();capBankPreviewFX.reset();capPreviewUntil=-Infinity;capPreviewPath=null;skillSpectacle.reset();skillFeedback.reset();starHold.reset();onnaraSkillFX.reset();urchinSkillFX.reset();capSkillFX.reset();japanSkillFX.reset();nobiSkillFX.reset();carSkillFX.reset();catReturnSeen.clear();catSkillFX.reset();duckAim=null;duckSkillFX.reset();botHearing.reset();ordinarySkills.reset();ordinaryFX.reset();nopeDecoys.reset();nopeDecoyFX.reset();nopePops.length=0;nopeSeenPopSequence=0;mendSkillFX.reset();iagnuSkillFX.reset();grassSkillFX.reset();emberSkillFX.reset();frostSkillFX.reset();duelistSkillFX.reset();for(const actor of [player,...bots]){actor.renkoPending=null;actor.renkoDrive=null;actor.renkoJetHeld=false;actor.renkoUltimate=null;if(actor.kit)actor.kit.renkoActive=false;actor.onnaraJumpPending=null;actor.nextNobiToolAt=0;actor.nextCatClockAt=0;actor.decoySeen?.clear();actor.duckPadAt=-Infinity;actor.duckPadUntil=0;actor.duckPadRound=0;actor.duckPadTeam=null;actor.duckFlapEvent=null;actor.duckFlapAt=-Infinity;if(!(['play','pause'].includes(mode)&&match?.phase==='post'&&!actor.alive&&actor.carMotion?.round===match.round&&actor.carMotion?.endsAt>elapsed)){actor.carMotion=null;actor.carImpulseUntil=0;actor.carFallUntil=0;actor.carRecoveryUntil=0;}cancelServiceReload(actor);actor.lastHeard=null;actor.netStepClock=0;}stoppedServiceEvents.clear();stoppedTurfEvents.clear();stoppedFrostEvents.clear();ordinaryAudio.clear();ordinaryMarkerAudio.clear();const overlay=$('skill-blind-overlay');if(overlay){overlay.hidden=true;overlay.style.opacity='0';}const nearOverlay=$('skill-nearsight-overlay');if(nearOverlay){nearOverlay.hidden=true;nearOverlay.style.opacity='0';}}
+function resetOrdinarySkills(){grassFrame=null;grassPrevious=null;onnaraReveal.reset();preparedSkillFX.reset();renkoSkillFX.reset();flashStatusFX.reset();capBankPreviewFX.reset();capPreviewUntil=-Infinity;capPreviewPath=null;skillSpectacle.reset();skillFeedback.reset();starHold.reset();onnaraSkillFX.reset();urchinSkillFX.reset();capSkillFX.reset();japanSkillFX.reset();nobiSkillFX.reset();carSkillFX.reset();catReturnSeen.clear();catSkillFX.reset();duckAim=null;duckSkillFX.reset();botHearing.reset();ordinarySkills.reset();ordinaryFX.reset();nopeDecoys.reset();nopeDecoyFX.reset();nopePops.length=0;nopeSeenPopSequence=0;mendSkillFX.reset();iagnuSkillFX.reset();grassSkillFX.reset();emberSkillFX.reset();frostSkillFX.reset();duelistSkillFX.reset();for(const actor of [player,...bots]){actor.renkoPending=null;actor.renkoDrive=null;actor.renkoJetHeld=false;actor.renkoUltimate=null;if(actor.kit)actor.kit.renkoActive=false;actor.onnaraJumpPending=null;actor.nextNobiToolAt=0;actor.nextCatClockAt=0;actor.decoySeen?.clear();actor.duckPadAt=-Infinity;actor.duckPadUntil=0;actor.duckPadRound=0;actor.duckPadTeam=null;actor.duckFlapEvent=null;actor.duckFlapAt=-Infinity;if(!(['play','pause'].includes(mode)&&match?.phase==='post'&&!actor.alive&&actor.carMotion?.round===match.round&&actor.carMotion?.endsAt>elapsed)){actor.carMotion=null;actor.carImpulseUntil=0;actor.carFallUntil=0;actor.carRecoveryUntil=0;}cancelServiceReload(actor);actor.lastHeard=null;actor.netStepClock=0;}stoppedServiceEvents.clear();stoppedTurfEvents.clear();stoppedFrostEvents.clear();ordinaryAudio.clear();ordinaryMarkerAudio.clear();const overlay=$('skill-blind-overlay');if(overlay){overlay.hidden=true;overlay.style.opacity='0';}const nearOverlay=$('skill-nearsight-overlay');if(nearOverlay){nearOverlay.hidden=true;nearOverlay.style.opacity='0';}}
 function resetTeamAbilities(){teamAbilities.reset();characterFX.reset();resetZoneAbilities();resetOrdinarySkills();}
+// The grass cube is a movement solid; it adds no targeting or network state.
+let grassFrame=null,grassPrevious=null;
+function grassUsable(actor){return actor?.alive&&!actor.trcLadder&&!actor.trafficLaunch&&!carMotionActive(actor)&&!busSeat(actor);}
+function grassPlatforms(){
+  if(!match||!['buy','live'].includes(match.phase))return [];
+  return [player,...bots].filter(a=>grassUsable(a)&&a.kit?.character==='veil').map(a=>grassPlatform(a,a===player?a.yaw+Math.PI:a.remoteId&&Number.isFinite(a.netYaw)?a.netYaw+Math.PI:a.group.rotation.y));
+}
+function grassSupport(actor,shapes=grassPlatforms()){
+  if(!grassUsable(actor)||Math.abs(actor.vy||0)>1e-5)return null;
+  return shapes.find(p=>p.id!==actor.id&&Math.abs(actor.y-p.top)<=.035&&grassOverlaps(p,actor.x,actor.z))||null;
+}
+function grassHeadClear(actor,x,z,r,feet,height){return !grassPlatforms().some(p=>p.id!==actor.id&&p.id!==actor.grassCarryOwner&&grassBlocks(p,x,z,r,feet,height));}
+function grassNearby(actor){return grassPlatforms().some(p=>p.id!==actor.id&&Math.hypot(p.x-actor.x,p.z-actor.z)<3);}
+function grassRideInput(actor){const p=grassSupport(actor);if(!p)return null;const q=grassLocal(p,actor.x,actor.z);return [p.id,q.x,q.z];}
+function grassRemoteInput(actor,input){
+  if(!validGrassRide(input.ride))return input;
+  const p=grassSupport(actor);if(!p||p.id!==input.ride[0])return input;
+  const q=grassWorld(p,input.ride[1],input.ride[2]);if(!grassOverlaps(p,q.x,q.z))return input;
+  return {...input,x:q.x,z:q.z};
+}
+function beginGrassFrame(){
+  const current=grassPlatforms(),shapes=current.map(p=>{
+    const old=grassPrevious?.round===match.round?grassPrevious.shapes.get(p.id):null;
+    return old&&old.team===p.team&&Math.hypot(p.x-old.x,p.z-old.z,p.top-old.top)<2?old:p;
+  });
+  grassFrame={round:match.round,shapes:new Map(shapes.map(p=>[p.id,p])),riders:[]};
+  for(const a of isGuest()?[player]:[player,...bots]){const p=grassSupport(a,shapes);if(p)grassFrame.riders.push({actor:a,owner:p.id,team:a.team});}
+}
+function carryGrassRiders(){
+  const frame=grassFrame;grassFrame=null;if(!frame||frame.round!==match?.round)return;
+  // Lower supports move first, including a grass character riding another cube.
+  frame.riders.sort((a,b)=>frame.shapes.get(a.owner).top-frame.shapes.get(b.owner).top);
+  for(const {actor:a,owner,team} of frame.riders){
+    const old=frame.shapes.get(owner),now=grassPlatforms().find(p=>p.id===owner);
+    if(!now||now.team!==old.team||a.team!==team||!grassUsable(a)||Math.abs(a.vy||0)>1e-5||Math.abs(a.y-old.top)>.04||!grassOverlaps(old,a.x,a.z))continue;
+    const q=grassLocal(old,a.x,a.z),target=grassWorld(now,q.x,q.z),dx=target.x-a.x,dz=target.z-a.z,dy=now.top-old.top;
+    const n=Math.max(1,Math.ceil(Math.hypot(dx,dy,dz)/.12));a.grassCarryOwner=owner;
+    try{for(let i=0;i<n;i++){
+      const y=a.y+dy/n;if(!canStand(a.x,a.z,.34,y,actorBodyHeight(a))||!grassHeadClear(a,a.x,a.z,.34,y,actorBodyHeight(a)))break;
+      a.y=y;moveEntity(a,dx/n,dz/n);
+    }}finally{delete a.grassCarryOwner;}
+    if(a.group)a.group.position.set(a.x,a.y,a.z);
+    if(a===player&&a.alive)camera.position.set(a.x,1.7-a.crouch*.55+a.y,a.z);
+  }
+  grassPrevious={round:match.round,shapes:new Map(grassPlatforms().map(p=>[p.id,p]))};
+}
 function actorGrounded(actor){
   if(!actor?.alive||!Number.isFinite(actor.y)||Number.isFinite(actor.vy)&&Math.abs(actor.vy)>1e-5)return false;
   let floor=0;const ramp=rampFloor(actor.x,actor.z);
   if(ramp!==null&&ramp<=actor.y+.001)floor=ramp;
   for(const c of map.collision.query(actor.x,actor.z,.34))if(!c.disabled&&c.height<=actor.y+.001&&c.height>floor&&map.collision.overlaps(c,actor.x,actor.z,.34))floor=c.height;
+  const head=grassSupport(actor);if(head)floor=Math.max(floor,head.top);
   return Math.abs(actor.y-floor)<=.035;
 }
 function transferEmberControl(actor,toRemote){
@@ -1586,7 +1634,7 @@ function moveEntity(entity,dx,dz,r=.34) {
         // Only ankle-height ledges can be stepped onto; crates still require jumping.
         for(const c of map.collision.query(x,z,r))if(!c.disabled&&c.height>feet&&c.height<=entity.y+.22&&map.collision.overlaps(c,x,z,r))feet=c.height;
       }
-      if(canStand(x,z,r,feet,actorBodyHeight(entity))){entity.x=x;entity.z=z;if(followsFloor)entity.y=feet;}
+      if(canStand(x,z,r,feet,actorBodyHeight(entity))&&grassHeadClear(entity,x,z,r,feet,actorBodyHeight(entity))){entity.x=x;entity.z=z;if(followsFloor)entity.y=feet;}
     }
     attempt(entity.x+dx/n,entity.z);
     attempt(entity.x,entity.z+dz/n);
@@ -3201,12 +3249,20 @@ function updateActorVertical(actor,dt,radius=.34){
     if(actor.trcLadder&&actor.alive)return;
     if(updateRenkoVertical(actor,dt,radius))return;
     if(applyStarHold(actor))return;
+    // A support can walk upstairs before a later actor's vertical turn. Keep
+    // its former resting contact until the single carry pass resolves it.
+    if(grassFrame?.riders.some(r=>r.actor===actor)&&Math.abs(actor.vy||0)<1e-5){
+      const rider=grassFrame.riders.find(r=>r.actor===actor),p=grassFrame.shapes.get(rider.owner);
+      if(grassUsable(actor)&&grassPlatforms().some(q=>q.id===p.id)&&Math.abs(actor.y-p.top)<=.035&&grassOverlaps(p,actor.x,actor.z,radius))return;
+    }
     const flight=duckFlight(actor);
+    const heads=grassPlatforms().filter(p=>p.id!==actor.id);
     const verticalSteps=Math.max(1,Math.ceil(dt*120)),verticalDt=dt/verticalSteps;
     for(let i=0;i<verticalSteps;i++){
       const height=actorBodyHeight(actor),previousFeet=actor.y,nextFeet=previousFeet+actor.vy*verticalDt-7.5*verticalDt*verticalDt;
       actor.vy-=15*verticalDt;let support=0,ceiling=flight?Math.min(11,flight.y+DUCK_SKILLS.flightHeight):Infinity;
       if(nextFeet>previousFeet){
+        for(const p of heads)if(previousFeet+height<=p.base+.00001&&nextFeet+height>=p.base&&grassOverlaps(p,actor.x,actor.z,radius))ceiling=Math.min(ceiling,p.base-height);
         for(const c of map.collision.query(actor.x,actor.z,radius)){
           if(c.disabled)continue;
           const underside=c.base||0;
@@ -3215,6 +3271,7 @@ function updateActorVertical(actor,dt,radius=.34){
         }
       }
       if(actor.vy<=0){
+        for(const p of heads)if(previousFeet>=p.top-.00001&&nextFeet<=p.top&&grassOverlaps(p,actor.x,actor.z,radius))support=Math.max(support,p.top);
         const ramp=rampFloor(actor.x,actor.z);
         if(ramp!==null&&previousFeet>=ramp-.00001&&nextFeet<=ramp)support=ramp;
         for(const c of map.collision.query(actor.x,actor.z,radius)){
@@ -3243,6 +3300,7 @@ function duckPadAirborne(actor){return actor?.alive&&actor.duckPadUntil>elapsed&
 function updatePlay(dt){
   if(!match)return;elapsed+=dt;syncRenkoJets();map.traversal?.update(dt);
   if(isGuest()&&!netHasSnapshot)return;
+  beginGrassFrame();
   const objectiveWork=mode==='play'&&interactionHeld?objectiveActionFor(player):null;
   player.planting=objectiveWork?.kind==='plant';player.defusing=objectiveWork?.kind==='defuse';
   if(objectiveWork){player.vx=0;player.vz=0;}
@@ -3261,7 +3319,7 @@ function updatePlay(dt){
   const len=Math.hypot(moveX,moveZ);
   const slideSpeed=frostSlideSpeed(player),crouching=controlled&&(slideSpeed>0||keys.has('KeyV')||keys.has('ControlLeft')||keys.has('ControlRight')||keys.has('TouchCrouch'));
   const nextCrouch=THREE.MathUtils.lerp(player.crouch,crouching?1:0,1-Math.exp(-dt*16));
-  if(nextCrouch>=player.crouch||canStand(player.x,player.z,.34,player.y,1.7-nextCrouch*.55))player.crouch=nextCrouch;
+  if(nextCrouch>=player.crouch||canStand(player.x,player.z,.34,player.y,1.7-nextCrouch*.55)&&grassHeadClear(player,player.x,player.z,.34,player.y,1.7-nextCrouch*.55))player.crouch=nextCrouch;
   const walking=keys.has('ShiftLeft')||keys.has('ShiftRight');
   const slow=actorSpeedScale(player)*(map.ductAt?.(player.x,player.z,player.y)?.6:1),speed=(slideSpeed|| (crouching||player.crouch>.5?1.8:(walking?2.8:inventory.active==='knife'?6.3:5.4)*1.15))*(aiming?.78:1)*slow;
   let desiredX=moveX/Math.max(1,len)*speed,desiredZ=moveZ/Math.max(1,len)*speed;
@@ -3347,6 +3405,7 @@ function updatePlay(dt){
   }
   updateTraffic(dt);
   updateCarMotions(dt);
+  carryGrassRiders();
   if(player.alive&&busSeat()){map.traffic.service.place(player,elapsed);const p=map.traffic.poses(elapsed).find(p=>p.id===busSeat().busId);if(busDriving())player.yaw=p.yaw+Math.PI;camera.rotation.set(player.pitch,player.yaw,0);gun.visible=!busDriving();}
   if(player.alive&&(carMotionActive(player)||busSeat()))camera.position.set(player.x,1.7-player.crouch*.55+player.y,player.z);
   botThinkTick-=dt;
@@ -3518,6 +3577,7 @@ async function copyPartyCode(){
 function receiveNetPacket(from,packet){
   if(!onlinePlaying||!packet||!Number.isSafeInteger(packet.seq)||packet.seq<1)return;
   if(online.host){
+    if(packet.input?.ride!==undefined&&!validGrassRide(packet.input.ride))return;
     if(packet.input?.jet!==undefined&&(typeof packet.input.jet!=='boolean'||packet.input.jet&&(!Number.isFinite(packet.input.yaw)||!Number.isFinite(packet.input.pitch))))return;
     if(packet.input?.crouch!==undefined&&(!Number.isFinite(packet.input.crouch)||packet.input.crouch<0||packet.input.crouch>1))return;
     const id=netParticipants.get(from);if(!id||id==='player'||packet.type!=='input')return;
@@ -3707,7 +3767,7 @@ if(map.destruction){if(fresh||!packet.busDamage)map.destruction.reset();map.dest
 }
 function updateRemoteActor(actor,dt){
   const data=netInputs.get(actor.remoteId);if(!data){cancelPlantAndEquip(actor);actor.planting=false;actor.defusing=false;match.cancelDefuse(actor.id);return;}
-  const input=data.input,active=elapsed-data.received<.8&&actor.alive&&data.round===match.round,objectiveWork=active&&input.interact===true?objectiveActionFor(actor):null,previousX=actor.x,previousY=actor.y||0,previousZ=actor.z,wasDashing=actor.dashTimer>0;
+  const input=grassRemoteInput(actor,data.input),active=elapsed-data.received<.8&&actor.alive&&data.round===match.round,objectiveWork=active&&input.interact===true?objectiveActionFor(actor):null,previousX=actor.x,previousY=actor.y||0,previousZ=actor.z,wasDashing=actor.dashTimer>0;
   if(actor.kit?.character==='renko'){ordinarySkills.holdRenkoJet(actor.id,elapsed,active&&input.jet===true&&!objectiveWork&&!carMotionActive(actor)&&!busSeat(actor));if(active){actor.netYaw=Number.isFinite(input.yaw)?input.yaw:0;actor.netPitch=clamp(Number(input.pitch)||0,-1.35,1.35);}}
   if(active&&duckPadAirborne(actor)&&actorGrounded(actor)&&Number.isFinite(input.y)&&Math.abs(input.y-actor.y)<.08)actor.duckPadUntil=0;
   const wasClimbing=!!actor.trcLadder&&!carMotionActive(actor);if(wasClimbing){const previous={x:actor.x,y:actor.y,z:actor.z};map.traversal.climb(actor,active&&[-1,0,1].includes(input.climb)?input.climb:0,dt,input.quiet===true);trcMotionSound(actor,dt,previous,input.quiet===true);}
@@ -3723,7 +3783,7 @@ function updateRemoteActor(actor,dt){
     const distance=Math.hypot(dx,dz),limit=(map.ductAt?.(actor.x,actor.z,actor.y)?1.15:actor.dashTimer>0?12/.18:(renkoJet?RENKO_SKILLS.flightSpeed:renkoDrive?(input.quiet===true?2.8:renkoDrive.sliding?RENKO_SKILLS.slideStart:input.crouch>.5?1.8:RENKO_SKILLS.runSpeed):frostSlideSpeed(actor,inputGrounded)||(input.quiet===true?2.8:7)*1.15)*actorSpeedScale(actor,inputGrounded))*dt;
     if(distance>limit){dx*=limit/distance;dz*=limit/distance;}
     const requestedCrouch=frostSlideSpeed(actor)>0?1:Number.isFinite(input.crouch)?clamp(input.crouch,0,1):0;
-    if(requestedCrouch>=(actor.crouch||0)||canStand(actor.x,actor.z,.34,actor.y||0,1.7-requestedCrouch*.55))actor.crouch=requestedCrouch;
+    if(requestedCrouch>=(actor.crouch||0)||canStand(actor.x,actor.z,.34,actor.y||0,1.7-requestedCrouch*.55)&&grassHeadClear(actor,actor.x,actor.z,.34,actor.y||0,1.7-requestedCrouch*.55))actor.crouch=requestedCrouch;
     if(renkoDrive){const oldX=actor.x,oldZ=actor.z;actor.vx=dx/Math.max(dt,.001);actor.vz=dz/Math.max(dt,.001);if(renkoDrive.sliding){dx=renkoDrive.x*dt*actorSpeedScale(actor);dz=renkoDrive.z*dt*actorSpeedScale(actor);}moveEntity(actor,dx,dz);actor.vx=(actor.x-oldX)/Math.max(dt,.001);actor.vz=(actor.z-oldZ)/Math.max(dt,.001);}else moveEntity(actor,dx,dz);
     if(renkoJet)updateActorVertical(actor,dt);
     const blocked=Math.hypot(actor.x-previousX-dx,actor.z-previousZ-dz)>1e-5;
@@ -3740,7 +3800,8 @@ function updateRemoteActor(actor,dt){
     }
     if(!wasDashing&&actor.netDashInputSequence!==data.seq&&(objectiveWork||Math.hypot(input.x-actor.x,input.z-actor.z)<1e-5||blocked&&!waitForStep||distance>2||renkoJet&&Math.hypot(input.x-actor.x,input.z-actor.z)>2))actor.netPositionAck={seq:data.seq,connection:data.connection,round:data.round,x:actor.x,z:actor.z};
     if(!objectiveWork&&!renkoJet&&Number.isFinite(input.y)&&!duckPadAirborne(actor)&&!carMotionActive(actor)&&elapsed>=Math.max(actor.carImpulseUntil||0,actor.trafficLaunch?.endsAt||0)){
-      const floor=inputGrounded?getZoneFloor(actor.x,actor.z,Math.max(actor.y,inputFeet)+.22):null;
+      const head=grassSupport(actor),grassAuthority=grassNearby(actor);
+      const floor=head?.top??(inputGrounded?getZoneFloor(actor.x,actor.z,Math.max(actor.y,inputFeet)+.22):null);
       // A capped stair input follows support at the accepted XZ, not the feet
       // height of a point the host has not reached yet.
       let acceptedY=floor!==null&&Math.abs(floor-inputFeet)<=.45&&canStand(actor.x,actor.z,.34,floor,actorBodyHeight(actor))?floor:inputFeet;
@@ -3753,7 +3814,7 @@ function updateRemoteActor(actor,dt){
         }
       }
       const starJump=ordinarySkills.onnaraEvent?.('onnara-jump',actor.id,elapsed);
-      if((map.traversal||starJump||actor.kit?.character==='renko')&&!flight&&!ordinarySkills.onnaraEvent?.('onnara-hover',actor.id,elapsed)){
+      if((map.traversal||starJump||grassAuthority||actor.kit?.character==='renko')&&!flight&&!ordinarySkills.onnaraEvent?.('onnara-hover',actor.id,elapsed)){
         // One airborne input stream can request one normal jump. Reusing its
         // last height after landing must not repeatedly launch the remote.
         const jumpKey=data.connection+':'+data.round;
@@ -3765,7 +3826,7 @@ function updateRemoteActor(actor,dt){
       actor.y=acceptedY;
       // Remote motion is consumed from its accepted pose; a prior lift impulse
       // must not leave a landed actor permanently classified as airborne.
-      if((!map.traversal&&!starJump&&actor.kit?.character!=='renko')||flight||ordinarySkills.onnaraEvent?.('onnara-hover',actor.id,elapsed))actor.vy=inputGrounded?0:(actor.y-previousY)/Math.max(dt,1e-6);
+      if((!map.traversal&&!starJump&&!grassAuthority&&actor.kit?.character!=='renko')||flight||ordinarySkills.onnaraEvent?.('onnara-hover',actor.id,elapsed))actor.vy=inputGrounded?0:(actor.y-previousY)/Math.max(dt,1e-6);
     }
     applyStarHold(actor);
     actorMovementScale(actor);
@@ -3878,7 +3939,7 @@ function tickOnline(dt){
     const teamState=teamAbilities.snapshot(),packet={type:'snapshot',mapId:map.id||'hashimoto',seq:++netSequence,time:elapsed,paused:netHostPaused,...(map.traversal?{trcDoors:map.traversal.snapshot()}:{}),cues:serializeNetCues(),smokes:serializeSmokes(),drops:serializeDrops(),detonation:detonationState?{...detonationState}:null,takeover:takeoverState?{...takeoverState}:null,zoneAbilities:zoneAbilities.snapshot(),...(map.traffic?{busTransit:map.traffic.service.snapshot([player,...bots].map(a=>a.id)),...(map.destruction?.snapshot()?{busDamage:map.destruction.snapshot()}:{})}:{}),rules,roster:roster.map(r=>({...r,kit:r.kit?.snapshot()})),actors:[player,...bots].map(captureNetActor),acks:Object.fromEntries(netApplied),positionAcks:Object.fromEntries(bots.filter(b=>b.remoteId&&b.netPositionAck).map(b=>[b.remoteId,{...b.netPositionAck}]))};
     for(const team of ['blue','red']){let state={...packet,teamAbilities:{...teamState,pings:teamState.pings.filter(ping=>ping.observerTeam===team)},ordinarySkills:ordinarySkills.snapshot(team),nopeDecoys:nopeDecoys.snapshot(),nopePops:serializeNopePops()};if(match.phase==='buy'){const report=roundDamage.snapshot(team,match.round);if(report)state.damageReport=report;}if(state.damageReport||state.nopeDecoys||state.ordinarySkills.events.some(e=>['nope-decoy','urchin-gloom'].includes(e.type))||state.ordinarySkills.blinds.some(b=>b.eventId.startsWith('skill-urchin-gloom-'))||map.traffic||map.traversal||packet.actors.some(a=>a.crouch>0||a.kit?.renkoActive)||[player,...bots].some(carMotionActive)||match.phase==='post'||state.cues.some(c=>(['skill-hit','skill-heal','gun-hit'].includes(c.type)||isKillSoundCue(c.type))))state=fitTrafficSnapshot(state);if(state)online.send(state,{team});}
   }else if(netHasSnapshot){
-    const seq=++netSequence,input={...(match.phase==='match'?{matchFinished:true}:{}),...(map.traversal?{climb:mode==='play'?Math.sign((keys.has('KeyW')?1:0)-(keys.has('KeyS')?1:0)-touchMove.y):0}:{}),...(player.kit?.character==='renko'&&player.renkoJetHeld===true&&mode==='play'?{jet:true}:{}),x:player.x,z:player.z,y:player.y,yaw:player.yaw,pitch:player.pitch,crouch:player.crouch,quiet:keys.has('ShiftLeft')||keys.has('ShiftRight'),interact:mode==='play'&&interactionHeld,...(busDriving()?{bus:busControls(player.id)}:{})};
+    const ride=grassRideInput(player),seq=++netSequence,input={...(ride?{ride}:{}),...(match.phase==='match'?{matchFinished:true}:{}),...(map.traversal?{climb:mode==='play'?Math.sign((keys.has('KeyW')?1:0)-(keys.has('KeyS')?1:0)-touchMove.y):0}:{}),...(player.kit?.character==='renko'&&player.renkoJetHeld===true&&mode==='play'?{jet:true}:{}),x:player.x,z:player.z,y:player.y,yaw:player.yaw,pitch:player.pitch,crouch:player.crouch,quiet:keys.has('ShiftLeft')||keys.has('ShiftRight'),interact:mode==='play'&&interactionHeld,...(busDriving()?{bus:busControls(player.id)}:{})};
     netPositionHistory.set(seq,{x:input.x,z:input.z,correctionX:netPositionCorrectionX,correctionZ:netPositionCorrectionZ});while(netPositionHistory.size>128)netPositionHistory.delete(netPositionHistory.keys().next().value);
     online.send({type:'input',seq,round:match.round,input,actions:netActions});
   }

@@ -1044,7 +1044,7 @@ export function createAgentModel(THREE, { bot = null, team = 'red', variant = 0,
     if(activeCharacter==='ember')solderAvatar.update();
     if(activeCharacter==='echo')iagnuAvatar.update();
     if(activeCharacter==='frost')onoAvatar.update(interactBlend);
-    if(activeCharacter==='veil')grassBlockAvatar.update();
+    if(activeCharacter==='veil')grassBlockAvatar.update({crouch,stable:state.alive!==false&&!dancing});
     if(activeCharacter==='onnara')onnaraAvatar.update();
     if(activeCharacter==='urchin')urchinAvatar.update();
     if(activeCharacter==='cap')capAvatar.update();

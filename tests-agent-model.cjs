@@ -893,7 +893,7 @@ async function main() {
       const hash=createHash('sha256');legacyTraverse(model.group,object=>{object.updateMatrix();hash.update(JSON.stringify([legacyVisible(object),...object.matrix.elements]));});hashes.push(hash.digest('hex'));
       model.group.updateMatrixWorld(true);
       if(roles[index]==='veil'){
-        matrixClose(grassPart(model,'pebbled dirt cube').parent.matrixWorld,model.head.parent.matrixWorld,'The block follows the original upper body in every weapon, movement, interaction, death and revival pose');
+        const cubeFrame=grassPart(model,'pebbled dirt cube').parent;matrixClose(cubeFrame.matrixWorld,pose.alive===false?model.head.parent.matrixWorld:cubeFrame.parent.matrixWorld,'Live cube stays level for riders while death animation follows the original rig');
         for(const [token,bone]of [['block grip hands','arm'],['square dirt feet','leg']])for(const mesh of grassMeshes(model).filter(object=>object.name.includes(token))){const side=mesh.parent.name.endsWith('R')?'R':'L',source=model[bone+side].children.find(object=>object.isGroup);matrixClose(mesh.parent.matrixWorld,source.matrixWorld,'Short square hands and feet stay attached to the original animated IK');}
         for(const mesh of grassMeshes(model))for(const value of mesh.matrixWorld.elements)assert.ok(Number.isFinite(value),'Short articulated block limbs keep finite world poses');
       }

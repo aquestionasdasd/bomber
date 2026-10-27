@@ -899,3 +899,7 @@ guestは残数と描画だけ予測、hostが実命中・HP・報酬。既存fir
 根拠/検証: 新しい実savedgame7群（全10銃/QEX/20・60・144Hz/壁際/held>4s/解除/独立JSON）と4memory故障。旧実CQE12/故障3/X8/故障3、通常55/モデル7/表示4/BOT C7・故障4/知覚8/戦術14行4実地seed/鴨空中9/SQLite25成功。初回はQ次Rの照準精度guard不足を修正。旧fixtureの構え/4秒/初期離陸/ラベル参照を新操作へ改め、壁際push後に即壁停止する標本は実push開始observerで検査。BOT42m浪費は明示射程で修正。ログと最終sourceSHAはworkspace第167巡記録。全main/同音mock/同BOT勝率測定は反復しない。
 
 公開準備: Sites最新172/共有mainと知人head保全を確認、対応PR63へ検証済みsourceを通常push後、同URL/publicへ正規helperで公開する。公開/GitHub確定IDと残課題はworkspace cycle167-release.jsonを正本にする。実browser/新実2tab/端末/聴感・蓮子BOT複合移動の強さは未確認。既存床ボンバー/hold4/旧説明の全main fixture債務を完成扱いにしない。音出力/既存ユーザーtab/OS/他アプリ/foreground操作なし。
+
+## 第172巡・草ブロック頭の実足場（人間指定）
+
+可視キューブ寸法で着地/側面/下面判定、歩行・旋回・段差・しゃがみ追従、二人/積み重ね、自分の移動/ジャンプで解除。host接地からの相対ride入力だけ受理し通常速度/ジャンプ/衝突維持。新snapshot fieldなし、実共有root/公式build/公開/GitHubの確定はworkspace cycle172-release/test-reportを正本とする。実端末/新実2タブ/聴感/BOT自主利用は未確認。

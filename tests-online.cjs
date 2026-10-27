@@ -252,8 +252,10 @@ async function main() {
       assert.equal((await send(guest, 'all', 'game', { type: 'state', hp: 999 })).status, 403);
       assert.equal((await send(guest, peer.memberId, 'game', { type: 'shot' })).status, 403);
       assert.equal((await send(guest, 'host', 'game', { session: 'r1', seq: 1, type: 'input', fire: true })).status, 201);
+      const ridePacket={type:'input',seq:2,round:1,input:{x:2,y:1.86,z:.31,ride:['player',.2,0]},actions:[]};assert.equal((await send(guest,'host','game',ridePacket)).status,201);
+      assert.ok((await getMessages(host)).value.messages.some(m=>JSON.stringify(m.data)===JSON.stringify(ridePacket)),'relative grass support input survives SQLite HTTP relay');
       const hostInbox = await getMessages(host);
-      assert.equal(hostInbox.value.messages.length, 1); assert.equal(hostInbox.value.messages[0].data.seq, 1);
+      assert.equal(hostInbox.value.messages.length, 2); assert.equal(hostInbox.value.messages[0].data.seq, 1);
       assert.equal((await getMessages(peer)).value.messages.length, 0);
       assert.equal((await send(host, 'all', 'game', { session: 'r1', seq: 7, type: 'state', score: [1, 0] })).status, 201);
       const state = await getMessages(guest);
