@@ -2289,11 +2289,11 @@ function updateRenkoVertical(actor,dt,radius){
  }return true;
 }
 function carMotionActive(actor,now=elapsed){const m=actor?.carMotion,until=m?.endsAt+(m?.phase===2&&actor.alive?CAR_SKILLS.bumperStunTime-CAR_SKILLS.bumperLaunchTime:0);return !!(m&&m.round===match?.round&&m.team===actor.team&&now<until&&(match.phase==='live'&&(actor.alive||m.phase===2)||match.phase==='post'&&!actor.alive&&m.phase===2));}
-function carStunUntil(actor){const m=actor?.carMotion;return carMotionActive(actor)&&![1,4].includes(m.phase)?(m.phase===2?m.endsAt+CAR_SKILLS.bumperStunTime-CAR_SKILLS.bumperLaunchTime:m.endsAt):0;}
+function carStunUntil(actor){const m=actor?.carMotion;return carMotionActive(actor)&&m.phase!==1?(m.phase===2?m.endsAt+CAR_SKILLS.bumperStunTime-CAR_SKILLS.bumperLaunchTime:m.endsAt):0;}
 function finishCarMotion(actor,m){
- // The five seconds start at contact, including the existing one-second arc.
- const endsAt=m.endsAt+CAR_SKILLS.bumperStunTime-CAR_SKILLS.bumperLaunchTime;
- if(m.phase===2&&actor.alive&&m.round===match.round&&m.team===actor.team&&match.phase==='live'&&elapsed<endsAt){
+ // Contact starts the deadline: Tomika five seconds, Renko one second including the arc.
+ const endsAt=m.phase===4?m.endsAt:m.endsAt+CAR_SKILLS.bumperStunTime-CAR_SKILLS.bumperLaunchTime;
+ if([2,4].includes(m.phase)&&actor.alive&&m.round===match.round&&m.team===actor.team&&match.phase==='live'&&elapsed<endsAt){
   actor.carMotion={...m,phase:3,endsAt,vx:0,vz:0,lastAt:elapsed};actor.carImpulseUntil=endsAt;actor.vx=0;actor.vz=0;
  }else{actor.carMotion=null;actor.carImpulseUntil=0;}
 }
@@ -2304,6 +2304,7 @@ function beginCarMotion(actor,m,targetId=null){
  if(actor===player){clearCombatInput();interactionHeld=false;reloading=0;}
 }
 function carMotionMarker(value,now){
+ if(Array.isArray(value)&&value.length===6&&value[1]===3&&/^skill-renko-dart-[1-9][0-9]{0,14}$/.test(value[0])){const[id,phase,endsAt,vx,vz,vy]=value;if(!value.slice(2).every(Number.isFinite)||endsAt<=now||endsAt>now+RENKO_SKILLS.launchDuration+.002||(vx!==0||vz!==0)||Math.abs(vy)>32)return null;return{id,phase,endsAt,vx,vz,vy,round:match.round};}
  if(Array.isArray(value)&&value.length===6&&value[1]===4){const[id,phase,endsAt,vx,vz,vy]=value;if(!/^skill-renko-dart-[1-9][0-9]{0,14}$/.test(id)||!value.slice(2).every(Number.isFinite)||endsAt<=now||endsAt>now+RENKO_SKILLS.launchDuration+.002||Math.abs(Math.hypot(vx,vz)-RENKO_SKILLS.launchSpeed)>.003||Math.abs(vy)>16)return null;return{id,phase,endsAt,vx,vz,vy,round:match.round};}
  if(!Array.isArray(value)||value.length!==6||!/^skill-car-bumper-[1-9][0-9]*$/.test(value[0])||![1,2,3].includes(value[1])||!value.slice(2).every(Number.isFinite))return null;
  if(value[1]===3){const[id,phase,endsAt,vx,vz,vy]=value;if(endsAt<=now||endsAt>now+CAR_SKILLS.bumperStunTime+.002||vx!==0||vz!==0||Math.abs(vy)>32)return null;return{id,phase,endsAt,vx,vz,vy,round:match.round};}

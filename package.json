@@ -32,7 +32,8 @@
     "check:cap-bounces": "node tests-cap-bounces.cjs && node tests-cap-bounces-negative.cjs",
     "check:bot-speed-aim": "node tests-bot-speed-aim.cjs && node tests-bot-speed-aim.cjs --negative",
     "check:defuse-audibility": "node tests-defuse-audibility.cjs && node tests-defuse-audibility.cjs --negative",
-    "check:renko-drive-toggle": "node tests-renko-drive-toggle.cjs && node tests-renko-drive-toggle-negative.cjs"
+    "check:renko-drive-toggle": "node tests-renko-drive-toggle.cjs && node tests-renko-drive-toggle-negative.cjs",
+    "check:renko-stun": "node tests-renko-stun.cjs && node tests-renko-stun-negative.cjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
