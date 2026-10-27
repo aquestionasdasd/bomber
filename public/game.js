@@ -296,7 +296,7 @@ function resetTakeover(){takeoverState=null;takeoverClock=0;stationTakeover.rese
 function resetZoneAbilities(){zoneAbilities.reset();zoneFX.reset();zonePulseAudio.clear();zoneTargetPreview=null;zoneTargetPreviewAt=-Infinity;zoneTargetCharacter=null;if($('status-effects')){$('status-effects').hidden=true;$('status-effects').textContent='';}}
 const stoppedTurfEvents=new Map();
 const stoppedFrostEvents=new Map();
-function resetOrdinarySkills(){clearVeilPlacement();grassFrame=null;grassPrevious=null;onnaraReveal.reset();preparedSkillFX.reset();renkoSkillFX.reset();flashStatusFX.reset();capBankPreviewFX.reset();capPreviewUntil=-Infinity;capPreviewPath=null;skillSpectacle.reset();skillFeedback.reset();starHold.reset();onnaraSkillFX.reset();urchinSkillFX.reset();capSkillFX.reset();japanSkillFX.reset();nobiSkillFX.reset();carSkillFX.reset();catReturnSeen.clear();catSkillFX.reset();duckAim=null;duckSkillFX.reset();botHearing.reset();ordinarySkills.reset();ordinaryFX.reset();nopeDecoys.reset();nopeDecoyFX.reset();nopePops.length=0;nopeSeenPopSequence=0;mendSkillFX.reset();iagnuSkillFX.reset();grassSkillFX.reset();emberSkillFX.reset();frostSkillFX.reset();duelistSkillFX.reset();for(const actor of [player,...bots]){actor.renkoPending=null;actor.renkoDrive=null;actor.renkoJetHeld=false;actor.renkoUltimate=null;if(actor.kit)actor.kit.renkoActive=false;actor.onnaraJumpPending=null;actor.nextNobiToolAt=0;actor.nextCatClockAt=0;actor.nextRenkoUltAt=0;actor.decoySeen?.clear();actor.duckPadAt=-Infinity;actor.duckPadUntil=0;actor.duckPadRound=0;actor.duckPadTeam=null;actor.duckFlapEvent=null;actor.duckFlapAt=-Infinity;if(!(['play','pause'].includes(mode)&&match?.phase==='post'&&!actor.alive&&actor.carMotion?.round===match.round&&actor.carMotion?.endsAt>elapsed)){actor.carMotion=null;actor.carImpulseUntil=0;actor.carFallUntil=0;actor.carRecoveryUntil=0;}cancelServiceReload(actor);actor.lastHeard=null;actor.netStepClock=0;}stoppedServiceEvents.clear();stoppedTurfEvents.clear();stoppedFrostEvents.clear();ordinaryAudio.clear();ordinaryMarkerAudio.clear();const overlay=$('skill-blind-overlay');if(overlay){overlay.hidden=true;overlay.style.opacity='0';}const nearOverlay=$('skill-nearsight-overlay');if(nearOverlay){nearOverlay.hidden=true;nearOverlay.style.opacity='0';}}
+function resetOrdinarySkills(){clearVeilPlacement();grassFrame=null;grassPrevious=null;onnaraReveal.reset();preparedSkillFX.reset();renkoSkillFX.reset();flashStatusFX.reset();capBankPreviewFX.reset();capPreviewUntil=-Infinity;capPreviewPath=null;skillSpectacle.reset();skillFeedback.reset();starHold.reset();onnaraSkillFX.reset();urchinSkillFX.reset();capSkillFX.reset();japanSkillFX.reset();nobiSkillFX.reset();carSkillFX.reset();catReturnSeen.clear();catSkillFX.reset();duckAim=null;duckSkillFX.reset();botHearing.reset();ordinarySkills.reset();ordinaryFX.reset();nopeDecoys.reset();nopeDecoyFX.reset();nopePops.length=0;nopeSeenPopSequence=0;mendSkillFX.reset();iagnuSkillFX.reset();grassSkillFX.reset();emberSkillFX.reset();frostSkillFX.reset();duelistSkillFX.reset();for(const actor of [player,...bots]){actor.renkoPending=null;actor.renkoDrive=null;actor.renkoJetHeld=false;actor.renkoUltimate=null;if(actor.kit)actor.kit.renkoActive=false;actor.onnaraJumpPending=null;actor.nextNobiToolAt=0;actor.nextCatClockAt=0;actor.nextRenkoUltAt=0;actor.nextRenkoDriveAt=0;actor.decoySeen?.clear();actor.duckPadAt=-Infinity;actor.duckPadUntil=0;actor.duckPadRound=0;actor.duckPadTeam=null;actor.duckFlapEvent=null;actor.duckFlapAt=-Infinity;if(!(['play','pause'].includes(mode)&&match?.phase==='post'&&!actor.alive&&actor.carMotion?.round===match.round&&actor.carMotion?.endsAt>elapsed)){actor.carMotion=null;actor.carImpulseUntil=0;actor.carFallUntil=0;actor.carRecoveryUntil=0;}cancelServiceReload(actor);actor.lastHeard=null;actor.netStepClock=0;}stoppedServiceEvents.clear();stoppedTurfEvents.clear();stoppedFrostEvents.clear();ordinaryAudio.clear();ordinaryMarkerAudio.clear();const overlay=$('skill-blind-overlay');if(overlay){overlay.hidden=true;overlay.style.opacity='0';}const nearOverlay=$('skill-nearsight-overlay');if(nearOverlay){nearOverlay.hidden=true;nearOverlay.style.opacity='0';}}
 function resetTeamAbilities(){teamAbilities.reset();characterFX.reset();resetZoneAbilities();resetOrdinarySkills();}
 // The grass cube is a movement solid; it adds no targeting or network state.
 let grassFrame=null,grassPrevious=null;
@@ -2890,7 +2890,7 @@ function updateBots(dt){
       if(duck||canStand(bot.x,bot.z,.4,bot.y,1.7))bot.crouch=duck?1:0;
     }
     const dx=point.x-bot.x,dz=point.z-bot.z,length=Math.hypot(dx,dz)||1;
-    const speed=(frostSlideSpeed(bot)||(3.35+cfg.speed*.25)*1.15)*actorSpeedScale(bot)*(map.ductAt?.(bot.x,bot.z,bot.y)?.28:1);
+    const speed=(bot.kit?.character==='renko'&&renkoEvent(bot,'renko-drive')?RENKO_SKILLS.runSpeed:frostSlideSpeed(bot)||(3.35+cfg.speed*.25)*1.15)*actorSpeedScale(bot)*(map.ductAt?.(bot.x,bot.z,bot.y)?.28:1);
     const step=Math.min(length,speed*dt),oldX=bot.x,oldZ=bot.z;
     if(elapsed<(bot.trafficLaunch?.endsAt||0))return false;
     if(navigation.trafficStep&&!navigation.trafficStep(bot.x,bot.z,bot.x+dx/length*step,bot.z+dz/length*step)){bot.pathTime=0;return false;}
@@ -3016,6 +3016,16 @@ function updateBots(dt){
     if(bot.kit?.character==='cat'&&(interactPlant&&!committedPlant||interactDefuse&&!committedDefuse)&&bot.kit.ultPoints>=7&&catBotClockUseful(bot)&&!ordinarySkills.clockFrozen(elapsed)&&elapsed>=(bot.nextCatClockAt||0)){
       cancelServiceReload(bot);
       const clock=activateAbility(bot,'x');bot.nextCatClockAt=elapsed+(clock?1:.5);
+    }
+    // A planted bomber is public information. Spend mobility only for the
+    // assigned retake, then free the hands before contact or objective work.
+    if(bot.kit?.character==='renko'){
+      const retake=!attacking&&spike.status==='planted'&&plan?.defuserId===bot.id&&role?.role==='defuse'&&goal&&distance(goal,spike)<2.05;
+      const safeDrive=retake&&!enemy&&!decoyTarget&&!trafficEscape&&!interactPlant&&!interactDefuse&&!bot.serviceReload&&!(bot.aiReload>0)&&ordinarySkills.blindUntil(bot.id,elapsed)<=elapsed&&ordinarySkills.nearsightUntil(bot.id,elapsed)<=elapsed;
+      if(renkoEvent(bot,'renko-drive')&&(!safeDrive||distance(bot,spike)<=7))stopRenkoDrive(bot);
+      if(safeDrive&&distance(bot,spike)>14&&actorGrounded(bot)&&!bot.trcLadder&&!renkoFlight(bot)&&!renkoEvent(bot,'renko-drive')&&bot.kit.updraft>0&&elapsed>=(bot.nextRenkoDriveAt||0)){
+        const drive=activateAbility(bot,'q');bot.nextRenkoDriveAt=elapsed+(drive?2.5:.5);
+      }
     }
     bot.planting=!!interactPlant;bot.defusing=!!interactDefuse;
     if(bot.kit?.character==='duelist'&&!interactPlant&&!interactDefuse&&ordinarySkills.blindUntil(bot.id,elapsed)<=elapsed&&elapsed>=(bot.nextSkillAt||0)){
