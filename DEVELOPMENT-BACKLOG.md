@@ -1,3 +1,15 @@
+## 第191巡 / MEND BOTの回復判断を投擲待ちから独立
+
+MEND BOTのE判断をC/Qの共有待ちから独立させ、C/Qを投げた後でも実際に届く負傷した本人・味方へ回復する。Eは成功2.5秒/不成立・拒否0.5秒で再判断し、成功時はC/Qも2.5秒待つ。同じframeのEとC/Q重複を防ぎ、作業/閃光/host権威/20event拒否rollback/最小HP選択/18m実視線/HP70閾値/60HP/18CDを保持。判断時計は次R/menuで清掃しsnapshotに追加しない。
+
+実C/Qの直後にHP40へした本人・味方×20/60/144Hzの12制御で、負傷から実Eまで旧2.500–2.550秒→最終0.507–0.550秒（約2秒短縮）。双方とも各60HPを実代入後に計上し、3秒以内の総回復は双方720HPで増加なし。Eで足りればX7pt保持。固定した負傷・静止相手の制御で、通常5v5勝率/被害軽減/追撃/設置・解除寄与の実証ではない。実updatePlayは一frame一回、raw前後/summaryにsourceSHAを保存。
+
+人間の技数値/全16人/蓮子E1.14514秒・Q解除/C壁貫通.91m1秒stun/素手/X補充、TRC/草C・X地図設置、モデル/地形/音源/銃/CPU旋回144度毎秒/wire/HTTPを保持。実browser/新2tab/端末/聴感・通常5v5効果は未確認、音/ユーザーtab/OS/他アプリ操作0。旧fullmain fixture債務を保持し同音/全main反復なし。
+
+関連検証: 専用実game6群/メモリ故障4種、既存MEND E8/故障3・C8/故障4、MEND FX7/team9/知覚8/戦術14行4実地seed/SQLite27成功。最初の容量fixtureは射程外投擲で満杯になっていなかったため、casterをfillerの近くへ配置し実20件assertを追加。拒否attemptとacceptedの区別、冗長work guardの故障検出を同frame二重cast検出へ訂正し停止log保持。製品の作業・権限・容量条件は緩めていない。
+
+検証/公開/GitHubの最終状態はworkspaceのcycle191-release.jsonとcycle191-test-report.jsonを正本とする。
+
 ## 2026-10-27 / TRC全体の質感（v6）
 
 Aメインで承認された実AO/間接光、明暗差、控えめな色分けと反射をA/Bサイト・両メイン・MID・高所・地下・屋外へ展開。4096角×2/256samples/6bounce、5反射地点、PNG32枚約6.85MB。B入口も面取り。新規粗さ/normal/bumpなし。練習M「TRC照明」で全域比較。描画の三角形/法線、経路、衝突、v5の隙間・地下飛行・入力修正を保持。

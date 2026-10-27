@@ -37,8 +37,8 @@ async function main({mutate=s=>s,only=()=>true,baseline=false}={}){
   for(const code of["netHostPaused=true","onlinePlaying=true;online={host:false,session:{memberId:'friend'}}","worker.remoteId='friend'","worker.alive=false","match.phase='buy'","match.phase='post'"]){setup();h.run(code);step();assert.equal(event(),undefined,code)}
   setup();h.run("ordinarySkills.cast('nope-flash',ordinaryActorView(player),{x:0,y:1.6,z:-2},elapsed-.6,match.round);updateOrdinarySkills()");assert.ok(h.run('ordinarySkills.blindUntil(worker.id,elapsed)>elapsed'));step();assert.equal(event(),undefined);
  });
- test('existing shared skill wait and work priority are preserved',()=>{
-  setup();h.run('worker.nextSkillAt=elapsed+2');step();assert.equal(event(),undefined);
+ test('independent ready healing bypasses shared throw wait while work priority is preserved',()=>{
+  setup();h.run('worker.nextSkillAt=elapsed+2');step();assert.ok(event());assert.equal(h.run('worker.hp'),100);
   setup();h.run("match.spike.status='planted';match.spike.x=0;match.spike.z=0;match.spike.site='A';worker.team=match.defenderTeam;player.team=match.attackerTeam;updateBots.tactics.update=()=>({siteId:'A',defuserId:worker.id,roles:new Map([[worker.id,{goal:{x:0,z:0},role:'defuse',siteId:'A',urgent:true}]])})");step();assert.ok(h.run('worker.defusing'));assert.equal(event(),undefined);assert.equal(h.run('worker.hp'),40);
  });
  test('twenty sixty and one-forty-four Hz heal only once and round menu cleanup remains intact',()=>{
