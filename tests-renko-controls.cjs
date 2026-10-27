@@ -12,14 +12,14 @@ const suite=String.raw`
  function step(t,g=h,hz=60){g.sandbox.duration=t;g.sandbox.hz=hz;g.run('for(let i=0;i<duration-1e-8;i+=1/hz)updatePlay(Math.min(1/hz,duration-i))');}
  check('instant C fires into empty space while blind and shooting; enlarged sphere catches offset enemies but respects edge/walls',()=>{
   setup();h.run("enemy.x=60;firing=true;useAbility('c')");assert.equal(h.run('player.kit.smoke'),1);assert.equal(h.run('firing'),true);assert.equal(h.run('duckAim'),null);
-  for(const [x,hit]of[[1.6,true],[1.9,false]]){setup();h.sandbox.offset=x;h.run("enemy.x=offset;useAbility('c')");step(.3);assert.equal(h.run('!!enemy.carMotion'),hit);assert.equal(h.run('enemy.hp+enemy.armor'),150);}
+  for(const [x,hit]of[[1.2,true],[1.5,false]]){setup();h.sandbox.offset=x;h.run("enemy.x=offset;useAbility('c')");step(.3);assert.equal(h.run('!!enemy.carMotion'),hit);assert.equal(h.run('enemy.hp+enemy.armor'),150);}
   for(const hz of[20,60,144]){setup();h.wall({z:-14,width:8});h.run("var pushCount=0;var actualBegin=beginCarMotion;beginCarMotion=(a,m)=>{pushCount++;return actualBegin(a,m)};useAbility('c')");step(.25,h,hz);assert.equal(h.run('pushCount'),1,'enemy before wall at '+hz);h.run('beginCarMotion=actualBegin');}
-  setup();h.wall({x:1.2,z:-6,width:.1,depth:.5});h.run("useAbility('c')");step(.4);assert.equal(h.run('enemy.carMotion'),undefined,'wide projectile touches off-centre wall');
+  setup();h.wall({x:.8,z:-6,width:.1,depth:.5});h.run("useAbility('c')");step(.4);assert.equal(h.run('enemy.carMotion'),undefined,'wide projectile touches off-centre wall');
   setup();h.run("ordinarySkills.cast('nope-flash',ordinaryActorView(enemy),{x:0,y:1.7,z:-2},elapsed,match.round);elapsed+=.5;updateOrdinarySkills();useAbility('c')");assert.equal(h.run('player.kit.smoke'),1,'manual empty-space fire has no sighting requirement');
  });
- check('10x visual radius matches event and wall collision; restored dart cannot acquire host hit authority',()=>{
-  const {createRenkoSkillFX}=imported,fx=createRenkoSkillFX(THREE);const ball=fx.group.children[0].children[1].children[0];near(ball.geometry.parameters.radius,.13*10,'radius');fx.dispose();
-  setup();h.run("useAbility('c');var snapshot=ordinarySkills.snapshot()");assert.equal(h.run('snapshot.events[0].radius'),1.3);const clone=imported.createCharacterSkills();assert.ok(clone.restore(copy(h.run('snapshot')),10,1));assert.equal(clone.update([{id:'enemy',team:'red',x:0,y:0,z:-12,hp:100,alive:true}],10.3,1,{projectileClear:()=>true}).length,0);
+ check('70percent visual radius matches event and wall collision; restored dart cannot acquire host hit authority',()=>{
+  const {createRenkoSkillFX}=imported,fx=createRenkoSkillFX(THREE);const ball=fx.group.children[0].children[1].children[0];near(ball.geometry.parameters.radius,1.3*.7,'radius');fx.dispose();
+  setup();h.run("useAbility('c');var snapshot=ordinarySkills.snapshot()");assert.equal(h.run('snapshot.events[0].radius'),.91);const clone=imported.createCharacterSkills();assert.ok(clone.restore(copy(h.run('snapshot')),10,1));assert.equal(clone.update([{id:'enemy',team:'red',x:0,y:0,z:-12,hp:100,alive:true}],10.3,1,{projectileClear:()=>true}).length,0);
  });
  check('X single guns follow visible aim; shotguns retain their ordinary cone; cadence/ammo preserved',()=>{
   for(const key of['x'])for(const id of['classic','ghost','spectre','vandal','phantom','scout','atlas','forge','pump','drum']){
