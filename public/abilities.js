@@ -29,7 +29,7 @@ export const CHARACTER_DEFS = Object.freeze({
   cap:Object.freeze({id:'cap',label:'キャップは？',role:'光学・解除',ultName:'エンドレスマガジン',ultShortName:'無消費',ultimatePoints:7,description:'C：敵の銃の照準とADSを妨害 / Q：現在の妨害を解除 / E：壁で弾を一度反射。X：9秒、装填済みの銃弾を消費せず発射（7pt）。',color:'#e36336',ultIcon:'M5 7h26v16H5ZM12 11c-8 0-8 8 0 8s4-8 12-8 8 8 0 8-4-8-12-8'}),
   urchin:Object.freeze({id:'urchin',label:'青ウニ',role:'棘・弾道',ultName:'三叉潮',ultShortName:'三叉',ultimatePoints:7,description:'C：予告した直線へ棘を一斉射出 / Q：敵の購入主武器を床へ落とす / E：壁を抜ける潮の波で遠くの視界を奪う。X：13秒、銃弾が三方向へ分かれ、連射速度が1.5倍（7pt）。',color:'#a9f1e4',ultIcon:'M18 28V4M18 20 5 7M18 20 31 7M2 11 5 7 9 8M27 8 31 7 34 11M14 8 18 4 22 8'}),
   onnara:Object.freeze({id:'onnara',label:'おんなら',role:'星冠・裁定',ultName:'星座裁定',ultShortName:'連鎖',ultimatePoints:7,description:'C：その場から約4.8mの大ジャンプ / Q：遠方を360度見回す宝玉 / E：空中で13秒静止し単発弾のブレをなくす。X：8秒、銃撃した敵から別の敵1人へ実被害の70%を連鎖（7pt）。',color:'#ffc948',ultIcon:'M18 2 22 11 32 12 24 19 27 29 18 23 9 29 12 19 4 12 14 11Z'}),
-  renko:Object.freeze({id:'renko',label:'蓮子',role:'機動・押し出し',ultName:'未設定',ultShortName:'未設定',ultimatePoints:7,description:'C：敵を狙って高速弾、命中で吹き飛ばす（ダメージなし） / Q：6秒高速走行、走りながらVで慣性滑走 / E：4秒ジェットパック、Space上昇・V下降。X：未設定。',color:'#91c5ef',ultIcon:'M8 27V12L18 3l10 9v15M10 19h16M13 30l5-7 5 7'}),
+  renko:Object.freeze({id:'renko',label:'蓮子',role:'機動・押し出し',ultName:'リスタートラッシュ',ultShortName:'リスタート',ultimatePoints:7,description:'C：敵を狙って高速弾、命中で吹き飛ばす（ダメージなし） / Q：6秒高速走行、走りながらVで慣性滑走 / E：4秒ジェットパック、Space上昇・V下降。X：7ptでラウンド中、敵撃破ごとにC・Q・E全回復（死亡で終了）。',color:'#91c5ef',ultIcon:'M8 27V12L18 3l10 9v15M10 19h16M13 30l5-7 5 7'}),
 });
 export const getCharacterUltimate = character => { const id=normalizeCharacter(character),def=CHARACTER_DEFS[id]; return {key:'x',name:def.ultName,shortName:def.ultShortName,description:def.description.split('X：')[1]||'',points:def.ultimatePoints,icon:def.ultIcon}; };
 export const normalizeCharacter = value => typeof value === 'string' && Object.hasOwn(CHARACTER_DEFS, value) ? value : 'duelist';
@@ -160,7 +160,7 @@ export class DuelistKit {
   resetRound({ reset = false } = {}) {
     if (reset) { this.smoke = 0; this.updraft = 0; this.ultPoints = 0; }
     this.dash = 1; this.dashKills = 0; this.armReadyAt = null; this.armExpiresAt = null; this.nextSignatureAt = 0;
-    this.knives = 0; this.knivesActive = false; return this.snapshot();
+    this.knives = 0; this.knivesActive = false; this.renkoActive = false; return this.snapshot();
   }
   buy(id, spend) {
     if (typeof id !== 'string') return false;
@@ -247,7 +247,7 @@ export class DuelistKit {
         this.armReadyAt = now + DUELIST.dashArmDelay; this.armExpiresAt = now + DUELIST.dashWindow;
         return { type: 'dash-armed', readyAt: this.armReadyAt, expiresAt: this.armExpiresAt };
       case 'x':
-        if(this.character==='renko')return null;
+        if(this.character==='renko'){if(this.renkoActive||this.ultPoints<DUELIST.ultimatePoints)return null;this.ultPoints-=DUELIST.ultimatePoints;this.renkoActive=true;return{type:'renko-restart'};}
         if (this.knivesActive || this.ultPoints < DUELIST.ultimatePoints) return null;
         if(this.character==='onnara'){this.ultPoints-=DUELIST.ultimatePoints;return {type:'onnara-chain'};}
         if(this.character==='urchin'){this.ultPoints-=DUELIST.ultimatePoints;return {type:'urchin-trident'};}
@@ -273,13 +273,16 @@ export class DuelistKit {
     this.awardPoint();
     if (this.character === 'duelist' && this.dash === 0 && ++this.dashKills >= DUELIST.signatureKills) { this.dash = 1; this.dashKills = 0; }
     if (this.knivesActive) this.knives = DUELIST.knives;
+    if(this.character==='renko'&&this.renkoActive){this.smoke=getCharacterSkill('renko','c').max;this.updraft=getCharacterSkill('renko','q').max;this.dash=1;this.nextSignatureAt=0;return true;}
+    return false;
   }
   awardPoint() { this.ultPoints = Math.min(DUELIST.ultimatePoints, this.ultPoints + 1); }
   snapshot() { return { character: this.character, smoke: this.smoke, updraft: this.updraft, dash: this.dash, ultPoints: this.ultPoints,
-    knives: this.knives, knivesActive: this.knivesActive, armReadyAt: this.armReadyAt, armExpiresAt: this.armExpiresAt, dashKills: this.dashKills, nextSignatureAt: this.nextSignatureAt }; }
+    knives: this.knives, knivesActive: this.knivesActive, armReadyAt: this.armReadyAt, armExpiresAt: this.armExpiresAt, dashKills: this.dashKills, nextSignatureAt: this.nextSignatureAt, ...(this.character==='renko'&&this.renkoActive?{renkoActive:true}:{}) }; }
   restore(value) {
     if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
     this.character = normalizeCharacter(value.character);
+    this.renkoActive = this.character === 'renko' && value.renkoActive === true;
     this.smoke = integer(value.smoke, getCharacterSkill(this.character, 'c').max); this.updraft = integer(value.updraft, getCharacterSkill(this.character, 'q').max);
     this.dash = integer(value.dash, 1); this.dashKills = integer(value.dashKills, DUELIST.signatureKills - 1);
     this.ultPoints = integer(value.ultPoints, DUELIST.ultimatePoints); this.knives = integer(value.knives, DUELIST.knives);

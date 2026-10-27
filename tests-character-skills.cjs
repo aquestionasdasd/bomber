@@ -838,7 +838,7 @@ async function main() {
     const source = actualSource.replace(before, after).replace(/from '(\.\/[a-z-]+\.js)'/g, (_, file) => `from ${JSON.stringify(pathToFileURL(path.join(__dirname, 'public', file)).href)}`);
     return import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'));
   }
-  const arcMutant = await memoryEngine("event.type === 'duelist-comet' ? 0 :", "event.type === 'duelist-comet' ? .8 :");
+  const arcMutant = await memoryEngine("event.type === 'duelist-comet' || event.type === 'renko-dart' ? 0 :", "event.type === 'duelist-comet' ? .8 : event.type === 'renko-dart' ? 0 :");
   const rangeMutant = await memoryEngine('Math.hypot(target.x - actor.x, target.y - sourceEyeY, target.z - actor.z)', 'Math.hypot(target.x - actor.x, target.z - actor.z)');
   const restoreMutant = await memoryEngine('}, value, value.fromY)', '}, value)');
   test('WIND memory-only negative controls detect an accidental arc, horizontal-only range and doubled eye origin during restore', () => {

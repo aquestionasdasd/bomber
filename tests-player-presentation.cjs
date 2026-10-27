@@ -7,7 +7,7 @@ async function main(){
  test('15 existing and new Renko selected characters expose the actual named X and7pt in desktop/mobile/lobby',()=>{
   const nodes=new Map(),get=id=>{if(!nodes.has(id))nodes.set(id,{textContent:'',setAttribute(){}});return nodes.get(id);};
   const ui=createCharacterSkillUI({document:{getElementById:get}}),html=fs.readFileSync(path.join(__dirname,'public/play.html'),'utf8');
-  for(const id of Object.keys(CHARACTER_DEFS)){ui.updateSelection(id);const x=getCharacterUltimate(id);if(id==='renko'){assert.equal(x.name,'未設定');assert.equal(x.description,'未設定。');}else assert.ok(x.description.length>10);
+  for(const id of Object.keys(CHARACTER_DEFS)){ui.updateSelection(id);const x=getCharacterUltimate(id);assert.ok(x.description.length>10);
    for(const prefix of ['character-skill','online-character-skill','mobile-character-skill']){for(const field of ['name','description','meta'])assert.ok(html.includes(`id="${prefix}-x-${field}"`));assert.equal(get(prefix+'-x-name').textContent,x.name);assert.equal(get(prefix+'-x-description').textContent,x.description);assert.equal(get(prefix+'-x-meta').textContent,'7 ULTポイント');}
    assert.ok(get('mobile-skill-summary').textContent.includes(x.name));
   }

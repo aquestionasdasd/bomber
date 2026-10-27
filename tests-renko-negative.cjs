@@ -12,7 +12,18 @@ async function run(){
  if(label==='altitude'){h.run("keys.add('Space');activateAbility(player,'e');for(let i=0;i<180;i++)updatePlay(1/60)");assert.ok(h.run('player.y')<=11.001);}
  if(label==='rollback'){h.run("for(let i=0;i<20;i++)ordinarySkills.cast('onnara-chain',{...ordinaryActorView(player),id:'s'+i},ordinaryActorView(player),elapsed,match.round);activateAbility(player,'e')");assert.equal(h.run('player.kit.dash'),1);}
  }module.exports=main;`;
- const product=fs.readFileSync(path.join(__dirname,'public/game.js'),'utf8');
- for(const [label,needle,replacement]of anchors){assert.ok(product.includes(needle),label);for(const mutant of[false,true]){let base=fixture.slice(0,cut).replace("fs.readFileSync(path.join(__dirname, 'public/game.js'), 'utf8')",'fs.readFileSync(path.join(__dirname, \'public/game.js\'), \'utf8\').replace(needle,replacement)');if(mutant&&label==='rollback')base=base.replace("'utf8').replace(needle,replacement)","'utf8').replace(needle,replacement).replace('if(!target||ordinarySkills.events(elapsed).length>=CHARACTER_SKILLS.maxEvents)return;','if(!target)return;')");const source='const label='+JSON.stringify(label)+',needle='+JSON.stringify(mutant?needle:'UNUSED')+',replacement='+JSON.stringify(replacement)+';\n'+base+probe;const m=new Module(__filename,module);m.filename=__filename;m.paths=module.paths;m._compile(source,__filename);let failed=false;try{await m.exports();}catch(e){if(e.code!=='ERR_ASSERTION')throw e;failed=true;}assert.equal(failed,mutant,label);}console.log('PASS memory fault detected: '+label);}
+ const product=fs.readFileSync(path.join(__dirname,'public/game.js'),'utf8').replace(/\r\n/g,'\n');
+ for(const [label,needle,replacement]of anchors){
+  assert.ok(product.includes(needle),label);
+  for(const mutant of[false,true]){
+   let read=String.raw`fs.readFileSync(path.join(__dirname, 'public/game.js'), 'utf8').replace(/\r\n/g,'\n').replace(needle,replacement)`;
+   if(mutant&&label==='rollback')read+=".replace('if(!target||ordinarySkills.events(elapsed).length>=CHARACTER_SKILLS.maxEvents)return;','if(!target)return;')";
+   const base=fixture.slice(0,cut).replace("fs.readFileSync(path.join(__dirname, 'public/game.js'), 'utf8')",read);
+   const source='const label='+JSON.stringify(label)+',needle='+JSON.stringify(mutant?needle:'UNUSED')+',replacement='+JSON.stringify(replacement)+';\n'+base+probe;
+   const m=new Module(__filename,module);m.filename=__filename;m.paths=module.paths;m._compile(source,__filename);
+   let failed=false;try{await m.exports();}catch(e){if(e.code!=='ERR_ASSERTION')throw e;failed=true;}assert.equal(failed,mutant,label);
+  }
+  console.log('PASS memory fault detected: '+label);
+ }
  const {renkoDriveMotion}=await import(require('node:url').pathToFileURL(path.join(__dirname,'public/renko-motion.js')).href),a={alive:true,team:'blue',vx:0,vz:-12},event={id:'q',team:'blue',endsAt:8};renkoDriveMotion(a,event,1,.01,{x:0,z:-1,crouch:true});const turned=renkoDriveMotion(a,event,1.1,.1,{x:1,z:0,crouch:true});assert.ok(Math.abs(turned.x)<3&&turned.z<-10);console.log('PASS limited slide steering and jump exit contract');
 }run().catch(e=>{console.error(e);process.exitCode=1;});

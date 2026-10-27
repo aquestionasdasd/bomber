@@ -35,9 +35,9 @@ async function main(){
     assert.equal(meshes(a)[0].geometry,assets[0].geometry);assert.equal(meshes(b)[0].geometry,assets[0].geometry);
   });
   check('Renko has a playable identity; preview stays silent and X remains pending',()=>{
-    assert.equal(Object.keys(CHARACTER_DEFS).length,16);assert.equal(CHARACTER_DEFS.renko.ultName,'未設定');assert.equal(normalizeCharacter('renko'),'renko');
+    assert.equal(Object.keys(CHARACTER_DEFS).length,16);assert.equal(CHARACTER_DEFS.renko.ultName,'リスタートラッシュ');assert.equal(normalizeCharacter('renko'),'renko');
     const page=fs.readFileSync(path.join(__dirname,'public/renko-preview.html'),'utf8'),script=fs.readFileSync(path.join(__dirname,'public/renko-preview.js'),'utf8');
-    assert.match(page,/Xは指定待ち/);assert.doesNotMatch(script,/AudioContext|new Audio\(|localStorage|fetch\(/);assert.match(fs.readFileSync(path.join(__dirname,'public/play.html'),'utf8'),/href="renko-preview.html"/);
+    assert.match(page,/X：敵撃破ごとにC・Q・E全回復/);assert.doesNotMatch(script,/AudioContext|new Audio\(|localStorage|fetch\(/);assert.match(fs.readFileSync(path.join(__dirname,'public/play.html'),'utf8'),/href="renko-preview.html"/);
   });
   check('shared geometry/material/texture ownership survives another model and releases once after last owner',()=>{
     const counts=new Map();for(const x of [...geometries,...materials,...textures])x.addEventListener('dispose',()=>counts.set(x,(counts.get(x)||0)+1));
