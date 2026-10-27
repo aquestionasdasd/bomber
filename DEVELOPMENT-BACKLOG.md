@@ -841,3 +841,9 @@ X「リコンパルス」の半径30mを300mへ変更。実host索敵・キッ�
 guestは残数と描画だけ予測、hostが実命中・HP・報酬。既存fire入力1件に任意boolean burstだけ追加し、本数/damageの自己申告は使わない。hostは実kit/装備/間隔/作業/投擲中/スタン/死亡/roundを検査、重複と古いRは既存ACKで排除。未ACK再描画も全残数を予測し、拒否ACKで在庫復元。満杯64actionなら右投擲は消費前に拒否。actor snapshot/HTTP頻度/20event/64KiBは維持。C/Q/E/他14人/銃/地形/物理/音素材/recipe不変。のび4技半径20mと総動員HP10を保持。
 
 専用実savedgame/独立JSON/故障注入・SQLite/関連回帰と正規build、公開/GitHubはworkspace cycle158-test-report/releaseを正本とする。実browser/新実2タブ/端末/聴感/人間操作感/勝率は未確認。既存fullmain床ボンバー/hold4/旧gyro/FROST説明fixture債務を保持し全main無用反復なし。自動fps-19 PAUSED維持、音再生/試聴/foreground/userタブ/OS/他アプリ操作なし。
+
+## 蓮子（画像右のキャラクター）
+
+- [x] 外見のみを制作し、最初の画面から専用3D確認へリンク。全身/顔、立ち/しゃがみ/ダンス。
+- [ ] 所有者の次のスキル指定を受け、全15人の効果/操作/役割と比較してCQEX/対戦/通信/BOTへ実装。現在は15人のまま。
+- [ ] 蓮子の対戦バランス、実オンラインの姿勢と命中確認。外見準備の公開を対戦完成と扱わない。

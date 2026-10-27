@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>蓮子 — キャラクターモデル</title>
+  <style>
+    *{box-sizing:border-box}body{margin:0;background:#0c1822;color:#eaf1f7;font-family:system-ui,sans-serif;min-height:100svh;display:grid;place-items:center}
+    main{width:min(920px,100%);padding:28px;display:grid;grid-template-columns:minmax(240px,1fr) minmax(230px,.8fr);gap:32px;align-items:center}
+    .stage{border:1px solid #3f5568;border-radius:18px;background:radial-gradient(ellipse at 50% 45%,#324d67,#112333 75%);overflow:hidden}
+    canvas{display:block;width:100%;height:min(74svh,680px);min-height:400px}.eyebrow{color:#e9d954;font-size:.75rem;letter-spacing:.18em}
+    h1{font-size:3rem;letter-spacing:.12em;margin:12px 0}p{color:#bdccda;line-height:1.85}.status{padding:12px 16px;border-left:3px solid #e9d954;background:#1b3042}
+    .controls{display:flex;gap:8px;flex-wrap:wrap;margin:24px 0}button,a{font:inherit}button{padding:10px 16px;border:1px solid #58718a;background:#1e3448;border-radius:6px;color:#eaf1f7;cursor:pointer}
+    button[aria-pressed=true]{border-color:#e9d954;color:#f9e870}a{color:#c6dbef;text-underline-offset:5px}button:focus-visible,a:focus-visible{outline:3px solid #fff19c;outline-offset:4px}
+    small{display:block;color:#92a9bd;line-height:1.7}#error{color:#ffb0a9}@media(max-width:650px){main{grid-template-columns:1fr;padding:18px;gap:20px}canvas{height:58svh;min-height:340px}h1{font-size:2.2rem}}
+  </style>
+</head>
+<body><main>
+  <div class="stage"><canvas id="renko-model" width="600" height="800" role="img" aria-label="蓮子：黄色の猫耳とボブ、渦巻き目、額のゴーグル、水色の大きなジャケットの全身3Dモデル"></canvas></div>
+  <section><span class="eyebrow">NEW CHARACTER / MODEL</span><h1>蓮子</h1>
+    <p>黄色い猫耳とボブ、渦巻き目。<br>額のゴーグルに、大きな水色のジャケット。</p>
+    <p class="status">スキル準備中<br><small>C・Q・E・Xは、これから決まります。</small></p>
+    <div class="controls" role="group" aria-label="モデルの表示"><button type="button" data-view="full" aria-pressed="true">全身</button><button type="button" data-view="face" aria-pressed="false">顔を近くで見る</button></div>
+    <div class="controls" role="group" aria-label="モデルの姿勢"><button type="button" data-pose="stand" aria-pressed="true">立つ</button><button type="button" data-pose="crouch" aria-pressed="false">しゃがむ</button><button type="button" data-pose="dance" aria-pressed="false">ダンス</button></div>
+    <p id="error" role="status" hidden>3D表示を開始できませんでした。</p>
+    <small>画像で見えない足元は、ジャケットに合わせたパンツとブーツで補っています。</small>
+    <p><a href="play">ゲーム画面へ戻る</a></p>
+  </section>
+</main><script type="module" src="renko-preview.js"></script></body></html>
