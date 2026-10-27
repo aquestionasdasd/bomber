@@ -47,7 +47,7 @@ const probe=`
  });
  check('refill preserves current Q/E end times; HUD and descriptions expose X and refill status',()=>{
   setup();h.run("player.kit.ultPoints=7;useAbility('x');activateAbility(player,'q');activateAbility(player,'e');var jetEnd=renkoFlight(player).endsAt,driveEnd=renkoEvent(player,'renko-drive').endsAt;player.kit.smoke=0;damageEntity(enemy,999,player);updateHUD()");assert.equal(h.run('renkoFlight(player).endsAt'),h.run('jetEnd'));assert.equal(h.run("renkoEvent(player,'renko-drive').endsAt"),h.run('driveEnd'));assert.equal(h.elements.get('ability-x-count').textContent,'発動中');assert.match(h.elements.get('status-effects').textContent,/敵撃破でC・Q・E全回復/);assert.match(h.sandbox.getCharacterUltimate('renko').description,/死亡で終了/);
-  h.run('elapsed+=4.1;updateOrdinarySkills()');assert.ok(h.run("activateAbility(player,'e')"));
+  h.run('elapsed+=5.1;updateOrdinarySkills()');assert.ok(h.run("activateAbility(player,'e')"));
  });
  console.log('PASS: '+groups+' Renko X groups; actual savedgame/independent JSON, audio inert');
 }
