@@ -209,3 +209,14 @@ Break the dancefloor!!: btdf.wav -> victory-break-the-dancefloor.wav.
 Original owner-supplied PCM24 stereo/44.1kHz WAV bytes, unchanged; ~14.403 seconds.
 Bundled at the owner's explicit request. No third-party artist or CC0 license inferred.
 Offline PCM inspection and mocked transport/selection tests only; no listening.
+
+Owner supplied weapon recordings (cycle186)
+Classic: gunsound_classic.wav; Ghost: gunsound_ghost.wav;
+Vandal: gunsound_vandal.wav; Phantom: gunsound_phantom.wav.
+Bundled unchanged at the owner's explicit request, matching filenames to weapons.
+No CC0, third-party author or redistribution license is inferred.
+PCM16 stereo44.1kHz; native pitch, complete recording for self/enemy fire.
+Per-file byte counts, SHA256 and numeric PCM inspection are in manifest.json.
+These four cues supersede the collaborator recipes above; the other weapons,
+knife, original footstep/landing recordings and all other audio remain.
+Offline PCM inspection and inert WebAudio mocks only; no playback/listening.

@@ -124,3 +124,9 @@ hostが実撃破時に本人別/ラウンド別の順番を確定し、既存cue
 人間報告「ボンバー解除音が全然敵に聞こえない」に対応。実host確定開始cueは既に敵味方へ共有されていたが、足音と同じ距離係数.11/遮蔽gain.40/lowpass1600Hzが短いピピッを小さくしていた。解除開始だけ係数.025/遮蔽gain.80/lowpass3200Hzへ。30mの開所gainは従来約2.46倍、壁越し約4.91倍。50mは約2.89/5.78倍。近距離本人gainを上げず、壁越しは開所の80%、方向と距離差を残し、65m上限を保持する。数値gainは聴感の倍率ではない。
 
 同じlab-beep1.oggの90ms×2・間隔160ms・rate1.35/gain.34を保持し、新素材/合成/遅延再生は追加しない。開始を受理した瞬間だけ一度。完了音・解除7秒/チェックポイント3.5秒・BOT聴覚・銃声の100m曲線・足音/着地・元8素材/ユーザー音源は不変。新snapshot field/HTTP頻度なし。独立savedgameの敵host/敵guest JSON受信を最終audio graphへ流し、壁/左右/距離/重複/65m/mute/volume0を数値で検証する。実音再生/試聴は行わない。正本はworkspace cycle183 release/test-report。
+
+## 第186巡 / 所有者の4銃録音
+
+最新第186巡の人間指定: gunsound_classic.wav/ghost/vandal/phantomを同名の4銃へ差し替え。提供WAVをbyte変更なしで同梱し、本人と敵の発砲に共通適用、元の速度1倍・先頭から録音全体の長さを再生する。既存各銃gain/100m距離減衰/壁遮蔽/定位/mono安全正規化/48voice/消音/読込失敗時無音・遅延再生なしを維持。他6銃とナイフは共同版のまま。元8素材/足音着地の定位と交互順/キル音/勝利BGM2曲/解除音は保持。古い共同銃声recipe保護はこの4銃だけ撤回、元へ戻さない。素材は所有者提供でCC0/第三者licenseを推定しない。音再生・試聴なし。
+
+RIFF chunk/PCM16 stereo44.1kHz/有限値/peak/RMS/SHAと実PCMを渡すWebAudio mockで確認。公開・GitHub・関連検証の正本はworkspace cycle186記録。実端末/聴感未確認、旧fullmain fixture債務は未完了。

@@ -14,7 +14,7 @@ async function main(){
   check('80to100m fade is continuous and monotonic, never adds a distant constant loudness floor',()=>{
    let previous=Infinity;for(const distance of [79,80,80.01,85,90,95,99,99.9,100,101]){const v=voice('enemy',{weapon:'vandal',distance,volume:1});assert.ok(v.gain<=previous);previous=v.gain;near(v.gain,Math.max(0,Math.min(1,(100-distance)/20))/(1+distance*.035));}assert.equal(previous,0);
   });
-  check('nearby/self level and collaborator sample recipe are unchanged; footsteps and knife retain their old curve',()=>{
+  check('nearby/self level and current weapon recipes are unchanged; footsteps and knife retain their old curve',()=>{
    for(const weapon of guns){const own=voice('shot',{weapon,volume:.45,distance:0});near(own.gain,.45);assert.equal(own.frequency,10000)}
    for(const type of ['step','land','shot','enemy','plant'])for(const occluded of [false,true]){const v=voice(type,{weapon:'knife',distance:30,volume:.45,occluded});near(v.gain,.45/(1+30*.11)*(occluded?.4:1));assert.equal(v.frequency,occluded?1600:10000)}
   });
