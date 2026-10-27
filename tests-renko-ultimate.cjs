@@ -1,7 +1,7 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),Module=require('node:module');
 // Reuse the silent, independent saved-game worlds, never a running browser.
 const fixture=fs.readFileSync(path.join(__dirname,'tests-renko-game.cjs'),'utf8');
-const prefix=fixture.slice(0,fixture.indexOf(" check('C arms/cancels"));
+const prefix=fixture.slice(0,fixture.indexOf(" check('C quick cast"));
 const network=fixture.slice(fixture.indexOf(' function peers()'),fixture.indexOf(" check('independent host/guest flight"));
 const probe=`
  check('kit X costs7, no activation refill, repeated kills restore exact CQE/cooldown, strict optional restore',()=>{

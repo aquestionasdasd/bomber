@@ -1,6 +1,7 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),Module=require('node:module');
 async function main(){
- const fixture=fs.readFileSync(path.join(__dirname,'tests-renko-game.cjs'),'utf8'),cut=fixture.indexOf(" check('C arms/cancels");
+ const fixture=fs.readFileSync(path.join(__dirname,'tests-renko-game.cjs'),'utf8'),cut=fixture.indexOf(" check('C quick cast");
+ assert.ok(cut>0,'savedgame fixture boundary');
  const game=fs.readFileSync(path.join(__dirname,'public/game.js'),'utf8').replace(/\r\n/g,'\n');
  const faults=[
   ['refill','const refilled=killer.kit?.awardKill();','const refilled=false;'],

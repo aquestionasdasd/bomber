@@ -1,7 +1,7 @@
 import { RENKO_SKILLS as R } from './abilities.js';
 
 // Actor-local integration only. Event identity/expiry comes from the host;
-// crouch and movement use the existing input stream, with no extra wire fields.
+// crouch, yaw/pitch and the optional held-jet boolean use the input stream.
 export function renkoDriveMotion(actor,event,now,dt,{x=0,z=0,crouch=false,grounded=true}={}){
   if(!event||now>=event.endsAt||!actor.alive||actor.team!==event.team){actor.renkoDrive=null;return null;}
   let s=actor.renkoDrive;
@@ -20,7 +20,7 @@ export function renkoDriveMotion(actor,event,now,dt,{x=0,z=0,crouch=false,ground
   return{x:x/Math.max(1,length)*v,z:z/Math.max(1,length)*v,sliding:false};
 }
 
-export function renkoFlightVelocity(event,now,{up=false,down=false}={}){
+export function renkoFlightVelocity(event,now,{pitch=0}={}){
   if(!event||now>=event.endsAt)return null;
-  return down?-R.verticalSpeed:up||now-event.startedAt<.25?R.verticalSpeed:0;
+  return Math.sin(Number.isFinite(pitch)?Math.max(-1.35,Math.min(1.35,pitch)):0)*R.flightSpeed;
 }

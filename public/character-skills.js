@@ -7,7 +7,7 @@ import { WEAPONS } from './rules.js';
 export const CHARACTER_SKILLS = Object.freeze({ maxEvents: 20, maxBlinds: 20, maxMarkers: 20, castDistance: 20, decoyDistance: 6,
   heightTolerance: 2.5, flashFacingDot: .2 });
 const specs = Object.freeze({
- 'renko-dart':Object.freeze({flight:RENKO_SKILLS.dartRange/RENKO_SKILLS.dartSpeed,delay:0,tail:1,radius:0}),
+ 'renko-dart':Object.freeze({flight:RENKO_SKILLS.dartRange/RENKO_SKILLS.dartSpeed,delay:0,tail:1,radius:RENKO_SKILLS.dartRadius}),
  'renko-drive':Object.freeze({flight:0,delay:0,tail:RENKO_SKILLS.driveDuration,radius:0}),
  'renko-jet':Object.freeze({flight:0,delay:0,tail:RENKO_SKILLS.flightDuration,radius:0}),
  'onnara-jump':Object.freeze({flight:0,delay:0,tail:ONNARA_SKILLS.jumpDuration,radius:0}),
@@ -115,6 +115,21 @@ const safeGround = (groundHeight, x, z, referenceY) => {
 };
 const healEligible = (actor, target, reachable) => living(actor) && living(target) && target.team === actor.team && target.hp < 100
   && feetDistance(actor, target) <= MEND_SKILLS.healRange + 1e-8 && (target.id === actor.id || safeReach(reachable, actor, target));
+
+// Earliest swept sphere contact with the actor's vertical capsule. Resolving
+// entry rather than the centre prevents a later wall from hiding an earlier hit.
+function renkoDartContact(e,a,dx,dy,dz,lo,hi){
+ const low=(a.y||0)+.42,high=(a.y||0)+1.75-(a.crouch||0)*.55-.42,r=RENKO_SKILLS.dartRadius+.42;
+ let first=Infinity;
+ for(const cap of[-1,0,1]){
+  const ox=e.fromX-a.x,oz=e.fromZ-a.z,oy=cap?e.fromY-(cap<0?low:high):0;
+  const A=dx*dx+dz*dz+(cap?dy*dy:0),B=ox*dx+oz*dz+(cap?oy*dy:0),C=ox*ox+oz*oz+(cap?oy*oy:0)-r*r;
+  if(A<1e-12)continue;const disc=B*B-A*C;if(disc<0)continue;
+  const root=Math.sqrt(disc),enter=Math.max(lo,(-B-root)/A),exit=Math.min(hi,(-B+root)/A),y=e.fromY+dy*enter;
+  if(enter>exit+1e-8||cap<0&&y>low+1e-8||cap>0&&y<high-1e-8||!cap&&(y<low-1e-8||y>high+1e-8))continue;
+  first=Math.min(first,enter);
+ }return first;
+}
 
 export function selectMendTarget(actor, actors, reachable) {
   if (!living(actor)) return null;
@@ -293,11 +308,10 @@ export function createCharacterSkills() {
       const sample=waveSamples.get(id)||{at:e.startedAt},length=Math.hypot(e.x-e.fromX,e.y-e.fromY,e.z-e.fromZ);
       if(length<1e-8){owned.delete(id);continue;}const dx=(e.x-e.fromX)/length,dy=(e.y-e.fromY)/length,dz=(e.z-e.fromZ)/length;
       const lo=Math.max(0,Math.min(length,(sample.at-e.startedAt)*RENKO_SKILLS.dartSpeed)),hi=Math.max(lo,Math.min(length,(now-e.startedAt)*RENKO_SKILLS.dartSpeed));let hit=null;
-      for(const a of list){if(!living(a)||a.team===e.team)continue;const mid=(a.y||0)+.85-(a.crouch||0)*.28,along=(a.x-e.fromX)*dx+(mid-e.fromY)*dy+(a.z-e.fromZ)*dz,t=Math.max(lo,Math.min(hi,along)),p={x:e.fromX+dx*t,y:e.fromY+dy*t,z:e.fromZ+dz*t};
-        if(Math.hypot(a.x-p.x,a.z-p.z)>.55||p.y<(a.y||0)-.1||p.y>(a.y||0)+1.75-(a.crouch||0)*.55)continue;
-        if(typeof projectileClear!=='function'||!projectileClear({x:e.fromX,y:e.fromY,z:e.fromZ},p))continue;if(!hit||t<hit.t)hit={a,t};}
+      for(const a of list){if(!living(a)||a.team===e.team)continue;const t=renkoDartContact(e,a,dx,dy,dz,lo,hi);if(!Number.isFinite(t))continue;const p={x:e.fromX+dx*t,y:e.fromY+dy*t,z:e.fromZ+dz*t};
+        if(typeof projectileClear!=='function'||!projectileClear({x:e.fromX,y:e.fromY,z:e.fromZ},p,RENKO_SKILLS.dartRadius))continue;if(!hit||t<hit.t)hit={a,t};}
       if(hit){const horizontal=Math.hypot(dx,dz);if(horizontal>1e-6)effects.push({type:'renko-push',eventId:e.id,targetId:hit.a.id,sourceId:e.sourceId,vx:dx/horizontal*RENKO_SKILLS.launchSpeed,vz:dz/horizontal*RENKO_SKILLS.launchSpeed});owned.delete(id);active.delete(id);}
-      else if(hi>=length-1e-8||typeof projectileClear!=='function'||!projectileClear({x:e.fromX,y:e.fromY,z:e.fromZ},{x:e.fromX+dx*hi,y:e.fromY+dy*hi,z:e.fromZ+dz*hi})){owned.delete(id);active.delete(id);}
+      else if(hi>=length-1e-8||typeof projectileClear!=='function'||!projectileClear({x:e.fromX,y:e.fromY,z:e.fromZ},{x:e.fromX+dx*hi,y:e.fromY+dy*hi,z:e.fromZ+dz*hi},RENKO_SKILLS.dartRadius)){owned.delete(id);active.delete(id);}
       if(active.has(id))waveSamples.set(id,{at:now});else waveSamples.delete(id);
     }
     // A host-owned traveling volume hits each actor once. The wall-piercing
@@ -629,5 +643,11 @@ export function createCharacterSkills() {
     if(!e)return 0;const stored=active.get(e.id),step=Math.min(ONNARA_SKILLS.taxPerShot,stored.power),paid=Math.min(credits,step);stored.power-=step;return paid;
   }
   const onnaraEvent=(type,id,now)=>events(now).find(e=>e.type===type&&e.sourceId===id)||null;
-  return {renkoEvent:(type,id,now)=>events(now).find(e=>e.type===type&&e.sourceId===id)||null,nearsightUntil,sightRange,duckPad,recordConstellation(sourceId,from,to,now){const e=events(now).find(e=>e.type==='onnara-chain'&&e.sourceId===sourceId&&owned.has(e.id));if(!e||!point(from)||!point(to)||Math.hypot(from.x-to.x,from.y-to.y,from.z-to.z)>ONNARA_SKILLS.chainRange+.001)return false;active.get(e.id).link=[from.x,from.y,from.z,to.x,to.y,to.z,now].map(n=>Math.round(n*1000)/1000);active.get(e.id).link[6]=now;return true;},cancelOnnaraEvent(id,sourceId){const e=active.get(id);if(e?.type.startsWith('onnara-')&&e.sourceId===sourceId&&owned.has(id)){active.delete(id);owned.delete(id);return true;}return false;},consumeCrownTax,onnaraTax:(id,now)=>events(now).find(e=>e.type==='onnara-tax'&&e.targetId===id)||null,onnaraEvent,urchinJammed:(id,now)=>capState('urchin-jam',id,now,true),urchinTrident:(id,now)=>capState('urchin-trident',id,now),urchinInterval:(id,now)=>capState('urchin-trident',id,now)?1/URCHIN_SKILLS.tridentFireRate:1,hasImpairment,cleanse,capLocked:(id,now)=>capState('cap-lock',id,now,true),capBank:(id,now)=>capState('cap-bank',id,now),capMagazine:(id,now)=>capState('cap-magazine',id,now),resetActor,japanReturn:(id,now)=>events(now).some(e=>e.type==='japan-return'&&e.sourceId===id)?JAPAN_SKILLS.returnScale:0,nobiVulnerability,nobiInterval,nobiWork,nobiLegend,carGyro,disperseSmoke,cancelCarEvent,catBookmark,returnToCatBookmark,cancelCatEvent,clockFrozen, wouldBlind, wouldRoot,wouldSeed,wouldTag,wouldStitch,sealUntil,quiet,guardLethal,interceptShield,cast, update, events, snapshot, restore, reset, blindUntil, speedScale, markers, movementScale, mitigateSlow, frostSlideSpeed, cancelService, consumeDecoy, flashDecoy };
+  function holdRenkoJet(sourceId,now,held){
+    for(const [id,e]of active)if(e.type==='renko-jet'&&e.sourceId===sourceId&&owned.has(id)){
+      if(!held||now>=e.endsAt){active.delete(id);owned.delete(id);return false;}
+      if(e.endsAt-now<=2){const shift=2;e.startedAt+=shift;e.triggerAt+=shift;e.endsAt+=shift;}return true;
+    }return false;
+  }
+  return {holdRenkoJet,renkoEvent:(type,id,now)=>events(now).find(e=>e.type===type&&e.sourceId===id)||null,nearsightUntil,sightRange,duckPad,recordConstellation(sourceId,from,to,now){const e=events(now).find(e=>e.type==='onnara-chain'&&e.sourceId===sourceId&&owned.has(e.id));if(!e||!point(from)||!point(to)||Math.hypot(from.x-to.x,from.y-to.y,from.z-to.z)>ONNARA_SKILLS.chainRange+.001)return false;active.get(e.id).link=[from.x,from.y,from.z,to.x,to.y,to.z,now].map(n=>Math.round(n*1000)/1000);active.get(e.id).link[6]=now;return true;},cancelOnnaraEvent(id,sourceId){const e=active.get(id);if(e?.type.startsWith('onnara-')&&e.sourceId===sourceId&&owned.has(id)){active.delete(id);owned.delete(id);return true;}return false;},consumeCrownTax,onnaraTax:(id,now)=>events(now).find(e=>e.type==='onnara-tax'&&e.targetId===id)||null,onnaraEvent,urchinJammed:(id,now)=>capState('urchin-jam',id,now,true),urchinTrident:(id,now)=>capState('urchin-trident',id,now),urchinInterval:(id,now)=>capState('urchin-trident',id,now)?1/URCHIN_SKILLS.tridentFireRate:1,hasImpairment,cleanse,capLocked:(id,now)=>capState('cap-lock',id,now,true),capBank:(id,now)=>capState('cap-bank',id,now),capMagazine:(id,now)=>capState('cap-magazine',id,now),resetActor,japanReturn:(id,now)=>events(now).some(e=>e.type==='japan-return'&&e.sourceId===id)?JAPAN_SKILLS.returnScale:0,nobiVulnerability,nobiInterval,nobiWork,nobiLegend,carGyro,disperseSmoke,cancelCarEvent,catBookmark,returnToCatBookmark,cancelCatEvent,clockFrozen, wouldBlind, wouldRoot,wouldSeed,wouldTag,wouldStitch,sealUntil,quiet,guardLethal,interceptShield,cast, update, events, snapshot, restore, reset, blindUntil, speedScale, markers, movementScale, mitigateSlow, frostSlideSpeed, cancelService, consumeDecoy, flashDecoy };
 }

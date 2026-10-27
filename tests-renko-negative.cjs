@@ -9,7 +9,7 @@ async function run(){
  const probe=`
  const h=harness();h.reset();h.clearWalls();h.run("player.kit=new DuelistKit({character:'renko'});player.kit.smoke=2;player.kit.updraft=1;match.phase='live';makeBot({x:0,z:-12},0,'red',{id:'enemy',team:'red',credits:800,secondary:'classic',kit:new DuelistKit({character:'nope'})});var enemy=bots[0];enemy.remoteId='passive';enemy.hp=100;enemy.armor=50");
  if(label==='damage'){h.run("activateAbility(player,'c');for(let i=0;i<20;i++)updatePlay(1/60)");assert.equal(h.run('enemy.hp+enemy.armor'),150);}
- if(label==='altitude'){h.run("keys.add('Space');activateAbility(player,'e');for(let i=0;i<180;i++)updatePlay(1/60)");assert.ok(h.run('player.y')<=11.001);}
+ if(label==='altitude'){h.run("player.pitch=1.35;activateAbility(player,'e');for(let i=0;i<180;i++)updatePlay(1/60)");assert.ok(h.run('player.y')<=11.001);}
  if(label==='rollback'){h.run("for(let i=0;i<20;i++)ordinarySkills.cast('onnara-chain',{...ordinaryActorView(player),id:'s'+i},ordinaryActorView(player),elapsed,match.round);activateAbility(player,'e')");assert.equal(h.run('player.kit.dash'),1);}
  }module.exports=main;`;
  const product=fs.readFileSync(path.join(__dirname,'public/game.js'),'utf8').replace(/\r\n/g,'\n');

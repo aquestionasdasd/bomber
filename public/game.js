@@ -291,7 +291,7 @@ function resetTakeover(){takeoverState=null;takeoverClock=0;stationTakeover.rese
 function resetZoneAbilities(){zoneAbilities.reset();zoneFX.reset();zonePulseAudio.clear();zoneTargetPreview=null;zoneTargetPreviewAt=-Infinity;zoneTargetCharacter=null;if($('status-effects')){$('status-effects').hidden=true;$('status-effects').textContent='';}}
 const stoppedTurfEvents=new Map();
 const stoppedFrostEvents=new Map();
-function resetOrdinarySkills(){renkoSkillFX.reset();flashStatusFX.reset();capBankPreviewFX.reset();capPreviewUntil=-Infinity;capPreviewPath=null;skillSpectacle.reset();skillFeedback.reset();starHold.reset();onnaraSkillFX.reset();urchinSkillFX.reset();capSkillFX.reset();japanSkillFX.reset();nobiSkillFX.reset();carSkillFX.reset();catReturnSeen.clear();catSkillFX.reset();duckAim=null;duckSkillFX.reset();botHearing.reset();ordinarySkills.reset();ordinaryFX.reset();nopeDecoys.reset();nopeDecoyFX.reset();nopePops.length=0;nopeSeenPopSequence=0;mendSkillFX.reset();iagnuSkillFX.reset();grassSkillFX.reset();emberSkillFX.reset();frostSkillFX.reset();duelistSkillFX.reset();for(const actor of [player,...bots]){actor.renkoPending=null;actor.renkoDrive=null;actor.renkoUltimate=null;if(actor.kit)actor.kit.renkoActive=false;actor.onnaraJumpPending=null;actor.nextNobiToolAt=0;actor.nextCatClockAt=0;actor.decoySeen?.clear();actor.duckPadAt=-Infinity;actor.duckPadUntil=0;actor.duckPadRound=0;actor.duckPadTeam=null;actor.duckFlapEvent=null;actor.duckFlapAt=-Infinity;if(!(['play','pause'].includes(mode)&&match?.phase==='post'&&!actor.alive&&actor.carMotion?.round===match.round&&actor.carMotion?.endsAt>elapsed)){actor.carMotion=null;actor.carImpulseUntil=0;actor.carFallUntil=0;actor.carRecoveryUntil=0;}cancelServiceReload(actor);actor.lastHeard=null;actor.netStepClock=0;}stoppedServiceEvents.clear();stoppedTurfEvents.clear();stoppedFrostEvents.clear();ordinaryAudio.clear();ordinaryMarkerAudio.clear();const overlay=$('skill-blind-overlay');if(overlay){overlay.hidden=true;overlay.style.opacity='0';}const nearOverlay=$('skill-nearsight-overlay');if(nearOverlay){nearOverlay.hidden=true;nearOverlay.style.opacity='0';}}
+function resetOrdinarySkills(){renkoSkillFX.reset();flashStatusFX.reset();capBankPreviewFX.reset();capPreviewUntil=-Infinity;capPreviewPath=null;skillSpectacle.reset();skillFeedback.reset();starHold.reset();onnaraSkillFX.reset();urchinSkillFX.reset();capSkillFX.reset();japanSkillFX.reset();nobiSkillFX.reset();carSkillFX.reset();catReturnSeen.clear();catSkillFX.reset();duckAim=null;duckSkillFX.reset();botHearing.reset();ordinarySkills.reset();ordinaryFX.reset();nopeDecoys.reset();nopeDecoyFX.reset();nopePops.length=0;nopeSeenPopSequence=0;mendSkillFX.reset();iagnuSkillFX.reset();grassSkillFX.reset();emberSkillFX.reset();frostSkillFX.reset();duelistSkillFX.reset();for(const actor of [player,...bots]){actor.renkoPending=null;actor.renkoDrive=null;actor.renkoJetHeld=false;actor.renkoUltimate=null;if(actor.kit)actor.kit.renkoActive=false;actor.onnaraJumpPending=null;actor.nextNobiToolAt=0;actor.nextCatClockAt=0;actor.decoySeen?.clear();actor.duckPadAt=-Infinity;actor.duckPadUntil=0;actor.duckPadRound=0;actor.duckPadTeam=null;actor.duckFlapEvent=null;actor.duckFlapAt=-Infinity;if(!(['play','pause'].includes(mode)&&match?.phase==='post'&&!actor.alive&&actor.carMotion?.round===match.round&&actor.carMotion?.endsAt>elapsed)){actor.carMotion=null;actor.carImpulseUntil=0;actor.carFallUntil=0;actor.carRecoveryUntil=0;}cancelServiceReload(actor);actor.lastHeard=null;actor.netStepClock=0;}stoppedServiceEvents.clear();stoppedTurfEvents.clear();stoppedFrostEvents.clear();ordinaryAudio.clear();ordinaryMarkerAudio.clear();const overlay=$('skill-blind-overlay');if(overlay){overlay.hidden=true;overlay.style.opacity='0';}const nearOverlay=$('skill-nearsight-overlay');if(nearOverlay){nearOverlay.hidden=true;nearOverlay.style.opacity='0';}}
 function resetTeamAbilities(){teamAbilities.reset();characterFX.reset();resetZoneAbilities();resetOrdinarySkills();}
 function actorGrounded(actor){
   if(!actor?.alive||!Number.isFinite(actor.y)||Number.isFinite(actor.vy)&&Math.abs(actor.vy)>1e-5)return false;
@@ -465,7 +465,7 @@ function updateOrdinarySkills(){
       const input=netInputs.get(actor.remoteId)?.input;
       return ordinaryActorView(input?{...actor,yaw:input.yaw,pitch:input.pitch}:actor);
     });
-    for(const effect of ordinarySkills.update(views,elapsed,match.round,{reachable:ordinaryReachable,groundHeight:ordinaryGroundHeight,projectileClear:(a,b)=>map.collision.rayClear(a.x,a.y,a.z,b.x,b.y,b.z)})){
+    for(const effect of ordinarySkills.update(views,elapsed,match.round,{reachable:ordinaryReachable,groundHeight:ordinaryGroundHeight,projectileClear:(a,b,r=0)=>map.collision.rayClear(a.x,a.y,a.z,b.x,b.y,b.z,r)})){
       const target=actors.find(actor=>actor.id===effect.targetId),source=actors.find(actor=>actor.id===effect.sourceId);
       if(effect.type==='renko-push'&&target?.alive&&source?.alive&&target.team!==source.team){beginCarMotion(target,{id:effect.eventId,phase:4,endsAt:elapsed+RENKO_SKILLS.launchDuration,vx:effect.vx,vz:effect.vz});burst(new THREE.Vector3(target.x,(target.y||0)+1,target.z),'#a9e6ff',12);}
       if(effect.type==='damage'&&target&&source)damageEntity(target,effect.amount,source,{skill:source.kit?.character});
@@ -1112,7 +1112,7 @@ function autoBuyBot(r){
   if(['duelist','nope','mend','echo','veil','ember','frost','duck','cat','car','nobi','japan','cap','urchin','onnara'].includes(r.kit?.character))for(const key of ['c','q'])while(r.kit.buy(key,price=>{if(r.credits<price)return false;r.credits-=price;return true;})){}
 }
 function setVisible(id,visible) { if($(id))$(id).hidden=!visible; if(visible&&(id==='menu'||id==='result'))keyboardProtection.release(); if(id==='menu'||id==='online-overlay'||id==='online-lobby')characterPicker.sync(); }
-function clearCombatInput(){duckAim=null;
+function clearCombatInput(){duckAim=null;releaseRenkoJet();
   pointerLockRequest++;pointerLockInput='unlocked';
   keys.clear();firing=false;aiming=false;interactionHeld=false;touchMove={x:0,y:0};touchLook=null;movePointer=null;
   player.planting=false;player.defusing=false;
@@ -1957,7 +1957,8 @@ function onnaraAirAim(actor){
  const event=ordinarySkills.onnaraEvent?.('onnara-hover',actor?.id,elapsed);
  return !!(actor?.alive&&match?.phase==='live'&&event&&event.round===match.round&&event.team===actor.team&&!starHold.stopped(event.id)&&!actor.trcLadder&&!carMotionActive(actor)&&!busSeat(actor)&&Math.abs(actor.y-event.y)<1e-6&&Math.abs(actor.vy||0)<1e-6&&starHoldClear(actor,event));
 }
-function steadyAirAim(actor){return duckAirAim(actor)||onnaraAirAim(actor);}
+function steadyAirAim(actor){return duckAirAim(actor)||onnaraAirAim(actor)||renkoSteadyAim(actor);}
+function renkoSteadyAim(actor){return !!(actor?.alive&&actor.kit?.character==='renko'&&match?.phase==='live'&&!carMotionActive(actor)&&!busSeat(actor)&&(renkoUltimateActive(actor)||renkoEvent(actor,'renko-drive')||renkoFlight(actor)));}
 function applyStarHold(actor){
  const event=ordinarySkills.onnaraEvent?.('onnara-hover',actor.id,elapsed);if(!event||match?.phase!=='live')return false;
  const held=starHold.apply(actor,event,elapsed,starHoldClear);
@@ -2139,14 +2140,21 @@ function carSkillTarget(actor,key,aim=null){
 // Only the host starts collision/damage. Guests animate accepted markers, never hits.
 function renkoEvent(actor,type){
  if(!actor?.alive||actor.kit?.character!=='renko'||match?.phase!=='live'||carMotionActive(actor)||busSeat(actor))return null;
- const e=ordinarySkills.renkoEvent(type,actor.id,elapsed),p=actor.renkoPending;return e?.team===actor.team?e:p?.event.type===type&&p.round===match.round&&p.team===actor.team&&p.event.endsAt>elapsed?p.event:null;
+ const e=ordinarySkills.renkoEvent(type,actor.id,elapsed),p=actor.renkoPending;return e?.team===actor.team&&e.round===match.round?e:p?.event.type===type&&p.round===match.round&&p.team===actor.team&&p.event.endsAt>elapsed?p.event:null;
 }
-function renkoFlight(actor){return renkoEvent(actor,'renko-jet');}
+function renkoFlight(actor){if(actor===player&&actor.renkoJetHeld!==true)return null;return renkoEvent(actor,'renko-jet');}
 function renkoSliding(actor){const s=actor?.renkoDrive;return !!(renkoEvent(actor,'renko-drive')&&s&&elapsed-s.slideAt>=0&&elapsed-s.slideAt<RENKO_SKILLS.slideDuration&&actorGrounded(actor));}
 function renkoDartTarget(actor,aim){
- if(ordinarySkills.blindUntil(actor.id,elapsed)>elapsed)return null;const d=carAim(actor,aim);if(!d)return null;const from={x:actor.x,y:(actor.y||0)+1.7-(actor.crouch||0)*.55,z:actor.z};let nearest=Infinity;
- for(const a of[player,...bots]){if(!a.alive||a.team===actor.team||a===actor||!visibleBetween(actor,a))continue;const v={x:a.x-from.x,y:(a.y||0)+1-(a.crouch||0)*.4-from.y,z:a.z-from.z},t=v.x*d.x+v.y*d.y+v.z*d.z;if(t<=0||t>RENKO_SKILLS.dartRange||Math.hypot(v.x-d.x*t,v.z-d.z*t)>.55||from.y+d.y*t<(a.y||0)||from.y+d.y*t>(a.y||0)+1.75-(a.crouch||0)*.55)continue;nearest=Math.min(nearest,t);}
- return Number.isFinite(nearest)?{x:from.x+d.x*RENKO_SKILLS.dartRange,y:from.y+d.y*RENKO_SKILLS.dartRange,z:from.z+d.z*RENKO_SKILLS.dartRange}:null;
+ const d=carAim(actor,aim);if(!d)return null;const from={x:actor.x,y:(actor.y||0)+1.7-(actor.crouch||0)*.55,z:actor.z};
+ return{x:from.x+d.x*RENKO_SKILLS.dartRange,y:from.y+d.y*RENKO_SKILLS.dartRange,z:from.z+d.z*RENKO_SKILLS.dartRange};
+}
+function releaseRenkoJet(){player.renkoJetHeld=false;if(!isGuest())ordinarySkills.holdRenkoJet(player.id,elapsed,false);}
+function syncRenkoJets(){
+ if(isGuest())return;
+ for(const a of[player,...bots]){const data=netInputs.get(a.remoteId),held=a===player?a.renkoJetHeld===true:!!(data&&data.round===match.round&&elapsed-data.received<.8&&data.input.jet===true);
+  const active=held&&a.alive&&a.kit?.character==='renko'&&match.phase==='live'&&!a.planting&&!a.defusing&&!carMotionActive(a)&&!busSeat(a);
+  ordinarySkills.holdRenkoJet(a.id,elapsed,active);
+ }
 }
 // The round/team binding is local context, never client input or extra wire data.
 function renkoUltimateActive(actor){
@@ -2167,16 +2175,16 @@ function activateRenkoAbility(actor,key,{predict=false,aim=null}={}){
  const before=actor.kit.snapshot(),effect=actor.kit.activate(key,elapsed);if(!effect)return;
  if(!predict&&!ordinarySkills.cast(effect,ordinaryActorView(actor),target,elapsed,match.round)){actor.kit.restore(before);return;}
  if(predict&&key!=='c')actor.renkoPending={key,round:match.round,team:actor.team,event:{id:'pending-renko-'+key,type,sourceId:actor.id,team:actor.team,x:actor.x,y:actor.y||0,z:actor.z,startedAt:elapsed,endsAt:elapsed+(key==='q'?RENKO_SKILLS.driveDuration:RENKO_SKILLS.flightDuration)}};
- if(key==='e'){actor.trcLadder=null;actor.vy=0;}if(actor===player){firing=false;showMessage(getCharacterSkill('renko',key).name,getCharacterSkill('renko',key).description,3);}return effect;
+ if(key==='e'){actor.renkoJetHeld=true;actor.trcLadder=null;actor.vy=0;}if(actor===player){if(key!=='c')firing=false;showMessage(getCharacterSkill('renko',key).name,getCharacterSkill('renko',key).description,3);}return effect;
 }
 function confirmRenkoSkill(key){
  if(netHostPaused||mode!=='play'||!player.alive||interactionHeld||objectivePractice)return;refillMapPracticeSkills();if(isGuest()&&netActions.length>=64)return;
  const aim={yaw:player.yaw,pitch:player.pitch},effect=activateAbility(player,key,{predict:isGuest(),aim});if(effect&&isGuest()){queueNetAction('ability',{key,...aim});if(player.renkoPending?.key===key)player.renkoPending.seq=netActions.at(-1)?.seq;}
- if(!effect)showMessage('発動できません',key==='x'?'7pt必要 · 発動済みなら敵撃破でC・Q・E全回復':key==='c'?'40m以内の見える敵を狙ってください · 消費していません':'在庫・接地・動作中の技を確認 · 消費していません',2);refillMapPracticeSkills();updateHUD();
+ if(!effect)showMessage('発動できません',key==='x'?'7pt必要 · 発動済みなら敵撃破でC・Q・E全回復':key==='c'?'在庫・封印状態を確認 · 消費していません':'在庫・接地・動作中の技を確認 · 消費していません',2);refillMapPracticeSkills();updateHUD();
 }
 function updateRenkoVertical(actor,dt,radius){
- const e=renkoFlight(actor);if(!e)return false;const input=actor===player?null:netInputs.get(actor.remoteId)?.input;
- const velocity=renkoFlightVelocity(e,elapsed,actor===player?{up:keys.has('Space'),down:keys.has('KeyV')||keys.has('ControlLeft')||keys.has('ControlRight')||keys.has('TouchCrouch')}:{up:input&&input.y>actor.y+.02,down:input&&input.y<actor.y-.02});
+ const e=renkoFlight(actor);if(!e)return false;
+ const velocity=renkoFlightVelocity(e,elapsed,{pitch:actor===player?player.pitch:actor.netPitch||0});
  const steps=Math.max(1,Math.ceil(dt*120)),step=dt/steps;actor.vy=velocity;
  for(let i=0;i<steps;i++){let next=actor.y+velocity*step;const height=actorBodyHeight(actor);let floor=0,ceiling=Math.min(11,e.y+RENKO_SKILLS.flightHeight);const ramp=rampFloor(actor.x,actor.z);if(ramp!==null&&ramp<=actor.y+.04)floor=ramp;
   for(const c of map.collision.query(actor.x,actor.z,radius)){if(c.disabled||!map.collision.overlaps(c,actor.x,actor.z,radius))continue;const underside=c.base||0;if(actor.y+height<=underside+.00001&&next+height>=underside)ceiling=Math.min(ceiling,underside-height);if(c.height<=actor.y+.00001)floor=Math.max(floor,c.height);}
@@ -2445,7 +2453,7 @@ function confirmDuckSkill(key){
  refillMapPracticeSkills();updateHUD();
 }
 function useAbility(key){if(busSeat())return;
- if(player.kit?.character==='renko'){if(key==='c'&&mode==='play'&&player.alive&&match?.phase==='live'&&!netHostPaused&&!interactionHeld&&!objectivePractice){duckAim=duckAim===key?null:key;firing=false;aiming=false;if(duckAim)showMessage('インパルス弾','敵を狙って左クリック / 右クリック取消 · ダメージなし',30);return;}return confirmRenkoSkill(key);}
+ if(player.kit?.character==='renko')return confirmRenkoSkill(key);
  if(player.kit?.character==='onnara'&&key==='q'&&mode==='play'&&player.alive&&match?.phase==='live'&&!netHostPaused&&!interactionHeld&&!objectivePractice){duckAim=duckAim===key?null:key;firing=false;aiming=false;if(duckAim)showMessage(getCharacterSkill('onnara',key).name,'照準で狙う → 左クリックで確定 / 右クリックで取消',30);return;}
  if(player.kit?.character==='onnara'&&key==='c')return confirmOnnaraSkill(key);
  if(player.kit?.character==='urchin'&&['c','q','e'].includes(key)&&mode==='play'&&player.alive&&match?.phase==='live'&&!netHostPaused&&!interactionHeld&&!objectivePractice){duckAim=duckAim===key?null:key;firing=false;aiming=false;if(duckAim)showMessage(getCharacterSkill('urchin',key).name,'照準で狙う → 左クリックで確定 / 右クリックで取消',30);return;}
@@ -2537,7 +2545,7 @@ function updateHUD(){
     const statuses=[];
     const carGyro=ordinarySkills.carGyro(player.id,elapsed);
     const tax=ordinarySkills.onnaraTax?.(player.id,elapsed);if(tax)statuses.push(tax.power>0?`王冠の徴税 · 発砲ごとHP4 / 残り${Math.ceil(tax.power/ONNARA_SKILLS.taxPerShot)}回 · HP1で止まる`:'王冠の徴税 · 10発分の代償を払い終えました');
-    const renkoJetStatus=renkoFlight(player),renkoDriveStatus=renkoEvent(player,'renko-drive');if(renkoUltimateActive(player))statuses.push('リスタートラッシュ · 敵撃破でC・Q・E全回復');if(renkoJetStatus)statuses.push(`ジェットパック ${Math.max(0,renkoJetStatus.endsAt-elapsed).toFixed(1)}秒 · Space上昇 / V下降`);if(renkoDriveStatus)statuses.push(`高速走行 ${Math.ceil(renkoDriveStatus.endsAt-elapsed)}秒 · Vで慣性滑走`);
+    const renkoJetStatus=renkoFlight(player),renkoDriveStatus=renkoEvent(player,'renko-drive');if(renkoUltimateActive(player))statuses.push('リスタートラッシュ · 敵撃破でC・Q・E全回復');if(renkoJetStatus)statuses.push(`ジェットパック · E長押し · マウスの向きへ飛行 / 離すと停止`);if(renkoDriveStatus)statuses.push(`高速走行 ${Math.ceil(renkoDriveStatus.endsAt-elapsed)}秒 · Vで慣性滑走`);
     if(ordinarySkills.onnaraEvent?.('onnara-hover',player.id,elapsed)&&!starHold.stopped(ordinarySkills.onnaraEvent('onnara-hover',player.id,elapsed).id))statuses.push('星留め · 空中静止');
     if(ordinarySkills.onnaraEvent?.('onnara-chain',player.id,elapsed))statuses.push('星座裁定 · 近くの敵へ70%連鎖');
     if(ordinarySkills.urchinJammed(player.id,elapsed))statuses.push('棘錠 · 装填不可');
@@ -3045,7 +3053,7 @@ function updateBots(dt){
       // C needs a currently visible body; a frozen lastSeen is not a target.
       if(bot.kit?.character==='renko'&&aligned&&elapsed>=bot.reactionUntil&&!bot.serviceReload&&!(bot.aiReload>0)&&elapsed>=(bot.nextSkillAt||0)){
         let cast=null;
-        if(enemy.alive&&!carMotionActive(enemy)&&visibleBetween(bot,enemy)){
+        if(enemy.alive&&!carMotionActive(enemy)&&Math.hypot(enemy.x-bot.x,(enemy.y||0)+1-(enemy.crouch||0)*.4-((bot.y||0)+1.7-(bot.crouch||0)*.55),enemy.z-bot.z)<=RENKO_SKILLS.dartRange&&visibleBetween(bot,enemy)){
           const aim={yaw:Math.atan2(bot.x-enemy.x,bot.z-enemy.z),pitch:Math.atan2((enemy.y||0)+1-(enemy.crouch||0)*.4-((bot.y||0)+1.7-(bot.crouch||0)*.55),distance(bot,enemy))};
           cast=activateAbility(bot,'c',{aim});
         }
@@ -3208,7 +3216,7 @@ function tickDuckPads(){
 }
 function duckPadAirborne(actor){return actor?.alive&&actor.duckPadUntil>elapsed&&actor.duckPadRound===match?.round&&actor.duckPadTeam===actor.team;}
 function updatePlay(dt){
-  if(!match)return;elapsed+=dt;map.traversal?.update(dt);
+  if(!match)return;elapsed+=dt;syncRenkoJets();map.traversal?.update(dt);
   if(isGuest()&&!netHasSnapshot)return;
   const objectiveWork=mode==='play'&&interactionHeld?objectiveActionFor(player):null;
   player.planting=objectiveWork?.kind==='plant';player.defusing=objectiveWork?.kind==='defuse';
@@ -3234,7 +3242,7 @@ function updatePlay(dt){
   let desiredX=moveX/Math.max(1,len)*speed,desiredZ=moveZ/Math.max(1,len)*speed;
   const jet=controlled?renkoFlight(player):null,drive=controlled?renkoDriveMotion(player,jet?null:renkoEvent(player,'renko-drive'),elapsed,dt,{x:moveX,z:moveZ,crouch:crouching,grounded:actorGrounded(player)}):null;
   if(drive){desiredX=drive.x*(walking?2.8/RENKO_SKILLS.runSpeed:1)*(aiming?.78:1)*slow;desiredZ=drive.z*(walking?2.8/RENKO_SKILLS.runSpeed:1)*(aiming?.78:1)*slow;}
-  if(jet){desiredX=moveX/Math.max(1,len)*RENKO_SKILLS.flightSpeed*slow;desiredZ=moveZ/Math.max(1,len)*RENKO_SKILLS.flightSpeed*slow;}
+  if(jet){const horizontal=Math.cos(player.pitch)*RENKO_SKILLS.flightSpeed*slow;desiredX=-Math.sin(yaw)*horizontal;desiredZ=-Math.cos(yaw)*horizontal;}
   if(drive||jet){player.vx=desiredX;player.vz=desiredZ;}else if(controlled&&!slideSpeed){
     // Adapted from collaborator PR44: vector acceleration, release inertia,
     // and faster opposite-key braking. Short steps split braking through zero.
@@ -3485,6 +3493,7 @@ async function copyPartyCode(){
 function receiveNetPacket(from,packet){
   if(!onlinePlaying||!packet||!Number.isSafeInteger(packet.seq)||packet.seq<1)return;
   if(online.host){
+    if(packet.input?.jet!==undefined&&(typeof packet.input.jet!=='boolean'||packet.input.jet&&(!Number.isFinite(packet.input.yaw)||!Number.isFinite(packet.input.pitch))))return;
     if(packet.input?.crouch!==undefined&&(!Number.isFinite(packet.input.crouch)||packet.input.crouch<0||packet.input.crouch>1))return;
     const id=netParticipants.get(from);if(!id||id==='player'||packet.type!=='input')return;
     const previous=netInputs.get(from),connection=typeof packet.connection==='string'&&packet.connection.length<=64?packet.connection:'legacy';
@@ -3674,6 +3683,7 @@ if(map.destruction){if(fresh||!packet.busDamage)map.destruction.reset();map.dest
 function updateRemoteActor(actor,dt){
   const data=netInputs.get(actor.remoteId);if(!data){actor.planting=false;actor.defusing=false;match.cancelPlant(actor.id);match.cancelDefuse(actor.id);return;}
   const input=data.input,active=elapsed-data.received<.8&&actor.alive&&data.round===match.round,objectiveWork=active&&input.interact===true?objectiveActionFor(actor):null,previousX=actor.x,previousY=actor.y||0,previousZ=actor.z,wasDashing=actor.dashTimer>0;
+  if(actor.kit?.character==='renko'){ordinarySkills.holdRenkoJet(actor.id,elapsed,active&&input.jet===true&&!objectiveWork&&!carMotionActive(actor)&&!busSeat(actor));if(active){actor.netYaw=Number.isFinite(input.yaw)?input.yaw:0;actor.netPitch=clamp(Number(input.pitch)||0,-1.35,1.35);}}
   if(active&&duckPadAirborne(actor)&&actorGrounded(actor)&&Number.isFinite(input.y)&&Math.abs(input.y-actor.y)<.08)actor.duckPadUntil=0;
   const wasClimbing=!!actor.trcLadder&&!carMotionActive(actor);if(wasClimbing){const previous={x:actor.x,y:actor.y,z:actor.z};map.traversal.climb(actor,active&&[-1,0,1].includes(input.climb)?input.climb:0,dt,input.quiet===true);trcMotionSound(actor,dt,previous,input.quiet===true);}
   if(active&&!wasClimbing&&!busSeat(actor)&&Number.isFinite(input.x)&&Number.isFinite(input.z)){
@@ -3683,6 +3693,7 @@ function updateRemoteActor(actor,dt){
     let dx=input.x-actor.x,dz=input.z-actor.z;const renkoJet=renkoFlight(actor),renkoDrive=renkoDriveMotion(actor,renkoJet?null:renkoEvent(actor,'renko-drive'),elapsed,dt,{x:dx/Math.max(.001,dt*RENKO_SKILLS.runSpeed),z:dz/Math.max(.001,dt*RENKO_SKILLS.runSpeed),crouch:input.crouch>.5,grounded:actorGrounded(actor)});
     if(actor.dashTimer>0&&actor.dashVec){const step=Math.min(dt,actor.dashTimer)*12/.18;dx=actor.dashVec.x*step;dz=actor.dashVec.z*step;}
     else if(actor.netDashInputSequence===data.seq||carMotionActive(actor)||elapsed<Math.max(actor.carImpulseUntil||0,actor.trafficLaunch?.endsAt||0)){dx=0;dz=0;}
+    if(renkoJet){const horizontal=Math.cos(actor.netPitch)*RENKO_SKILLS.flightSpeed*actorSpeedScale(actor);dx=-Math.sin(actor.netYaw)*horizontal*dt;dz=-Math.cos(actor.netYaw)*horizontal*dt;}
     if(objectiveWork){dx=0;dz=0;actor.vx=0;actor.vz=0;}
     const distance=Math.hypot(dx,dz),limit=(map.ductAt?.(actor.x,actor.z,actor.y)?1.15:actor.dashTimer>0?12/.18:(renkoJet?RENKO_SKILLS.flightSpeed:renkoDrive?(input.quiet===true?2.8:renkoDrive.sliding?RENKO_SKILLS.slideStart:input.crouch>.5?1.8:RENKO_SKILLS.runSpeed):frostSlideSpeed(actor,inputGrounded)||(input.quiet===true?2.8:7)*1.15)*actorSpeedScale(actor,inputGrounded))*dt;
     if(distance>limit){dx*=limit/distance;dz*=limit/distance;}
@@ -3702,7 +3713,7 @@ function updateRemoteActor(actor,dt){
       if(blocked&&actor.netTrcBlockedAt==null)actor.netTrcBlockedAt=elapsed;
       waitForStep=blocked&&(!!actor.vy||!inputGrounded)&&elapsed-actor.netTrcBlockedAt<.35;
     }
-    if(!wasDashing&&actor.netDashInputSequence!==data.seq&&(objectiveWork||Math.hypot(input.x-actor.x,input.z-actor.z)<1e-5||blocked&&!waitForStep||distance>2))actor.netPositionAck={seq:data.seq,connection:data.connection,round:data.round,x:actor.x,z:actor.z};
+    if(!wasDashing&&actor.netDashInputSequence!==data.seq&&(objectiveWork||Math.hypot(input.x-actor.x,input.z-actor.z)<1e-5||blocked&&!waitForStep||distance>2||renkoJet&&Math.hypot(input.x-actor.x,input.z-actor.z)>2))actor.netPositionAck={seq:data.seq,connection:data.connection,round:data.round,x:actor.x,z:actor.z};
     if(!objectiveWork&&!renkoJet&&Number.isFinite(input.y)&&!duckPadAirborne(actor)&&!carMotionActive(actor)&&elapsed>=Math.max(actor.carImpulseUntil||0,actor.trafficLaunch?.endsAt||0)){
       const floor=inputGrounded?getZoneFloor(actor.x,actor.z,Math.max(actor.y,inputFeet)+.22):null;
       // A capped stair input follows support at the accepted XZ, not the feet
@@ -3776,6 +3787,7 @@ function applyRemoteAction(actor,action,actionTime=elapsed){
     if(tradeEquipment(actor,id,selling))actor.netPurchaseAck=[action.seq,match.round,action.id];return;
   }
   if(action.type==='ability'){
+    if(actor.kit?.character==='renko'&&action.key==='e'&&netInputs.get(actor.remoteId)?.input.jet!==true)return;
     if(['c','q','e','x'].includes(action.key)){
       let aim=null;
       if(action.yaw!==undefined||action.pitch!==undefined){
@@ -3841,7 +3853,7 @@ function tickOnline(dt){
     const teamState=teamAbilities.snapshot(),packet={type:'snapshot',mapId:map.id||'hashimoto',seq:++netSequence,time:elapsed,paused:netHostPaused,...(map.traversal?{trcDoors:map.traversal.snapshot()}:{}),cues:serializeNetCues(),smokes:serializeSmokes(),drops:serializeDrops(),detonation:detonationState?{...detonationState}:null,takeover:takeoverState?{...takeoverState}:null,zoneAbilities:zoneAbilities.snapshot(),...(map.traffic?{busTransit:map.traffic.service.snapshot([player,...bots].map(a=>a.id)),...(map.destruction?.snapshot()?{busDamage:map.destruction.snapshot()}:{})}:{}),rules,roster:roster.map(r=>({...r,kit:r.kit?.snapshot()})),actors:[player,...bots].map(captureNetActor),acks:Object.fromEntries(netApplied),positionAcks:Object.fromEntries(bots.filter(b=>b.remoteId&&b.netPositionAck).map(b=>[b.remoteId,{...b.netPositionAck}]))};
     for(const team of ['blue','red']){let state={...packet,teamAbilities:{...teamState,pings:teamState.pings.filter(ping=>ping.observerTeam===team)},ordinarySkills:ordinarySkills.snapshot(team),nopeDecoys:nopeDecoys.snapshot(),nopePops:serializeNopePops()};if(match.phase==='buy'){const report=roundDamage.snapshot(team,match.round);if(report)state.damageReport=report;}if(state.damageReport||state.nopeDecoys||state.ordinarySkills.events.some(e=>['nope-decoy','urchin-gloom'].includes(e.type))||state.ordinarySkills.blinds.some(b=>b.eventId.startsWith('skill-urchin-gloom-'))||map.traffic||map.traversal||packet.actors.some(a=>a.crouch>0||a.kit?.renkoActive)||[player,...bots].some(carMotionActive)||match.phase==='post'||state.cues.some(c=>(['skill-hit','skill-heal','gun-hit'].includes(c.type)||isKillSoundCue(c.type))))state=fitTrafficSnapshot(state);if(state)online.send(state,{team});}
   }else if(netHasSnapshot){
-    const seq=++netSequence,input={...(match.phase==='match'?{matchFinished:true}:{}),...(map.traversal?{climb:mode==='play'?Math.sign((keys.has('KeyW')?1:0)-(keys.has('KeyS')?1:0)-touchMove.y):0}:{}),x:player.x,z:player.z,y:player.y,yaw:player.yaw,pitch:player.pitch,crouch:player.crouch,quiet:keys.has('ShiftLeft')||keys.has('ShiftRight'),interact:mode==='play'&&interactionHeld,...(busDriving()?{bus:busControls(player.id)}:{})};
+    const seq=++netSequence,input={...(match.phase==='match'?{matchFinished:true}:{}),...(map.traversal?{climb:mode==='play'?Math.sign((keys.has('KeyW')?1:0)-(keys.has('KeyS')?1:0)-touchMove.y):0}:{}),...(player.kit?.character==='renko'&&player.renkoJetHeld===true&&mode==='play'?{jet:true}:{}),x:player.x,z:player.z,y:player.y,yaw:player.yaw,pitch:player.pitch,crouch:player.crouch,quiet:keys.has('ShiftLeft')||keys.has('ShiftRight'),interact:mode==='play'&&interactionHeld,...(busDriving()?{bus:busControls(player.id)}:{})};
     netPositionHistory.set(seq,{x:input.x,z:input.z,correctionX:netPositionCorrectionX,correctionZ:netPositionCorrectionZ});while(netPositionHistory.size>128)netPositionHistory.delete(netPositionHistory.keys().next().value);
     online.send({type:'input',seq,round:match.round,input,actions:netActions});
   }
@@ -4001,7 +4013,7 @@ document.addEventListener('keydown',e=>{
   }
   if(e.code==='KeyR')reload();if(e.code==='KeyC')useAbility('c');if(e.code==='KeyQ')dash();if(e.code==='KeyE')scan();if(e.code==='KeyX')useAbility('x');if(e.code==='Space')jump();
 },{capture:true});
-document.addEventListener('keyup',e=>{keys.delete(e.code);if(e.code==='Digit4')interactionHeld=false;if(e.code==='Tab'&&mode==='score')resumeGame();});
+document.addEventListener('keyup',e=>{keys.delete(e.code);if(e.code==='KeyE')releaseRenkoJet();if(e.code==='Digit4')interactionHeld=false;if(e.code==='Tab'&&mode==='score')resumeGame();});
 function suspendSession(){
   victoryMusic.stop();
   keyboardProtection.release();
@@ -4066,7 +4078,8 @@ if(pad){
 canvas.addEventListener('pointerdown',e=>{if(!netHostPaused&&e.pointerType==='touch'&&mode==='play'&&player.alive){touchLook={id:e.pointerId,x:e.clientX,y:e.clientY};canvas.setPointerCapture(e.pointerId);}});
 canvas.addEventListener('pointermove',e=>{if(touchLook?.id===e.pointerId){look((e.clientX-touchLook.x)*1.5,(e.clientY-touchLook.y)*1.5);touchLook.x=e.clientX;touchLook.y=e.clientY;}});
 canvas.addEventListener('pointerup',e=>{if(touchLook?.id===e.pointerId)touchLook=null;});
-for(const [id,action] of [['mobile-jump',jump],['mobile-reload',reload],['mobile-dash',dash],['mobile-scan',scan],['mobile-smoke',()=>useAbility('c')],['mobile-ult',()=>useAbility('x')]]){$(id)?.addEventListener('pointerdown',e=>{e.preventDefault();action();});}
+for(const [id,action] of [['mobile-jump',jump],['mobile-reload',reload],['mobile-dash',dash],['mobile-scan',scan],['mobile-smoke',()=>useAbility('c')],['mobile-ult',()=>useAbility('x')]]){$(id)?.addEventListener('pointerdown',e=>{e.preventDefault();if(id==='mobile-scan')$(id).setPointerCapture(e.pointerId);action();});}
+for(const type of ['pointerup','pointercancel','lostpointercapture'])$('mobile-scan')?.addEventListener(type,releaseRenkoJet);
 $('mobile-weapon')?.addEventListener('click',()=>{
   if(netHostPaused||mode!=='play'||!player.alive||interactionHeld)return;
   const items=[inventory.primary,inventory.secondary,'knife'].filter(Boolean);

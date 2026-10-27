@@ -5,7 +5,7 @@ import { RENKO_SKILLS as R } from './abilities.js';
 export function createRenkoSkillFX(T){
  const group=new T.Group();group.name='Renko / dart, drive and jetpack';
  const metal=new T.MeshStandardMaterial({color:'#536b8d',roughness:.65,metalness:.35}),glow=new T.MeshBasicMaterial({color:'#9ee9ff',transparent:true,opacity:.8,depthWrite:false}),gold=new T.MeshBasicMaterial({color:'#ffed72'});
- const box=new T.BoxGeometry(.46,.42,.2),tank=new T.CylinderGeometry(.1,.1,.42,8),flame=new T.ConeGeometry(.12,.65,8),ball=new T.SphereGeometry(.13,8,6),trail=new T.BoxGeometry(.06,.06,1.1);
+ const box=new T.BoxGeometry(.46,.42,.2),tank=new T.CylinderGeometry(.1,.1,.42,8),flame=new T.ConeGeometry(.12,.65,8),ball=new T.SphereGeometry(R.dartRadius,8,6),trail=new T.BoxGeometry(.06,.06,1.1);
  const direction=new T.Vector3(),position=new T.Vector3(),look=new T.Vector3();
  const pool=Array.from({length:20},()=>{const root=new T.Group(),pack=new T.Group(),dart=new T.Group(),drive=new T.Group();root.add(pack,dart,drive);group.add(root);root.visible=false;
   const base=new T.Mesh(box,metal);pack.add(base);
