@@ -16,15 +16,15 @@ const suite=String.raw`
    for(const f of h.listeners.get('mousedown')||[])f({button:2,preventDefault(){}});assert.equal(h.run('aiming'),false);
   }
  });
- check('C remains instant during flight and actually pushes without damage; early release and4s restore fire',()=>{
+ check('C remains instant during flight and actually pushes without damage; early release and3s restore fire',()=>{
   for(const expiry of[false,true]){setup();h.run("equip('classic',true);useAbility('e');useAbility('c')");assert.equal(h.run('player.kit.smoke'),1);step(.2);assert.equal(h.run('enemy.carMotion.phase'),4);assert.equal(h.run('enemy.hp+enemy.armor'),150);assert.ok(h.run('renkoFlight(player)'));
-   if(expiry)step(3.9);else h.run('releaseRenkoJet()');h.run('var before=player.ammo;shoot()');assert.equal(h.run('player.ammo'),h.run('before')-1);assert.equal(h.run('inventory.active'),'classic');
+   if(expiry)step(2.9);else h.run('releaseRenkoJet()');h.run('var before=player.ammo;shoot()');assert.equal(h.run('player.ammo'),h.run('before')-1);assert.equal(h.run('inventory.active'),'classic');
   }
  });
  check('first-person keeps both hands visible but hides weapon/muzzle in local and teammate spectator; end draws same gun',()=>{
   setup();h.run("equip('vandal',true);useAbility('e');updateFirstPersonEquipment(.016)");assert.equal(h.run('gun.visible'),true);assert.equal(h.run("gun.getObjectByName('Equipment / vandal').visible"),false);assert.equal(h.run('flash.visible'),false);assert.equal(h.run('gun.userData.handCharacter'),'renko');
   h.run('releaseRenkoJet();updateFirstPersonEquipment(.016)');assert.equal(h.run("gun.getObjectByName('Equipment / vandal').visible"),true);
-  setup();h.run("enemy.team='blue';enemy.kit=new DuelistKit({character:'renko'});enemy.netWeapon='atlas';activateAbility(enemy,'e');player.alive=false;player.hp=0;deathView.reset();spectatedBot=enemy;updateFirstPersonEquipment(.016)");assert.equal(h.run('gun.visible'),true);assert.equal(h.run("gun.getObjectByName('Equipment / atlas').visible"),false);h.run('elapsed+=4.1;updateFirstPersonEquipment(.016)');assert.equal(h.run("gun.getObjectByName('Equipment / atlas').visible"),true);
+  setup();h.run("enemy.team='blue';enemy.kit=new DuelistKit({character:'renko'});enemy.netWeapon='atlas';activateAbility(enemy,'e');player.alive=false;player.hp=0;deathView.reset();spectatedBot=enemy;updateFirstPersonEquipment(.016)");assert.equal(h.run('gun.visible'),true);assert.equal(h.run("gun.getObjectByName('Equipment / atlas').visible"),false);h.run('elapsed+=3.01;updateFirstPersonEquipment(.016)');assert.equal(h.run("gun.getObjectByName('Equipment / atlas').visible"),true);
  });
  check('third-person hides equipment and muzzle while preserving52 hit references and restores cached weapon',()=>{
   const model=imported.createAgentModel(THREE,{bot:{id:'renko'},team:'blue',character:'renko'}),refs=[...model.meshes];
@@ -35,7 +35,7 @@ const suite=String.raw`
 `+network+String.raw`
  check('host refuses forged gun/knife fire, reload/equip/drop while jet; C accepted and end restores host fire',()=>{
   const p=peers();request(p,'e');p.host.run("var beforeAmmo=enemy.netAmmo,beforeLast=enemy.lastNetShot;applyRemoteAction(enemy,{type:'fire',yaw:0,pitch:0},elapsed);applyRemoteAction(enemy,{type:'reload'},elapsed);applyRemoteAction(enemy,{type:'equip',weapon:'knife'},elapsed);applyRemoteAction(enemy,{type:'drop'},elapsed)");assert.equal(p.host.run('enemy.netAmmo'),p.host.run('beforeAmmo'));assert.equal(p.host.run('enemy.lastNetShot'),p.host.run('beforeLast'));assert.equal(p.host.run('enemy.netWeapon'),'classic');assert.equal(p.host.run('enemy.netReload'),0);
-  p.host.run("activateAbility(enemy,'c');var dart=ordinarySkills.events(elapsed).find(e=>e.type==='renko-dart'&&e.sourceId===enemy.id)");assert.ok(p.host.run('dart'));assert.equal(p.host.run('enemy.kit.smoke'),1);p.host.run("elapsed+=4.1;applyRemoteAction(enemy,{type:'fire',yaw:0,pitch:0},elapsed)");assert.equal(p.host.run('enemy.netAmmo'),p.host.run('beforeAmmo')-1);
+  p.host.run("activateAbility(enemy,'c');var dart=ordinarySkills.events(elapsed).find(e=>e.type==='renko-dart'&&e.sourceId===enemy.id)");assert.ok(p.host.run('dart'));assert.equal(p.host.run('enemy.kit.smoke'),1);p.host.run("elapsed+=3.01;applyRemoteAction(enemy,{type:'fire',yaw:0,pitch:0},elapsed)");assert.equal(p.host.run('enemy.netAmmo'),p.host.run('beforeAmmo')-1);
  });
  check('guest C queues while E prediction pending, ACK/refusal restore presentation without new snapshot fields',()=>{
   const p=peers();request(p,'e');p.guest.run("confirmRenkoSkill('c');updateFirstPersonEquipment(.016)");assert.equal(p.guest.run('player.kit.smoke'),1);assert.equal(p.guest.run("netActions.filter(a=>a.type==='ability'&&a.key==='c').length"),1);assert.equal(p.guest.run('player.renkoPending.key'),'e');assert.equal(p.guest.run("gun.getObjectByName('Equipment / classic').visible"),false);
