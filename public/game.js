@@ -3041,6 +3041,16 @@ function updateBots(dt){
       else if(bot.aiReload>0&&bot.reloadGoal)bot.moving=advance(bot,bot.reloadGoal,'reload');
       else if(goal&&enemyDistance>25&&distance(bot,goal)>5)bot.moving=advance(bot,goal,'advance-contact');
       const aligned=face(bot,enemy,8);bot.pathTime=Math.min(bot.pathTime||0,.15);
+      // Renko uses the same finite body turn and reaction as a gun shot.
+      // C needs a currently visible body; a frozen lastSeen is not a target.
+      if(bot.kit?.character==='renko'&&aligned&&elapsed>=bot.reactionUntil&&!bot.serviceReload&&!(bot.aiReload>0)&&elapsed>=(bot.nextSkillAt||0)){
+        let cast=null;
+        if(enemy.alive&&!carMotionActive(enemy)&&visibleBetween(bot,enemy)){
+          const aim={yaw:Math.atan2(bot.x-enemy.x,bot.z-enemy.z),pitch:Math.atan2((enemy.y||0)+1-(enemy.crouch||0)*.4-((bot.y||0)+1.7-(bot.crouch||0)*.55),distance(bot,enemy))};
+          cast=activateAbility(bot,'c',{aim});
+        }
+        bot.nextSkillAt=elapsed+(cast?2:.5);
+      }
       // Only consecutive visible samples establish a stationary target.
       // Never use a hidden actor's velocity or a stale pre-occlusion sample.
       const sample=bot.aimSample,sampleDt=sample?elapsed-sample.at:0;

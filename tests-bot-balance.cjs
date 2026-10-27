@@ -49,7 +49,7 @@ const suite=String.raw`
    h.run('match.drainEvents();match.drainEvents()');assert.equal(h.run('bench.plants'),1);assert.equal(h.run('bench.defuses'),1);
  });
  check('personal tool work counts actual accepted progress, not rejected work or duplicate events',()=>{
-   setup();h.run("player.kit=new DuelistKit({character:'nobi'});activateAbility(player,'e');match.spike.status='carried';match.spike.carrier='player';match.interactPlant(1.5,{actorId:'player',team:match.attackerTeam,site:'A',x:0,z:0,stationary:true})");
+   setup();h.run("player.kit=new DuelistKit({character:'nobi'});activateAbility(player,'e',{zonePoint:{x:0,y:0,z:0}});elapsed+=.7;updateOrdinarySkills();match.spike.status='carried';match.spike.carrier='player';match.interactPlant(1.5,{actorId:'player',team:match.attackerTeam,site:'A',x:0,z:0,stationary:true})");
    near(h.run('bench.actors.player.workProgress'),1.5,'accepted work');near(h.run('bench.actors.player.toolWorkProgress'),1.5,'boosted progress');near(h.run('bench.actors.player.toolSavedSeconds'),.5,'normal-work equivalent');
    h.run("match.interactPlant(3,{actorId:'enemy',team:match.defenderTeam,site:'A',x:0,z:0,stationary:true})");assert.equal(h.run('bench.actors.enemy.workProgress||0'),0);
    h.run("match.interactPlant(10,{actorId:'player',team:match.attackerTeam,site:'A',x:0,z:0,stationary:true});match.interactPlant(10,{actorId:'player',team:match.attackerTeam,site:'A',x:0,z:0,stationary:true});match.drainEvents();match.drainEvents()");
@@ -118,6 +118,12 @@ const suite=String.raw`
    tick(72);assert.equal(h.run('bench.actors.player.stitchSlowSamples||0'),0);tick(48);assert.ok(h.run('bench.actors.player.stitchSlowSamples')>0);assert.ok(h.run('bench.actors.player.stitchSlowSamples')<=48);near(h.run('bench.actors.player.stitchSlowSeconds'),h.run('bench.actors.player.stitchSlowSamples')/120,'stitch deduplicated seconds');
    h.run('var previousStitchSamples=bench.actors.player.stitchSlowSamples;enemy.x=2');tick(12);assert.equal(h.run('bench.actors.player.stitchSlowSamples'),h.run('previousStitchSamples'));
    for(const code of["bench.disabled='c'","enemy.y=5"]){setup();h.sandbox.code=code;h.run("player.kit=new DuelistKit({character:'frost'});player.kit.smoke=2;enemy.z=-8;eval(code);activateAbility(player,'c',{zonePoint:{x:2,y:0,z:-8},aim:{yaw:0,pitch:0}})");tick(168);assert.equal(h.run('bench.actors.player.stitchSlowSamples'),undefined)}
+ });
+ check('Renko counts only accepted push starts actual displacement and own firearm loss within two seconds',()=>{
+   setup();h.run("player.kit=new DuelistKit({character:'renko'});player.kit.smoke=2;enemy.z=-12;activateAbility(player,'c',{aim:{yaw:0,pitch:Math.atan2(-.7,12)}})");
+   tick(12);assert.equal(h.run('bench.actors.player.dartPushes'),undefined);tick(18);assert.equal(h.run('bench.actors.player.dartPushes'),1);assert.equal(h.run('bench.actors.player.damage'),0);tick(150);near(h.run('bench.actors.player.dartPushDistance'),24,'actual horizontal distance',.03);
+   h.run('damageEntity(enemy,20,player,{firearm:true})');near(h.run('bench.actors.player.dartFollowupDamage'),20,'own firearm actual loss');h.run('damageEntity(enemy,10,player,{skill:"nope"})');near(h.run('bench.actors.player.dartFollowupDamage'),20,'skill excluded');tick(120);h.run('damageEntity(enemy,10,player,{firearm:true})');near(h.run('bench.actors.player.dartFollowupDamage'),20,'expired window excluded');
+   for(const code of["bench.disabled='c'","enemy.x=5"]){setup();h.sandbox.code=code;h.run("player.kit=new DuelistKit({character:'renko'});player.kit.smoke=2;if(code.startsWith('bench'))eval(code);activateAbility(player,'c',{aim:{yaw:0,pitch:-.05}});if(code.startsWith('enemy'))eval(code)");tick(120);assert.equal(h.run('bench.actors.player.dartPushes'),undefined)}
  });
  console.log('PASS: '+groups+' measurement pipeline/clock/contact/ablation/collision/accounting/objective groups; audio inert');
 }
