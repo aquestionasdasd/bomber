@@ -563,7 +563,7 @@ function renderOrdinarySkills(){
   iagnuSkillFX.update(live?ordinarySkills.events(elapsed):[],elapsed,{viewer:viewer||player,actors:[player,...bots],showHand:live&&mode==='play'&&player.alive,reducedMotion:reducedMotion.matches});
   grassSkillFX.update(live?ordinarySkills.events(elapsed):[],elapsed,{viewer:viewer||player,actors:[player,...bots].map(ordinaryActorView),groundHeight:ordinaryGroundHeight,showHand:live&&mode==='play'&&player.alive,reducedMotion:reducedMotion.matches});
   emberSkillFX.update(live?ordinarySkills.events(elapsed):[],elapsed,{viewer:viewer||player,actors:[player,...bots].map(ordinaryActorView),showHand:live&&mode==='play'&&player.alive,reducedMotion:reducedMotion.matches});
-  renkoSkillFX.update(live?ordinarySkills.events(elapsed):[],elapsed,{actors:[player,...bots],visible:(p,e)=>e.sourceId===player.id||ordinarySkills.blindUntil((viewer||player).id,elapsed)<=elapsed&&visibleBetween(viewer||player,p)});
+  renkoSkillFX.update(live?ordinarySkills.events(elapsed).filter(e=>!(e.type==='renko-drive'&&e.sourceId===player.id&&renkoDriveStopping(player))):[],elapsed,{actors:[player,...bots],visible:(p,e)=>e.sourceId===player.id||ordinarySkills.blindUntil((viewer||player).id,elapsed)<=elapsed&&visibleBetween(viewer||player,p)});
   onnaraSkillFX.update(live?ordinarySkills.events(elapsed):[],elapsed,{actors:[player,...bots].filter(a=>a.team===player.team||ordinarySkills.blindUntil(player.id,elapsed)<=elapsed&&visibleBetween(player,a)),reducedMotion:reducedMotion.matches});
   urchinSkillFX.update(live?ordinarySkills.events(elapsed):[],elapsed,{externalProps:true,actors:[player,...bots].filter(a=>a.team===player.team||ordinarySkills.blindUntil(player.id,elapsed)<=elapsed&&visibleBetween(player,a))});
   capSkillFX.update(live?ordinarySkills.events(elapsed):[],elapsed,{actors:[player,...bots].filter(a=>a.team===player.team||ordinarySkills.blindUntil(player.id,elapsed)<=elapsed&&visibleBetween(player,a)),reducedMotion:reducedMotion.matches,hiddenActorId:viewer?.id});
@@ -2216,6 +2216,7 @@ function carSkillTarget(actor,key,aim=null){
 // Only the host starts collision/damage. Guests animate accepted markers, never hits.
 function renkoEvent(actor,type){
  if(!actor?.alive||actor.kit?.character!=='renko'||match?.phase!=='live'||carMotionActive(actor)||busSeat(actor))return null;
+ if(type==='renko-drive'&&renkoDriveStopping(actor))return null;
  const e=ordinarySkills.renkoEvent(type,actor.id,elapsed),p=actor.renkoPending;return e?.team===actor.team&&e.round===match.round?e:p?.event.type===type&&p.round===match.round&&p.team===actor.team&&p.event.endsAt>elapsed?p.event:null;
 }
 function renkoFlight(actor){if(actor===player&&actor.renkoJetHeld!==true)return null;return renkoEvent(actor,'renko-jet');}
@@ -2234,6 +2235,14 @@ function renkoDartTarget(actor,aim){
  return{x:Math.max(b.minX,Math.min(b.maxX,from.x+d.x*travel)),y:Math.max(-1000,Math.min(1000,from.y+d.y*travel)),z:Math.max(b.minZ,Math.min(b.maxZ,from.z+d.z*travel))};
 }
 function releaseRenkoJet(){player.renkoJetHeld=false;if(!isGuest())ordinarySkills.holdRenkoJet(player.id,elapsed,false);}
+// Keep the predicted stop while older start snapshots arrive; the host ACK clears this action.
+function renkoDriveStopping(actor){return actor===player&&isGuest()&&netActions.some(a=>a.round===match?.round&&a.type==='ability'&&a.key==='q'&&a.renkoStop===true);}
+function stopRenkoDrive(actor,{predict=false}={}){
+ if(!renkoEvent(actor,'renko-drive')||!predict&&!ordinarySkills.cancelRenkoDrive(actor.id,elapsed))return false;
+ if(predict&&actor.renkoPending?.key==='q')actor.renkoPending=null;
+ actor.renkoDrive=null;actor.vx=0;actor.vz=0;
+ if(actor===player){firing=false;showMessage('オーバードライブ解除',renkoFlight(actor)?'ジェットパック終了後に武器を持ち直します':'通常移動に戻りました',1.5);}return true;
+}
 function syncRenkoJets(){
  if(isGuest())return;
  for(const a of[player,...bots]){const data=netInputs.get(a.remoteId),held=a===player?a.renkoJetHeld===true:!!(data&&data.round===match.round&&elapsed-data.received<.8&&data.input.jet===true);
@@ -2263,7 +2272,10 @@ function activateRenkoAbility(actor,key,{predict=false,aim=null}={}){
  if(key==='e'){actor.renkoJetHeld=true;actor.trcLadder=null;actor.vy=0;}if(key==='q'||key==='e'){actor.netReload=0;actor.aiReload=0;if(actor===player){aiming=false;reloading=0;kick=0;}}if(actor===player){if(key!=='c')firing=false;showMessage(getCharacterSkill('renko',key).name,getCharacterSkill('renko',key).description,3);}return effect;
 }
 function confirmRenkoSkill(key){
- if(netHostPaused||mode!=='play'||!player.alive||interactionHeld||objectivePractice)return;refillMapPracticeSkills();if(isGuest()&&netActions.length>=64)return;
+ if(netHostPaused||mode!=='play'||!player.alive||interactionHeld||objectivePractice)return;
+ if(key==='q'&&renkoDriveStopping(player))return;
+ if(key==='q'&&renkoEvent(player,'renko-drive')){if(isGuest()&&netActions.length>=64)return;if(stopRenkoDrive(player,{predict:isGuest()})&&isGuest())queueNetAction('ability',{key:'q',renkoStop:true});updateHUD();return;}
+ refillMapPracticeSkills();if(isGuest()&&netActions.length>=64)return;
  const aim={yaw:player.yaw,pitch:player.pitch},effect=activateAbility(player,key,{predict:isGuest(),aim});if(effect&&isGuest()){queueNetAction('ability',{key,...aim});if(player.renkoPending?.key===key)player.renkoPending.seq=netActions.at(-1)?.seq;}
  if(!effect)showMessage('発動できません',key==='x'?'7pt必要 · 発動済みなら敵撃破でC・Q・E全回復':key==='c'?'在庫・封印状態を確認 · 消費していません':'在庫・接地・動作中の技を確認 · 消費していません',2);refillMapPracticeSkills();updateHUD();
 }
@@ -2633,7 +2645,7 @@ function updateHUD(){
     const statuses=[];
     const carGyro=ordinarySkills.carGyro(player.id,elapsed);
     const tax=ordinarySkills.onnaraTax?.(player.id,elapsed);if(tax)statuses.push(tax.power>0?`王冠の徴税 · 発砲ごとHP4 / 残り${Math.ceil(tax.power/ONNARA_SKILLS.taxPerShot)}回 · HP1で止まる`:'王冠の徴税 · 10発分の代償を払い終えました');
-    const renkoJetStatus=renkoFlight(player),renkoDriveStatus=renkoEvent(player,'renko-drive');if(renkoUltimateActive(player))statuses.push('リスタートラッシュ · 敵撃破でC・Q・E全回復');if(renkoJetStatus)statuses.push(`ジェットパック ${Math.ceil(Math.max(0,renkoJetStatus.endsAt-elapsed))}秒 · E長押し · マウスの向きへ飛行 / 離すと停止`);if(renkoDriveStatus)statuses.push(`高速走行 ${Math.ceil(renkoDriveStatus.endsAt-elapsed)}秒 · 素手 / C発射可 · Vで慣性滑走`);
+    const renkoJetStatus=renkoFlight(player),renkoDriveStatus=renkoEvent(player,'renko-drive');if(renkoUltimateActive(player))statuses.push('リスタートラッシュ · 敵撃破でC・Q・E全回復');if(renkoJetStatus)statuses.push(`ジェットパック ${Math.ceil(Math.max(0,renkoJetStatus.endsAt-elapsed))}秒 · E長押し · マウスの向きへ飛行 / 離すと停止`);if(renkoDriveStatus)statuses.push(`高速走行 ${Math.ceil(renkoDriveStatus.endsAt-elapsed)}秒 · 素手 / C発射可 · Vで滑走 / Qで解除`);
     if(ordinarySkills.onnaraEvent?.('onnara-hover',player.id,elapsed)&&!starHold.stopped(ordinarySkills.onnaraEvent('onnara-hover',player.id,elapsed).id))statuses.push('星留め · 空中静止');
     if(ordinarySkills.onnaraEvent?.('onnara-chain',player.id,elapsed))statuses.push('星座裁定 · 近くの敵へ70%連鎖');
     if(ordinarySkills.urchinJammed(player.id,elapsed))statuses.push('棘錠 · 装填不可');
@@ -3749,7 +3761,7 @@ if(map.destruction){if(fresh||!packet.busDamage)map.destruction.reset();map.dest
     for(const action of netActions){
       if(action.round!==match.round)continue;
       if(action.type==='character'&&match.phase==='buy'&&match.round===1&&characterIds.includes(action.character))player.kit.character=action.character;
-      else if(action.type==='ability'&&!(player.kit.character==='cat'&&action.key==='c'&&action.catReturning===true)){const effect=player.kit.activate(action.key,action.at);if(effect?.type==='knives')predictedKnives=true;}
+      else if(action.type==='ability'&&!(player.kit.character==='cat'&&action.key==='c'&&action.catReturning===true)&&!(player.kit.character==='renko'&&action.key==='q'&&action.renkoStop===true)){const effect=player.kit.activate(action.key,action.at);if(effect?.type==='knives')predictedKnives=true;}
       else if(action.type==='fire'&&action.ultimate)player.kit.consumeKnife(action.burst===true?Math.min(DUELIST.knives,player.kit.knives):1);
     }
     player.kit.tick(elapsed);bindRenkoUltimate(player);
@@ -3896,6 +3908,8 @@ function applyRemoteAction(actor,action,actionTime=elapsed){
     if(tradeEquipment(actor,id,selling))actor.netPurchaseAck=[action.seq,match.round,action.id];return;
   }
   if(action.type==='ability'){
+    // An explicit stop must never become a new cast after expiry or an X refill.
+    if(action.renkoStop!==undefined){if(action.renkoStop===true&&action.key==='q'&&actor.kit?.character==='renko')stopRenkoDrive(actor);return;}
     if(actor.kit?.character==='renko'&&action.key==='e'&&netInputs.get(actor.remoteId)?.input.jet!==true)return;
     if(['c','q','e','x'].includes(action.key)){
       let aim=null;
