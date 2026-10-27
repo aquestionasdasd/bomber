@@ -1554,10 +1554,10 @@ function updateTravelButtons(){
   const container=$('landmark-travel');if(!container)return;container.replaceChildren();
   if(map.lightingStudy&&exploring&&!rangeSession&&!objectivePractice){
     const study=map.lightingStudy,button=document.createElement('button');button.type='button';
-    const label=()=>{button.disabled=!study.ready;button.textContent=study.error?'Aメイン照明：読込失敗':!study.ready?'Aメイン照明：読込中':`Aメイン照明：${study.enabled?'ベイク → 従来':'従来 → ベイク'}`;};
+    const label=()=>{button.disabled=!study.ready;button.textContent=study.error?'TRC照明：読込失敗':!study.ready?'TRC照明：読込中':`TRC照明：${study.enabled?'ベイク → 従来':'従来 → ベイク'}`;};
     label();study.promise.then(label);
-    button.title='現在位置のままAメインの照明を比較';
-    button.addEventListener('click',()=>{if(!study.ready)return;study.setEnabled(!study.enabled);label();resumeGame();showMessage(study.enabled?'A MAIN / BAKED':'A MAIN / ORIGINAL','Mで同じ視点のまま照明を切り替え',2);});container.append(button);
+    button.title='現在位置のままTRC全体の照明を比較';
+    button.addEventListener('click',()=>{if(!study.ready)return;study.setEnabled(!study.enabled);label();resumeGame();showMessage(study.enabled?'TRC / BAKED':'TRC / ORIGINAL','Mで同じ視点のまま照明を切り替え',2);});container.append(button);
   }
   if(objectivePractice){for(const siteId of ['A','B']){const button=document.createElement('button');button.type='button';button.textContent=`${siteId}でやり直す`;button.addEventListener('click',()=>{if(resetObjectivePractice(siteId))resumeGame();});container.append(button);}return;}
   for(const landmark of map.landmarks||[]){const button=document.createElement('button');button.type='button';button.textContent=landmark.name;button.disabled=!exploring;button.title=exploring?'この地点から練習':'マップ練習モードで移動できます';

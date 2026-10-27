@@ -1,7 +1,7 @@
 import {createCollisionIndex} from './collision.js';
 import {createTrcTraversal} from './trc-traversal.js';
 import {createTrcSurfaces} from './trc-surfaces.js';
-import {createTrcAStudy} from './trc-a-lighting.js';
+import {createTrcLighting} from './trc-lighting.js';
 import {TRC_BOUNDS,TRC_ROOMS,TRC_GROUND_ROOMS,TRC_UPPER_ROOMS,TRC_BASEMENT_ROOMS,TRC_DROPS,TRC_OUTDOORS,TRC_PORTALS,TRC_WALLS,TRC_RECEPTION,TRC_SITES,TRC_FLOOR,TRC_DECKS,TRC_PLINTHS,TRC_STAIRS,TRC_LADDERS,TRC_DUCTS,TRC_DOORS,TRC_COVERS,TRC_SCREENS,trcPoint as P,trcRect as R,contains,rectPolygon,stairHeight,trcDeckCut,trcDuctAt} from './trc-layout.js';
 
 // A joined architectural shell, with authored surface profiles and batched
@@ -9,7 +9,7 @@ import {TRC_BOUNDS,TRC_ROOMS,TRC_GROUND_ROOMS,TRC_UPPER_ROOMS,TRC_BASEMENT_ROOMS
 export function createTrcMap(T,scene){
  const world=new T.Group();world.name='TRC / independent sound market';scene.add(world);
  const bounds={...TRC_BOUNDS},colliders=[],mapShapes=[],batches=new Map();
- const materials={},textures=[];
+ const materials={},textures=[],bakedLights=[];
  const material=(key,color,roughness=.8,metalness=0)=>materials[key]=new T.MeshStandardMaterial({color,roughness,metalness});
  material('wall','#d7d2c5');material('dado','#888c86');material('trim','#ece6d8',.55,.35);
  material('steel','#3b4b53',.45,.65);material('aluminium','#9bacae',.38,.72);material('dark','#1d2b33');
@@ -232,9 +232,24 @@ export function createTrcMap(T,scene){
     part((r.minX+r.maxX)/2,y-.12,z,w-.16,.24,.16,'steel');
     roofFixtures.push({minX:r.minX+.08,maxX:r.maxX-.08,minZ:z-.08,maxZ:z+.08,ceiling:y});
     for(let x=r.minX+Math.min(1.6,w/2);x<r.maxX-.5;x+=8){const width=Math.min(2.7,2*(x-r.minX-.08),2*(r.maxX-x-.08));if(width<.5)continue;
-     part(x,y-.28,z,width,.12,.4,'steel');part(x,y-.35,z,width-.1,.025,.3,'light');}}
+     part(x,y-.28,z,width,.12,.4,'steel');part(x,y-.35,z,width-.1,.025,.3,'light');
+     // Keep the approved A-main lighting arrangement; other fixtures illuminate
+     // their actual ceiling height and floor, including upper rooms.
+     if(!(x>=-45&&x<=-19&&z>=-7.5&&z<=42&&y===5.4)){
+      const floor=TRC_UPPER_ROOMS.some(q=>contains(q,x,z)&&y>=q.ceiling)?3.2:0,span=y-floor;
+      bakedLights.push({position:[x,y-.39,z],width:Math.max(.4,width-.15),depth:1.8,energy:450*(span/5.4)**1.4,color:x>14?[.80,.92,1]:x< -14?[1,.88,.72]:[.91,.97,1]});
+     }
+    }}
   }
  }
+ // Flush fixtures in the low basement and crouch duct: no change to clearance.
+ for(const [x,z,y,w,color,energy]of [
+  ...[42,50,58,66,74,82,89].map(z=>[104,z,-.24,2.8,[.78,.91,1],480]),
+  ...[76,84,92,100].map(x=>[x,37,-.24,2.8,[.78,.91,1],480]),
+  [75,33,-.24,2.8,[.78,.91,1],480],
+  [8,61,1.36,1.5,[1,.88,.72],35],[8,64,1.36,1.5,[1,.88,.72],35]
+ ]){const p=P(x,z);part(p.x,y-.05,p.z,w,.06,.32,'steel');part(p.x,y-.086,p.z,w-.1,.012,.26,'light');bakedLights.push({position:[p.x,y-.11,p.z],width:w-.1,depth:.26,energy,color});}
+ for(const [x,z]of [[18,108],[18,100],[18,94],[30,91],[28,85],[18,84],[18,76],[19,66],[28,64]]){const p=P(x,z);bakedLights.push({position:[p.x,5.03,p.z],width:4,depth:1.8,energy:450,color:[1,.88,.72]});}
  world.add(new T.AmbientLight('#dce9e7',.9));
  for(const [x,z,y,color]of [[26,43,6,'#ffdbaf'],[88,46,5.5,'#c3e3ec'],[55,104,4.7,'#f5dfb9'],[54,81,4,'#d5e9e4'],[56,55,5.8,'#d5e9e4'],[104,60,-.8,'#c3e3ec'],[84,38,-.8,'#f5dfb9']]){const p=P(x,z),light=new T.PointLight(color,80,32,2);light.position.set(p.x,y,p.z);world.add(light);}
  const siteSpec=TRC_SITES;
@@ -243,8 +258,10 @@ export function createTrcMap(T,scene){
  for(const s of sites)sign(s.id,'PLANT ZONE',s.x,.025,s.z,3,3,s.id==='A'?'#a65d40':'#286b77').rotation.x=-Math.PI/2;
  // Chamfered entry reveals are flush with the opening, with a 10 cm wall trim.
  // They never narrow the clear opening or add a collision lip to the passage.
- for(const z of [62.32,69.18]){const p=P(23.6,z);rounded(p.x,1.75,p.z,1,3.5,.28,'trim',.045);}
- {const p=P(23.6,65.75);rounded(p.x,3.58,p.z,1,.16,7.1,'trim',.045);}
+ for(const x of [23.6,87.4]){
+  for(const z of [62.32,69.18]){const p=P(x,z);rounded(p.x,1.75,p.z,1,3.5,.28,'trim',.045);}
+  const p=P(x,65.75);rounded(p.x,3.58,p.z,1,.16,7.1,'trim',.045);
+ }
  const surfaceAudit=surfaces.flush();
  for(const [key,b]of batches){const g=new T.BufferGeometry();for(const name of ['position','normal','uv'])g.setAttribute(name,new T.Float32BufferAttribute(b[name],name==='uv'?2:3));g.computeBoundingSphere();const m=new T.Mesh(g,materials[b.material]);m.name='TRC / '+key;m.castShadow=true;m.receiveShadow=true;world.add(m);}
  const teamSpawns={attack:[P(55,133),P(52,133),P(58,133),P(49,133),P(61,133)],defend:[P(55,8),P(52,8),P(58,8),P(49,8),P(61,8)]};
@@ -279,6 +296,6 @@ export function createTrcMap(T,scene){
    return [...new Set(out)];
   }
  };
- map.lightingStudy=createTrcAStudy(T,world);
+ map.lightingStudy=createTrcLighting(T,world,bakedLights);
  map.traversal=createTrcTraversal(map,{doorMeshes});world.updateMatrixWorld(true);return map;
 }
