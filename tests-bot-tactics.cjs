@@ -234,7 +234,7 @@ async function main(){
 
   for(const [random,hitHeight]of [[0,1.62],[.2,1.15]]){
     const elevatedShooter=actor('red-elevated','red',0,0),elevatedTarget=actor('blue-elevated','blue',0,10);
-    Object.assign(elevatedShooter,{y:2,vy:0,target:elevatedTarget,think:1,reactionUntil:0,fire:0,aiWeapon:'classic',aiAmmo:12,aiReload:0});elevatedShooter.group.rotation.y=0;Object.assign(elevatedTarget,{y:3,vy:0,rangeTarget:true});
+    Object.assign(elevatedShooter,{y:2,vy:0,target:elevatedTarget,aimSample:{id:elevatedTarget.id,x:0,y:3,z:10,at:0},think:1,reactionUntil:0,fire:0,aiWeapon:'classic',aiAmmo:12,aiReload:0});elevatedShooter.group.rotation.y=0;Object.assign(elevatedTarget,{y:3,vy:0,rangeTarget:true});
     const game=integration({map:makeMap([{minX:-1,maxX:1,minZ:-1,maxZ:1,height:2},{minX:-1,maxX:1,minZ:9,maxZ:11,height:3}]),player:noEnemy,bots:[elevatedShooter,elevatedTarget],random});game.step();
     assert.equal(game.traces.length,1,'A visible raised actor must really fire before checking tracer coordinates');assert.ok(Math.abs(game.traces[0].from.y-(elevatedShooter.y+1.2))<1e-9,'AI muzzle origins must include shooter height');assert.ok(Math.abs(game.traces[0].to.y-(3+hitHeight))<1e-9,'Both NPC and player targets must include their own raised feet in head/body rays');assert.equal(game.hits,1);
   }

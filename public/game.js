@@ -3158,7 +3158,7 @@ function updateBots(dt){
       const targetSpeed=sample?.id===enemy.id&&sampleDt>0&&sampleDt<=.2?Math.hypot(enemy.x-sample.x,(enemy.y||0)-sample.y,enemy.z-sample.z)/sampleDt:Infinity;
       bot.aimSample={id:enemy.id,x:enemy.x,y:enemy.y||0,z:enemy.z,at:elapsed};
       if(!aligned||targetSpeed>.65)bot.aimStillSince=elapsed;
-      const settled=aligned&&elapsed-(bot.aimStillSince??elapsed)>=.14;
+      const settled=aligned&&elapsed-(bot.aimStillSince??elapsed)>=.2;
       if(!renkoUnarmed(bot)&&aligned&&elapsed>=bot.reactionUntil&&elapsed>=(bot.skillThrowUntil||0)&&bot.fire<=0&&!(bot.aiReload>0)){
         if(bot.aiAmmo<=0){if(ordinarySkills.urchinJammed(bot.id,elapsed))bot.fire=.2;else{bot.aiReload=spec.reload||1.7;bot.fire=bot.aiReload;bot.reloadGoal=role?.urgent?null:reloadCover(bot,enemy);}}
         else{
@@ -3172,7 +3172,10 @@ function updateBots(dt){
           else bot.fire=Math.max(spec.interval,.19+cfg.interval*.25)+Math.random()*.12;
           if(spec.mag>0)bot.fire*=(ordinarySkills.nobiInterval?.(bot.id,elapsed,bot,ordinaryReachable)||1)*(ordinarySkills.urchinInterval?.(bot.id,elapsed)||1);
           let chance=cfg.aim*(settled?1:.76)*Math.max(.6,1-enemyDistance/160);
-          if(targetSpeed>2.5)chance*=.78;
+          // Faster visible motion is continuously harder to track, including
+          // vertical flight. Unknown/reacquired motion never grants still aim.
+          const trackingScale=Number.isFinite(targetSpeed)?1/(1+Math.max(0,targetSpeed-.65)/4):.25;
+          chance*=trackingScale;
           if(bot.moving&&!steadyAirAim(bot)&&!(ordinarySkills.carGyro(bot.id,elapsed)&&actorGrounded(bot)))chance*=.72;
           if(spec.mag>0&&!spec.arsenal&&ordinarySkills.capLocked?.(bot.id,elapsed))chance*=CAP_SKILLS.lockAimScale;
           const hit=Math.random()<chance,head=hit&&Math.random()<(settled?.34:.13);
