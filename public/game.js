@@ -3021,7 +3021,11 @@ function updateBots(dt){
     bot.planting=false;bot.defusing=false;bot.moving=false;
     if(bot.kit?.character==='nobi'&&(interactPlant&&!committedPlant||interactDefuse&&!committedDefuse)&&elapsed>=(bot.nextNobiToolAt||0)){
       cancelServiceReload(bot);
-      const tool=activateAbility(bot,'e',{zonePoint:{x:bot.x,y:bot.y||0,z:bot.z}});bot.nextNobiToolAt=elapsed+(tool?.type==='nobi-toolbox'?1:.5);
+      // Share a reachable toolbox only if it lasts through the whole task,
+      // conservatively allowing its remaining flight before accelerated work.
+      const workTime=(interactPlant?4:7)/NOBI_SKILLS.toolScale,pose=ordinaryActorView(bot);
+      const sharedTool=ordinarySkills.events(elapsed).some(event=>event.type==='nobi-toolbox'&&event.endsAt-Math.max(elapsed,event.triggerAt)>=workTime&&ordinarySkills.wouldNobi(pose,event,{reachable:ordinaryReachable}));
+      const tool=sharedTool?null:activateAbility(bot,'e',{zonePoint:{x:bot.x,y:bot.y||0,z:bot.z}});bot.nextNobiToolAt=elapsed+(tool?.type==='nobi-toolbox'?1:.5);
     }
     // A useful clock must be armed before work marks this actor busy. Keep
     // the assigned task running even if the event queue refuses the cast.
