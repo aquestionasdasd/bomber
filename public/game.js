@@ -3179,7 +3179,15 @@ function updateBots(dt){
       let cast=null;
       if(enemy&&visibleBetween(bot,enemy)){
         const aim={yaw:Math.atan2(bot.x-enemy.x,bot.z-enemy.z),pitch:Math.atan2((enemy.y||0)+1.3-((bot.y||0)+1.7),Math.hypot(enemy.x-bot.x,enemy.z-bot.z))};
-        if(bot.kit.ultPoints>=7)cast=activateAbility(bot,'x',{zonePoint:{x:bot.x,y:bot.y||0,z:bot.z}});
+        if(bot.kit.ultPoints>=7){
+          const point=getSkillTarget(bot,'nobi-collar',{x:bot.x,y:bot.y||0,z:bot.z}),queries={reachable:ordinaryReachable};
+          // Conserve X only while every current recipient can share an allied
+          // collar through the next decision plus our own throw, including flight.
+          const collars=ordinarySkills.events(elapsed).filter(event=>event.type==='nobi-collar'&&event.team===bot.team&&event.endsAt>=elapsed+1+NOBI_SKILLS.throwFlight);
+          const recipients=point?[player,...bots].map(ordinaryActorView).filter(actor=>ordinarySkills.wouldNobi(actor,{type:'nobi-collar',team:bot.team,...point,radius:NOBI_SKILLS.areaRadius},queries)):[];
+          const shared=recipients.length>0&&recipients.every(actor=>collars.some(event=>ordinarySkills.wouldNobi(actor,event,queries)));
+          if(!shared)cast=activateAbility(bot,'x',{zonePoint:{x:bot.x,y:bot.y||0,z:bot.z}});
+        }
         const options=[['c','nobi-bell',bot.kit.smoke,ordinarySkills.nobiVulnerability(enemy.id,elapsed,enemy,ordinaryReachable)],['q','nobi-whisker',bot.kit.updraft,ordinarySkills.nobiInterval(enemy.id,elapsed,enemy,ordinaryReachable)]];
         for(const[key,type,stock,active]of options)if(!cast&&stock>0&&active===1){
           // Share the real field test: clipped throws need not reach a visible enemy.

@@ -39,7 +39,8 @@
     "check:user-gun-audio": "node tests-user-gun-audio.cjs",
     "check:mend-emergency": "node tests-bot-mend-emergency.cjs && node tests-bot-mend-emergency-negative.cjs",
     "check:nope-bot-flash": "node tests-bot-nope-flash.cjs && node tests-bot-nope-flash-negative.cjs",
-    "check:nobi-tool-share": "node tests-bot-nobi-tool-share.cjs && node tests-bot-nobi-tool-share-negative.cjs"
+    "check:nobi-tool-share": "node tests-bot-nobi-tool-share.cjs && node tests-bot-nobi-tool-share-negative.cjs",
+    "check:nobi-collar-share": "node tests-bot-nobi-collar-share.cjs && node tests-bot-nobi-collar-share-negative.cjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
