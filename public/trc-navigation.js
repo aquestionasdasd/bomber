@@ -31,6 +31,8 @@ export function createTrcNavigation(map){
  for(const p of nodes)for(const [dx,dz]of [[1,0],[0,1],[1,1],[-1,1]])for(const id of cells.get(key(p.x+dx,p.z+dz))||[]){const q=nodes[id];if(Math.abs(q.y-p.y)<=.7&&clearSegment(p.x,p.z,q.x,q.z,p.y,q.y))connect(p.id,id);}
  // Exact endpoints preserve narrow hatches which do not fall on the grid.
  for(const l of TRC_LADDERS){const bottom={x:l.x,z:l.z,y:0},top={...l.exit};const ids=[];for(const p of [bottom,top]){const id=nodes.length;nodes.push({...p,id,crouch:true});edges.push([]);for(const q of nodes.slice(0,id))if(Math.hypot(p.x-q.x,p.z-q.z)<1.8&&Math.abs(p.y-q.y)<.19&&clearSegment(p.x,p.z,q.x,q.z,p.y,q.y))connect(id,q.id);ids.push(id);}connect(ids[0],ids[1],{ladder:l.id});}
+ // A deliberate one-way heaven drop cannot create a reverse wall-climbing edge.
+ for(const drop of map.drops||[]){const ids=[];for(const p of [drop.from,drop.to]){const id=nodes.length;nodes.push({...p,id,crouch:false});edges.push([]);for(const q of nodes.slice(0,id))if(Math.hypot(p.x-q.x,p.z-q.z)<1.8&&Math.abs(p.y-q.y)<.19&&clearSegment(p.x,p.z,q.x,q.z,p.y,q.y))connect(id,q.id);ids.push(id);}edges[ids[0]].push({id:ids[1],cost:Math.hypot(drop.from.x-drop.to.x,drop.from.y-drop.to.y,drop.from.z-drop.to.z),drop:drop.id});}
  function nearest(x,z,y=0){if(![x,z,y].every(Number.isFinite))return null;if(map.world.userData.bomberCollapsed)return {x:Math.max(bounds.minX+radius,Math.min(bounds.maxX-radius,x)),z:Math.max(bounds.minZ+radius,Math.min(bounds.maxZ-radius,z)),y:0};if(isWalkable(x,z,y))return {x,z,y};let best=null,d=Infinity;for(const p of nodes){const cost=(p.x-x)**2+(p.z-z)**2+16*(p.y-y)**2;if(cost<d){d=cost;best=p;}}return best?{x:best.x,z:best.z,y:best.y}:null;}
  // A connector can only be within 4 m. Include exact ladder endpoints in the
  // same buckets; preserve the old lowest-id tie instead of scanning the map.
@@ -48,16 +50,16 @@ export function createTrcNavigation(map){
    function push(id){if(order[id]<0)order[id]=serial++;const value={id,cost:cost[id],score:cost[id]+heuristic(id),order:order[id]};let i=open.length;open.push(value);while(i){const p=(i-1)>>1;if(!before(value,open[p]))break;open[i]=open[p];i=p;}open[i]=value;}
    function pop(){const first=open[0],last=open.pop();if(open.length){let i=0;while(i*2+1<open.length){let c=i*2+1;if(c+1<open.length&&before(open[c+1],open[c]))c++;if(!before(open[c],last))break;open[i]=open[c];i=c;}open[i]=last;}return first;}
    push(start);
-   while(open.length){const entry=pop(),at=entry.id;if(closed[at]||entry.cost!==cost[at])continue;if(at===finish)break;closed[at]=1;for(const e of edges[at]){if(closed[e.id])continue;const c=cost[at]+e.cost;if(c<cost[e.id]){cost[e.id]=c;parent[e.id]=at;via[e.id]=e.ladder;push(e.id);}}}
+   while(open.length){const entry=pop(),at=entry.id;if(closed[at]||entry.cost!==cost[at])continue;if(at===finish)break;closed[at]=1;for(const e of edges[at]){if(closed[e.id])continue;const c=cost[at]+e.cost;if(c<cost[e.id]){cost[e.id]=c;parent[e.id]=at;via[e.id]=e.ladder?{ladder:e.ladder}:e.drop?{drop:e.drop}:null;push(e.id);}}}
    if(!Number.isFinite(cost[finish]))return [];
-   route=[];for(let n=finish;n!==start;n=parent[n])route.push({...nodes[n],...(via[n]?{ladder:via[n]}:{})});route.reverse();cache.set(ck,route);if(cache.size>256)cache.delete(cache.keys().next().value);
+   route=[];for(let n=finish;n!==start;n=parent[n])route.push({...nodes[n],...via[n]});route.reverse();cache.set(ck,route);if(cache.size>256)cache.delete(cache.keys().next().value);
   }
   // Pull only across verified walkable segments. Exponential lookahead avoids
   // resampling the same long corridor from its start for every 1 m graph node.
   // Never skip a ladder or cross a crouch/standing transition.
   const points=[...route.map(p=>({...p})),b],out=[];let anchor=a;
   for(let i=0;i<points.length;){
-   let limit=i;if(!points[i].ladder)while(limit+1<points.length&&!points[limit+1].ladder&&points[limit+1].crouch===points[i].crouch)limit++;
+   let limit=i;if(!points[i].ladder&&!points[i].drop)while(limit+1<points.length&&!points[limit+1].ladder&&!points[limit+1].drop&&points[limit+1].crouch===points[i].crouch)limit++;
    const clear=id=>clearSegment(anchor.x,anchor.z,points[id].x,points[id].z,anchor.y,points[id].y);
    let j=i,blocked=limit+1,stride=1;
    while(j<limit){const next=Math.min(limit,i+stride);if(!clear(next)){blocked=next;break;}j=next;stride*=2;}

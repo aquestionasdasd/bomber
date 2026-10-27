@@ -41,12 +41,12 @@ export class MatchRules {
   addCredits(amount){this.credits=Math.min(9000,Math.max(0,this.credits+amount));}
   purchase(price){if(this.phase!=='buy'||!Number.isFinite(price)||price<0||this.credits<price)return false;this.credits-=price;return true;}
   awardKill(){if(this.phase!=='live')return;this.roundKills++;this.addCredits(200);}
-  dropSpike(actorId,x,z){
+  dropSpike(actorId,x,z,y=0){
     const s=this.spike;if(s.status!=='carried'||s.carrier!==actorId)return false;
-    s.status='dropped';s.carrier=null;s.x=x;s.z=z;s.plantProgress=0;s.plantActor=null;this.events.push({type:'dropped'});return true;
+    s.status='dropped';s.carrier=null;s.x=x;s.z=z;if(Number.isFinite(y)&&y!==0)s.y=y;else delete s.y;s.plantProgress=0;s.plantActor=null;this.events.push({type:'dropped'});return true;
   }
-  pickupSpike(actorId,team,x,z){
-    const s=this.spike;if(!['buy','live'].includes(this.phase)||!Number.isFinite(x)||!Number.isFinite(z)||s.status!=='dropped'||team!==this.attackerTeam||Math.hypot(s.x-x,s.z-z)>1.8)return false;
+  pickupSpike(actorId,team,x,z,y=0){
+    const s=this.spike;if(!['buy','live'].includes(this.phase)||!Number.isFinite(x)||!Number.isFinite(z)||!Number.isFinite(y)||s.status!=='dropped'||team!==this.attackerTeam||Math.abs((s.y||0)-y)>.65||Math.hypot(s.x-x,s.z-z)>1.8)return false;
     s.status='carried';s.carrier=actorId;this.events.push({type:'pickup',actorId});return true;
   }
   cancelPlant(actorId){const s=this.spike;if(s.plantActor===actorId){s.plantProgress=0;s.plantActor=null;}}
@@ -56,7 +56,7 @@ export class MatchRules {
     if(s.plantActor!==actorId){s.plantProgress=0;s.plantActor=actorId;}
     s.plantProgress=Math.min(4,s.plantProgress+Math.min(Math.max(0,dt),this.roundTime));
     if(s.plantProgress<4-1e-8)return false;
-    s.status='planted';s.carrier=null;s.site=site;s.x=x;s.z=z;s.timer=45;s.plantProgress=4;
+    s.status='planted';s.carrier=null;s.site=site;s.x=x;s.z=z;delete s.y;s.timer=45;s.plantProgress=4;
     if(team==='blue'&&!this.plantAwarded){this.addCredits(300);this.plantAwarded=true;}
     this.events.push({type:'planted',actorId,team,site});return true;
   }

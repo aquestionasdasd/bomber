@@ -50,13 +50,14 @@ export function createBotTactics({sites,navigation,collision,lanes=[],attackSpaw
   }
   function routeDistance(from,to,now=0){
     if(!from||!to)return Infinity;
-    const direct=distance(from,to);if(direct<.3)return direct;
-    const key=`${Math.round(from.x/2)},${Math.round(from.z/2)}:${Math.round(to.x*2)},${Math.round(to.z*2)}`;
+    const measure=(a,b)=>navigation.layered?Math.hypot(a.x-b.x,(a.y||0)-(b.y||0),a.z-b.z):distance(a,b);
+    const direct=measure(from,to);if(direct<.3)return direct;
+    const key=`${Math.round(from.x/2)},${Math.round(from.z/2)},${navigation.layered?from.y||0:0}:${Math.round(to.x*2)},${Math.round(to.z*2)},${navigation.layered?to.y||0:0}`;
     const previous=routes.get(key);if(previous&&now-previous.at<1.5&&now>=previous.at)return previous.cost;
-    const path=navigation.path(from.x,from.z,to.x,to.z);
+    const path=navigation.path(from.x,from.z,to.x,to.z,from.y||0,to.y||0);
     let cost=path.length?0:Infinity,point=from;
-    for(const next of path){cost+=distance(point,next);point=next;}
-    if(path.length&&distance(point,to)>1.2)cost=Infinity;
+    for(const next of path){cost+=measure(point,next);point=next;}
+    if(path.length&&measure(point,to)>1.2)cost=Infinity;
     routes.set(key,{cost,at:now});if(routes.size>256)routes.delete(routes.keys().next().value);
     return cost;
   }
@@ -135,7 +136,7 @@ export function createBotTactics({sites,navigation,collision,lanes=[],attackSpaw
       }
     }else if(spike.status==='dropped'){
       recoverer=nearestReachable(attackers,spike,now).actor;
-      for(const [index,bot]of attackers.entries())roles.set(bot.id,{role:bot===recoverer?'recover':'cover',goal:bot===recoverer?{x:spike.x,z:spike.z}:ring(spike,index,attackers.length,5+index%2*2,defendSpawn),urgent:bot===recoverer,watch:defendSpawn});
+      for(const [index,bot]of attackers.entries())roles.set(bot.id,{role:bot===recoverer?'recover':'cover',goal:bot===recoverer?{x:spike.x,z:spike.z,...(spike.y?{y:spike.y}:{})}:ring(spike,index,attackers.length,5+index%2*2,defendSpawn),urgent:bot===recoverer,watch:defendSpawn});
     }else if(spike.status==='planted'){
       for(const [index,bot]of attackers.entries())roles.set(bot.id,{role:'hold',goal:ring(spike,index,attackers.length,7+index%2*3,defendSpawn),watch:spike});
     }

@@ -346,7 +346,7 @@ function carryGrassRiders(){
 }
 function actorGrounded(actor){
   if(!actor?.alive||!Number.isFinite(actor.y)||Number.isFinite(actor.vy)&&Math.abs(actor.vy)>1e-5)return false;
-  let floor=0;const ramp=rampFloor(actor.x,actor.z);
+  let floor=map.floorBaseAt?.(actor.x,actor.z)??0;const ramp=rampFloor(actor.x,actor.z);
   if(ramp!==null&&ramp<=actor.y+.001)floor=ramp;
   for(const c of map.collision.query(actor.x,actor.z,.34))if(!c.disabled&&c.height<=actor.y+.001&&c.height>floor&&map.collision.overlaps(c,actor.x,actor.z,.34))floor=c.height;
   const head=grassSupport(actor);if(head)floor=Math.max(floor,head.top);
@@ -445,7 +445,7 @@ function ordinaryReachable(event,actor){
 }
 const ordinaryAudioTime=event=>event.type==='echo-tag'?event.startedAt+event.flight:event.triggerAt;
 function allNopeDecoys(){return [...ordinarySkills.events(elapsed).filter(event=>event.type==='nope-decoy').map(event=>nopeWalkPose(event,elapsed)),...nopeDecoys.events(elapsed)];}
-function decoyWalkPath(point,yaw){return planNopeWalk(point,yaw,(x,y,z)=>navigation.isWalkable(x,z)&&canStand(x,z,.36,y,1.96)&&Math.abs(getZoneFloor(x,z,y+1.7)-y)<.08&&map.collision.rayClear(x,y+.1,z,x,y+1.96,z));}
+function decoyWalkPath(point,yaw){return planNopeWalk(point,yaw,(x,y,z)=>navigation.isWalkable(x,z,y)&&canStand(x,z,.36,y,1.96)&&Math.abs(getZoneFloor(x,z,y+1.7)-y)<.08&&map.collision.rayClear(x,y+.1,z,x,y+1.96,z));}
 function chooseNopeDecoyPoints(actor){
   const distance=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
   // Cache only existing street floors. Decoys add no solid geometry/support.
@@ -552,7 +552,7 @@ function updateOrdinarySkills(){
 function renderOrdinarySkills(){
   capBankPreviewFX.update(getCapBankPreview());
   const live=match?.phase==='live',viewer=player.alive?player:spectatedBot;
-  preparedSkillFX.update(live?ordinarySkills.events(elapsed):[],elapsed,{armedType:duckAim?preparedSkillType(player.kit?.character,duckAim):null,character:player.kit?.character,active:live&&mode==='play'&&player.alive&&!netHostPaused&&!interactionHeld&&!busSeat()&&!carMotionActive(player),round:match.round,reducedMotion:reducedMotion.matches,visible:(p,e)=>e.sourceId===player.id||ordinarySkills.blindUntil((viewer||player).id,elapsed)<=elapsed&&visibleBetween(viewer||player,p)});
+  preparedSkillFX.update(live?ordinarySkills.events(elapsed):[],elapsed,{armedType:duckAim?preparedSkillType(player.kit?.character,duckAim):null,character:player.kit?.character,active:live&&mode==='play'&&player.alive&&!netHostPaused&&!interactionHeld&&!busSeat()&&!carMotionActive(player),round:match?.round??0,reducedMotion:reducedMotion.matches,visible:(p,e)=>e.sourceId===player.id||ordinarySkills.blindUntil((viewer||player).id,elapsed)<=elapsed&&visibleBetween(viewer||player,p)});
   flashStatusFX.update(live&&['play','pause'].includes(mode)?bots:[],elapsed,{blindUntil:(id,now)=>Math.max(ordinarySkills.blindUntil(id,now),ordinarySkills.nearsightUntil(id,now)),viewerId:(viewer||player).id,reducedMotion:reducedMotion.matches,visible:actor=>ordinarySkills.blindUntil((viewer||player).id,elapsed)<=elapsed&&visibleBetween(viewer||player,actor)});
   const spectacleEvents=live?[...ordinarySkills.events(elapsed),...teamAbilities.events(elapsed),...zoneAbilities.events(elapsed)]:[];
   skillFeedback.observe(spectacleEvents,elapsed,player.id);skillFeedback.render(elapsed,{active:live&&mode==='play'&&player.alive,reducedMotion:reducedMotion.matches});
@@ -799,7 +799,7 @@ function removeDrop(drop){const index=droppedWeapons.indexOf(drop);if(index<0)re
 function clearDrops(){for(const drop of [...droppedWeapons])removeDrop(drop);}
 function addDrop(data){
   const visual=createDroppedEquipment(THREE,{weapon:data.weapon,yaw:data.yaw}),mesh=visual.group;
-  mesh.position.set(data.x,0,data.z);scene.add(mesh);const drop={...data,mesh,visual};droppedWeapons.push(drop);return drop;
+  mesh.position.set(data.x,data.y||0,data.z);scene.add(mesh);const drop={...data,mesh,visual};droppedWeapons.push(drop);return drop;
 }
 function dropItem(weapon,entity){
   const spec=WEAPONS[weapon];if(!spec||weapon==='classic'||!['primary','secondary'].includes(spec.slot))return;
@@ -807,27 +807,27 @@ function dropItem(weapon,entity){
   const saved=local?ammoStore[weapon]:entity.netStores?.[weapon];
   const ammo=active===weapon?(local?player.ammo:entity.remoteId?entity.netAmmo:entity.aiAmmo):saved?.ammo;
   const reserve=active===weapon?(local?player.reserve:entity.remoteId?entity.netReserve:entity.aiReserve??spec.reserve):saved?.reserve;
-  const data={id:++dropSequence,weapon,x:entity.x,z:entity.z,yaw:Math.random()*Math.PI*2,ammo:clamp(Math.floor(ammo??spec.mag),0,spec.mag),reserve:clamp(Math.floor(reserve??spec.reserve),0,spec.reserve)};
+  const data={id:++dropSequence,weapon,x:entity.x,z:entity.z,...(map.id==='trc'?{y:getZoneFloor(entity.x,entity.z,(entity.y||0)+.05)}:{}),yaw:Math.random()*Math.PI*2,ammo:clamp(Math.floor(ammo??spec.mag),0,spec.mag),reserve:clamp(Math.floor(reserve??spec.reserve),0,spec.reserve)};
   while(droppedWeapons.length>=32)removeDrop(droppedWeapons[0]);return addDrop(data);
 }
-function serializeDrops(){return droppedWeapons.map(({id,weapon,x,z,yaw,ammo,reserve})=>({id,weapon,x,z,yaw,ammo,reserve}));}
+function serializeDrops(){return droppedWeapons.map(({id,weapon,x,z,y,yaw,ammo,reserve})=>({id,weapon,x,z,...(y?{y}:{}),yaw,ammo,reserve}));}
 function syncDrops(values){
   const valid=new Map();
   for(const value of Array.isArray(values)?values.slice(0,32):[]){
     const spec=WEAPONS[value?.weapon];if(!spec||value.weapon==='classic'||!['primary','secondary'].includes(spec.slot)||!Number.isSafeInteger(value.id)||value.id<1||![value.x,value.z,value.yaw,value.ammo,value.reserve].every(Number.isFinite)||value.x<activeArenaBounds().minX||value.x>activeArenaBounds().maxX||value.z<activeArenaBounds().minZ||value.z>activeArenaBounds().maxZ)continue;
-    valid.set(value.id,{id:value.id,weapon:value.weapon,x:value.x,z:value.z,yaw:value.yaw,ammo:clamp(Math.floor(value.ammo),0,spec.mag),reserve:clamp(Math.floor(value.reserve),0,spec.reserve)});
+    valid.set(value.id,{id:value.id,weapon:value.weapon,x:value.x,z:value.z,...(map.id==='trc'?{y:Number.isFinite(value.y)?clamp(value.y,map.minY,12):0}:{}),yaw:value.yaw,ammo:clamp(Math.floor(value.ammo),0,spec.mag),reserve:clamp(Math.floor(value.reserve),0,spec.reserve)});
   }
   for(const drop of [...droppedWeapons])if(!valid.has(drop.id)||valid.get(drop.id).weapon!==drop.weapon)removeDrop(drop);
   for(const data of valid.values()){
     const old=droppedWeapons.find(d=>d.id===data.id);
-    if(old){Object.assign(old,data);old.mesh.position.set(data.x,0,data.z);old.mesh.rotation.y=data.yaw;}
+    if(old){Object.assign(old,data);old.mesh.position.set(data.x,data.y||0,data.z);old.mesh.rotation.y=data.yaw;}
     else addDrop(data);
   }
 }
 function pickupDroppedWeapon(actor,dropId,{catFetch=false}={}){
   if(!actor.alive||renkoUnarmed(actor)||match?.phase!=='live')return false;
   const remoteFetch=catFetch&&actor.kit?.character==='cat'&&!isGuest();
-  const drop=droppedWeapons.find(d=>d.id===dropId&&(remoteFetch?Math.hypot(d.x-actor.x,actor.y||0,d.z-actor.z)<=CAT_SKILLS.fetchRange&&catDropVisible(actor,d):Math.hypot(d.x-actor.x,d.z-actor.z)<1.5));if(!drop)return false;
+  const drop=droppedWeapons.find(d=>d.id===dropId&&(remoteFetch?Math.hypot(d.x-actor.x,(actor.y||0)-(d.y||0),d.z-actor.z)<=CAT_SKILLS.fetchRange&&catDropVisible(actor,d):Math.hypot(d.x-actor.x,(actor.y||0)-(d.y||0),d.z-actor.z)<1.5));if(!drop)return false;
   const slot=WEAPONS[drop.weapon].slot,local=actor===player;
   if(local)ammoStore[inventory.active]={ammo:player.ammo,reserve:player.reserve};
   else{actor.netStores||={};actor.netStores[actor.netWeapon]={ammo:actor.netAmmo,reserve:actor.netReserve};}
@@ -1018,7 +1018,7 @@ function damageEntity(entity,amount,killer,{firearm=false,returned=false,chain=t
   const creditedKiller=killer&&killer.team!==entity.team?killer:null;
   fullComboTracker.record(match.round,entity,creditedKiller);
   entity.alive=false;entity.renkoUltimate=null;if(entity.kit)entity.kit.renkoActive=false;entity.trcLadder=null;cancelServiceReload(entity);entity.kit?.awardPoint();const record=recordOf(entity);if(record)record.d++;
-  match.dropSpike(entity.id,entity.x,entity.z);match.cancelPlant(entity.id);match.cancelDefuse(entity.id);
+  match.dropSpike(entity.id,entity.x,entity.z,map.id==='trc'?getZoneFloor(entity.x,entity.z,entity.y+.05):0);match.cancelPlant(entity.id);match.cancelDefuse(entity.id);
   const item=entity===player?inventory.primary:record?.primary;dropItem(item,entity);
   if(creditedKiller){renkoUltimateActive(killer);const refilled=killer.kit?.awardKill();if(refilled&&killer===player)showMessage('リスタートラッシュ','撃破確定 · C・Q・E全回復',2);const k=recordOf(killer);if(k)k.k++;if(!firearm)killFeedback(killer);if(killer===player){totalKills++;match.awardKill();careerCoins.progress({kills:totalKills});}else if(k)k.credits=Math.min(9000,k.credits+200);feed(`${k?.name||CHARACTER_DEFS[killer.kit?.character||'duelist'].label}  ⌁  ${record?.name||(entity===player?'YOU':CHARACTER_DEFS[entity.kit?.character||'duelist'].label)}`);}
   if(entity===player)beginDeathView();
@@ -1216,6 +1216,8 @@ function selectArena(id){
   map=arenaCache.get(id);if(!map.bomberCollapse){map.bomberCollapse=createBuildingCollapse(THREE,map);scene.add(map.bomberCollapse.group);}environment.add(map.world);navigation=createNavigation({...map,bounds:map.combatBounds||map.bounds});updateBots.tactics=null;nopeDecoyTownCandidates=null;
   environment.traverse(object=>{for(const material of Array.isArray(object.material)?object.material:[object.material])if(material?.map)material.map.anisotropy=textureFiltering;});
   sun.intensity=map.indoor ? .45 : 3;sun.castShadow=!map.indoor;scene.background.set(map.indoor?'#35434a':'#8cbad7');scene.fog=new THREE.Fog(map.indoor?'#657875':'#b7d0dd',map.indoor?65:145,map.indoor?135:380);
+  const shadowSize=map.id==='trc'?2048:4096;
+  if(sun.shadow.mapSize.x!==shadowSize){sun.shadow.mapSize.set(shadowSize,shadowSize);sun.shadow.map?.dispose();sun.shadow.map=null;sun.shadow.needsUpdate=true;}
   map.world.updateMatrixWorld(true);updateMapLabels();
 }
 function activeArenaBounds(){return exploring&&!onlinePlaying?map.bounds:map.combatBounds||map.bounds;}
@@ -1225,7 +1227,7 @@ function updateMapLabels(){
   if(map.id==='trc')Object.assign(copies,{'menu-map-name':name,'character-preview-map':name,'hud-map-name':'TRC / SOUND MARKET','map-route-copy':'屋外 A ロング / 正面ロビー・MID / 搬入 B メイン'});
   copies['map-site-a-name']=map.sites[0].name;copies['map-site-b-name']=map.sites[1].name;copies['map-detail']=map.id==='hirakata'?'対戦は従来の164m四方。マップ練習では周辺224m四方も探索できます。車道のしばくでバスに注意。':'橋本駅前の景観をもとに構成したオリジナルマップです。';
   copies['map-coordinate-copy']=copies['menu-coordinate-copy']=map.id==='hirakata'?'34.815°N / 135.649°E':'35°35′42″N / 139°20′42″E';copies['menu-map-note']=map.id==='hirakata'?'枚方市駅 / 南北広場・自由通路・駅周辺街区':'非公式ファンメイド / 橋本駅前をモチーフにしたオリジナルマップ';copies['radar-map-copy']=short+' / 2 SITES';
-  if(map.id==='trc')Object.assign(copies,{'map-detail':'屋外前庭から会場へ侵入する縦長マップ。Aはダクト・準備室経由のヘブン、Bは低いステージ。サイトの主床に広く設置可能。Fでドア・はしご、Vでダクト、Shiftで消音。','map-coordinate-copy':'TRC INSPIRED / OUTDOOR APPROACH','menu-coordinate-copy':'TRC INSPIRED / OUTDOOR APPROACH','menu-map-note':'同人音楽即売会 / オリジナル対戦レイアウト'});
+  if(map.id==='trc')Object.assign(copies,{'map-detail':'受付棟を左右に回ってA・Bメインへ。入口は天井までの壁の裏から横入り。MIDは中央への回り込みかS1/S2シャッターを選択。Aは7mダクト・ヘブン、Bは独立した地下搬入路。Fでドア・はしご、Vでダクト、Shiftで消音。','map-coordinate-copy':'TRC INSPIRED / OUTDOOR APPROACH','menu-coordinate-copy':'TRC INSPIRED / OUTDOOR APPROACH','menu-map-note':'同人音楽即売会 / オリジナル対戦レイアウト'});
   canvas.setAttribute('aria-label',name+'の3D競技マップ');$('large-minimap')?.setAttribute('aria-label',name+'の戦術マップ');
   for(const[id,text]of Object.entries(copies))if($(id))$(id).textContent=text;
   for(const id of ['map-select','online-map'])if($(id)&&(!online||id==='map-select'))$(id).value=map.id||'hashimoto';
@@ -1487,8 +1489,8 @@ function feed(text) {
 }
 function formatTime(t){return `${String(Math.floor(Math.max(0,t)/60)).padStart(2,'0')}:${String(Math.floor(Math.max(0,t)%60)).padStart(2,'0')}`;}
 function relocate(point){
-  const upper=Number.isFinite(point.y)&&point.y>0,safe=upper&&canStand(point.x,point.z,.34,point.y)?point:upper?null:navigation.nearest(point.travelX??point.x,point.travelZ??point.z);if(!safe)return false;
-  player.x=safe.x;player.z=safe.z;player.y=upper?point.y:0;player.vy=0;player.vx=0;player.vz=0;player.trafficLaunch=null;player.trcLadder=null;player.pitch=0;player.recoil=0;renderedRecoil=0;
+  const layered=Number.isFinite(point.y)&&point.y!==0,safe=layered&&canStand(point.x,point.z,.34,point.y)?point:layered?null:navigation.nearest(point.travelX??point.x,point.travelZ??point.z);if(!safe)return false;
+  player.x=safe.x;player.z=safe.z;player.y=layered?point.y:0;player.vy=0;player.vx=0;player.vz=0;player.trafficLaunch=null;player.trcLadder=null;player.pitch=0;player.recoil=0;renderedRecoil=0;
   if(Number.isFinite(point.yaw))player.yaw=point.yaw;resetMouseLook();return true;
 }
 function resetObjectivePractice(siteId='A'){
@@ -1550,6 +1552,13 @@ function startCharacterTrial(){
 }
 function updateTravelButtons(){
   const container=$('landmark-travel');if(!container)return;container.replaceChildren();
+  if(map.lightingStudy&&exploring&&!rangeSession&&!objectivePractice){
+    const study=map.lightingStudy,button=document.createElement('button');button.type='button';
+    const label=()=>{button.disabled=!study.ready;button.textContent=study.error?'TRC照明：読込失敗':!study.ready?'TRC照明：読込中':`TRC照明：${study.enabled?'ベイク → 従来':'従来 → ベイク'}`;};
+    label();study.promise.then(label);
+    button.title='現在位置のままTRC全体の照明を比較';
+    button.addEventListener('click',()=>{if(!study.ready)return;study.setEnabled(!study.enabled);label();resumeGame();showMessage(study.enabled?'TRC / BAKED':'TRC / ORIGINAL','Mで同じ視点のまま照明を切り替え',2);});container.append(button);
+  }
   if(objectivePractice){for(const siteId of ['A','B']){const button=document.createElement('button');button.type='button';button.textContent=`${siteId}でやり直す`;button.addEventListener('click',()=>{if(resetObjectivePractice(siteId))resumeGame();});container.append(button);}return;}
   for(const landmark of map.landmarks||[]){const button=document.createElement('button');button.type='button';button.textContent=landmark.name;button.disabled=!exploring;button.title=exploring?'この地点から練習':'マップ練習モードで移動できます';
     button.disabled=!exploring||!!rangeSession;
@@ -1601,15 +1610,17 @@ function canStand(x,z,r=.34,feet=player.y,height=1.7) {
   // Ground details under 2 cm are harmless; raised solids require feet above their real top.
   return !map.collision.blocked(x,z,r,feet,height);
 }
-function rampFloor(x,z) {
+function rampFloor(x,z,feet=Infinity) {
   let floor=null;
   for(const ramp of map.ramps||[]){
+    // An upper staircase cannot stop movement on a separate floor underneath.
+    if((ramp.base||0)>feet+.22)continue;
     if(x<ramp.minX||x>ramp.maxX||z<ramp.minZ||z>ramp.maxZ)continue;
     const along=ramp.axis==='x'?x:z,min=ramp.axis==='x'?ramp.minX:ramp.minZ,max=ramp.axis==='x'?ramp.maxX:ramp.maxZ;
     const fraction=clamp((along-min)/Math.max(.001,max-min),0,1);
     const f=ramp.direction===-1?1-fraction:fraction;
     const height=(ramp.base||0)+ramp.height*(ramp.steps?Math.min(ramp.steps,Math.ceil(Math.max(0,f-1e-7)*ramp.steps))/ramp.steps:f);
-    floor=Math.max(floor??0,height);
+    floor=Math.max(floor??-Infinity,height);
   }
   return floor;
 }
@@ -1624,7 +1635,7 @@ function moveEntity(entity,dx,dz,r=.34) {
       if(!permitted(x,z))return;
       const controlled=entity===player||!!entity.remoteId||!!map.traversal;
       let feet=entity.y||0;
-      const ramp=controlled?rampFloor(x,z):null;
+      const ramp=controlled?rampFloor(x,z,feet):null;
       const followsFloor=entity===player||map.traversal?!entity.vy:!!entity.remoteId;
       // Grounded feet may step up; an airborne actor must clear the slope rather
       // than enter just below it and miss the downward landing intersection.
@@ -1646,13 +1657,13 @@ function visibleBetween(a,b) {
   return !smokeBlocks(a,b)&&map.collision.rayClear(a.x,eye(a),a.z,b.x,eye(b),b.z)&&(!map.traffic||map.traffic.rayClear({x:a.x,y:eye(a),z:a.z},{x:b.x,y:eye(b),z:b.z},elapsed));
 }
 function safeDropPoint(entity=player){
-  const forwardX=-Math.sin(entity.yaw||0),forwardZ=-Math.cos(entity.yaw||0);
+  const forwardX=-Math.sin(entity.yaw||0),forwardZ=-Math.cos(entity.yaw||0),feet=map.id==='trc'?(entity.y||0):0;
   for(let distance=2;distance>=0;distance-=.2){
-    const x=entity.x+forwardX*distance,z=entity.z+forwardZ*distance;
-    if(navigation.isWalkable(x,z)&&map.collision.rayClear(entity.x,(entity.y||0)+.3,entity.z,x,.15,z))return {x,z};
+    const x=entity.x+forwardX*distance,z=entity.z+forwardZ*distance,y=getZoneFloor(x,z,feet+.05);
+    if(navigation.isWalkable(x,z,y)&&map.collision.rayClear(entity.x,feet+.3,entity.z,x,y+.15,z))return {x,z,y};
   }
-  const nearest=navigation.nearest(entity.x,entity.z);
-  return nearest&&Math.hypot(nearest.x-entity.x,nearest.z-entity.z)<3?nearest:{x:entity.x,z:entity.z};
+  const nearest=navigation.nearest(entity.x,entity.z,feet);
+  return nearest&&Math.hypot(nearest.x-entity.x,nearest.z-entity.z)<3?nearest:{x:entity.x,z:entity.z,y:getZoneFloor(entity.x,entity.z,feet+.05)};
 }
 function lineOfSight(x,z){return visibleBetween({x,z},player);}
 function tracer(from,to,color='#ffeab0',life=.07) {
@@ -1827,7 +1838,7 @@ function activePollenFields(){return match?.phase==='live'?ordinarySkills.events
 function activeOrdinarySmokeFields(){return match?.phase==='live'?ordinarySkills.events(elapsed).filter(event=>['mend-pollen','veil-dust','frost-mist','duelist-comet'].includes(event.type)&&elapsed>=event.triggerAt):[];}
 function smokeBlocks(a,b){const start=new THREE.Vector3(a.x,(a.y||0)+1.45,a.z),end=new THREE.Vector3(b.x,(b.y||0)+1.45,b.z),delta=end.clone().sub(start),length=delta.lengthSq();return [...smokes,...activeOrdinarySmokeFields()].some(s=>{const center=new THREE.Vector3(s.x,s.y,s.z),t=length?clamp(center.clone().sub(start).dot(delta)/length,0,1):0;return start.clone().addScaledVector(delta,t).distanceToSquared(center)<s.radius*s.radius;});}
 function getZoneFloor(x,z,ceiling){
-  let floor=rampFloor(x,z)||0;
+  let floor=map.floorBaseAt?.(x,z)??0;const ramp=rampFloor(x,z);if(ramp!==null&&ramp<=ceiling)floor=Math.max(floor,ramp);
   for(const collider of map.collision.query(x,z,0))if(!collider.disabled&&collider.height<=ceiling&&collider.height>floor&&map.collision.overlaps(collider,x,z,0))floor=collider.height;
   return floor;
 }
@@ -1884,8 +1895,8 @@ function getCometTarget(actor,point=null,aim=null){
     const length=Math.hypot(dx,dy,dz);if(!Number.isFinite(length)||length<.22)return null;
     reach=Math.min(reach,length);dx/=length;dy/=length;dz/=length;
   }else{dx=-Math.sin(yaw)*Math.cos(pitch);dy=Math.sin(pitch);dz=-Math.cos(yaw)*Math.cos(pitch);}
-  // Ground zero is a support plane rather than an AABB in the station map.
-  if(dy<0)reach=Math.min(reach,Math.max(0,(origin.y-.20)/-dy));
+  // Station ground is an implicit plane; TRC also has solid floors above its basement.
+  if(dy<0)reach=Math.min(reach,Math.max(0,(origin.y-(map.minY??0)-.20)/-dy));
   const at=length=>({x:origin.x+dx*length,y:origin.y+dy*length,z:origin.z+dz*length}),clear=length=>{const end=at(length);return map.collision.rayClear(origin.x,origin.y,origin.z,end.x,end.y,end.z);};
   // A straight eye-to-point path also clips ceilings; never force an air cast to a floor.
   if(!clear(reach)){let low=0,high=reach;for(let i=0;i<24;i++){const middle=(low+high)/2;if(clear(middle))low=middle;else high=middle;}reach=Math.max(0,low-.20);}
@@ -1926,13 +1937,13 @@ function catEnemyTarget(actor,aim=null){
   if(!best||along<best.distance)best={enemy,weapon:w,ammo,distance:along,x:enemy.x,y:center.y,z:enemy.z,targetId:enemy.id};
  }return best;
 }
-function catDropVisible(actor,drop){return ordinarySkills.blindUntil(actor.id,elapsed)<=elapsed&&!smokeBlocks(actor,{x:drop.x,y:-1.25,z:drop.z})&&map.collision.rayClear(actor.x,(actor.y||0)+1.7-(actor.crouch||0)*.55,actor.z,drop.x,.2,drop.z);}
+function catDropVisible(actor,drop){return ordinarySkills.blindUntil(actor.id,elapsed)<=elapsed&&!smokeBlocks(actor,{x:drop.x,y:(drop.y||0)-1.25,z:drop.z})&&map.collision.rayClear(actor.x,(actor.y||0)+1.7-(actor.crouch||0)*.55,actor.z,drop.x,(drop.y||0)+.2,drop.z);}
 function catDropTarget(actor,aim=null){
  if(ordinarySkills.blindUntil(actor.id,elapsed)>elapsed)return null;
  const input=netInputs.get(actor.remoteId)?.input,yaw=aim?.yaw??(actor===player?player.yaw:input?.yaw??actor.yaw??0),pitch=aim?.pitch??(actor===player?player.pitch:input?.pitch??0);
  if(!Number.isFinite(yaw)||!Number.isFinite(pitch))return null;
  const origin=new THREE.Vector3(actor.x,(actor.y||0)+1.7-(actor.crouch||0)*.55,actor.z),direction=new THREE.Vector3(-Math.sin(yaw)*Math.cos(pitch),Math.sin(pitch),-Math.cos(yaw)*Math.cos(pitch));
- let best=null;for(const drop of droppedWeapons){const target=new THREE.Vector3(drop.x,.2,drop.z),offset=target.clone().sub(origin),along=offset.dot(direction);if(along<0||Math.hypot(drop.x-actor.x,actor.y||0,drop.z-actor.z)>CAT_SKILLS.fetchRange||offset.addScaledVector(direction,-along).length()>.8||!catDropVisible(actor,drop))continue;if(!best||along<best.distance)best={drop,distance:along,x:drop.x,y:0,z:drop.z};}return best;
+ let best=null;for(const drop of droppedWeapons){const target=new THREE.Vector3(drop.x,(drop.y||0)+.2,drop.z),offset=target.clone().sub(origin),along=offset.dot(direction);if(along<0||Math.hypot(drop.x-actor.x,(actor.y||0)-(drop.y||0),drop.z-actor.z)>CAT_SKILLS.fetchRange||offset.addScaledVector(direction,-along).length()>.8||!catDropVisible(actor,drop))continue;if(!best||along<best.distance)best={drop,distance:along,x:drop.x,y:drop.y||0,z:drop.z};}return best;
 }
 function echoBotGlintPoint(bot,enemy,aim,actors){
  if(!enemy||!visibleBetween(bot,enemy))return null;
@@ -2283,7 +2294,7 @@ function updateRenkoVertical(actor,dt,radius){
  const e=renkoFlight(actor);if(!e)return false;
  const velocity=renkoFlightVelocity(e,elapsed,{pitch:actor===player?player.pitch:actor.netPitch||0});
  const steps=Math.max(1,Math.ceil(dt*120)),step=dt/steps;actor.vy=velocity;
- for(let i=0;i<steps;i++){let next=actor.y+velocity*step;const height=actorBodyHeight(actor);let floor=0,ceiling=Math.min(11,e.y+RENKO_SKILLS.flightHeight);const ramp=rampFloor(actor.x,actor.z);if(ramp!==null&&ramp<=actor.y+.04)floor=ramp;
+ for(let i=0;i<steps;i++){let next=actor.y+velocity*step;const height=actorBodyHeight(actor);let floor=map.floorBaseAt?.(actor.x,actor.z)??0,ceiling=Math.min(11,e.y+RENKO_SKILLS.flightHeight);const ramp=rampFloor(actor.x,actor.z,actor.y);if(ramp!==null&&ramp<=actor.y+.04)floor=ramp;
   for(const c of map.collision.query(actor.x,actor.z,radius)){if(c.disabled||!map.collision.overlaps(c,actor.x,actor.z,radius))continue;const underside=c.base||0;if(actor.y+height<=underside+.00001&&next+height>=underside)ceiling=Math.min(ceiling,underside-height);if(c.height<=actor.y+.00001)floor=Math.max(floor,c.height);}
   actor.y=Math.max(floor,Math.min(ceiling,next));if(actor.y!==next)actor.vy=0;
  }return true;
@@ -2504,7 +2515,7 @@ function applyAbility(actor,key,{predict=false,zonePoint=null,aim=null}={}){
     if(healing&&!predict)updateOrdinarySkills();
   }
   if(!predict&&actor===player)skillFeedback.note('cast','accepted:'+match.round+':'+effect.type+':'+elapsed,actor.kit.character,elapsed,definition?.name||CHARACTER_DEFS[actor.kit.character]?.ultName);
-  if(effect.type==='smoke'&&!predict){const origin=new THREE.Vector3(actor.x,(actor.y||0)+1.6,actor.z),aim=new THREE.Vector3(-Math.sin(yaw)*Math.cos(pitch),Math.sin(pitch),-Math.cos(yaw)*Math.cos(pitch));raycaster.set(origin,aim);raycaster.far=16;const hit=raycaster.intersectObject(environment,true)[0],end=origin.clone().addScaledVector(aim,hit?Math.max(.8,hit.distance-1):16);end.y=Math.max(1.7,end.y);syncSmokes([...serializeSmokes().slice(-19),{id:++smokeSequence,x:end.x,y:end.y,z:end.z,expires:elapsed+effect.duration,kind:'smoke',radius:3.6}]);raycaster.far=190;}
+  if(effect.type==='smoke'&&!predict){const origin=new THREE.Vector3(actor.x,(actor.y||0)+1.6,actor.z),aim=new THREE.Vector3(-Math.sin(yaw)*Math.cos(pitch),Math.sin(pitch),-Math.cos(yaw)*Math.cos(pitch));raycaster.set(origin,aim);raycaster.far=16;const hit=raycaster.intersectObject(environment,true)[0],end=origin.clone().addScaledVector(aim,hit?Math.max(.8,hit.distance-1):16);end.y=Math.max(getZoneFloor(end.x,end.z,origin.y)+1.7,end.y);syncSmokes([...serializeSmokes().slice(-19),{id:++smokeSequence,x:end.x,y:end.y,z:end.z,expires:elapsed+effect.duration,kind:'smoke',radius:3.6}]);raycaster.far=190;}
   if(effect.type==='veil'&&!predict)syncSmokes([...serializeSmokes().slice(-19),{id:++smokeSequence,x:actor.x,y:(actor.y||0)+1.7,z:actor.z,expires:elapsed+effect.duration,kind:'veil',radius:effect.radius}]);
   // Remote casts can happen between two BOT updates. Invalidate sightings now,
   // before another BOT uses a target acquired earlier in the same frame.
@@ -2590,7 +2601,9 @@ function updateCombatReport(){
   const key=JSON.stringify([player.id,report]);if(key===combatReportKey)return;combatReportKey=key;
   renderCombatReport(panel,report,{document});panel.open=true;
 }
+let hudRefresh=0;
 function updateHUD(){
+  hudRefresh=.05;
   if(!match)return;
   updateCombatReport();
   const armedWeapon=weapon(),ultimateKnives=player.kit.knivesActive&&inventory.active==='knife',firearm=inventory.active!=='spike'&&armedWeapon.mag>0;
@@ -2877,7 +2890,7 @@ function updateBots(dt){
     const attacking=bot.team===match.attackerTeam;
     if(attacking){
       if(spike.status==='dropped'){
-        if(plan?.recovererId===bot.id&&distance(bot,spike)<1.7)match.pickupSpike(bot.id,bot.team,bot.x,bot.z);
+        if(plan?.recovererId===bot.id&&distance(bot,spike)<1.7)match.pickupSpike(bot.id,bot.team,bot.x,bot.z,bot.y||0);
       }
       if(spike.status==='carried'){
         if(spike.carrier===bot.id){
@@ -3296,7 +3309,7 @@ function updateActorVertical(actor,dt,radius=.34){
     const verticalSteps=Math.max(1,Math.ceil(dt*120)),verticalDt=dt/verticalSteps;
     for(let i=0;i<verticalSteps;i++){
       const height=actorBodyHeight(actor),previousFeet=actor.y,nextFeet=previousFeet+actor.vy*verticalDt-7.5*verticalDt*verticalDt;
-      actor.vy-=15*verticalDt;let support=0,ceiling=flight?Math.min(11,flight.y+DUCK_SKILLS.flightHeight):Infinity;
+      actor.vy-=15*verticalDt;let support=map.floorBaseAt?.(actor.x,actor.z)??0,ceiling=flight?Math.min(11,flight.y+DUCK_SKILLS.flightHeight):Infinity;
       if(nextFeet>previousFeet){
         for(const p of heads)if(previousFeet+height<=p.base+.00001&&nextFeet+height>=p.base&&grassOverlaps(p,actor.x,actor.z,radius))ceiling=Math.min(ceiling,p.base-height);
         for(const c of map.collision.query(actor.x,actor.z,radius)){
@@ -3312,7 +3325,7 @@ function updateActorVertical(actor,dt,radius=.34){
         if(ramp!==null&&previousFeet>=ramp-.00001&&nextFeet<=ramp)support=ramp;
         for(const c of map.collision.query(actor.x,actor.z,radius)){
           if(c.disabled)continue;
-          if(c.height<=.02||c.height<=support||previousFeet<c.height-.00001||nextFeet>c.height)continue;
+          if(c.height<=support||previousFeet<c.height-.00001||nextFeet>c.height)continue;
           if(map.collision.overlaps(c,actor.x,actor.z,radius))support=c.height;
         }
       }
@@ -3449,7 +3462,7 @@ function updatePlay(dt){
   if(!exploring&&!isGuest()){match.tick(dt,{clockPaused:match.phase==='live'&&ordinarySkills.clockFrozen(elapsed),blueAlive:aliveCount('blue'),redAlive:aliveCount('red'),playerAlive:player.alive});handleMatchEvents();}
   timeLeft=match.phase==='buy'||match.phase==='post'?match.phaseTime:match.spike.status==='planted'?match.spike.timer:match.roundTime;
   updateFirstPersonEquipment(dt);
-  const s=match.spike;spikeModel.position.set(s.x,0,s.z);objectiveModel.update({time:elapsed,...s,practice:!!objectivePractice});
+  const s=match.spike;spikeModel.position.set(s.x,s.y||0,s.z);objectiveModel.update({time:elapsed,...s,practice:!!objectivePractice});
   if(s.status==='planted'&&!objectivePractice){
     const interval=s.timer<5?.15:s.timer<10?.3:s.timer<20?.6:1;
     if(elapsed-lastSpikeBeep>=interval){lastSpikeBeep=elapsed;sound('spike',{entity:s});}
@@ -3457,7 +3470,9 @@ function updatePlay(dt){
   damageFlash=Math.max(0,damageFlash-dt);hitFlash=Math.max(0,hitFlash-dt);
   $('damage').style.opacity=damageFlash*1.4;$('hitmarker').style.opacity=hitFlash>0?'1':'0';
   $('crosshair').classList.toggle('aiming',aiming);$('crosshair').classList.toggle('moving',len>0&&!aiming);
-  updateHUD();
+  // Shots, abilities and actions still refresh immediately at their call sites.
+  // The timer/status DOM need not be rebuilt at mouse/display polling speed.
+  if((hudRefresh-=dt)<=0)updateHUD();
   if(mode==='shop')updateShop();if(mode==='score')updateScoreboard();
 }
 function objectiveActionFor(actor){
@@ -3471,7 +3486,7 @@ function objectiveActionFor(actor){
 }
 function useNearbyObject(){
   if(trcInteract()||busInteract())return true;
-  const drop=droppedWeapons.find(d=>Math.hypot(d.x-player.x,d.z-player.z)<1.5);
+  const drop=droppedWeapons.find(d=>Math.hypot(d.x-player.x,player.y-(d.y||0),d.z-player.z)<1.5);
   if(!drop)return false;
   if(isGuest())queueNetAction('pickup',{dropId:drop.id});
   else if(pickupDroppedWeapon(player,drop.id))showMessage('WEAPON PICKED UP',weapon().name,1);
@@ -3485,11 +3500,11 @@ function updateInteraction(dt,stationary){
   const grounded=Math.abs(player.y)<=.05&&player.vy===0;
   stationary=stationary&&grounded;
   const s=match.spike,live=match.phase==='live'&&player.alive;
-  if(player.alive&&!isGuest()&&grounded&&!busSeat())match.pickupSpike(player.id,player.team,player.x,player.z);
+  if(player.alive&&!isGuest()&&actorGrounded(player)&&!busSeat())match.pickupSpike(player.id,player.team,player.x,player.z,player.y);
   const site=map.sites.find(p=>isInsideSite(p,player.x,player.z));
   const plant=live&&ownSide()==='attack'&&s.status==='carried'&&s.carrier===player.id&&site;
   const defuse=live&&ownSide()==='defend'&&s.status==='planted'&&Math.hypot(player.x-s.x,player.z-s.z)<2.3;
-  const nearbyDrop=live&&!plant&&!defuse?droppedWeapons.find(d=>Math.hypot(d.x-player.x,d.z-player.z)<1.5):null;
+  const nearbyDrop=live&&!plant&&!defuse?droppedWeapons.find(d=>Math.hypot(d.x-player.x,player.y-(d.y||0),d.z-player.z)<1.5):null;
   const bus=live&&!plant&&!defuse?map.traffic?.service.candidate(player,elapsed):null;
   if(bus){cancelPlantAndEquip(player);if(!isGuest())match.cancelDefuse(player.id);setVisible('interaction',bus.available);$('interaction-key').textContent='F';$('interaction-title').textContent=bus.available?(bus.kind==='board'?'乗車':bus.kind==='drive'?'運転席':'降車'):' ';$('interaction-progress').style.width='0%';$('mobile-interact-label').textContent='F';$('mobile-interact-hint').textContent='タップ';return;}
   const held=interactionHeld&&mode==='play',work=held?objectiveActionFor(player):null;
@@ -3809,7 +3824,7 @@ function updateRemoteActor(actor,dt){
   const wasClimbing=!!actor.trcLadder&&!carMotionActive(actor);if(wasClimbing){const previous={x:actor.x,y:actor.y,z:actor.z};map.traversal.climb(actor,active&&[-1,0,1].includes(input.climb)?input.climb:0,dt,input.quiet===true);trcMotionSound(actor,dt,previous,input.quiet===true);}
   if(active&&!wasClimbing&&!busSeat(actor)&&Number.isFinite(input.x)&&Number.isFinite(input.z)){
     // An accepted airborne pose ends turf before applying this input's speed cap.
-    const inputFeet=Number.isFinite(input.y)?clamp(input.y,0,11):actor.y;
+    const inputFeet=Number.isFinite(input.y)?clamp(input.y,map.minY??0,11):actor.y;
     const inputGrounded=actorGrounded({...actor,x:input.x,z:input.z,y:inputFeet,vy:0});
     let dx=input.x-actor.x,dz=input.z-actor.z;const renkoJet=renkoFlight(actor),renkoDrive=renkoDriveMotion(actor,renkoJet?null:renkoEvent(actor,'renko-drive'),elapsed,dt,{x:dx/Math.max(.001,dt*RENKO_SKILLS.runSpeed),z:dz/Math.max(.001,dt*RENKO_SKILLS.runSpeed),crouch:input.crouch>.5,grounded:actorGrounded(actor)});
     if(actor.dashTimer>0&&actor.dashVec){const step=Math.min(dt,actor.dashTimer)*12/.18;dx=actor.dashVec.x*step;dz=actor.dashVec.z*step;}
@@ -3874,7 +3889,7 @@ function updateRemoteActor(actor,dt){
   actor.netStepClock=remoteRunning?(actor.netStepClock||0)+dt:0;if(actor.netStepClock>.35){actor.netStepClock=0;sound('step',{entity:actor});}
   actor.kit?.tick(elapsed);actor.dashTimer=Math.max(0,(actor.dashTimer||0)-dt);actor.moving=Math.hypot(actor.x-previousX,actor.z-previousZ)>dt*.5;
   const stationary=Math.hypot(actor.x-previousX,actor.z-previousZ)<dt*.25&&Math.abs(actor.y||0)<=.05,held=active&&!busSeat(actor)&&!carMotionActive(actor)&&input.interact===true&&match.phase==='live';
-  if(active&&!busSeat(actor)&&Math.abs(actor.y||0)<=.05&&(actor.vy||0)===0)match.pickupSpike(actor.id,actor.team,actor.x,actor.z);
+  if(active&&!busSeat(actor)&&actorGrounded(actor))match.pickupSpike(actor.id,actor.team,actor.x,actor.z,actor.y);
   const work=held&&stationary?objectiveActionFor(actor):null,site=work?.site;
   actor.planting=work?.kind==='plant';actor.defusing=work?.kind==='defuse';
   if(actor.planting||actor.defusing){cancelServiceReload(actor);actor.netReload=0;}
@@ -3940,7 +3955,7 @@ function applyRemoteAction(actor,action,actionTime=elapsed){
   if(action.type==='drop'){
     if(renkoUnarmed(actor))return;
     cancelServiceReload(actor);
-    if(actor.netWeapon==='spike'&&match.spike.carrier===actor.id){const point=safeDropPoint({...actor,yaw:actor.netYaw});match.dropSpike(actor.id,point.x,point.z);actor.netWeapon=r.primary||r.secondary||'classic';}
+    if(actor.netWeapon==='spike'&&match.spike.carrier===actor.id){const point=safeDropPoint({...actor,yaw:actor.netYaw});match.dropSpike(actor.id,point.x,point.z,point.y||0);actor.netWeapon=r.primary||r.secondary||'classic';}
     else if(actor.netWeapon===r.primary){dropItem(r.primary,actor);r.primary=null;delete r.netPurchases?.primary;actor.netWeapon=r.secondary||'classic';}
     else return;
     const next=WEAPONS[actor.netWeapon]||WEAPONS.classic,saved=actor.netStores?.[actor.netWeapon];actor.netAmmo=saved?.ammo??next.mag;actor.netReserve=saved?.reserve??next.reserve;actor.netReload=0;return;
@@ -4028,6 +4043,9 @@ function observeMouseLook(event){
 function look(dx,dy){
   if(netHostPaused||mode!=='play'||!player.alive||!Number.isFinite(dx)||!Number.isFinite(dy)||Math.abs(dx)>500||Math.abs(dy)>500)return;
   player.yaw-=dx*.002*sensitivity;player.pitch=clamp(player.pitch-dy*.002*sensitivity,-1.35,1.35);
+  // Input owns the view angle; physics/recoil still advance on the normal frame.
+  // Keep victory/vehicle cameras under their own controller.
+  if(!victoryCamera.active&&!busDriving())camera.rotation.set(player.pitch+renderedRecoil,player.yaw,0);
 }
 function mouseLook(event){
   if(netHostPaused||mode!=='play'||!player.alive||event.sourceCapabilities?.firesTouchEvents){resetMouseLook();return;}
@@ -4133,7 +4151,7 @@ document.addEventListener('keydown',e=>{
     if(e.code==='Digit4'&&match.spike.carrier===player.id)equip('spike');
     if(e.code==='KeyG'&&!objectivePractice&&!renkoUnarmed(player)){
       if(isGuest()){queueNetAction('drop');return;}
-      if(inventory.active==='spike'){const point=safeDropPoint();match.dropSpike(player.id,point.x,point.z);equip(inventory.primary||inventory.secondary);}
+      if(inventory.active==='spike'){const point=safeDropPoint();match.dropSpike(player.id,point.x,point.z,point.y||0);equip(inventory.primary||inventory.secondary);}
       else if(inventory.active===inventory.primary){dropItem(inventory.primary,player);inventory.primary=null;delete roundPurchases.primary;equip(inventory.secondary);}
     }
   }
@@ -4227,7 +4245,10 @@ for(const type of ['pointerup','pointercancel'])$('mobile-interact')?.addEventLi
 canvas.addEventListener('pointercancel',e=>{if(touchLook?.id===e.pointerId)touchLook=null;});
 
 let previous=performance.now(),miniTick=0;
+const frameDiagnostics=mouseInputTrace?{rows:[],next:0,count:0}:null;
 function frame(now){
+  const frameStart=frameDiagnostics?performance.now():0;
+  const frameInterval=frameDiagnostics?Math.max(0,now-previous):0;
   requestAnimationFrame(frame);const dt=Math.min(Math.max(0,(now-previous)/1000),.25);previous=now;
   if(mode==='menu'){
     menuT+=dt;const overview=map.menuCamera||{position:[-15,9,-86],target:[30,8,-20]};camera.position.set(overview.position[0]+Math.sin(menuT*.09)*1.2,overview.position[1],overview.position[2]);camera.lookAt(...overview.target);
@@ -4243,7 +4264,12 @@ function frame(now){
     if(effect.life<=0){effectsGroup.remove(effect.object);effect.object.geometry.dispose();effect.object.material.dispose();effects.splice(i,1);}else effect.object.material.opacity=Math.min(1,effect.life/effect.max);
   }
   miniTick+=dt;if(miniTick>.1&&['play','shop','map','score'].includes(mode)){drawMinimap($('minimap'));if(mode==='map')drawMinimap($('large-minimap'),true);miniTick=0;}
-  syncDeathUI();renderWithDetonation(dt);
+  syncDeathUI();const renderStart=frameDiagnostics?performance.now():0;renderWithDetonation(dt);
+  if(frameDiagnostics){const f=frameDiagnostics;f.rows[f.next]=[frameInterval,renderStart-frameStart,performance.now()-renderStart];f.next=(f.next+1)%180;
+    if(++f.count%60===0){const percentile=(k,p)=>{const a=f.rows.map(r=>r[k]).sort((a,b)=>a-b);return +a[Math.floor((a.length-1)*p)].toFixed(2);};
+      const output=$('frame-diagnostics');if(output)output.textContent=JSON.stringify({map:map.id,mode,samples:f.rows.length,intervalMedianMs:percentile(0,.5),intervalP95Ms:percentile(0,.95),updateP95Ms:percentile(1,.95),renderSubmissionP95Ms:percentile(2,.95),shadowSize:sun.shadow.mapSize.x,bake:!!map.lightingStudy?.enabled});
+    }
+  }
 }
 $('loading-text').textContent='HASHIMOTO / 駅前アリーナ、ロード完了';
 setVisible('loading',false);requestAnimationFrame(frame);
