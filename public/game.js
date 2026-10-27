@@ -517,7 +517,7 @@ function updateOrdinarySkills(){
       const input=netInputs.get(actor.remoteId)?.input;
       return ordinaryActorView(input?{...actor,yaw:input.yaw,pitch:input.pitch}:actor);
     });
-    for(const effect of ordinarySkills.update(views,elapsed,match.round,{reachable:ordinaryReachable,groundHeight:ordinaryGroundHeight,cameraSweep:(a,b,r)=>cameraSweep(map.collision,activeArenaBounds(),a,b,r,map.traffic,elapsed),projectileClear:(a,b,r=0)=>map.collision.rayClear(a.x,a.y,a.z,b.x,b.y,b.z,r)})){
+    for(const effect of ordinarySkills.update(views,elapsed,match.round,{reachable:ordinaryReachable,groundHeight:ordinaryGroundHeight,cameraSweep:(a,b,r)=>cameraSweep(map.collision,activeArenaBounds(),a,b,r,map.traffic,elapsed)})){
       const target=actors.find(actor=>actor.id===effect.targetId),source=actors.find(actor=>actor.id===effect.sourceId);
       if(effect.type==='renko-push'&&target?.alive&&source?.alive&&target.team!==source.team){beginCarMotion(target,{id:effect.eventId,phase:4,endsAt:elapsed+RENKO_SKILLS.launchDuration,vx:effect.vx,vz:effect.vz});burst(new THREE.Vector3(target.x,(target.y||0)+1,target.z),'#a9e6ff',12);}
       if(effect.type==='damage'&&target&&source)damageEntity(target,effect.amount,source,{skill:source.kit?.character});

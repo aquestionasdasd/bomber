@@ -13,7 +13,7 @@ async function verifyEngine(fault=''){
  const wire=copy(pool.snapshot()),guest=createCharacterSkills();assert.equal(guest.restore(wire,11.5,1),true);assert.deepEqual(guest.update([a,enemy],12.5,1,{projectileClear:()=>true}),[],'restored data has no hit authority');
  for(const mutate of[e=>e.flight+=1,e=>e.endsAt+=1,e=>e.x=1001,e=>e.damage=0,e=>e.flight=Infinity]){const bad=copy(wire);mutate(bad.events[0]);assert.equal(createCharacterSkills().restore(bad,11.5,1),false);}
  assert.deepEqual(pool.update([a,enemy],11.5,1,{projectileClear:()=>true}),[]);const hits=pool.update([a,enemy],12.5,1,{projectileClear:()=>true});assert.equal(hits.length,1);assert.equal(hits[0].type,'renko-push');assert.equal(hits[0].targetId,'enemy');assert.deepEqual(pool.update([a,enemy],12.6,1,{projectileClear:()=>true}),[]);assert.equal(enemy.hp,100);
- const wall=createCharacterSkills();wall.cast('renko-dart',a,{x:0,y:1.7,z:-300},10,1);assert.deepEqual(wall.update([a,enemy],12.5,1,{projectileClear:(_,b)=>b.z>-100}),[]);assert.equal(wall.events(12.5).length,0,'distant wall consumes projectile');
+ const wall=createCharacterSkills();wall.cast('renko-dart',a,{x:0,y:1.7,z:-300},10,1);assert.equal(wall.update([a,enemy],12.5,1,{projectileClear:()=>false})[0].targetId,'enemy');assert.equal(wall.events(12.5).length,0,'first enemy consumes piercing projectile');
  const clean=createCharacterSkills();clean.cast('renko-dart',a,{x:0,y:1.7,z:-300},10,1);clean.update([a,enemy],10.1,2);assert.equal(clean.events(10.1).length,0,'next round clears long flight');
 }
 async function game(){
@@ -29,9 +29,9 @@ async function game(){
  // Restore each case's full fixture map after the bound-only checks above.
  for(const hz of[20,60,144]){setup();h.run('map.bounds={minX:-82,maxX:82,minZ:-82,maxZ:82};useAbility(\'c\')');assert.equal(h.run('player.kit.smoke'),1);step(1,hz);assert.equal(h.run('enemy.carMotion'),undefined);assert.equal(h.run('ordinarySkills.events(elapsed).filter(e=>e.type===\'renko-dart\').length'),1);step(.85,hz);assert.equal(h.run('enemy.carMotion.phase'),4);assert.equal(h.run('enemy.hp+enemy.armor'),150);assert.equal(h.run('totalKills'),0);assert.equal(h.run('match.credits'),800);}
  console.log('PASS: actual full frames20/60/144Hz cross140m and push with zero damage/rewards');
- setup();h.wall({z:-20,width:8});h.run("map.collision=createCollisionIndex(map.colliders);useAbility('c')");step(2);assert.equal(h.run('enemy.carMotion'),undefined);assert.equal(h.run('ordinarySkills.events(elapsed).length'),0);
+ setup();h.wall({z:-20,width:8});h.run("map.collision=createCollisionIndex(map.colliders);useAbility('c')");step(2);assert.equal(h.run('enemy.carMotion.phase'),4);assert.equal(h.run('ordinarySkills.events(elapsed).length'),0);
  setup();h.run("useAbility('c');enemy.x=6");step(2);assert.equal(h.run('enemy.carMotion'),undefined);
  setup();h.run("enemy.x=60;useAbility('c')");step(2.2);assert.equal(h.run('ordinarySkills.events(elapsed).length'),0,'empty ray disappears at world edge');
- console.log('PASS: distant wall stops, target can dodge, empty ray expires at map edge');
+ console.log('PASS: distant wall is pierced, target can dodge, empty ray expires at map edge');
 }
-(async()=>{await verifyEngine();console.log('PASS: dynamic lifetime/strict JSON/host-only hit/wall/round cleanup');for(const f of['range','lifetime']){await assert.rejects(()=>verifyEngine(f),{code:'ERR_ASSERTION'});console.log('PASS detects memory-only '+f+' fault')}await game()})().catch(e=>{console.error(e);process.exitCode=1});
+(async()=>{await verifyEngine();console.log('PASS: dynamic lifetime/strict JSON/host-only piercing hit/round cleanup');for(const f of['range','lifetime']){await assert.rejects(()=>verifyEngine(f),{code:'ERR_ASSERTION'});console.log('PASS detects memory-only '+f+' fault')}await game()})().catch(e=>{console.error(e);process.exitCode=1});

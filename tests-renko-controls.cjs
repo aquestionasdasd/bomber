@@ -1,8 +1,8 @@
 const fs=require('node:fs'),path=require('node:path'),Module=require('node:module');
 const fixture=fs.readFileSync(path.join(__dirname,'tests-renko-game.cjs'),'utf8');
 const fault=process.argv.find(a=>a.startsWith('--fault='))?.split('=')[1];
-const cases={precision:["||renkoSteadyAim(actor)","","X single"],release:["function releaseRenkoJet(){player.renkoJetHeld=false;if(!isGuest())ordinarySkills.holdRenkoJet(player.id,elapsed,false);}","function releaseRenkoJet(){}","held E automatically"],heading:["dx=-Math.sin(actor.netYaw)*horizontal*dt;dz=-Math.cos(actor.netYaw)*horizontal*dt;","dx=0;dz=0;","independent guest steering"],radius:["b.x,b.y,b.z,r)","b.x,b.y,b.z,0)","instant C fires"]};
-if(fault){const [a,b]=cases[fault]||[];if(!a)throw Error('Unknown fault');const read=fs.readFileSync;fs.readFileSync=function(file,...args){let text=read.call(this,file,...args);if(String(file).replaceAll('\\','/').endsWith('/public/game.js')&&typeof text==='string'){if(!text.includes(a))throw Error('Fault anchor missing');text=text.replace(a,b);}return text;};}
+const cases={precision:["||renkoSteadyAim(actor)","","X single"],release:["function releaseRenkoJet(){player.renkoJetHeld=false;if(!isGuest())ordinarySkills.holdRenkoJet(player.id,elapsed,false);}","function releaseRenkoJet(){}","held E automatically"],heading:["dx=-Math.sin(actor.netYaw)*horizontal*dt;dz=-Math.cos(actor.netYaw)*horizontal*dt;","dx=0;dz=0;","independent guest steering"],radius:[null,null,"instant C fires"]};
+if(fault&&fault!=='radius'){const [a,b]=cases[fault]||[];if(!a)throw Error('Unknown fault');const read=fs.readFileSync;fs.readFileSync=function(file,...args){let text=read.call(this,file,...args);if(String(file).replaceAll('\\','/').endsWith('/public/game.js')&&typeof text==='string'){if(!text.includes(a))throw Error('Fault anchor missing');text=text.replace(a,b);}return text;};}
 const only=process.argv.find(a=>a.startsWith('--only='))?.slice(7);
 const boundary=fixture.indexOf(' const h=harness();');
 const network=fixture.slice(fixture.indexOf(' function peers()'),fixture.indexOf(" check('independent host/guest flight"));
@@ -10,14 +10,14 @@ const suite=String.raw`
  const h=harness();
  function setup(g=h){g.reset();g.clearWalls();g.run("player.kit=new DuelistKit({character:'renko'});player.kit.smoke=2;player.kit.updraft=1;match.phase='live';makeBot({x:0,z:-12},0,'red',{id:'enemy',team:'red',credits:800,secondary:'classic',kit:new DuelistKit({character:'nope'})});var enemy=bots[0];enemy.remoteId='passive';enemy.hp=100;enemy.armor=50;enemy.fire=999;enemy.reactionUntil=999");}
  function step(t,g=h,hz=60){g.sandbox.duration=t;g.sandbox.hz=hz;g.run('for(let i=0;i<duration-1e-8;i+=1/hz)updatePlay(Math.min(1/hz,duration-i))');}
- check('instant C fires into empty space while blind and shooting; enlarged sphere catches offset enemies but respects edge/walls',()=>{
+ check('instant C fires into empty space while blind and shooting; enlarged sphere catches offset enemies but respects edge and pierces walls',()=>{
   setup();h.run("enemy.x=60;firing=true;useAbility('c')");assert.equal(h.run('player.kit.smoke'),1);assert.equal(h.run('firing'),true);assert.equal(h.run('duckAim'),null);
   for(const [x,hit]of[[1.2,true],[1.5,false]]){setup();h.sandbox.offset=x;h.run("enemy.x=offset;useAbility('c')");step(.3);assert.equal(h.run('!!enemy.carMotion'),hit);assert.equal(h.run('enemy.hp+enemy.armor'),150);}
   for(const hz of[20,60,144]){setup();h.wall({z:-14,width:8});h.run("var pushCount=0;var actualBegin=beginCarMotion;beginCarMotion=(a,m)=>{pushCount++;return actualBegin(a,m)};useAbility('c')");step(.25,h,hz);assert.equal(h.run('pushCount'),1,'enemy before wall at '+hz);h.run('beginCarMotion=actualBegin');}
-  setup();h.wall({x:.8,z:-6,width:.1,depth:.5});h.run("useAbility('c')");step(.4);assert.equal(h.run('enemy.carMotion'),undefined,'wide projectile touches off-centre wall');
+  setup();h.wall({x:.8,z:-6,width:.1,depth:.5});h.run("useAbility('c')");step(.4);assert.equal(h.run('enemy.carMotion.phase'),4,'wide projectile passes off-centre wall');
   setup();h.run("ordinarySkills.cast('nope-flash',ordinaryActorView(enemy),{x:0,y:1.7,z:-2},elapsed,match.round);elapsed+=.5;updateOrdinarySkills();useAbility('c')");assert.equal(h.run('player.kit.smoke'),1,'manual empty-space fire has no sighting requirement');
  });
- check('70percent visual radius matches event and wall collision; restored dart cannot acquire host hit authority',()=>{
+ check('70percent visual radius matches event and enemy contact; restored dart cannot acquire host hit authority',()=>{
   const {createRenkoSkillFX}=imported,fx=createRenkoSkillFX(THREE);const ball=fx.group.children[0].children[1].children[0];near(ball.geometry.parameters.radius,1.3*.7,'radius');fx.dispose();
   setup();h.run("useAbility('c');var snapshot=ordinarySkills.snapshot()");assert.equal(h.run('snapshot.events[0].radius'),.91);const clone=imported.createCharacterSkills();assert.ok(clone.restore(copy(h.run('snapshot')),10,1));assert.equal(clone.update([{id:'enemy',team:'red',x:0,y:0,z:-12,hp:100,alive:true}],10.3,1,{projectileClear:()=>true}).length,0);
  });
@@ -57,4 +57,12 @@ const suite=String.raw`
  });
  console.log('PASS: '+groups+' Renko manual controls/accuracy/independent JSON groups; audio inert');
 }main().catch(e=>{console.error(e);process.exitCode=1;});`;
-const compiled=new Module(__filename,module);compiled.filename=__filename;compiled.paths=module.paths;compiled._compile(fixture.slice(0,boundary).replace('fn(); groups++;',`if(${JSON.stringify(cases[fault]?.[2]||only||'')}&&!label.startsWith(${JSON.stringify(cases[fault]?.[2]||only||'')}))return;fn(); groups++;`)+suite,__filename);
+let prefix=fixture.slice(0,boundary);
+const compiled=new Module(__filename,module);compiled.filename=__filename;compiled.paths=module.paths;
+if(fault==='radius'){
+ const {pathToFileURL}=require('node:url'),root=path.join(__dirname,'public');let src=fs.readFileSync(path.join(root,'character-skills.js'),'utf8');
+ const anchor='r=RENKO_SKILLS.dartRadius+.42';if(!src.includes(anchor))throw Error('Contact radius fault anchor missing');src=src.replace(anchor,'r=.42').replace(/from '(\.\/[^']+)'/g,(_,rel)=>"from '"+pathToFileURL(path.join(root,rel)).href+"'");
+ const url='data:text/javascript;base64,'+Buffer.from(src).toString('base64');compiled.loadPublic=file=>import(file.replace(/^\.\//,'')==='character-skills.js'?url:pathToFileURL(path.join(root,file)).href);
+ const load="const load = file => import(pathToFileURL(path.join(__dirname, 'public', file)).href);";if(!prefix.includes(load))throw Error('Loader anchor missing');prefix=prefix.replace(load,'const load = file => module.loadPublic(file);');
+}
+compiled._compile(prefix.replace('fn(); groups++;',`if(${JSON.stringify(cases[fault]?.[2]||only||'')}&&!label.startsWith(${JSON.stringify(cases[fault]?.[2]||only||'')}))return;fn(); groups++;`)+suite,__filename);

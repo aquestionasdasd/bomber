@@ -17,6 +17,7 @@
     "check:renko-bot-negative": "node tests-bot-renko-dart-negative.cjs",
     "check:renko-jet-duration": "node tests-renko-jet-duration.cjs",
     "check:renko-dart-range": "node tests-renko-dart-range.cjs",
+    "check:renko-dart-piercing": "node tests-renko-dart-piercing.cjs && node tests-renko-dart-piercing.cjs --negative",
     "check:renko-bot-x": "node tests-bot-renko-ultimate.cjs",
     "check:renko-bot-x-negative": "node tests-bot-renko-ultimate-negative.cjs",
     "check:renko-controls": "node tests-renko-controls.cjs && node tests-renko-controls-negative.cjs",

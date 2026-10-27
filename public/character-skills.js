@@ -286,7 +286,7 @@ export function createCharacterSkills() {
     }
     return effects;
   }
-  function update(actors, now, round, { reachable, projectileClear, cameraSweep } = {}) {
+  function update(actors, now, round, { reachable, cameraSweep } = {}) {
     if (!advance(now, round)) return [];
     const effects = [], list = Array.isArray(actors) ? actors : [];
     for(const[id,b]of nearsights)if(!list.some(a=>living(a)&&a.id===id))nearsights.delete(id);
@@ -315,15 +315,15 @@ export function createCharacterSkills() {
         history.get(actor.id).hit=true;effects.push({type:'damage',targetId:actor.id,sourceId:e.sourceId,amount:JAPAN_SKILLS.borderDamage});
       }
     }
-    // Renko is a fixed, fast swept projectile. Restored events never own hits.
+    // Renko sweeps through geometry; only the first enemy or world endpoint ends it.
+    // Restored events never own hits, and the pushed actor still uses world collision.
     for(const id of owned){const e=active.get(id);if(e?.type!=='renko-dart')continue;
       const sample=waveSamples.get(id)||{at:e.startedAt},length=Math.hypot(e.x-e.fromX,e.y-e.fromY,e.z-e.fromZ);
       if(length<1e-8){owned.delete(id);continue;}const dx=(e.x-e.fromX)/length,dy=(e.y-e.fromY)/length,dz=(e.z-e.fromZ)/length;
       const lo=Math.max(0,Math.min(length,(sample.at-e.startedAt)*RENKO_SKILLS.dartSpeed)),hi=Math.max(lo,Math.min(length,(now-e.startedAt)*RENKO_SKILLS.dartSpeed));let hit=null;
-      for(const a of list){if(!living(a)||a.team===e.team)continue;const t=renkoDartContact(e,a,dx,dy,dz,lo,hi);if(!Number.isFinite(t))continue;const p={x:e.fromX+dx*t,y:e.fromY+dy*t,z:e.fromZ+dz*t};
-        if(typeof projectileClear!=='function'||!projectileClear({x:e.fromX,y:e.fromY,z:e.fromZ},p,RENKO_SKILLS.dartRadius))continue;if(!hit||t<hit.t)hit={a,t};}
+      for(const a of list){if(!living(a)||a.team===e.team)continue;const t=renkoDartContact(e,a,dx,dy,dz,lo,hi);if(!Number.isFinite(t))continue;if(!hit||t<hit.t)hit={a,t};}
       if(hit){const horizontal=Math.hypot(dx,dz);if(horizontal>1e-6)effects.push({type:'renko-push',eventId:e.id,targetId:hit.a.id,sourceId:e.sourceId,vx:dx/horizontal*RENKO_SKILLS.launchSpeed,vz:dz/horizontal*RENKO_SKILLS.launchSpeed});owned.delete(id);active.delete(id);}
-      else if(hi>=length-1e-8||typeof projectileClear!=='function'||!projectileClear({x:e.fromX,y:e.fromY,z:e.fromZ},{x:e.fromX+dx*hi,y:e.fromY+dy*hi,z:e.fromZ+dz*hi},RENKO_SKILLS.dartRadius)){owned.delete(id);active.delete(id);}
+      else if(hi>=length-1e-8){owned.delete(id);active.delete(id);}
       if(active.has(id))waveSamples.set(id,{at:now});else waveSamples.delete(id);
     }
     // A host-owned traveling volume hits each actor once. The wall-piercing
