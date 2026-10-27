@@ -815,6 +815,14 @@ function equipAfterPlant(actor){
   if(actor===player){interactionHeld=false;equip(id);}
   else if(actor.remoteId){actor.planting=false;applyRemoteAction(actor,{type:'equip',weapon:id});}
 }
+function cancelPlantAndEquip(actor){
+  const s=match?.spike,wasPlanting=s?.plantActor===actor?.id||actor===player&&isGuest()&&actor.planting;
+  if(!isGuest()&&actor)match?.cancelPlant(actor.id);
+  if(!wasPlanting||!actor?.alive||match?.phase!=='live'||s.status!=='carried'||s.carrier!==actor.id)return;
+  actor.planting=false;
+  if((actor===player?inventory.active:actor.netWeapon)==='spike')equipAfterPlant(actor);
+}
+function releaseObjectiveInput(){interactionHeld=false;cancelPlantAndEquip(player);}
 function openShop(){
   if(netHostPaused)return;
   if(!match||(!exploring&&match.phase!=='buy')||!player.alive){showMessage('ショップは購入フェーズのみ','装備は生き残れば次のラウンドへ持ち越します',2);return;}
@@ -1117,6 +1125,7 @@ function autoBuyBot(r){
 }
 function setVisible(id,visible) { if($(id))$(id).hidden=!visible; if(visible&&(id==='menu'||id==='result'))keyboardProtection.release(); if(id==='menu'||id==='online-overlay'||id==='online-lobby')characterPicker.sync(); }
 function clearCombatInput(){duckAim=null;releaseRenkoJet();
+  cancelPlantAndEquip(player);
   pointerLockRequest++;pointerLockInput='unlocked';
   keys.clear();firing=false;aiming=false;interactionHeld=false;touchMove={x:0,y:0};touchLook=null;movePointer=null;
   player.planting=false;player.defusing=false;
@@ -3366,7 +3375,7 @@ function useNearbyObject(){
 }
 function updateInteraction(dt,stationary){
   const trc=(exploring&&!objectivePractice||!objectiveActionFor(player))&&match.phase==='live'&&map.traversal?.nearby(player);
-  if(trc){if(!isGuest()){match.cancelPlant(player.id);match.cancelDefuse(player.id);}setVisible('interaction',true);$('interaction-key').textContent='F';$('interaction-title').textContent=trc.label;$('interaction-progress').style.width='0%';if($('mobile-interact-label'))$('mobile-interact-label').textContent='F';return;}
+  if(trc){cancelPlantAndEquip(player);if(!isGuest())match.cancelDefuse(player.id);setVisible('interaction',true);$('interaction-key').textContent='F';$('interaction-title').textContent=trc.label;$('interaction-progress').style.width='0%';if($('mobile-interact-label'))$('mobile-interact-label').textContent='F';return;}
 
   if(exploring&&!objectivePractice){setVisible('interaction',false);return;}
   const grounded=Math.abs(player.y)<=.05&&player.vy===0;
@@ -3378,7 +3387,7 @@ function updateInteraction(dt,stationary){
   const defuse=live&&ownSide()==='defend'&&s.status==='planted'&&Math.hypot(player.x-s.x,player.z-s.z)<2.3;
   const nearbyDrop=live&&!plant&&!defuse?droppedWeapons.find(d=>Math.hypot(d.x-player.x,d.z-player.z)<1.5):null;
   const bus=live&&!plant&&!defuse?map.traffic?.service.candidate(player,elapsed):null;
-  if(bus){if(!isGuest()){match.cancelPlant(player.id);match.cancelDefuse(player.id);}setVisible('interaction',bus.available);$('interaction-key').textContent='F';$('interaction-title').textContent=bus.available?(bus.kind==='board'?'乗車':bus.kind==='drive'?'運転席':'降車'):' ';$('interaction-progress').style.width='0%';$('mobile-interact-label').textContent='F';$('mobile-interact-hint').textContent='タップ';return;}
+  if(bus){cancelPlantAndEquip(player);if(!isGuest())match.cancelDefuse(player.id);setVisible('interaction',bus.available);$('interaction-key').textContent='F';$('interaction-title').textContent=bus.available?(bus.kind==='board'?'乗車':bus.kind==='drive'?'運転席':'降車'):' ';$('interaction-progress').style.width='0%';$('mobile-interact-label').textContent='F';$('mobile-interact-hint').textContent='タップ';return;}
   const held=interactionHeld&&mode==='play',work=held?objectiveActionFor(player):null;
   $('interaction-key').textContent=(plant||defuse)?'4':'F';
   if(work&&stationary){
@@ -3387,7 +3396,7 @@ function updateInteraction(dt,stationary){
       if(plant)match.interactPlant(dt*(ordinarySkills.nobiWork?.(player.id,elapsed,player,ordinaryReachable)||1),{actorId:player.id,team:player.team,site:site.id,x:player.x,z:player.z,stationary:true});
       else match.interactDefuse(dt*(ordinarySkills.nobiWork?.(player.id,elapsed,player,ordinaryReachable)||1),{actorId:player.id,team:player.team,near:true,stationary:true});
     }
-  }else if(!isGuest()){match.cancelPlant(player.id);match.cancelDefuse(player.id);}
+  }else{cancelPlantAndEquip(player);if(!isGuest())match.cancelDefuse(player.id);}
   const progress=plant?s.plantProgress/4:s.defuseProgress/7;
   const remaining=Math.max(0,(plant?4:7)-(held?(plant?s.plantProgress:s.defuseProgress):defuse?s.checkpoint:0))/(ordinarySkills.nobiWork(player.id,elapsed,player,ordinaryReachable)||1);
   const teammateDefusing=defuse&&s.defuseActor&&s.defuseActor!==player.id;
@@ -3688,7 +3697,7 @@ if(map.destruction){if(fresh||!packet.busDamage)map.destruction.reset();map.dest
   updateHUD();
 }
 function updateRemoteActor(actor,dt){
-  const data=netInputs.get(actor.remoteId);if(!data){actor.planting=false;actor.defusing=false;match.cancelPlant(actor.id);match.cancelDefuse(actor.id);return;}
+  const data=netInputs.get(actor.remoteId);if(!data){cancelPlantAndEquip(actor);actor.planting=false;actor.defusing=false;match.cancelDefuse(actor.id);return;}
   const input=data.input,active=elapsed-data.received<.8&&actor.alive&&data.round===match.round,objectiveWork=active&&input.interact===true?objectiveActionFor(actor):null,previousX=actor.x,previousY=actor.y||0,previousZ=actor.z,wasDashing=actor.dashTimer>0;
   if(actor.kit?.character==='renko'){ordinarySkills.holdRenkoJet(actor.id,elapsed,active&&input.jet===true&&!objectiveWork&&!carMotionActive(actor)&&!busSeat(actor));if(active){actor.netYaw=Number.isFinite(input.yaw)?input.yaw:0;actor.netPitch=clamp(Number(input.pitch)||0,-1.35,1.35);}}
   if(active&&duckPadAirborne(actor)&&actorGrounded(actor)&&Number.isFinite(input.y)&&Math.abs(input.y-actor.y)<.08)actor.duckPadUntil=0;
@@ -3778,7 +3787,7 @@ function updateRemoteActor(actor,dt){
     applyRemoteAction(actor,action,actionTime);ack=action.seq;
   }
   netApplied.set(actor.remoteId,ack);data.actions=data.actions.filter(a=>a.seq>ack);
-  if(actor.planting)match.interactPlant(dt*(ordinarySkills.nobiWork?.(actor.id,elapsed,actor,ordinaryReachable)||1),{actorId:actor.id,team:actor.team,site:site.id,x:actor.x,z:actor.z});else match.cancelPlant(actor.id);
+  if(actor.planting)match.interactPlant(dt*(ordinarySkills.nobiWork?.(actor.id,elapsed,actor,ordinaryReachable)||1),{actorId:actor.id,team:actor.team,site:site.id,x:actor.x,z:actor.z});else cancelPlantAndEquip(actor);
   if(actor.defusing)match.interactDefuse(dt*(ordinarySkills.nobiWork?.(actor.id,elapsed,actor,ordinaryReachable)||1),{actorId:actor.id,team:actor.team});else match.cancelDefuse(actor.id);
 }
 function applyRemoteAction(actor,action,actionTime=elapsed){
@@ -4020,7 +4029,7 @@ document.addEventListener('keydown',e=>{
   }
   if(e.code==='KeyR')reload();if(e.code==='KeyC')useAbility('c');if(e.code==='KeyQ')dash();if(e.code==='KeyE')scan();if(e.code==='KeyX')useAbility('x');if(e.code==='Space')jump();
 },{capture:true});
-document.addEventListener('keyup',e=>{keys.delete(e.code);if(e.code==='KeyE')releaseRenkoJet();if(e.code==='Digit4')interactionHeld=false;if(e.code==='Tab'&&mode==='score')resumeGame();});
+document.addEventListener('keyup',e=>{keys.delete(e.code);if(e.code==='KeyE')releaseRenkoJet();if(e.code==='Digit4')releaseObjectiveInput();if(e.code==='Tab'&&mode==='score')resumeGame();});
 function suspendSession(){
   victoryMusic.stop();
   keyboardProtection.release();
@@ -4104,7 +4113,7 @@ $('mobile-fire')?.addEventListener('pointerdown',e=>{e.preventDefault();if(duckA
 for(const type of ['pointerup','pointercancel'])$('mobile-fire')?.addEventListener(type,()=>firing=false);
 $('mobile-shop')?.addEventListener('click',openShop);
 $('mobile-interact')?.addEventListener('pointerdown',e=>{e.preventDefault();if(netHostPaused||mode!=='play'||!player.alive||match?.phase!=='live'||objectivePractice?.completed)return;if(!objectiveActionFor(player)&&useNearbyObject())return;interactionHeld=true;if(match.spike.carrier===player.id)equip('spike');$('mobile-interact').setPointerCapture(e.pointerId);});
-for(const type of ['pointerup','pointercancel'])$('mobile-interact')?.addEventListener(type,()=>interactionHeld=false);
+for(const type of ['pointerup','pointercancel'])$('mobile-interact')?.addEventListener(type,releaseObjectiveInput);
 canvas.addEventListener('pointercancel',e=>{if(touchLook?.id===e.pointerId)touchLook=null;});
 
 let previous=performance.now(),miniTick=0;

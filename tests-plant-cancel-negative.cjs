@@ -1,0 +1,2 @@
+const assert=require('node:assert/strict'),{spawnSync}=require('node:child_process'),path=require('node:path');
+for(const fault of['rearm','progress']){const r=spawnSync(process.execPath,[path.join(__dirname,'tests-plant-cancel.cjs'),'--fault='+fault],{encoding:'utf8',timeout:120000});assert.notEqual(r.status,0,fault+' undetected');assert.match(r.stderr,/AssertionError/);assert.doesNotMatch(r.stderr,/Missing anchor|SyntaxError|ReferenceError/);console.log('PASS: memory '+fault+' fault detected by actual key release');}
