@@ -2156,6 +2156,7 @@ function renkoEvent(actor,type){
  const e=ordinarySkills.renkoEvent(type,actor.id,elapsed),p=actor.renkoPending;return e?.team===actor.team&&e.round===match.round?e:p?.event.type===type&&p.round===match.round&&p.team===actor.team&&p.event.endsAt>elapsed?p.event:null;
 }
 function renkoFlight(actor){if(actor===player&&actor.renkoJetHeld!==true)return null;return renkoEvent(actor,'renko-jet');}
+function normalJumpVelocity(actor){return 6.552*(renkoEvent(actor,'renko-drive')?RENKO_SKILLS.driveJumpScale:1);}
 function renkoSliding(actor){const s=actor?.renkoDrive;return !!(renkoEvent(actor,'renko-drive')&&s&&elapsed-s.slideAt>=0&&elapsed-s.slideAt<RENKO_SKILLS.slideDuration&&actorGrounded(actor));}
 function renkoDartTarget(actor,aim){
  const d=carAim(actor,aim);if(!d)return null;const from={x:actor.x,y:(actor.y||0)+1.7-(actor.crouch||0)*.55,z:actor.z};
@@ -2498,7 +2499,7 @@ function duckFlap(actor){
   actor.duckFlapEvent=event.id;actor.duckFlapAt=elapsed;actor.vy=DUCK_SKILLS.flapVelocity;sound('duck-flap',{entity:actor,localOnly:true});return true;
 }
 function jump(){if(carMotionActive(player)||busSeat()||renkoFlight(player))return;if(player.trcLadder){trcInteract(player,{kind:'ladder',id:player.trcLadder});return;}if(!netHostPaused&&mode==='play'&&player.alive&&!interactionHeld&&duckFlap(player))return;
-if(!netHostPaused&&mode==='play'&&player.alive&&player.vy===0&&!ordinarySkills.onnaraEvent?.('onnara-hover',player.id,elapsed)&&!interactionHeld){player.vy=6.552;sound('jump',{localOnly:true});}}
+if(!netHostPaused&&mode==='play'&&player.alive&&player.vy===0&&!ordinarySkills.onnaraEvent?.('onnara-hover',player.id,elapsed)&&!interactionHeld){player.vy=normalJumpVelocity(player);sound('jump',{localOnly:true});}}
 function updateCombatReport(){
   const panel=$('combat-report'),report=match?.phase==='buy'&&!exploring?roundDamage.report(player.id,roster,match.round):null;
   setVisible('combat-report',!!report);if(!panel||!report)return;
@@ -3750,7 +3751,7 @@ function updateRemoteActor(actor,dt){
         const jumpKey=data.connection+':'+data.round;
         if(actor.netTrcJumpKey!==jumpKey){actor.netTrcJumpKey=jumpKey;actor.netTrcJumpActive=false;}
         if(inputGrounded)actor.netTrcJumpActive=false;
-        else if(!starJump&&!actor.netTrcJumpActive&&inputFeet>actor.y+.1&&actorGrounded(actor)){actor.vy=6.552;actor.netTrcJumpActive=true;}
+        else if(!starJump&&!actor.netTrcJumpActive&&inputFeet>actor.y+.1&&actorGrounded(actor)){actor.vy=normalJumpVelocity(actor);actor.netTrcJumpActive=true;}
         updateActorVertical(actor,dt);acceptedY=actor.y;
       }
       actor.y=acceptedY;
