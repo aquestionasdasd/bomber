@@ -127,20 +127,20 @@ export function createCollisionIndex(colliders, cellSize = 20) {
   }
   // A sight ray has no actor height. Clip it to each solid's vertical span before
   // testing the footprint so an overhead deck cannot hide a ground-level enemy.
-  function rayClear(ax, ay, az, bx, by, bz) {
-    if (![ax, ay, az, bx, by, bz].every(Number.isFinite)) return false;
+  function rayClear(ax, ay, az, bx, by, bz, radius = 0) {
+    if (![ax, ay, az, bx, by, bz,radius].every(Number.isFinite)||radius<0) return false;
     const dx=bx-ax,dy=by-ay,dz=bz-az;
-    for(const c of segmentCandidates(ax,az,bx,bz,0)){
+    for(const c of segmentCandidates(ax,az,bx,bz,radius)){
       if(c.disabled)continue;
       let low=0,high=1;
-      for(const [start,delta,min,max] of [[ax,dx,c.minX,c.maxX],[ay,dy,c.base||0,c.height],[az,dz,c.minZ,c.maxZ]]){
+      for(const [start,delta,min,max] of [[ax,dx,c.minX-radius,c.maxX+radius],[ay,dy,(c.base||0)-radius,c.height+radius],[az,dz,c.minZ-radius,c.maxZ+radius]]){
         if(Math.abs(delta)<1e-12){if(start<min||start>max){low=1;high=0;break;}}
         else{const a=(min-start)/delta,b=(max-start)/delta;low=Math.max(low,Math.min(a,b));high=Math.min(high,Math.max(a,b));if(low>high)break;}
       }
       if(low>high)continue;
       const sx=ax+dx*low,sz=az+dz*low,ex=ax+dx*high,ez=az+dz*high;
-      if(overlaps(c,sx,sz)||overlaps(c,ex,ez))return false;
-      for(const ring of rings(c))for(let i=0,j=ring.length-1;i<ring.length;j=i++)if(segmentsDistanceSquared(sx,sz,ex,ez,...ring[j],...ring[i])<1e-12)return false;
+      if(overlaps(c,sx,sz,radius)||overlaps(c,ex,ez,radius))return false;
+      for(const ring of rings(c))for(let i=0,j=ring.length-1;i<ring.length;j=i++){const d=segmentsDistanceSquared(sx,sz,ex,ez,...ring[j],...ring[i]);if(radius?d<=radius*radius+1e-12:d<1e-12)return false;}
     }
     return true;
   }

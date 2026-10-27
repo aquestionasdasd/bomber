@@ -1,3 +1,4 @@
+import { createRenkoAvatar } from './renko-avatar.js';
 import { createOnnaraAvatar } from './onnara-avatar.js';
 import { createUrchinAvatar } from './urchin-avatar.js';
 import { createCapAvatar } from './cap-avatar.js';
@@ -599,7 +600,7 @@ export function createAgentModel(THREE, { bot = null, team = 'red', variant = 0,
   let weapon = buildWeapon(kit, defaultWeapon, weaponPivot, false);
   weapon.group.rotation.y = Math.PI;
   const weapons = new Map([[defaultWeapon, weapon]]), ownedMaterials = [...kit.materials];
-  let knifeFan = null, ultimate = false, throwClock = 0;
+  let knifeFan = null, ultimate = false, throwClock = 0, unarmed = false;
   function selectWeapon(id = defaultWeapon) {
     if (!['pump', 'drum', 'scout', 'atlas', 'forge', 'classic', 'ghost', 'spectre', 'vandal', 'phantom', 'knife', 'spike'].includes(id)) id = defaultWeapon;
     if (id === 'spike') id = 'knife';
@@ -660,7 +661,7 @@ export function createAgentModel(THREE, { bot = null, team = 'red', variant = 0,
     enemyRim.register(avatar.group);
   }
 
-  let sunflowerAvatar=null,starMascotAvatar=null,solderAvatar=null,iagnuAvatar=null,onoAvatar=null,grassBlockAvatar=null,nopeAvatar=null,duckAvatar=null,catAvatar=null,carAvatar=null,nobiAvatar=null,japanAvatar=null,capAvatar=null,urchinAvatar=null,onnaraAvatar=null;
+  let renkoAvatar=null,sunflowerAvatar=null,starMascotAvatar=null,solderAvatar=null,iagnuAvatar=null,onoAvatar=null,grassBlockAvatar=null,nopeAvatar=null,duckAvatar=null,catAvatar=null,carAvatar=null,nobiAvatar=null,japanAvatar=null,capAvatar=null,urchinAvatar=null,onnaraAvatar=null;
   const characterGear = new Map();
   let activeCharacter = 'duelist', gearMaterial = null;
   function equipment(parent, id, label, build) {
@@ -713,9 +714,9 @@ export function createAgentModel(THREE, { bot = null, team = 'red', variant = 0,
     return object;
   }
   function selectCharacter(id) {
-    if(id!=='duelist'&&id!=='nope'&&id!=='mend'&&id!=='echo'&&id!=='veil'&&id!=='ember'&&id!=='frost'&&id!=='duck'&&id!=='cat'&&id!=='car'&&id!=='nobi'&&id!=='japan'&&id!=='cap'&&id!=='urchin'&&id!=='onnara')id='duelist';
+    if(id!=='duelist'&&id!=='nope'&&id!=='mend'&&id!=='echo'&&id!=='veil'&&id!=='ember'&&id!=='frost'&&id!=='duck'&&id!=='cat'&&id!=='car'&&id!=='nobi'&&id!=='japan'&&id!=='cap'&&id!=='urchin'&&id!=='onnara'&&id!=='renko')id='duelist';
     if(id===activeCharacter&&group.userData.character===id)return;
-    if(id!=='duelist'&&id!=='nope'&&id!=='mend'&&id!=='ember'&&id!=='echo'&&id!=='frost'&&id!=='veil'&&id!=='duck'&&id!=='cat'&&id!=='car'&&id!=='nobi'&&id!=='japan'&&id!=='cap'&&id!=='urchin'&&id!=='onnara'&&!characterGear.has(id)){
+    if(id!=='duelist'&&id!=='nope'&&id!=='mend'&&id!=='ember'&&id!=='echo'&&id!=='frost'&&id!=='veil'&&id!=='duck'&&id!=='cat'&&id!=='car'&&id!=='nobi'&&id!=='japan'&&id!=='cap'&&id!=='urchin'&&id!=='onnara'&&id!=='renko'&&!characterGear.has(id)){
       const pieces=[];
       if(id==='nope')pieces.push(equipment(upper,id,'chest badge',({block})=>{
         block([-.085,1.257,.197],[.067,.058,.012],'#293842',.006);
@@ -879,6 +880,7 @@ export function createAgentModel(THREE, { bot = null, team = 'red', variant = 0,
       }
       characterGear.set(id,pieces);
     }
+    if(id==='renko'&&!renkoAvatar){renkoAvatar=createRenkoAvatar(THREE,{rig,upper,head,rightArm,leftArm,leftLeg,rightLeg,team});registerAvatar(renkoAvatar);}
     if(id==='mend'&&!sunflowerAvatar){sunflowerAvatar=createSunflowerAvatar(THREE,{rig,upper,head,rightArm,leftArm,leftLeg,rightLeg,team});registerAvatar(sunflowerAvatar);}
     if(id==='duelist'&&!starMascotAvatar){starMascotAvatar=createStarMascotAvatar(THREE,{rig,upper,head,rightArm,leftArm,leftLeg,rightLeg,team});registerAvatar(starMascotAvatar);}
     if(id==='ember'&&!solderAvatar){solderAvatar=createSolderAvatar(THREE,{rig,upper,head,rightArm,leftArm,leftLeg,rightLeg,team});registerAvatar(solderAvatar);}
@@ -894,7 +896,8 @@ export function createAgentModel(THREE, { bot = null, team = 'red', variant = 0,
     if(id==='car'&&!carAvatar){carAvatar=createCarAvatar(THREE,{rig,upper,head,rightArm,leftArm,leftLeg,rightLeg,team});registerAvatar(carAvatar);}
     if(id==='cat'&&!catAvatar){catAvatar=createCatAvatar(THREE,{rig,upper,head,rightArm,leftArm,leftLeg,rightLeg,team});registerAvatar(catAvatar);}
     if(id==='duck'&&!duckAvatar){duckAvatar=createDuckAvatar(THREE,{rig,upper,head,rightArm,leftArm,leftLeg,rightLeg,team});registerAvatar(duckAvatar);}
-    for(const object of bodyDrawables)object.visible=id!=='nope'&&id!=='mend'&&id!=='duelist'&&id!=='ember'&&id!=='echo'&&id!=='frost'&&id!=='veil'&&id!=='duck'&&id!=='cat'&&id!=='car'&&id!=='nobi'&&id!=='japan'&&id!=='cap'&&id!=='urchin'&&id!=='onnara';
+    for(const object of bodyDrawables)object.visible=id!=='nope'&&id!=='mend'&&id!=='duelist'&&id!=='ember'&&id!=='echo'&&id!=='frost'&&id!=='veil'&&id!=='duck'&&id!=='cat'&&id!=='car'&&id!=='nobi'&&id!=='japan'&&id!=='cap'&&id!=='urchin'&&id!=='onnara'&&id!=='renko';
+    renkoAvatar?.setVisible(id==='renko');
     sunflowerAvatar?.setVisible(id==='mend');
     starMascotAvatar?.setVisible(id==='duelist');
     solderAvatar?.setVisible(id==='ember');
@@ -924,6 +927,7 @@ export function createAgentModel(THREE, { bot = null, team = 'red', variant = 0,
       b.set(side * .25, 1.09 + drop, .16);
       c.set(side * .235, 1.20 + drop + (isRight ? flick * .055 : 0), .38 + (isRight ? flick * .20 : 0));
     } else if (weapon.knife && !isRight) c.set(.18, 1.13 + drop, .18);
+    if (unarmed) { b.set(side * .28, 1.05 + drop, .08); c.set(side * .30, 1.20 + drop, .28); }
     if (interaction > 0) {
       b.lerp(target.set(side * .20, .95 + drop, .15), interaction);
       c.lerp(target.set(side * .085, .88 + drop, .365), interaction);
@@ -972,7 +976,8 @@ export function createAgentModel(THREE, { bot = null, team = 'red', variant = 0,
     // lowers the whole rig; applying crouch again would put its head underground.
     const crouch = state.alive === false || dancing || sliding ? 0 : Math.max(0, Math.min(1, Number(state.crouch) || 0));
     interactBlend += ((interacting ? 1 : 0) - interactBlend) * smooth;
-    ultimate = Boolean(state.ultimate) && state.alive !== false;
+    unarmed = state.unarmed === true && state.alive !== false;
+    ultimate = !unarmed && Boolean(state.ultimate) && state.alive !== false;
     selectWeapon(ultimate ? 'knife' : state.weapon || defaultWeapon);
     if (ultimate && !knifeFan) {
       knifeFan = createKnifeFan(THREE, { weapon }); upper.add(knifeFan.group);
@@ -982,7 +987,7 @@ export function createAgentModel(THREE, { bot = null, team = 'red', variant = 0,
       shotSequence: state.shotSequence, time });
     throwClock = thrown ? .20 : Math.max(0, throwClock - dt);
     if (knifeFan) {
-      if (!weapon.knife || state.alive === false) knifeFan.group.visible = false;
+      if (unarmed || !weapon.knife || state.alive === false) knifeFan.group.visible = false;
       else if (knifeFan.group.userData.throwing) { ultimate = true; weapon.group.visible = false; }
     }
     // Short snapshot flash flags can be missed between network frames. A new
@@ -990,12 +995,13 @@ export function createAgentModel(THREE, { bot = null, team = 'red', variant = 0,
     const hasSequence = Number.isFinite(state.shotSequence) && state.shotSequence >= 0;
     const newShot = hasSequence && lastShotSequence !== null && state.shotSequence > lastShotSequence;
     if (hasSequence) lastShotSequence = state.shotSequence;
-    const firing = Boolean(state.firing) && state.alive !== false && !weapon.knife;
+    if (unarmed) weapon.group.visible = false;
+    const firing = !unarmed && Boolean(state.firing) && state.alive !== false && !weapon.knife;
     flashTimer = Math.max(0, flashTimer - dt);
-    if (state.alive !== false && !weapon.knife && (newShot || firing && !wasFiring)) {
+    if (!unarmed && state.alive !== false && !weapon.knife && (newShot || firing && !wasFiring)) {
       fireKick = 1; flashTimer = .06;
     }
-    if (weapon.knife || state.alive === false) flashTimer = 0;
+    if (unarmed || weapon.knife || state.alive === false) flashTimer = 0;
     wasFiring = firing; fireKick *= Math.exp(-dt * 18);
     const gait = time * 10 + variant * 1.7, cycle = Math.sin(gait);
     const drop = -crouch * .55 - interactBlend * .19 * (1 - crouch) + Math.cos(gait * 2) * .012 * moveBlend;
@@ -1007,7 +1013,7 @@ export function createAgentModel(THREE, { bot = null, team = 'red', variant = 0,
     weaponPivot.position.z = (weapon.knife ? .28 : .345) - interactBlend * .11 - fireKick * .014;
     weaponPivot.rotation.set(interactBlend * .75 - fireKick * .055, 0, -interactBlend * .12);
     upper.updateMatrix(); weaponPivot.updateMatrix(); weapon.group.updateMatrix();
-    muzzle.visible = (firing || flashTimer > 0) && state.alive !== false && !weapon.knife;
+    muzzle.visible = !unarmed && (firing || flashTimer > 0) && state.alive !== false && !weapon.knife;
     muzzle.rotation.z = time * 39;
     poseArm(rightArm, -1, drop, interactBlend); poseArm(leftArm, 1, drop, interactBlend);
     poseLeg(leftLeg, cycle * .18 * moveBlend, Math.max(0, Math.cos(gait)) * .075 * moveBlend, drop);
@@ -1035,12 +1041,13 @@ export function createAgentModel(THREE, { bot = null, team = 'red', variant = 0,
       weapon.group.visible = false; if (knifeFan) knifeFan.group.visible = false;
       muzzle.visible = false;
     }
+    if(activeCharacter==='renko')renkoAvatar.update();
     if(activeCharacter==='mend')sunflowerAvatar.update(interactBlend);
     if(activeCharacter==='duelist')starMascotAvatar.update();
     if(activeCharacter==='ember')solderAvatar.update();
     if(activeCharacter==='echo')iagnuAvatar.update();
     if(activeCharacter==='frost')onoAvatar.update(interactBlend);
-    if(activeCharacter==='veil')grassBlockAvatar.update();
+    if(activeCharacter==='veil')grassBlockAvatar.update({crouch,stable:state.alive!==false&&!dancing});
     if(activeCharacter==='onnara')onnaraAvatar.update();
     if(activeCharacter==='urchin')urchinAvatar.update();
     if(activeCharacter==='cap')capAvatar.update();
@@ -1052,7 +1059,7 @@ export function createAgentModel(THREE, { bot = null, team = 'red', variant = 0,
     if(activeCharacter==='nope')nopeAvatar.update();
   }
   update(0, { alive: true, character });
-  function dispose() { if (disposed) return; disposed = true; group.removeFromParent(); enemyRim.dispose(); sunflowerAvatar?.dispose(); starMascotAvatar?.dispose(); solderAvatar?.dispose(); iagnuAvatar?.dispose(); onoAvatar?.dispose(); grassBlockAvatar?.dispose(); nopeAvatar?.dispose(); duckAvatar?.dispose(); catAvatar?.dispose();carAvatar?.dispose();nobiAvatar?.dispose();japanAvatar?.dispose();capAvatar?.dispose();urchinAvatar?.dispose();onnaraAvatar?.dispose(); knifeFan?.dispose(); kit.dispose(); finishes.release(); }
+  function dispose() { if (disposed) return; disposed = true; group.removeFromParent(); enemyRim.dispose(); renkoAvatar?.dispose(); sunflowerAvatar?.dispose(); starMascotAvatar?.dispose(); solderAvatar?.dispose(); iagnuAvatar?.dispose(); onoAvatar?.dispose(); grassBlockAvatar?.dispose(); nopeAvatar?.dispose(); duckAvatar?.dispose(); catAvatar?.dispose();carAvatar?.dispose();nobiAvatar?.dispose();japanAvatar?.dispose();capAvatar?.dispose();urchinAvatar?.dispose();onnaraAvatar?.dispose(); knifeFan?.dispose(); kit.dispose(); finishes.release(); }
   return { group, head, meshes: kit.meshes, muzzle, armL: leftArm.root, armR: rightArm.root,
     legL: leftLeg.root, legR: rightLeg.root, ownedMaterials, update, dispose };
 }

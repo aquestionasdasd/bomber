@@ -24,8 +24,8 @@ async function main(){
   const h=setup(),sidearms=copy(h.run("Object.keys(WEAPONS).filter(id=>WEAPONS[id].slot==='secondary')"));assert.ok(sidearms.length>0);
   for(const id of [...sidearms,null]){h.run(`Object.assign(match.spike,{status:'carried',carrier:player.id,plantProgress:0,plantActor:null});match.events=[];`);arm(h,null,id);work(h,4);assert.equal(h.run('inventory.active'),id||'knife');if(id){assert.equal(h.run('player.ammo'),3);assert.equal(h.run('player.reserve'),9);}}
  });
- test('cancelled work and another planter never switch the local weapon; a dead planter is not rearmed',()=>{
-  const h=setup();arm(h);work(h,2);h.run('interactionHeld=false;updateInteraction(.1,true);handleMatchEvents()');assert.equal(h.run('inventory.active'),'spike');assert.equal(h.run('match.spike.status'),'carried');assert.equal(h.run('match.spike.plantProgress'),0);
+ test('cancelled plant returns to primary; another planter and a dead planter do not rearm local',()=>{
+  const h=setup();arm(h);work(h,2);h.run('interactionHeld=false;updateInteraction(.1,true);handleMatchEvents()');assert.equal(h.run('inventory.active'),'vandal');assert.equal(h.run('match.spike.status'),'carried');assert.equal(h.run('match.spike.plantProgress'),0);
   h.run(`equip('knife');var ally=bots.find(b=>b.team===player.team);match.spike.carrier=ally.id;match.interactPlant(4,{actorId:ally.id,team:ally.team,site:site.id,x:site.x,z:site.z});handleMatchEvents()`);assert.equal(h.run('inventory.active'),'knife');
   arm(h);h.run(`Object.assign(match.spike,{status:'carried',carrier:player.id,plantProgress:0,plantActor:null});match.interactPlant(4,{actorId:player.id,team:player.team,site:site.id,x:site.x,z:site.z});player.alive=false;handleMatchEvents()`);assert.equal(h.run('inventory.active'),'spike');
  });

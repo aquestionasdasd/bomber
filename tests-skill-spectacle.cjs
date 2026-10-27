@@ -5,12 +5,12 @@ async function main(){
  const actor={id:'owner',team:'blue',x:0,y:0,z:0,hp:100,alive:true},viewer={id:'viewer',x:0,y:0,z:7};
  const event=(id,type)=>({id,type,x:0,y:0,z:0,fromX:0,fromY:1.7,fromZ:3,sourceId:actor.id,team:'blue',startedAt:1,triggerAt:1,endsAt:5,radius:0,flight:0});
  const instances=fx=>fx.group.children.reduce((n,m)=>n+m.count,0);
- test('15 distinctive silhouettes, unsupported data ignored, pooled18draw and no raycasts/shadows/wall override',()=>{
-  assert.equal(Object.keys(SKILL_LOOKS).length,15);assert.equal(new Set(Object.values(SKILL_LOOKS).map(s=>s.shape)).size,15);assert.equal(skillCharacter('echo-tag'),'echo');assert.equal(skillCharacter('recon'),'echo');assert.equal(skillCharacter('evil'),null);
-  const fx=createSkillSpectacle(T);assert.equal(fx.group.children.length,18);for(const m of fx.group.children){assert.equal(m.material.depthTest,true);assert.equal(m.material.depthWrite,false);assert.equal(m.castShadow,false);assert.deepEqual(m.raycast(),undefined);}fx.update([event('bad','evil')],1.1);assert.equal(instances(fx),0);fx.dispose();
+ test('16 distinctive silhouettes, unsupported data ignored, pooled19draw and no raycasts/shadows/wall override',()=>{
+  assert.equal(Object.keys(SKILL_LOOKS).length,16);assert.equal(new Set(Object.values(SKILL_LOOKS).map(s=>s.shape)).size,16);assert.equal(skillCharacter('echo-tag'),'echo');assert.equal(skillCharacter('recon'),'echo');assert.equal(skillCharacter('evil'),null);
+  const fx=createSkillSpectacle(T);assert.equal(fx.group.children.length,19);for(const m of fx.group.children){assert.equal(m.material.depthTest,true);assert.equal(m.material.depthWrite,false);assert.equal(m.castShadow,false);assert.deepEqual(m.raycast(),undefined);}fx.update([event('bad','evil')],1.1);assert.equal(instances(fx),0);fx.dispose();
  });
- test('all15 motif render paths, no camera-overlapping self sigils, concealed actors and reduced motion',()=>{
-  const fx=createSkillSpectacle(T),events=Object.keys(SKILL_LOOKS).map((id,i)=>event('s'+i,id+'-test'));fx.update(events,1.2,{actors:[actor],viewer});assert.equal(fx.group.userData.activeEvents,15);for(const mesh of fx.group.children.slice(0,15))assert.ok(mesh.count>0,mesh.name);const before=instances(fx);
+ test('all16 motif render paths, no camera-overlapping self sigils, concealed actors and reduced motion',()=>{
+  const fx=createSkillSpectacle(T),events=Object.keys(SKILL_LOOKS).map((id,i)=>event('s'+i,id+'-test'));fx.update(events,1.2,{actors:[actor],viewer});assert.equal(fx.group.userData.activeEvents,16);for(const mesh of fx.group.children.slice(0,16))assert.ok(mesh.count>0,mesh.name);const before=instances(fx);
   fx.update(events,1.2,{actors:[actor],viewer,reducedMotion:true});assert.ok(instances(fx)<before);assert.equal(fx.group.children.find(m=>m.name==='Skill directional shards').count,0);fx.update(events,1.2,{actors:[actor],viewer:actor});assert.equal(instances(fx),0);
   fx.update(events,1.2,{actors:[actor],viewer,visible:()=>false});assert.equal(instances(fx),0);fx.dispose();
  });
@@ -18,7 +18,7 @@ async function main(){
   const h=createCharacterSkills();h.cast('nope-bottle',actor,{x:0,y:0,z:-8},1,1);const events=h.events(1),fx=createSkillSpectacle(T);fx.update(events,1.15,{viewer});assert.ok(fx.group.children.find(m=>m.name==='Skill projectile ribbons').count>0);
   const pose=()=>fx.group.children.map(m=>[m.count,Array.from(m.instanceMatrix.array.slice(0,m.count*16))]);const a=pose();fx.update([...events,...events],1.15,{viewer});assert.deepEqual(pose(),a);fx.update(events,2.1,{viewer});assert.ok(instances(fx)>0);fx.update(events,5,{viewer});assert.equal(instances(fx),0);fx.update(events,1.001,{viewer:actor,actors:[actor]});assert.equal(instances(fx),0,'projectile source burst and nearby trail never cover own camera');
   for(let i=0;i<100;i++)fx.impact('nope',{x:0,y:1,z:0},5);fx.update([],5.1,{viewer});assert.equal(fx.group.userData.impacts,32);for(const mesh of fx.group.children)assert.ok(mesh.count<=mesh.instanceMatrix.count);fx.reset();assert.equal(instances(fx),0);
-  let gs=0,ms=0;for(const mesh of fx.group.children){mesh.geometry.addEventListener('dispose',()=>gs++);mesh.material.addEventListener('dispose',()=>ms++);}fx.dispose();fx.dispose();assert.equal(gs,18);assert.equal(ms,18);fx.update(events,1.1);assert.equal(instances(fx),0);
+  let gs=0,ms=0;for(const mesh of fx.group.children){mesh.geometry.addEventListener('dispose',()=>gs++);mesh.material.addEventListener('dispose',()=>ms++);}fx.dispose();fx.dispose();assert.equal(gs,19);assert.equal(ms,19);fx.update(events,1.1);assert.equal(instances(fx),0);
  });
  test('bounded world impacts hidden by visibility, no temporal replay, no extra simulation state',()=>{
   const fx=createSkillSpectacle(T);assert.equal(fx.impact('invalid',{x:0,y:1,z:0},1),false);assert.equal(fx.impact('nope',{x:NaN,y:1,z:0},1),false);fx.impact('nope',{x:0,y:1,z:0},1);fx.update([],1.1,{viewer,visible:()=>false});assert.equal(instances(fx),0);fx.update([],2,{viewer});assert.equal(fx.group.userData.impacts,0);fx.dispose();

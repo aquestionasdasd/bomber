@@ -17,7 +17,7 @@ export function chargeCrownTax(skills, actor, now, ledger) {
 
 export function orbViewYaw(event, now) {
   const age = Number.isFinite(now) && Number.isFinite(event.startedAt) ? now-event.startedAt : 0;
-  return event.yaw + Math.PI*2*Math.max(0, Math.min(1, age/S.orbDuration));
+  return event.yaw + Math.PI*2*Math.max(0, Math.min(1, age/(event.flight===S.orbCameraDuration?S.orbCameraDuration:S.orbDuration)));
 }
 
 // Actual damage (HP + armor lost), not nominal weapon damage, drives the chain.
@@ -43,4 +43,12 @@ export function createStarHold() {
     actor.y=event.y; actor.vy=0; return true;
   }
   return { apply, reset(){stopped.clear();}, stopped:(id)=>stopped.has(id) };
+}
+
+// This pose and frustum are used by the inset, the main-view overlay and BOTs.
+export function orbViewPose(e,now){const moving=e.flight===S.orbCameraDuration;return {x:e.x,y:e.y+(moving?0:1.65),z:e.z,yaw:orbViewYaw(e,now),pitch:moving?Math.asin(Math.max(-1,Math.min(1,e.fromY/S.orbSpeed))):0};}
+export function orbSeesActor(e,actor,now,visible){
+ const p=orbViewPose(e,now),dx=actor.x-p.x,dy=(actor.y||0)+1.45-(actor.crouch||0)*.55-p.y,dz=actor.z-p.z;
+ const c=Math.cos(p.yaw),s=Math.sin(p.yaw),cp=Math.cos(p.pitch),sp=Math.sin(p.pitch),right=dx*c-dz*s,up=dx*s*sp+dy*cp+dz*c*sp,forward=-dx*s*cp+dy*sp-dz*c*cp;
+ const tan=Math.tan(65*Math.PI/360);return actor.alive&&forward>.08&&forward<140&&Math.abs(up)<forward*tan&&Math.abs(right)<forward*tan*16/9&&visible({x:p.x,y:p.y-1.45,z:p.z},actor)===true;
 }
