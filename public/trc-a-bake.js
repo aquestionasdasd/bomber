@@ -1,0 +1,1 @@
+export const TRC_A_BAKE={"hash": "6072a23f", "size": 2048, "density": 14.45, "charts": 1527, "engine": "Blender 4.2 / Cycles", "samples": 128, "bounces": 6, "denoise": "chart-bounded Gaussian irradiance integration / sigma 2.6 texels", "encodingScale": 0.25, "assetHash": "652a243701d05dd4"};

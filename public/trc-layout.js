@@ -65,6 +65,11 @@ export const TRC_WALLS=[
  // Stair wells have distinct entrances; their sides are not extra doorways.
  [100.84,91,.32,11,0,5.4],[106.84,91,.32,11,0,5.4],[101,90.84,6,.32,0,5.4],
  [71.84,23,.32,8,0,4.8],[76.84,23,.32,8,0,4.8],[72,30.84,5,.32,0,4.8],
+ // Close the four reported ledges/side openings without closing the landings.
+ [71,56,1,10,0,6.8], // B elbow: slit outside the east stair stringer.
+ [16,52,1,7,3.2,6.8], // A control room: exposed strip on the plinth.
+ [8,40,2,9,3.2,9.2], // A heaven: western plinth ledge, outside the room.
+ [51.84,64,.32,11,0,6.8],[61.84,64,.32,11,0,6.8], // MID stair cheeks.
 ].map(([x,z,w,d,base,height],i)=>({...trcRect(x,z,w,d),base,height,id:'partition-'+i}));
 export const TRC_RECEPTION={polygon:[[36,116],[74,116],[74,122],[65,122],[61,129],[49,129],[45,122],[36,122]].map(([x,z])=>[x-55,z-70]),base:0,height:4.2};
 export const TRC_STAIRS=[

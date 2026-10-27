@@ -1216,6 +1216,8 @@ function selectArena(id){
   map=arenaCache.get(id);if(!map.bomberCollapse){map.bomberCollapse=createBuildingCollapse(THREE,map);scene.add(map.bomberCollapse.group);}environment.add(map.world);navigation=createNavigation({...map,bounds:map.combatBounds||map.bounds});updateBots.tactics=null;nopeDecoyTownCandidates=null;
   environment.traverse(object=>{for(const material of Array.isArray(object.material)?object.material:[object.material])if(material?.map)material.map.anisotropy=textureFiltering;});
   sun.intensity=map.indoor ? .45 : 3;sun.castShadow=!map.indoor;scene.background.set(map.indoor?'#35434a':'#8cbad7');scene.fog=new THREE.Fog(map.indoor?'#657875':'#b7d0dd',map.indoor?65:145,map.indoor?135:380);
+  const shadowSize=map.id==='trc'?2048:4096;
+  if(sun.shadow.mapSize.x!==shadowSize){sun.shadow.mapSize.set(shadowSize,shadowSize);sun.shadow.map?.dispose();sun.shadow.map=null;sun.shadow.needsUpdate=true;}
   map.world.updateMatrixWorld(true);updateMapLabels();
 }
 function activeArenaBounds(){return exploring&&!onlinePlaying?map.bounds:map.combatBounds||map.bounds;}
@@ -1550,6 +1552,13 @@ function startCharacterTrial(){
 }
 function updateTravelButtons(){
   const container=$('landmark-travel');if(!container)return;container.replaceChildren();
+  if(map.lightingStudy&&exploring&&!rangeSession&&!objectivePractice){
+    const study=map.lightingStudy,button=document.createElement('button');button.type='button';
+    const label=()=>{button.disabled=!study.ready;button.textContent=study.error?'Aメイン照明：読込失敗':!study.ready?'Aメイン照明：読込中':`Aメイン照明：${study.enabled?'ベイク → 従来':'従来 → ベイク'}`;};
+    label();study.promise.then(label);
+    button.title='現在位置のままAメインの照明を比較';
+    button.addEventListener('click',()=>{if(!study.ready)return;study.setEnabled(!study.enabled);label();resumeGame();showMessage(study.enabled?'A MAIN / BAKED':'A MAIN / ORIGINAL','Mで同じ視点のまま照明を切り替え',2);});container.append(button);
+  }
   if(objectivePractice){for(const siteId of ['A','B']){const button=document.createElement('button');button.type='button';button.textContent=`${siteId}でやり直す`;button.addEventListener('click',()=>{if(resetObjectivePractice(siteId))resumeGame();});container.append(button);}return;}
   for(const landmark of map.landmarks||[]){const button=document.createElement('button');button.type='button';button.textContent=landmark.name;button.disabled=!exploring;button.title=exploring?'この地点から練習':'マップ練習モードで移動できます';
     button.disabled=!exploring||!!rangeSession;
@@ -2273,7 +2282,7 @@ function updateRenkoVertical(actor,dt,radius){
  const e=renkoFlight(actor);if(!e)return false;
  const velocity=renkoFlightVelocity(e,elapsed,{pitch:actor===player?player.pitch:actor.netPitch||0});
  const steps=Math.max(1,Math.ceil(dt*120)),step=dt/steps;actor.vy=velocity;
- for(let i=0;i<steps;i++){let next=actor.y+velocity*step;const height=actorBodyHeight(actor);let floor=0,ceiling=Math.min(11,e.y+RENKO_SKILLS.flightHeight);const ramp=rampFloor(actor.x,actor.z);if(ramp!==null&&ramp<=actor.y+.04)floor=ramp;
+ for(let i=0;i<steps;i++){let next=actor.y+velocity*step;const height=actorBodyHeight(actor);let floor=map.floorBaseAt?.(actor.x,actor.z)??0,ceiling=Math.min(11,e.y+RENKO_SKILLS.flightHeight);const ramp=rampFloor(actor.x,actor.z,actor.y);if(ramp!==null&&ramp<=actor.y+.04)floor=ramp;
   for(const c of map.collision.query(actor.x,actor.z,radius)){if(c.disabled||!map.collision.overlaps(c,actor.x,actor.z,radius))continue;const underside=c.base||0;if(actor.y+height<=underside+.00001&&next+height>=underside)ceiling=Math.min(ceiling,underside-height);if(c.height<=actor.y+.00001)floor=Math.max(floor,c.height);}
   actor.y=Math.max(floor,Math.min(ceiling,next));if(actor.y!==next)actor.vy=0;
  }return true;
@@ -2579,7 +2588,9 @@ function updateCombatReport(){
   const key=JSON.stringify([player.id,report]);if(key===combatReportKey)return;combatReportKey=key;
   renderCombatReport(panel,report,{document});panel.open=true;
 }
+let hudRefresh=0;
 function updateHUD(){
+  hudRefresh=.05;
   if(!match)return;
   updateCombatReport();
   const armedWeapon=weapon(),ultimateKnives=player.kit.knivesActive&&inventory.active==='knife',firearm=inventory.active!=='spike'&&armedWeapon.mag>0;
@@ -3443,7 +3454,9 @@ function updatePlay(dt){
   damageFlash=Math.max(0,damageFlash-dt);hitFlash=Math.max(0,hitFlash-dt);
   $('damage').style.opacity=damageFlash*1.4;$('hitmarker').style.opacity=hitFlash>0?'1':'0';
   $('crosshair').classList.toggle('aiming',aiming);$('crosshair').classList.toggle('moving',len>0&&!aiming);
-  updateHUD();
+  // Shots, abilities and actions still refresh immediately at their call sites.
+  // The timer/status DOM need not be rebuilt at mouse/display polling speed.
+  if((hudRefresh-=dt)<=0)updateHUD();
   if(mode==='shop')updateShop();if(mode==='score')updateScoreboard();
 }
 function objectiveActionFor(actor){
@@ -4012,6 +4025,9 @@ function observeMouseLook(event){
 function look(dx,dy){
   if(netHostPaused||mode!=='play'||!player.alive||!Number.isFinite(dx)||!Number.isFinite(dy)||Math.abs(dx)>500||Math.abs(dy)>500)return;
   player.yaw-=dx*.002*sensitivity;player.pitch=clamp(player.pitch-dy*.002*sensitivity,-1.35,1.35);
+  // Input owns the view angle; physics/recoil still advance on the normal frame.
+  // Keep victory/vehicle cameras under their own controller.
+  if(!victoryCamera.active&&!busDriving())camera.rotation.set(player.pitch+renderedRecoil,player.yaw,0);
 }
 function mouseLook(event){
   if(netHostPaused||mode!=='play'||!player.alive||event.sourceCapabilities?.firesTouchEvents){resetMouseLook();return;}
@@ -4211,7 +4227,10 @@ for(const type of ['pointerup','pointercancel'])$('mobile-interact')?.addEventLi
 canvas.addEventListener('pointercancel',e=>{if(touchLook?.id===e.pointerId)touchLook=null;});
 
 let previous=performance.now(),miniTick=0;
+const frameDiagnostics=mouseInputTrace?{rows:[],next:0,count:0}:null;
 function frame(now){
+  const frameStart=frameDiagnostics?performance.now():0;
+  const frameInterval=frameDiagnostics?Math.max(0,now-previous):0;
   requestAnimationFrame(frame);const dt=Math.min(Math.max(0,(now-previous)/1000),.25);previous=now;
   if(mode==='menu'){
     menuT+=dt;const overview=map.menuCamera||{position:[-15,9,-86],target:[30,8,-20]};camera.position.set(overview.position[0]+Math.sin(menuT*.09)*1.2,overview.position[1],overview.position[2]);camera.lookAt(...overview.target);
@@ -4227,7 +4246,12 @@ function frame(now){
     if(effect.life<=0){effectsGroup.remove(effect.object);effect.object.geometry.dispose();effect.object.material.dispose();effects.splice(i,1);}else effect.object.material.opacity=Math.min(1,effect.life/effect.max);
   }
   miniTick+=dt;if(miniTick>.1&&['play','shop','map','score'].includes(mode)){drawMinimap($('minimap'));if(mode==='map')drawMinimap($('large-minimap'),true);miniTick=0;}
-  syncDeathUI();renderWithDetonation(dt);
+  syncDeathUI();const renderStart=frameDiagnostics?performance.now():0;renderWithDetonation(dt);
+  if(frameDiagnostics){const f=frameDiagnostics;f.rows[f.next]=[frameInterval,renderStart-frameStart,performance.now()-renderStart];f.next=(f.next+1)%180;
+    if(++f.count%60===0){const percentile=(k,p)=>{const a=f.rows.map(r=>r[k]).sort((a,b)=>a-b);return +a[Math.floor((a.length-1)*p)].toFixed(2);};
+      const output=$('frame-diagnostics');if(output)output.textContent=JSON.stringify({map:map.id,mode,samples:f.rows.length,intervalMedianMs:percentile(0,.5),intervalP95Ms:percentile(0,.95),updateP95Ms:percentile(1,.95),renderSubmissionP95Ms:percentile(2,.95),shadowSize:sun.shadow.mapSize.x,bake:!!map.lightingStudy?.enabled});
+    }
+  }
 }
 $('loading-text').textContent='HASHIMOTO / 駅前アリーナ、ロード完了';
 setVisible('loading',false);requestAnimationFrame(frame);

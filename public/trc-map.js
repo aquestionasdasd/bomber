@@ -1,6 +1,7 @@
 import {createCollisionIndex} from './collision.js';
 import {createTrcTraversal} from './trc-traversal.js';
 import {createTrcSurfaces} from './trc-surfaces.js';
+import {createTrcAStudy} from './trc-a-lighting.js';
 import {TRC_BOUNDS,TRC_ROOMS,TRC_GROUND_ROOMS,TRC_UPPER_ROOMS,TRC_BASEMENT_ROOMS,TRC_DROPS,TRC_OUTDOORS,TRC_PORTALS,TRC_WALLS,TRC_RECEPTION,TRC_SITES,TRC_FLOOR,TRC_DECKS,TRC_PLINTHS,TRC_STAIRS,TRC_LADDERS,TRC_DUCTS,TRC_DOORS,TRC_COVERS,TRC_SCREENS,trcPoint as P,trcRect as R,contains,rectPolygon,stairHeight,trcDeckCut,trcDuctAt} from './trc-layout.js';
 
 // A joined architectural shell, with authored surface profiles and batched
@@ -240,6 +241,10 @@ export function createTrcMap(T,scene){
  for(const spec of siteSpec){const r=R(...spec.r),{minX:x,maxX:X,minZ:z,maxZ:Z}=r;quad([x,0,z],[x,0,Z],[X,0,Z],[X,0,z],spec.id==='A'?'siteA':'siteB',[[x,z],[x,Z],[X,Z],[X,z]]);}
  const sites=siteSpec.map(s=>{const r=R(...s.r),p=P(...s.center);for(const [x,z,X,Z]of union([r]).edges){const dx=X-x,dz=Z-z;const u=(x+X)/2,v=(z+Z)/2,w=Math.max(.08,Math.abs(dx))/2,d=Math.max(.08,Math.abs(dz))/2;quad([u-w,0,v-d],[u-w,0,v+d],[u+w,0,v+d],[u+w,0,v-d],s.id==='A'?'orange':'blue');}return {id:s.id,name:s.name,...p,radius:Math.min(s.r[2],s.r[3])/2,polygon:rectPolygon(r),plantPositions:s.points.map(([x,z],i)=>({id:s.id+'-'+['open','cover','deep','entry'][i],style:['open','cover','deep','entry'][i],...P(x,z)}))};});
  for(const s of sites)sign(s.id,'PLANT ZONE',s.x,.025,s.z,3,3,s.id==='A'?'#a65d40':'#286b77').rotation.x=-Math.PI/2;
+ // Chamfered entry reveals are flush with the opening, with a 10 cm wall trim.
+ // They never narrow the clear opening or add a collision lip to the passage.
+ for(const z of [62.32,69.18]){const p=P(23.6,z);rounded(p.x,1.75,p.z,1,3.5,.28,'trim',.045);}
+ {const p=P(23.6,65.75);rounded(p.x,3.58,p.z,1,.16,7.1,'trim',.045);}
  const surfaceAudit=surfaces.flush();
  for(const [key,b]of batches){const g=new T.BufferGeometry();for(const name of ['position','normal','uv'])g.setAttribute(name,new T.Float32BufferAttribute(b[name],name==='uv'?2:3));g.computeBoundingSphere();const m=new T.Mesh(g,materials[b.material]);m.name='TRC / '+key;m.castShadow=true;m.receiveShadow=true;world.add(m);}
  const teamSpawns={attack:[P(55,133),P(52,133),P(58,133),P(49,133),P(61,133)],defend:[P(55,8),P(52,8),P(58,8),P(49,8),P(61,8)]};
@@ -263,7 +268,7 @@ export function createTrcMap(T,scene){
   lanes:[{id:'long',name:'A メイン',points:[[55,133],[43,133],[31,123],[18,117],[18,93],[30,93],[30,86],[18,86],[18,66],[27.25,66],[27.25,54],[26,43]].map(p=>P(...p))},{id:'mid',name:'回り込み / MID',points:[[55,133],[43,133],[31,123],[31,114],[55,114],[55,101],[53,96],[53,84],[56,77],[56,63,3.2]].map(p=>P(...p))},{id:'b-main',name:'B メイン',points:[[55,133],[67,133],[79,123],[96,117],[96,102],[83,102],[83,95],[95,95],[95,82],[82,82],[82,66],[94.25,66],[94.25,56],[88,53],[88,46]].map(p=>P(...p))}],
   menuCamera:{position:[0,2.4,66],target:[0,2.7,55]},rangeArea:{spawn:{...P(55,133),yaw:0},targets:[P(35,131),P(75,131),P(79,125),P(31,125)]},
   stats:{mode:'arena',width:110,depth:140,area:15400,sites:2,routes:3,buildings:1,collisionShapes:colliders.length,renderBatches:batches.size},
-  syncCollapseFloors(){for(const m of collapseFloors)m.visible=!!world.userData.bomberCollapsed;},
+  syncCollapseFloors(){for(const m of collapseFloors)m.visible=!!world.userData.bomberCollapsed;map.lightingStudy.syncCollapse(world.userData.bomberCollapsed);},
   floorBaseAt(x,z){return !world.userData.bomberCollapsed&&TRC_BASEMENT_ROOMS.some(r=>contains(r,x,z))?-3.2:0;},
   ductAt(x,z,y){return !world.userData.bomberCollapsed&&trcDuctAt(x,z,y);},walkHeights(x,z){
    if(world.userData.bomberCollapsed)return [0];
@@ -274,5 +279,6 @@ export function createTrcMap(T,scene){
    return [...new Set(out)];
   }
  };
+ map.lightingStudy=createTrcAStudy(T,world);
  map.traversal=createTrcTraversal(map,{doorMeshes});world.updateMatrixWorld(true);return map;
 }
