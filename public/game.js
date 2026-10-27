@@ -2114,17 +2114,24 @@ function capDistortAim(actor,aim){
  return aim.addScaledVector(right,offset.x).addScaledVector(up,offset.y).normalize();
 }
 function capBounceShot(actor,origin,incoming,hit,spec){
- if(!ordinarySkills.capBank(actor.id,elapsed)||!spec.mag||!hit?.face||hit.object.userData.bot||!Number.isFinite(hit.distance)||hit.distance>=CAP_SKILLS.bounceRange-.1)return null;
- const frame=capBounceFrame(THREE,incoming,hit);if(!frame)return null;
- const {aim,from,remaining}=frame;
- botsGroup.updateMatrixWorld(true);const ray=new THREE.Raycaster(from,aim,.005,remaining),hits=ray.intersectObjects([environment,botsGroup],true).filter(h=>busSurfaceVisible(h)&&h.object.userData.bot!==actor&&(!h.object.userData.bot||h.object.userData.bot.alive));
- const next=hits[0];let resolvedHit=next,target=next?.object.userData.bot,point=next?.point,head=shotZone(next)==='head',nearest=next?.distance??remaining;
- if(player!==actor&&player.alive){const local=playerShotHit(ray);if(local&&local.distance<nearest){target=player;point=local.point;head=shotZone(local)==='head';resolvedHit=local;nearest=local.distance;}}
- const fake=raycastNopeDecoy(from,aim,nearest,actor.team),shield=ordinarySkills.interceptShield(from,aim,fake?.distance??nearest,spec.body*CAP_SKILLS.bounceScale,elapsed,match.round,{consume:!isGuest()});
- if(shield){target=null;point=new THREE.Vector3(shield.point.x,shield.point.y,shield.point.z);}else if(fake){target=null;point=fake.point;if(!isGuest())hitNopeDecoy(fake.event,actor);}
- const end=point||from.clone().addScaledVector(aim,remaining);tracer(hit.point,end,'#71e3ed',.12);
- if(target?.alive&&target.team!==actor.team&&!isGuest()){let amount=nobiBulletDamage(actor,target,head?spec.head:shotZone(resolvedHit,point,target)==='leg'?spec.leg:spec.body,spec.head,true)*CAP_SKILLS.bounceScale;const weaponId=actor===player?inventory.active:actor.remoteId?actor.netWeapon:actor.aiWeapon;if(['phantom','spectre','ghost','classic'].includes(weaponId)&&hit.distance+nearest>15)amount*=hit.distance+nearest>30?.8:.9;damageEntity(target,amount,actor,{firearm:true,chain:false,skill:'cap'});burst(point,'#79e7ee',5);}
- return{targetId:target?.id||null,point:end,head};
+ if(!ordinarySkills.capBank(actor.id,elapsed)||!spec.mag)return null;
+ let surface=hit,direction=incoming,remaining=CAP_SKILLS.bounceRange,result=null;
+ botsGroup.updateMatrixWorld(true);
+ for(let bounce=0;bounce<CAP_SKILLS.bounceCount;bounce++){
+  const frame=capBounceFrame(THREE,direction,surface,remaining);if(!frame)break;
+  const {aim,from}=frame;remaining=frame.remaining;
+  const ray=new THREE.Raycaster(from,aim,.005,remaining),hits=ray.intersectObjects([environment,botsGroup],true).filter(h=>busSurfaceVisible(h)&&h.object.userData.bot!==actor&&(!h.object.userData.bot||h.object.userData.bot.alive));
+  const next=hits[0];let resolvedHit=next,target=next?.object.userData.bot,point=next?.point,head=shotZone(next)==='head',nearest=next?.distance??remaining;
+  if(player!==actor&&player.alive){const local=playerShotHit(ray);if(local&&local.distance<nearest){target=player;point=local.point;head=shotZone(local)==='head';resolvedHit=local;nearest=local.distance;}}
+  const fake=raycastNopeDecoy(from,aim,nearest,actor.team),shield=ordinarySkills.interceptShield(from,aim,fake?.distance??nearest,spec.body*CAP_SKILLS.bounceScale,elapsed,match.round,{consume:!isGuest()});
+  if(shield){target=null;point=new THREE.Vector3(shield.point.x,shield.point.y,shield.point.z);}else if(fake){target=null;point=fake.point;if(!isGuest())hitNopeDecoy(fake.event,actor);}
+  const end=point||from.clone().addScaledVector(aim,remaining);tracer(surface.point,end,'#71e3ed',.12);
+  result={targetId:target?.id||null,point:end,head,bounces:bounce+1};
+  if(target?.alive&&target.team!==actor.team&&!isGuest()){let amount=nobiBulletDamage(actor,target,head?spec.head:shotZone(resolvedHit,point,target)==='leg'?spec.leg:spec.body,spec.head,true)*CAP_SKILLS.bounceScale;const weaponId=actor===player?inventory.active:actor.remoteId?actor.netWeapon:actor.aiWeapon;const distance=CAP_SKILLS.bounceRange-remaining+nearest;if(['phantom','spectre','ghost','classic'].includes(weaponId)&&distance>15)amount*=distance>30?.8:.9;damageEntity(target,amount,actor,{firearm:true,chain:false,skill:'cap'});burst(point,'#79e7ee',5);}
+  if(shield||fake||target||!next)break;
+  surface=next;direction=aim;
+ }
+ return result;
 }
 
 function getCapBankPreview(){
@@ -2135,8 +2142,8 @@ function getCapBankPreview(){
  capPreviewUntil=elapsed+.05;
  const origin=new THREE.Vector3(player.x,(player.y||0)+1.7-player.crouch*.55,player.z),pitch=player.pitch+renderedRecoil;
  const aim=new THREE.Vector3(-Math.sin(player.yaw)*Math.cos(pitch),Math.sin(pitch),-Math.cos(player.yaw)*Math.cos(pitch));
- const path=traceCapBankPreview(THREE,environment,origin,aim),eye=p=>({x:p.x,y:p.y-1.45,z:p.z});
- capPreviewPath=path&&!smokeBlocks(eye(origin),eye(path.start))&&!smokeBlocks(eye(path.start),eye(path.end))?path:null;
+ const path=traceCapBankPreview(THREE,environment,origin,aim,{surfaceVisible:busSurfaceVisible}),eye=p=>({x:p.x,y:p.y-1.45,z:p.z});
+ capPreviewPath=path&&!smokeBlocks(eye(origin),eye(path.start))&&path.segments.every(s=>!smokeBlocks(eye(s.start),eye(s.end)))?path:null;
  return capPreviewPath;
 }
 
@@ -2633,7 +2640,7 @@ function updateHUD(){
     if(ordinarySkills.nearsightUntil(player.id,elapsed)>elapsed)statuses.push('深潮 · 8mより先が見えない');
     if(ordinarySkills.urchinTrident(player.id,elapsed))statuses.push('三叉潮 · 三方向射撃 · 連射1.5倍');
     if(ordinarySkills.capLocked(player.id,elapsed))statuses.push('レンズブレイク · 銃弾が拡散 / ADS不可');
-    if(ordinarySkills.capBank(player.id,elapsed))statuses.push('バンクレンズ · 1回跳弾');
+    if(ordinarySkills.capBank(player.id,elapsed))statuses.push('バンクレンズ · 最大3回跳弾');
     if(ordinarySkills.capMagazine(player.id,elapsed))statuses.push('エンドレスマガジン · 銃弾消費なし');
     if(ordinarySkills.japanReturn(player.id,elapsed)>0)statuses.push('弾丸返送 · 被銃撃の650%を返す');
     if(ordinarySkills.nobiVulnerability(player.id,elapsed,player,ordinaryReachable)>1)statuses.push('鈴の弱点 · 被銃撃135%');

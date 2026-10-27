@@ -27,7 +27,8 @@
     "check:grass-platform": "node tests-grass-platform.cjs && node tests-grass-platform-negative.cjs",
     "check:renko-unarmed": "node tests-renko-unarmed.cjs",
     "check:renko-unarmed-negative": "node tests-renko-unarmed-negative.cjs",
-    "check:renko-drive-unarmed": "node tests-renko-drive-unarmed.cjs && node tests-renko-drive-unarmed-negative.cjs"
+    "check:renko-drive-unarmed": "node tests-renko-drive-unarmed.cjs && node tests-renko-drive-unarmed-negative.cjs",
+    "check:cap-bounces": "node tests-cap-bounces.cjs && node tests-cap-bounces-negative.cjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
