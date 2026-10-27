@@ -10,6 +10,7 @@ export const CHARACTER_HANDS = Object.freeze({
   cat:['#fff5ec','#e8c4bf'], car:['#e9ece8','#292f33'],
   nobi:['#f0c49b','#dba87d'], japan:['#b99b6e','#e8ca91'],
   cap:['#f1b27a','#d79362'], urchin:['#a9f1e4','#70cabe'],
+  renko:['#f5d5be','#769ac7'],
   onnara:['#ffdbba','#ffe073'],
 });
 

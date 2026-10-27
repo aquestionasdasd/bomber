@@ -1,5 +1,5 @@
 // Owner's right-hand reference: yellow bob, cat ears, spiral eyes and a blue
-// padded jacket. Appearance only; no ability or playable character definition.
+// padded jacket. Abilities live in the gameplay modules; this rig is cosmetic.
 const caches = new WeakMap();
 
 function acquireAssets(T) {

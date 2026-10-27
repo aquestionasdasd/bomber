@@ -34,10 +34,10 @@ async function main(){
     for(let i=0;i<20;i++){a.update(0,{character:i%2?'renko':'frost',alive:true});assert.equal(root(a).visible,i%2===1);}
     assert.equal(meshes(a)[0].geometry,assets[0].geometry);assert.equal(meshes(b)[0].geometry,assets[0].geometry);
   });
-  check('skills remain explicitly pending; no new playable identity or network fields',()=>{
-    assert.equal(Object.keys(CHARACTER_DEFS).length,15);assert.equal(CHARACTER_DEFS.renko,undefined);assert.equal(normalizeCharacter('renko'),'duelist');
+  check('Renko has a playable identity; preview stays silent and X remains pending',()=>{
+    assert.equal(Object.keys(CHARACTER_DEFS).length,16);assert.equal(CHARACTER_DEFS.renko.ultName,'未設定');assert.equal(normalizeCharacter('renko'),'renko');
     const page=fs.readFileSync(path.join(__dirname,'public/renko-preview.html'),'utf8'),script=fs.readFileSync(path.join(__dirname,'public/renko-preview.js'),'utf8');
-    assert.match(page,/スキル準備中/);assert.doesNotMatch(script,/AudioContext|new Audio\(|localStorage|fetch\(/);assert.match(fs.readFileSync(path.join(__dirname,'public/play.html'),'utf8'),/href="renko-preview.html"/);
+    assert.match(page,/Xは指定待ち/);assert.doesNotMatch(script,/AudioContext|new Audio\(|localStorage|fetch\(/);assert.match(fs.readFileSync(path.join(__dirname,'public/play.html'),'utf8'),/href="renko-preview.html"/);
   });
   check('shared geometry/material/texture ownership survives another model and releases once after last owner',()=>{
     const counts=new Map();for(const x of [...geometries,...materials,...textures])x.addEventListener('dispose',()=>counts.set(x,(counts.get(x)||0)+1));
@@ -55,6 +55,14 @@ async function main(){
     view.emit('pagehide',{persisted:true});assert.equal(active.at(-1),false);view.emit('pageshow');assert.equal(active.at(-1),true);config.onError();assert.equal(error.hidden,false);
     view.emit('pagehide',{persisted:false});ui.dispose();assert.equal(disposed,1);assert.equal(view.count()+[...buttons,...views].reduce((n,x)=>n+x.count(),0),0);model.dispose();
   });
-  console.log(JSON.stringify({groups,renkoMeshes:assets.length,triangles:[...geometries].reduce((n,g)=>n+g.getAttribute('position').count/3,0),sharedGeometries:geometries.size,sharedMaterials:materials.size,textures:textures.size,playableCharacters:15,audioPlayback:false}));
+  const {createRenkoSkillFX}=await load('renko-skill-fx.js'),{skillProjectilePosition}=await load('character-skills.js');
+  check('straight80m/s dart and pooled jetpack render on timestamp, respect visibility and reset',()=>{
+    const e={id:'skill-renko-dart-1',type:'renko-dart',sourceId:'a',team:'blue',fromX:0,fromY:1.7,fromZ:0,x:0,y:1.7,z:-40,flight:.5,startedAt:10,endsAt:11.5};
+    for(const t of[0,.1,.25,.5]){const v=skillProjectilePosition(e,10+t);assert.ok(Math.abs(v.z+80*t)<1e-9);assert.equal(v.y,1.7);}
+    const fx=createRenkoSkillFX(T),scene=new T.Scene();scene.add(fx.group);fx.update([e],10.1);assert.equal(fx.group.children.filter(x=>x.visible).length,1);assert.ok(Math.abs(fx.group.children[0].position.z+8)<1e-9);
+    const actor={id:'a',team:'blue',x:3,y:4,z:5,yaw:0,alive:true},jet={...e,type:'renko-jet',endsAt:14};fx.update([jet],11,{actors:[actor]});assert.ok(fx.group.children[0].children[0].visible);assert.ok(Math.abs(fx.group.children[0].position.y-4.95)<1e-9);
+    fx.update([jet],11,{actors:[actor],visible:()=>false});assert.equal(fx.group.children.filter(x=>x.visible).length,0);fx.update([e],9);assert.equal(fx.group.children.filter(x=>x.visible).length,0);fx.reset();assert.equal(fx.group.children.filter(x=>x.visible).length,0);fx.dispose();assert.equal(fx.group.parent,null);
+  });
+  console.log(JSON.stringify({groups,renkoMeshes:assets.length,triangles:[...geometries].reduce((n,g)=>n+g.getAttribute('position').count/3,0),sharedGeometries:geometries.size,sharedMaterials:materials.size,textures:textures.size,playableCharacters:16,audioPlayback:false}));
 }
 main().catch(e=>{console.error(e);process.exitCode=1;});

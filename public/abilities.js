@@ -4,6 +4,7 @@ export const CAP_SKILLS=Object.freeze({lockRange:40,lockDuration:8,lockSpread:.0
 // Original fan-made tuning inspired by the duelist role; not an exact live-game ruleset.
 import { TEAM_ABILITIES } from './team-abilities.js';
 
+export const RENKO_SKILLS=Object.freeze({dartRange:40,dartSpeed:80,launchSpeed:24,launchDuration:1,launchLift:6,driveDuration:6,runSpeed:12,slideStart:16,slideEnd:10,slideDuration:1,slideTurn:Math.PI/3,flightDuration:4,flightSpeed:16,verticalSpeed:8,flightHeight:10,signatureCooldown:18});
 export const CHARACTER_DEFS = Object.freeze({
   duelist: Object.freeze({ id: 'duelist', label: 'ちぬつてのとのへめほ', role: '突入', ultName: 'ブレードストーム', ultShortName: 'ナイフ', ultimatePoints: 7,
     description: 'C：空中に短い流れ星の幕 / Q：アンテナリフトで上昇 / E：2段階のダッシュ。X：ナイフ5本。左クリックで1本、右クリックで残り最大5本を同時に散開投擲。撃破で5本補充（7pt）。', color: '#a7e3e7', ultIcon: 'm24 3 5 2-13 17-6 4 1-7L24 3M11 19l5 3M9 23l-4 5M22 7l4 3M4 7l4-3m21 18 4 2' }),
@@ -28,6 +29,7 @@ export const CHARACTER_DEFS = Object.freeze({
   cap:Object.freeze({id:'cap',label:'キャップは？',role:'光学・解除',ultName:'エンドレスマガジン',ultShortName:'無消費',ultimatePoints:7,description:'C：敵の銃の照準とADSを妨害 / Q：現在の妨害を解除 / E：壁で弾を一度反射。X：9秒、装填済みの銃弾を消費せず発射（7pt）。',color:'#e36336',ultIcon:'M5 7h26v16H5ZM12 11c-8 0-8 8 0 8s4-8 12-8 8 8 0 8-4-8-12-8'}),
   urchin:Object.freeze({id:'urchin',label:'青ウニ',role:'棘・弾道',ultName:'三叉潮',ultShortName:'三叉',ultimatePoints:7,description:'C：予告した直線へ棘を一斉射出 / Q：敵の購入主武器を床へ落とす / E：壁を抜ける潮の波で遠くの視界を奪う。X：13秒、銃弾が三方向へ分かれ、連射速度が1.5倍（7pt）。',color:'#a9f1e4',ultIcon:'M18 28V4M18 20 5 7M18 20 31 7M2 11 5 7 9 8M27 8 31 7 34 11M14 8 18 4 22 8'}),
   onnara:Object.freeze({id:'onnara',label:'おんなら',role:'星冠・裁定',ultName:'星座裁定',ultShortName:'連鎖',ultimatePoints:7,description:'C：その場から約4.8mの大ジャンプ / Q：遠方を360度見回す宝玉 / E：空中で13秒静止し単発弾のブレをなくす。X：8秒、銃撃した敵から別の敵1人へ実被害の70%を連鎖（7pt）。',color:'#ffc948',ultIcon:'M18 2 22 11 32 12 24 19 27 29 18 23 9 29 12 19 4 12 14 11Z'}),
+  renko:Object.freeze({id:'renko',label:'蓮子',role:'機動・押し出し',ultName:'未設定',ultShortName:'未設定',ultimatePoints:7,description:'C：敵を狙って高速弾、命中で吹き飛ばす（ダメージなし） / Q：6秒高速走行、走りながらVで慣性滑走 / E：4秒ジェットパック、Space上昇・V下降。X：未設定。',color:'#91c5ef',ultIcon:'M8 27V12L18 3l10 9v15M10 19h16M13 30l5-7 5 7'}),
 });
 export const getCharacterUltimate = character => { const id=normalizeCharacter(character),def=CHARACTER_DEFS[id]; return {key:'x',name:def.ultName,shortName:def.ultShortName,description:def.description.split('X：')[1]||'',points:def.ultimatePoints,icon:def.ultIcon}; };
 export const normalizeCharacter = value => typeof value === 'string' && Object.hasOwn(CHARACTER_DEFS, value) ? value : 'duelist';
@@ -133,10 +135,11 @@ const onnaraSkills={
  q:{name:'星見の宝玉',shortName:'周回映像',description:'Qで構え40mの見える床へ左確定・右取消。8秒、固定地点から360度を一周見回す映像を本人の小窓に表示。脇道や背後の確認にも使える。壁・煙で遮られ、遠隔射撃や自動検知はしない。',max:1,price:100,type:'onnara-orb',icon:'M18 3a12 12 0 1 0 0 24 12 12 0 0 0 0-24ZM6 15h24M18 3v24'},
  e:{name:'星留め',shortName:'空中静止',description:'空中でE。13秒、その高さで静止し水平移動と射撃は継続。静止中の単発弾は照準どおりに飛び、散弾は通常の広がりを保つ。接地・高い床への侵入で終了。18秒で再使用。',max:1,price:0,type:'onnara-hover',icon:'M18 3v18M10 13l8 8 8-8M5 28h26'}
 };
-const skillsFor = character => character==='onnara'?onnaraSkills : character==='urchin'?urchinSkills : character==='cap'?capSkills : character==='japan'?japanSkills : character==='nobi'?nobiSkills : character==='car'?carSkills : character === 'cat' ? catSkills : character === 'duck' ? duckSkills : character === 'nope' ? nopeSkills : character === 'mend' ? mendSkills : character === 'echo' ? iagnuSkills : character === 'veil' ? veilSkills : character === 'ember' ? emberSkills : character === 'frost' ? frostSkills : baseSkills;
-export const signatureCooldown = character => character==='onnara'?ONNARA_SKILLS.signatureCooldown : character==='urchin'?URCHIN_SKILLS.signatureCooldown : character==='cap'?CAP_SKILLS.signatureCooldown : character==='japan'?JAPAN_SKILLS.signatureCooldown : character==='nobi'?NOBI_SKILLS.signatureCooldown : character==='car'?CAR_SKILLS.signatureCooldown : character === 'cat' ? CAT_SKILLS.signatureCooldown : character === 'duck' ? DUCK_SKILLS.signatureCooldown : character === 'nope' ? NOPE_SKILLS.signatureCooldown : character === 'mend' ? MEND_SKILLS.signatureCooldown : character === 'echo' ? IAGNU_SKILLS.signatureCooldown : character === 'veil' ? VEIL_SKILLS.signatureCooldown : character === 'ember' ? EMBER_SKILLS.signatureCooldown : character === 'frost' ? FROST_SKILLS.signatureCooldown : 0;
+const renkoSkills={c:{name:'インパルス弾',shortName:'吹き飛ばし',description:'Cで構え、40m以内の見える敵へ左クリック。80m毎秒の直線弾が最初に当たった敵を吹き飛ばす。追尾・ダメージ・追加スタンなし。右クリック取消。',max:2,price:200,type:'renko-dart',icon:'M3 18h23M18 9l10 9-10 9M8 11h6M8 25h6'},q:{name:'オーバードライブ',shortName:'高速走行',description:'6秒高速走行。走行中にVで1秒の慣性滑走。滑走は曲がりにくく、ジャンプで終了。Vを離して走れば再度滑れる。',max:1,price:100,type:'renko-drive',icon:'M4 26h16l10-15M7 18h10M10 10h10'},e:{name:'ジェットパック',shortName:'4秒飛行',description:'4秒高速飛行。WASDで水平移動、Space上昇・V下降、入力なしで高度保持。壁・天井で止まり、終了後は落下。18秒再使用。',max:1,price:0,type:'renko-jet',icon:'M12 23V8l6-5 6 5v15M12 25l-4 7M24 25l4 7M18 24v9'}};
+const skillsFor = character => character==='renko'?renkoSkills : character==='onnara'?onnaraSkills : character==='urchin'?urchinSkills : character==='cap'?capSkills : character==='japan'?japanSkills : character==='nobi'?nobiSkills : character==='car'?carSkills : character === 'cat' ? catSkills : character === 'duck' ? duckSkills : character === 'nope' ? nopeSkills : character === 'mend' ? mendSkills : character === 'echo' ? iagnuSkills : character === 'veil' ? veilSkills : character === 'ember' ? emberSkills : character === 'frost' ? frostSkills : baseSkills;
+export const signatureCooldown = character => character==='renko'?RENKO_SKILLS.signatureCooldown : character==='onnara'?ONNARA_SKILLS.signatureCooldown : character==='urchin'?URCHIN_SKILLS.signatureCooldown : character==='cap'?CAP_SKILLS.signatureCooldown : character==='japan'?JAPAN_SKILLS.signatureCooldown : character==='nobi'?NOBI_SKILLS.signatureCooldown : character==='car'?CAR_SKILLS.signatureCooldown : character === 'cat' ? CAT_SKILLS.signatureCooldown : character === 'duck' ? DUCK_SKILLS.signatureCooldown : character === 'nope' ? NOPE_SKILLS.signatureCooldown : character === 'mend' ? MEND_SKILLS.signatureCooldown : character === 'echo' ? IAGNU_SKILLS.signatureCooldown : character === 'veil' ? VEIL_SKILLS.signatureCooldown : character === 'ember' ? EMBER_SKILLS.signatureCooldown : character === 'frost' ? FROST_SKILLS.signatureCooldown : 0;
 const characterSkills = Object.freeze(Object.fromEntries(Object.keys(CHARACTER_DEFS).map(character => [character,
-  Object.freeze(Object.fromEntries(['c', 'q', 'e'].map(key => [key, Object.freeze({ id: `${character}-${skillsFor(character)[key].type.replace(/^(duelist|nope|mend|echo|veil|ember|frost|duck|cat|car|nobi|japan|cap|urchin|onnara)-/, '')}`, key, ...skillsFor(character)[key], ...(character === 'duelist' && key === 'e' ? { description: `${baseSkills.e.description} ${DUELIST.signatureKills}撃破で再使用。` } : {}) })]))),
+  Object.freeze(Object.fromEntries(['c', 'q', 'e'].map(key => [key, Object.freeze({ id: `${character}-${skillsFor(character)[key].type.replace(/^(duelist|nope|mend|echo|veil|ember|frost|duck|cat|car|nobi|japan|cap|urchin|onnara|renko)-/, '')}`, key, ...skillsFor(character)[key], ...(character === 'duelist' && key === 'e' ? { description: `${baseSkills.e.description} ${DUELIST.signatureKills}撃破で再使用。` } : {}) })]))),
 ])));
 const skillKey = value => typeof value === 'string' ? value.toLowerCase().replace(/^key/, '') : '';
 export function getCharacterSkill(character, key) { const skills = characterSkills[normalizeCharacter(character)], normalized = skillKey(key); return Object.hasOwn(skills, normalized) ? skills[normalized] : null; }
@@ -182,6 +185,7 @@ export class DuelistKit {
       case 'c':
         if (this.smoke <= 0) return null;
         this.smoke--;
+        if(this.character==='renko')return {type:'renko-dart'};
         if(this.character==='onnara')return {type:'onnara-jump',velocity:ONNARA_SKILLS.jumpVelocity};
         if(this.character==='urchin')return {type:'urchin-lance'};
         if(this.character==='cap')return {type:'cap-lock'};
@@ -199,6 +203,7 @@ export class DuelistKit {
       case 'q':
         if (this.updraft <= 0) return null;
         this.updraft--;
+        if(this.character==='renko')return {type:'renko-drive'};
         if(this.character==='onnara')return {type:'onnara-orb'};
         if(this.character==='urchin')return {type:'urchin-disarm'};
         if(this.character==='cap')return {type:'cap-clean'};
@@ -217,6 +222,7 @@ export class DuelistKit {
         if (signatureCooldown(this.character)) {
           if (this.dash <= 0) return null;
           this.dash = 0; this.dashKills = 0; this.nextSignatureAt = now + signatureCooldown(this.character);
+          if(this.character==='renko')return {type:'renko-jet'};
           if(this.character==='onnara')return {type:'onnara-hover'};
         if(this.character==='urchin')return {type:'urchin-gloom'};
         if(this.character==='cap')return {type:'cap-bank'};
@@ -241,6 +247,7 @@ export class DuelistKit {
         this.armReadyAt = now + DUELIST.dashArmDelay; this.armExpiresAt = now + DUELIST.dashWindow;
         return { type: 'dash-armed', readyAt: this.armReadyAt, expiresAt: this.armExpiresAt };
       case 'x':
+        if(this.character==='renko')return null;
         if (this.knivesActive || this.ultPoints < DUELIST.ultimatePoints) return null;
         if(this.character==='onnara'){this.ultPoints-=DUELIST.ultimatePoints;return {type:'onnara-chain'};}
         if(this.character==='urchin'){this.ultPoints-=DUELIST.ultimatePoints;return {type:'urchin-trident'};}
