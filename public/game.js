@@ -749,7 +749,7 @@ function firstPersonWeapon(actor){
 function updateFirstPersonEquipment(dt){
   const actor=firstPersonActor();
   if(!actor){gun.visible=false;flash.visible=false;equipmentActor=null;return;}
-  const local=actor===player,id=firstPersonWeapon(actor),spec=WEAPONS[id]||WEAPONS.knife,state=local?null:actor.netTarget,unarmed=!!renkoFlight(actor);
+  const local=actor===player,id=firstPersonWeapon(actor),spec=WEAPONS[id]||WEAPONS.knife,state=local?null:actor.netTarget,unarmed=!!renkoUnarmed(actor);
   const reload=local?reloading:state?.reloading??(actor.remoteId?actor.netReload:actor.aiReload)??0;
   const interacting=local?interactionHeld&&mode==='play':!!(actor.planting||actor.defusing||state?.planting||state?.defusing);
   const cycle=local?sniperCycleRemaining():0;
@@ -825,7 +825,7 @@ function syncDrops(values){
   }
 }
 function pickupDroppedWeapon(actor,dropId,{catFetch=false}={}){
-  if(!actor.alive||renkoFlight(actor)||match?.phase!=='live')return false;
+  if(!actor.alive||renkoUnarmed(actor)||match?.phase!=='live')return false;
   const remoteFetch=catFetch&&actor.kit?.character==='cat'&&!isGuest();
   const drop=droppedWeapons.find(d=>d.id===dropId&&(remoteFetch?Math.hypot(d.x-actor.x,actor.y||0,d.z-actor.z)<=CAT_SKILLS.fetchRange&&catDropVisible(actor,d):Math.hypot(d.x-actor.x,d.z-actor.z)<1.5));if(!drop)return false;
   const slot=WEAPONS[drop.weapon].slot,local=actor===player;
@@ -850,7 +850,7 @@ function sniperCycleRemaining(){
   return remaining>1e-8?remaining:0;
 }
 function equip(id,fresh=false){
-  if((netHostPaused||renkoFlight(player))&&!fresh)return;
+  if((netHostPaused||renkoUnarmed(player))&&!fresh)return;
   if(isGuest()&&!fresh)queueNetAction('equip',{weapon:id});
   if(!id)return;if(!fresh)ammoStore[inventory.active]={ammo:player.ammo,reserve:player.reserve};
   duckAim=null;preparedSkillFX.reset();cancelServiceReload(player);inventory.active=id;const spec=WEAPONS[id]||WEAPONS.classic;const saved=ammoStore[id];
@@ -1668,7 +1668,7 @@ function burst(position,color='#ffac6b',number=7) {
 function shoot(shotTime=elapsed,alternate=false) {
   refillRangeAmmo();
   const spec=weapon();
-  if(netHostPaused||mode!=='play'||!player.alive||renkoFlight(player)||busDriving()||carMotionActive(player)||match?.phase!=='live'||inventory.active==='spike'||interactionHeld||ordinaryFX.throwing(elapsed)||nobiSkillFX.throwing(elapsed)||mendSkillFX.throwing(elapsed)||iagnuSkillFX.throwing(elapsed)||grassSkillFX.throwing(elapsed)||emberSkillFX.throwing(elapsed)||frostSkillFX.throwing(elapsed)||duelistSkillFX.throwing(elapsed)||player.serviceReload||reloading>0||shotTime-lastShot+1e-8<nobiShotInterval(spec,player))return;
+  if(netHostPaused||mode!=='play'||!player.alive||renkoUnarmed(player)||busDriving()||carMotionActive(player)||match?.phase!=='live'||inventory.active==='spike'||interactionHeld||ordinaryFX.throwing(elapsed)||nobiSkillFX.throwing(elapsed)||mendSkillFX.throwing(elapsed)||iagnuSkillFX.throwing(elapsed)||grassSkillFX.throwing(elapsed)||emberSkillFX.throwing(elapsed)||frostSkillFX.throwing(elapsed)||duelistSkillFX.throwing(elapsed)||player.serviceReload||reloading>0||shotTime-lastShot+1e-8<nobiShotInterval(spec,player))return;
   const ultimate=player.kit.knivesActive&&inventory.active==='knife',melee=inventory.active==='knife'&&!ultimate;
   if(alternate&&(!ultimate||isGuest()&&netActions.length>=64))return;
   const knifeCount=alternate?Math.min(DUELIST.knives,player.kit.knives):1;
@@ -1789,7 +1789,7 @@ function fireArsenal(actor,origin,aim,spec,ads=false,{visualOnly=false}={}){
 function reload(){
   if(rangeInfiniteResources()){refillRangeAmmo();return;}
   if(ordinarySkills.urchinJammed(player.id,elapsed))return;
-  const spec=weapon();if(netHostPaused||mode!=='play'||!player.alive||renkoFlight(player)||busDriving()||carMotionActive(player)||interactionHeld||inventory.active==='spike'||!spec.mag||reloading||player.ammo===spec.mag||player.reserve<=0||player.serviceReload)return;
+  const spec=weapon();if(netHostPaused||mode!=='play'||!player.alive||renkoUnarmed(player)||busDriving()||carMotionActive(player)||interactionHeld||inventory.active==='spike'||!spec.mag||reloading||player.ammo===spec.mag||player.reserve<=0||player.serviceReload)return;
   if(isGuest())queueNetAction('reload');
   reloading=spec.reload;firing=false;sound('reload');
 }
@@ -2022,7 +2022,7 @@ function onnaraAirAim(actor){
  return !!(actor?.alive&&match?.phase==='live'&&event&&event.round===match.round&&event.team===actor.team&&!starHold.stopped(event.id)&&!actor.trcLadder&&!carMotionActive(actor)&&!busSeat(actor)&&Math.abs(actor.y-event.y)<1e-6&&Math.abs(actor.vy||0)<1e-6&&starHoldClear(actor,event));
 }
 function steadyAirAim(actor){return duckAirAim(actor)||onnaraAirAim(actor)||renkoSteadyAim(actor);}
-function renkoSteadyAim(actor){return !!(actor?.alive&&actor.kit?.character==='renko'&&match?.phase==='live'&&!carMotionActive(actor)&&!busSeat(actor)&&(renkoUltimateActive(actor)||renkoEvent(actor,'renko-drive')||renkoFlight(actor)));}
+function renkoSteadyAim(actor){return !!(actor?.alive&&actor.kit?.character==='renko'&&match?.phase==='live'&&!carMotionActive(actor)&&!busSeat(actor)&&renkoUltimateActive(actor));}
 function applyStarHold(actor){
  const event=ordinarySkills.onnaraEvent?.('onnara-hover',actor.id,elapsed);if(!event||match?.phase!=='live')return false;
  const held=starHold.apply(actor,event,elapsed,starHoldClear);
@@ -2212,6 +2212,8 @@ function renkoEvent(actor,type){
  const e=ordinarySkills.renkoEvent(type,actor.id,elapsed),p=actor.renkoPending;return e?.team===actor.team&&e.round===match.round?e:p?.event.type===type&&p.round===match.round&&p.team===actor.team&&p.event.endsAt>elapsed?p.event:null;
 }
 function renkoFlight(actor){if(actor===player&&actor.renkoJetHeld!==true)return null;return renkoEvent(actor,'renko-jet');}
+// Both movement abilities stow equipment; derive from accepted/predicted events, never a client weapon flag.
+function renkoUnarmed(actor){return !!(renkoFlight(actor)||renkoEvent(actor,'renko-drive'));}
 function normalJumpVelocity(actor){return 6.552*(renkoEvent(actor,'renko-drive')?RENKO_SKILLS.driveJumpScale:1);}
 function renkoSliding(actor){const s=actor?.renkoDrive;return !!(renkoEvent(actor,'renko-drive')&&s&&elapsed-s.slideAt>=0&&elapsed-s.slideAt<RENKO_SKILLS.slideDuration&&actorGrounded(actor));}
 function renkoDartTarget(actor,aim){
@@ -2251,7 +2253,7 @@ function activateRenkoAbility(actor,key,{predict=false,aim=null}={}){
  const before=actor.kit.snapshot(),effect=actor.kit.activate(key,elapsed);if(!effect)return;
  if(!predict&&!ordinarySkills.cast(effect,ordinaryActorView(actor),target,elapsed,match.round)){actor.kit.restore(before);return;}
  if(predict&&key!=='c')actor.renkoPending={key,round:match.round,team:actor.team,event:{id:'pending-renko-'+key,type,sourceId:actor.id,team:actor.team,x:actor.x,y:actor.y||0,z:actor.z,startedAt:elapsed,endsAt:elapsed+(key==='q'?RENKO_SKILLS.driveDuration:RENKO_SKILLS.flightDuration)}};
- if(key==='e'){actor.renkoJetHeld=true;actor.trcLadder=null;actor.vy=0;actor.netReload=0;actor.aiReload=0;if(actor===player){aiming=false;reloading=0;kick=0;}}if(actor===player){if(key!=='c')firing=false;showMessage(getCharacterSkill('renko',key).name,getCharacterSkill('renko',key).description,3);}return effect;
+ if(key==='e'){actor.renkoJetHeld=true;actor.trcLadder=null;actor.vy=0;}if(key==='q'||key==='e'){actor.netReload=0;actor.aiReload=0;if(actor===player){aiming=false;reloading=0;kick=0;}}if(actor===player){if(key!=='c')firing=false;showMessage(getCharacterSkill('renko',key).name,getCharacterSkill('renko',key).description,3);}return effect;
 }
 function confirmRenkoSkill(key){
  if(netHostPaused||mode!=='play'||!player.alive||interactionHeld||objectivePractice)return;refillMapPracticeSkills();if(isGuest()&&netActions.length>=64)return;
@@ -2624,7 +2626,7 @@ function updateHUD(){
     const statuses=[];
     const carGyro=ordinarySkills.carGyro(player.id,elapsed);
     const tax=ordinarySkills.onnaraTax?.(player.id,elapsed);if(tax)statuses.push(tax.power>0?`王冠の徴税 · 発砲ごとHP4 / 残り${Math.ceil(tax.power/ONNARA_SKILLS.taxPerShot)}回 · HP1で止まる`:'王冠の徴税 · 10発分の代償を払い終えました');
-    const renkoJetStatus=renkoFlight(player),renkoDriveStatus=renkoEvent(player,'renko-drive');if(renkoUltimateActive(player))statuses.push('リスタートラッシュ · 敵撃破でC・Q・E全回復');if(renkoJetStatus)statuses.push(`ジェットパック ${Math.ceil(Math.max(0,renkoJetStatus.endsAt-elapsed))}秒 · E長押し · マウスの向きへ飛行 / 離すと停止`);if(renkoDriveStatus)statuses.push(`高速走行 ${Math.ceil(renkoDriveStatus.endsAt-elapsed)}秒 · Vで慣性滑走`);
+    const renkoJetStatus=renkoFlight(player),renkoDriveStatus=renkoEvent(player,'renko-drive');if(renkoUltimateActive(player))statuses.push('リスタートラッシュ · 敵撃破でC・Q・E全回復');if(renkoJetStatus)statuses.push(`ジェットパック ${Math.ceil(Math.max(0,renkoJetStatus.endsAt-elapsed))}秒 · E長押し · マウスの向きへ飛行 / 離すと停止`);if(renkoDriveStatus)statuses.push(`高速走行 ${Math.ceil(renkoDriveStatus.endsAt-elapsed)}秒 · 素手 / C発射可 · Vで慣性滑走`);
     if(ordinarySkills.onnaraEvent?.('onnara-hover',player.id,elapsed)&&!starHold.stopped(ordinarySkills.onnaraEvent('onnara-hover',player.id,elapsed).id))statuses.push('星留め · 空中静止');
     if(ordinarySkills.onnaraEvent?.('onnara-chain',player.id,elapsed))statuses.push('星座裁定 · 近くの敵へ70%連鎖');
     if(ordinarySkills.urchinJammed(player.id,elapsed))statuses.push('棘錠 · 装填不可');
@@ -2726,7 +2728,7 @@ function drawMinimap(target,large=false){
 }
 
 function enemyRimFor(bot){const viewerTeam=!player.alive&&spectatedBot?spectatedBot.team:player.team;return mode!=='menu'&&(viewerTeam==='blue'||viewerTeam==='red')&&(bot.team==='blue'||bot.team==='red')&&bot.team!==viewerTeam;}
-function agentEquipment(bot){const weapon=bot.remoteId?bot.netWeapon:bot.netTarget?.weapon||bot.record?.primary||bot.record?.secondary||"classic";return {weapon,unarmed:!!renkoFlight(bot),character:bot.kit?.character||bot.netTarget?.kit?.character||'duelist',ultimate:bot.kit?.knivesActive&&weapon==="knife",knives:bot.kit?.knives||0,shotSequence:bot.netTarget?.shotSequence??bot.shotSequence??0,enemyRim:enemyRimFor(bot),crouch:bot.crouch||0,sliding:(frostSlideSpeed(bot)>0||renkoSliding(bot))&&!!bot.moving,...roundDanceState(match,bot),...(reducedMotion.matches?{danceTime:0}:{})};}
+function agentEquipment(bot){const weapon=bot.remoteId?bot.netWeapon:bot.netTarget?.weapon||bot.record?.primary||bot.record?.secondary||"classic";return {weapon,unarmed:!!renkoUnarmed(bot),character:bot.kit?.character||bot.netTarget?.kit?.character||'duelist',ultimate:bot.kit?.knivesActive&&weapon==="knife",knives:bot.kit?.knives||0,shotSequence:bot.netTarget?.shotSequence??bot.shotSequence??0,enemyRim:enemyRimFor(bot),crouch:bot.crouch||0,sliding:(frostSlideSpeed(bot)>0||renkoSliding(bot))&&!!bot.moving,...roundDanceState(match,bot),...(reducedMotion.matches?{danceTime:0}:{})};}
 function updateBots(dt){
   const cfg=levels.hard;
   if(!isGuest())navigation.updateTraffic?.(elapsed);
@@ -3150,7 +3152,7 @@ function updateBots(dt){
       bot.aimSample={id:enemy.id,x:enemy.x,y:enemy.y||0,z:enemy.z,at:elapsed};
       if(!aligned||targetSpeed>.65)bot.aimStillSince=elapsed;
       const settled=aligned&&elapsed-(bot.aimStillSince??elapsed)>=.14;
-      if(!renkoFlight(bot)&&aligned&&elapsed>=bot.reactionUntil&&elapsed>=(bot.skillThrowUntil||0)&&bot.fire<=0&&!(bot.aiReload>0)){
+      if(!renkoUnarmed(bot)&&aligned&&elapsed>=bot.reactionUntil&&elapsed>=(bot.skillThrowUntil||0)&&bot.fire<=0&&!(bot.aiReload>0)){
         if(bot.aiAmmo<=0){if(ordinarySkills.urchinJammed(bot.id,elapsed))bot.fire=.2;else{bot.aiReload=spec.reload||1.7;bot.fire=bot.aiReload;bot.reloadGoal=role?.urgent?null:reloadCover(bot,enemy);}}
         else{
           // Gyro needs this tick's actual movement, not the cleared animation
@@ -3194,7 +3196,7 @@ function updateBots(dt){
     }else if(decoyTarget&&!bot.serviceReload&&elapsed>=(bot.skillThrowUntil||0)&&visibleBetween(bot,decoyTarget)){
       bot.goal={x:decoyTarget.x,z:decoyTarget.z};bot.pathTime=0;
       const aligned=face(bot,decoyTarget,8);
-      if(!renkoFlight(bot)&&aligned&&elapsed>=bot.decoySeen.get(decoyTarget.id)-1.05&&bot.fire<=0&&!(bot.aiReload>0)){
+      if(!renkoUnarmed(bot)&&aligned&&elapsed>=bot.decoySeen.get(decoyTarget.id)-1.05&&bot.fire<=0&&!(bot.aiReload>0)){
         if(bot.aiAmmo<=0){if(ordinarySkills.urchinJammed(bot.id,elapsed))bot.fire=.2;else{bot.aiReload=spec.reload||1.7;bot.fire=bot.aiReload;}}
         else{
           const from=new THREE.Vector3(bot.x,(bot.y||0)+1.7,bot.z),to=new THREE.Vector3(decoyTarget.x,decoyTarget.y+1.55,decoyTarget.z),aim=to.clone().sub(from).normalize();
@@ -3397,9 +3399,9 @@ function updatePlay(dt){
   const sightViewer=!player.alive&&spectatedBot?spectatedBot:player;
   if(ordinarySkills.nearsightUntil(sightViewer.id,elapsed)>elapsed&&!obscured){scene.fog.near=URCHIN_SKILLS.gloomSight*.45;scene.fog.far=URCHIN_SKILLS.gloomSight;scene.fog.color.set('#071d29');}
   const cycle=sniperCycleRemaining();
-  const scoped=!!(!renkoFlight(player)&&aiming&&!cycle&&controlled&&weapon().scope&&!reloading&&!player.serviceReload&&!interactionHeld);
+  const scoped=!!(!renkoUnarmed(player)&&aiming&&!cycle&&controlled&&weapon().scope&&!reloading&&!player.serviceReload&&!interactionHeld);
   setVisible('sniper-scope',scoped);gun.visible=player.alive&&inventory.active!=='spike'&&!scoped;
-  camera.fov=THREE.MathUtils.lerp(camera.fov,scoped?weapon().scope:!renkoFlight(player)&&aiming&&!cycle&&controlled?62:76,Math.min(1,dt*12));camera.updateProjectionMatrix();
+  camera.fov=THREE.MathUtils.lerp(camera.fov,scoped?weapon().scope:!renkoUnarmed(player)&&aiming&&!cycle&&controlled?62:76,Math.min(1,dt*12));camera.updateProjectionMatrix();
   if(firing&&mode==='play'&&player.alive&&!busDriving()){
     for(let count=0;count<12&&firing&&elapsed-lastShot+1e-8>=nobiShotInterval(weapon(),player);count++){
       const previousShot=lastShot;
@@ -3902,23 +3904,23 @@ function applyRemoteAction(actor,action,actionTime=elapsed){
     return;
   }
   if(action.type==='equip'){
-    if(renkoFlight(actor))return;
+    if(renkoUnarmed(actor))return;
     if(![r.primary,r.secondary,'knife','spike'].includes(action.weapon)||action.weapon==='spike'&&match.spike.carrier!==actor.id)return;
     cancelServiceReload(actor);actor.netStores||={};actor.netStores[actor.netWeapon]={ammo:actor.netAmmo,reserve:actor.netReserve};actor.netWeapon=action.weapon;const spec=WEAPONS[action.weapon]||WEAPONS.knife;
     const saved=actor.netStores[action.weapon];actor.netAmmo=saved?.ammo??spec.mag;actor.netReserve=saved?.reserve??spec.reserve;actor.netReload=0;return;
   }
   const knives=actor.kit?.knivesActive===true&&actor.netWeapon==='knife',spec=knives?BLADE:WEAPONS[actor.netWeapon]||WEAPONS.classic;
-  if(action.type==='reload'&&!renkoFlight(actor)&&!carMotionActive(actor)&&!ordinarySkills.urchinJammed(actor.id,elapsed)&&actor.netAmmo<spec.mag&&actor.netReserve>0&&!actor.netReload&&!actor.serviceReload){actor.netReload=spec.reload;return;}
+  if(action.type==='reload'&&!renkoUnarmed(actor)&&!carMotionActive(actor)&&!ordinarySkills.urchinJammed(actor.id,elapsed)&&actor.netAmmo<spec.mag&&actor.netReserve>0&&!actor.netReload&&!actor.serviceReload){actor.netReload=spec.reload;return;}
   if(action.type==='pickup'){if(match.phase==='live')pickupDroppedWeapon(actor,action.dropId);return;}
   if(action.type==='drop'){
-    if(renkoFlight(actor))return;
+    if(renkoUnarmed(actor))return;
     cancelServiceReload(actor);
     if(actor.netWeapon==='spike'&&match.spike.carrier===actor.id){const point=safeDropPoint({...actor,yaw:actor.netYaw});match.dropSpike(actor.id,point.x,point.z);actor.netWeapon=r.primary||r.secondary||'classic';}
     else if(actor.netWeapon===r.primary){dropItem(r.primary,actor);r.primary=null;delete r.netPurchases?.primary;actor.netWeapon=r.secondary||'classic';}
     else return;
     const next=WEAPONS[actor.netWeapon]||WEAPONS.classic,saved=actor.netStores?.[actor.netWeapon];actor.netAmmo=saved?.ammo??next.mag;actor.netReserve=saved?.reserve??next.reserve;actor.netReload=0;return;
   }
-  if(action.type!=='fire'||renkoFlight(actor)||carMotionActive(actor)||match.phase!=='live'||actor.netWeapon==='spike'||actor.netReload>0||actor.serviceReload||actor.planting||actor.defusing||elapsed<(actor.skillThrowUntil||0)||actionTime-(actor.lastNetShot??-10)+1e-8<nobiShotInterval(spec,actor))return;
+  if(action.type!=='fire'||renkoUnarmed(actor)||carMotionActive(actor)||match.phase!=='live'||actor.netWeapon==='spike'||actor.netReload>0||actor.serviceReload||actor.planting||actor.defusing||elapsed<(actor.skillThrowUntil||0)||actionTime-(actor.lastNetShot??-10)+1e-8<nobiShotInterval(spec,actor))return;
   const yaw=Number(action.yaw),pitch=Number(action.pitch);if(!Number.isFinite(yaw)||!Number.isFinite(pitch))return;
   if(action.burst!==undefined&&typeof action.burst!=='boolean'||action.burst===true&&!knives)return;
   const knifeCount=action.burst===true?Math.min(DUELIST.knives,actor.kit.knives):1;
@@ -4074,7 +4076,7 @@ document.addEventListener('pointerlockchange',()=>{
 document.addEventListener('pointerlockerror',()=>{if(document.pointerLockElement===canvas||pointerLockInput.startsWith('requesting-'))return;resetMouseLook();pointerLockInput='unlocked';inputActive=true;if(mode==='play')showMessage('MOUSE LOOK','マウスを動かすだけで視点を操作できます',3);});
 document.addEventListener('mousemove',observeMouseLook);
 canvas.addEventListener('mouseenter',resetMouseLook);canvas.addEventListener('mouseleave',resetMouseLook);
-canvas.addEventListener('mousedown',e=>{if(duckAim){e.preventDefault();if(e.button===2){duckAim=null;showMessage('スキルを取り消しました','回数は消費していません',1);return;}if(e.button===0){const key=duckAim;duckAim=null;confirmDuckSkill(key);return;}}if(netHostPaused||mode!=='play')return;if(!player.alive){if(e.button===0&&!deathView.holding)spectateIndex++;return;}if(e.button===0){firing=true;shoot();}if(e.button===2){if(player.kit.knivesActive&&inventory.active==='knife'){e.preventDefault();firing=false;shoot(elapsed,true);}else aiming=!renkoFlight(player)&&weapon().slot==='primary'&&!ordinarySkills.capLocked(player.id,elapsed);}});
+canvas.addEventListener('mousedown',e=>{if(duckAim){e.preventDefault();if(e.button===2){duckAim=null;showMessage('スキルを取り消しました','回数は消費していません',1);return;}if(e.button===0){const key=duckAim;duckAim=null;confirmDuckSkill(key);return;}}if(netHostPaused||mode!=='play')return;if(!player.alive){if(e.button===0&&!deathView.holding)spectateIndex++;return;}if(e.button===0){firing=true;shoot();}if(e.button===2){if(player.kit.knivesActive&&inventory.active==='knife'){e.preventDefault();firing=false;shoot(elapsed,true);}else aiming=!renkoUnarmed(player)&&weapon().slot==='primary'&&!ordinarySkills.capLocked(player.id,elapsed);}});
 document.addEventListener('mouseup',e=>{if(e.button===0)firing=false;if(e.button===2)aiming=false;});
 window.addEventListener('contextmenu',e=>{if(mode==='play')e.preventDefault();});
 document.addEventListener('keydown',e=>{
@@ -4104,7 +4106,7 @@ document.addEventListener('keydown',e=>{
     if(e.code==='Digit2')equip(inventory.secondary);
     if(e.code==='Digit3')equip('knife');
     if(e.code==='Digit4'&&match.spike.carrier===player.id)equip('spike');
-    if(e.code==='KeyG'&&!objectivePractice&&!renkoFlight(player)){
+    if(e.code==='KeyG'&&!objectivePractice&&!renkoUnarmed(player)){
       if(isGuest()){queueNetAction('drop');return;}
       if(inventory.active==='spike'){const point=safeDropPoint();match.dropSpike(player.id,point.x,point.z);equip(inventory.primary||inventory.secondary);}
       else if(inventory.active===inventory.primary){dropItem(inventory.primary,player);inventory.primary=null;delete roundPurchases.primary;equip(inventory.secondary);}
@@ -4186,7 +4188,7 @@ $('mobile-weapon')?.addEventListener('click',()=>{
 });
 $('mobile-ads')?.addEventListener('click',()=>{
   if(netHostPaused||mode!=='play'||!player.alive||interactionHeld||weapon().slot!=='primary')return;
-  aiming=!renkoFlight(player)&&!aiming&&!ordinarySkills.capLocked(player.id,elapsed);updateHUD();
+  aiming=!renkoUnarmed(player)&&!aiming&&!ordinarySkills.capLocked(player.id,elapsed);updateHUD();
 });
 $('mobile-crouch')?.addEventListener('click',()=>{
   if(netHostPaused||mode!=='play'||!player.alive||interactionHeld)return;

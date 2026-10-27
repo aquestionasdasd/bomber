@@ -26,7 +26,8 @@
     "check:onnara-camera": "node tests-onnara-camera.cjs && node tests-onnara-camera-game.cjs && node tests-onnara-camera-negative.cjs",
     "check:grass-platform": "node tests-grass-platform.cjs && node tests-grass-platform-negative.cjs",
     "check:renko-unarmed": "node tests-renko-unarmed.cjs",
-    "check:renko-unarmed-negative": "node tests-renko-unarmed-negative.cjs"
+    "check:renko-unarmed-negative": "node tests-renko-unarmed-negative.cjs",
+    "check:renko-drive-unarmed": "node tests-renko-drive-unarmed.cjs && node tests-renko-drive-unarmed-negative.cjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

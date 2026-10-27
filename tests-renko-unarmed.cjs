@@ -1,7 +1,7 @@
 const fs=require('node:fs'),path=require('node:path'),Module=require('node:module');
 const fixture=fs.readFileSync(path.join(__dirname,'tests-renko-game.cjs'),'utf8');
 const fault=process.argv.find(a=>a.startsWith('--fault='))?.slice(8);
-const faults={local:["!player.alive||renkoFlight(player)||busDriving()||carMotionActive(player)||match?.phase!=='live'","!player.alive||busDriving()||carMotionActive(player)||match?.phase!=='live'","all weapons"],host:["action.type!=='fire'||renkoFlight(actor)||carMotionActive(actor)","action.type!=='fire'||carMotionActive(actor)","host refuses"],visual:["state=local?null:actor.netTarget,unarmed=!!renkoFlight(actor)","state=local?null:actor.netTarget,unarmed=false","first-person"]};
+const faults={local:["!player.alive||renkoUnarmed(player)||busDriving()||carMotionActive(player)||match?.phase!=='live'","!player.alive||busDriving()||carMotionActive(player)||match?.phase!=='live'","all weapons"],host:["action.type!=='fire'||renkoUnarmed(actor)||carMotionActive(actor)","action.type!=='fire'||carMotionActive(actor)","host refuses"],visual:["state=local?null:actor.netTarget,unarmed=!!renkoUnarmed(actor)","state=local?null:actor.netTarget,unarmed=false","first-person"]};
 if(fault){const[a,b]=faults[fault]||[];if(!a)throw Error('Unknown fault');const read=fs.readFileSync;fs.readFileSync=function(file,...args){let s=read.call(this,file,...args);if(String(file).replaceAll('\\','/').endsWith('/public/game.js')&&typeof s==='string'){if(!s.includes(a))throw Error('Missing fault anchor');s=s.replace(a,b);}return s;};}
 const boundary=fixture.indexOf(' const h=harness();');
 const network=fixture.slice(fixture.indexOf(' function peers()'),fixture.indexOf(" check('independent host/guest flight"));
