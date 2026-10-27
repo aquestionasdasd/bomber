@@ -112,7 +112,12 @@ async function main() {
   check('host-owned doors survive JSON sync/rejoin, reject malformed state and old packets',()=>{
     setup();local.run(`makeBot({x:15,z:1},0,'red',{id:'red-0',team:'red',primary:null,secondary:'classic',armor:0,credits:800,kit:new DuelistKit({character:'nope'})});var remote=bots[0];remote.id='red-0';remote.remoteId='guest';remote.netWeapon='classic';remote.netAmmo=12;remote.netReserve=36;onlinePlaying=true;online={host:true,session:{memberId:'host',hostId:'host'},send:p=>{captured=JSON.parse(JSON.stringify(p))}};map.traversal.damage('D1',200);netClock=0;tickOnline(.1);`);
     const guest=harness({realMap:true});guest.reset();guest.run(`selectArena('trc');onlinePlaying=true;online={host:false,room:{code:'TRCTEST1'},session:{memberId:'guest',hostId:'host'},send:()=>{}};netParticipants.set('guest','red-0');`);
+    // The two new main/MID shutters use the same authoritative state and rejoin packet.
+    local.run(`map.traversal.damage('D4',200);const d=map.traversal.doors.find(v=>v.id==='D5');Object.assign(remote,{x:d.x+1,z:d.z,y:0});applyRemoteAction(remote,{type:'trc-interact',kind:'door',id:'D5'});elapsed+=.2;netClock=0;tickOnline(.1);`);
     guest.sandbox.packet=copy(local.run('captured'));guest.run("receiveNetPacket('host',packet)");assert.equal(guest.run('map.traversal.doors[0].hp'),0);assert.ok(Buffer.byteLength(JSON.stringify(guest.sandbox.packet))<65536);
+    assert.equal(guest.run("map.traversal.doors.find(d=>d.id==='D4').hp"),0);
+    assert.equal(guest.run("map.traversal.doors.find(d=>d.id==='D5').open"),true);
+    assert.equal(guest.sandbox.packet.trcDoors.length,5);
     guest.sandbox.bad={...copy(guest.sandbox.packet),trcDoors:[['D1',-1,true]],time:999};guest.run('applyNetSnapshot(bad)');assert.notEqual(guest.run('elapsed'),999);
     guest.run("receiveNetPacket('host',packet)");assert.equal(guest.run('map.traversal.doors[0].hp'),0);
     local.run(`Object.assign(remote,{x:0,z:25,y:0});applyRemoteAction(remote,{type:'trc-interact',kind:'door',id:'D2'});`);assert.equal(local.run('map.traversal.doors[1].open'),false);

@@ -7,6 +7,11 @@ const suite=String.raw`
  const h=harness();
  function setup(character='nobi'){h.reset();h.sandbox.character=character;h.run("player.kit=new DuelistKit({character});player.kit.smoke=2;player.kit.updraft=1;player.kit.dash=1;player.kit.ultPoints=7;match.phase='live';makeBot({x:70,z:-60},0,'red',{id:'enemy',team:'red',kit:new DuelistKit({character:'nope'})});bots[0].rangeTarget=true;bots[0].remoteId='passive'");}
  function render(){h.run('renderOrdinarySkills()');}
+ check('initial menu without a match renders safely and clears prepared props after returning',()=>{
+  assert.equal(h.run('match'),null);render();assert.equal(h.run('preparedSkillFX.hand.visible'),false);
+  setup();h.run("useAbility('c')");render();assert.equal(h.run('preparedSkillFX.hand.visible'),true);
+  h.run('backMenu();match=null');render();assert.equal(h.run('preparedSkillFX.hand.visible'),false);assert.equal(h.run('preparedSkillFX.group.children.length'),0);
+ });
  check('actual aim input holds all9 skill props with gun hidden and no inventory spend',()=>{
   for(const [character,keys]of Object.entries({nobi:['c','q','e','x'],onnara:['q'],urchin:['e'],duck:['c','q'],japan:['c']}))for(const key of keys){setup(character);h.sandbox.key=key;const before=copy(h.run('player.kit.snapshot()'));h.run('useAbility(key)');render();assert.equal(h.run('preparedSkillFX.hand.visible'),true,character+key);assert.equal(h.run('gun.visible'),false,character+key);assert.deepEqual(copy(h.run('player.kit.snapshot()')),before);assert.equal(h.run('ordinarySkills.events(elapsed).length'),0);}
  });
