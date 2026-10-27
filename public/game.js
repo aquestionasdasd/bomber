@@ -3172,7 +3172,17 @@ function updateBots(dt){
       let cast=activateJapanAbility(bot,'x');if(!cast&&enemy&&visibleBetween(bot,enemy)){const aim={yaw:Math.atan2(bot.x-enemy.x,bot.z-enemy.z),pitch:Math.atan2((enemy.y||0)+1.3-((bot.y||0)+1.7),Math.hypot(enemy.x-bot.x,enemy.z-bot.z))};if(bot.armor<JAPAN_SKILLS.armorCap&&enemy.armor>0)cast=activateJapanAbility(bot,'q',{aim});if(!cast)cast=activateJapanAbility(bot,'e');if(!cast)cast=activateJapanAbility(bot,'c',{aim:{...aim,pitch:-.12}});}if(cast)bot.nextSkillAt=elapsed+1;
     }
     if(bot.kit?.character==='nobi'&&!interactPlant&&!interactDefuse&&elapsed>=(bot.nextSkillAt||0)){
-      let cast=null;if(enemy&&visibleBetween(bot,enemy)){const aim={yaw:Math.atan2(bot.x-enemy.x,bot.z-enemy.z),pitch:Math.atan2((enemy.y||0)+1.3-((bot.y||0)+1.7),Math.hypot(enemy.x-bot.x,enemy.z-bot.z))};if(bot.kit.ultPoints>=7)cast=activateAbility(bot,'x',{zonePoint:{x:bot.x,y:bot.y||0,z:bot.z}});if(!cast&&ordinarySkills.nobiVulnerability(enemy.id,elapsed,enemy,ordinaryReachable)===1)cast=activateAbility(bot,'c',{aim,zonePoint:{x:enemy.x,y:enemy.y||0,z:enemy.z}});if(!cast&&ordinarySkills.nobiInterval(enemy.id,elapsed,enemy,ordinaryReachable)===1)cast=activateAbility(bot,'q',{aim,zonePoint:{x:enemy.x,y:enemy.y||0,z:enemy.z}});}
+      let cast=null;
+      if(enemy&&visibleBetween(bot,enemy)){
+        const aim={yaw:Math.atan2(bot.x-enemy.x,bot.z-enemy.z),pitch:Math.atan2((enemy.y||0)+1.3-((bot.y||0)+1.7),Math.hypot(enemy.x-bot.x,enemy.z-bot.z))};
+        if(bot.kit.ultPoints>=7)cast=activateAbility(bot,'x',{zonePoint:{x:bot.x,y:bot.y||0,z:bot.z}});
+        const options=[['c','nobi-bell',bot.kit.smoke,ordinarySkills.nobiVulnerability(enemy.id,elapsed,enemy,ordinaryReachable)],['q','nobi-whisker',bot.kit.updraft,ordinarySkills.nobiInterval(enemy.id,elapsed,enemy,ordinaryReachable)]];
+        for(const[key,type,stock,active]of options)if(!cast&&stock>0&&active===1){
+          // Share the real field test: clipped throws need not reach a visible enemy.
+          const point=getSkillTarget(bot,type,{x:enemy.x,y:enemy.y||0,z:enemy.z},aim);
+          if(point&&ordinarySkills.wouldNobi(ordinaryActorView(enemy),{type,team:bot.team,...point,radius:NOBI_SKILLS.areaRadius},{reachable:ordinaryReachable}))cast=activateAbility(bot,key,{aim,zonePoint:point});
+        }
+      }
       bot.nextSkillAt=elapsed+(cast?1:.5);
     }
     if(bot.kit?.character==='car'&&!interactPlant&&!interactDefuse&&elapsed>=(bot.nextSkillAt||0)){

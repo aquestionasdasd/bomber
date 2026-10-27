@@ -507,12 +507,15 @@ export function createCharacterSkills() {
   }
   function nobiActive(type,id,now,target=false){return events(now).some(e=>e.type===type&&(target?e.targetId:e.sourceId)===id&&now>=e.triggerAt);}
   // Fixed landing fields; query current pose, never a tracked enemy identifier.
+  function wouldNobi(actor,event,{reachable}={}){
+    return living(actor)&&event&&nobiArea(event.type)
+      && (['nobi-bell','nobi-whisker'].includes(event.type)?actor.team!==event.team:actor.team===event.team)
+      && Math.hypot(actor.x-event.x,(actor.y||0)-(event.y-.12),actor.z-event.z)<=event.radius+1e-8
+      && safeReach(reachable,event,actor);
+  }
   function nobiField(type,id,now,actor,reachable){
     if(!living(actor)||actor.id!==id)return false;
-    return events(now).some(e=>e.type===type&&now>=e.triggerAt
-      && (['nobi-bell','nobi-whisker'].includes(type)?actor.team!==e.team:actor.team===e.team)
-      && Math.hypot(actor.x-e.x,(actor.y||0)-(e.y-.12),actor.z-e.z)<=e.radius+1e-8
-      && safeReach(reachable,e,actor));
+    return events(now).some(e=>e.type===type&&now>=e.triggerAt&&wouldNobi(actor,e,{reachable}));
   }
   function nobiVulnerability(id,now,actor,reachable){return nobiActive('nobi-tag',id,now,true)||nobiField('nobi-bell',id,now,actor,reachable)?NOBI_SKILLS.vulnerability:1;}
   function nobiInterval(id,now,actor,reachable){return nobiActive('nobi-brake',id,now,true)||nobiField('nobi-whisker',id,now,actor,reachable)?NOBI_SKILLS.fireIntervalScale:1;}
@@ -666,5 +669,5 @@ export function createCharacterSkills() {
     const e=events(now).find(e=>e.type==='renko-drive'&&e.sourceId===sourceId&&owned.has(e.id));
     if(!e)return false;active.delete(e.id);owned.delete(e.id);return true;
   }
-  return {cancelRenkoDrive,holdRenkoJet,renkoEvent:(type,id,now)=>events(now).find(e=>e.type===type&&e.sourceId===id)||null,nearsightUntil,sightRange,duckPad,recordConstellation(sourceId,from,to,now){const e=events(now).find(e=>e.type==='onnara-chain'&&e.sourceId===sourceId&&owned.has(e.id));if(!e||!point(from)||!point(to)||Math.hypot(from.x-to.x,from.y-to.y,from.z-to.z)>ONNARA_SKILLS.chainRange+.001)return false;active.get(e.id).link=[from.x,from.y,from.z,to.x,to.y,to.z,now].map(n=>Math.round(n*1000)/1000);active.get(e.id).link[6]=now;return true;},cancelOnnaraEvent(id,sourceId){const e=active.get(id);if(e?.type.startsWith('onnara-')&&e.sourceId===sourceId&&owned.has(id)){active.delete(id);owned.delete(id);return true;}return false;},consumeCrownTax,onnaraTax:(id,now)=>events(now).find(e=>e.type==='onnara-tax'&&e.targetId===id)||null,onnaraEvent,urchinJammed:(id,now)=>capState('urchin-jam',id,now,true),urchinTrident:(id,now)=>capState('urchin-trident',id,now),urchinInterval:(id,now)=>capState('urchin-trident',id,now)?1/URCHIN_SKILLS.tridentFireRate:1,hasImpairment,cleanse,capLocked:(id,now)=>capState('cap-lock',id,now,true),capBank:(id,now)=>capState('cap-bank',id,now),capMagazine:(id,now)=>capState('cap-magazine',id,now),resetActor,japanReturn:(id,now)=>events(now).some(e=>e.type==='japan-return'&&e.sourceId===id)?JAPAN_SKILLS.returnScale:0,nobiVulnerability,nobiInterval,nobiWork,nobiLegend,carGyro,disperseSmoke,cancelCarEvent,catBookmark,returnToCatBookmark,cancelCatEvent,clockFrozen, wouldBlind, wouldRoot,wouldSeed,wouldTag,wouldStitch,sealUntil,quiet,guardLethal,interceptShield,cast, update, events, snapshot, restore, reset, blindUntil, speedScale, markers, movementScale, mitigateSlow, frostSlideSpeed, cancelService, consumeDecoy, flashDecoy };
+  return {cancelRenkoDrive,holdRenkoJet,renkoEvent:(type,id,now)=>events(now).find(e=>e.type===type&&e.sourceId===id)||null,nearsightUntil,sightRange,duckPad,recordConstellation(sourceId,from,to,now){const e=events(now).find(e=>e.type==='onnara-chain'&&e.sourceId===sourceId&&owned.has(e.id));if(!e||!point(from)||!point(to)||Math.hypot(from.x-to.x,from.y-to.y,from.z-to.z)>ONNARA_SKILLS.chainRange+.001)return false;active.get(e.id).link=[from.x,from.y,from.z,to.x,to.y,to.z,now].map(n=>Math.round(n*1000)/1000);active.get(e.id).link[6]=now;return true;},cancelOnnaraEvent(id,sourceId){const e=active.get(id);if(e?.type.startsWith('onnara-')&&e.sourceId===sourceId&&owned.has(id)){active.delete(id);owned.delete(id);return true;}return false;},consumeCrownTax,onnaraTax:(id,now)=>events(now).find(e=>e.type==='onnara-tax'&&e.targetId===id)||null,onnaraEvent,urchinJammed:(id,now)=>capState('urchin-jam',id,now,true),urchinTrident:(id,now)=>capState('urchin-trident',id,now),urchinInterval:(id,now)=>capState('urchin-trident',id,now)?1/URCHIN_SKILLS.tridentFireRate:1,hasImpairment,cleanse,capLocked:(id,now)=>capState('cap-lock',id,now,true),capBank:(id,now)=>capState('cap-bank',id,now),capMagazine:(id,now)=>capState('cap-magazine',id,now),resetActor,japanReturn:(id,now)=>events(now).some(e=>e.type==='japan-return'&&e.sourceId===id)?JAPAN_SKILLS.returnScale:0,nobiVulnerability,nobiInterval,nobiWork,nobiLegend,wouldNobi,carGyro,disperseSmoke,cancelCarEvent,catBookmark,returnToCatBookmark,cancelCatEvent,clockFrozen, wouldBlind, wouldRoot,wouldSeed,wouldTag,wouldStitch,sealUntil,quiet,guardLethal,interceptShield,cast, update, events, snapshot, restore, reset, blindUntil, speedScale, markers, movementScale, mitigateSlow, frostSlideSpeed, cancelService, consumeDecoy, flashDecoy };
 }
