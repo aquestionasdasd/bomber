@@ -283,6 +283,15 @@ async function main() {
       client.send(payload);assert.equal(delivered.length,1);assert.equal(delivered[0].actions.length,1);assert.deepEqual(delivered[0].actions,payload.actions);assert.equal(delivered[0].room,host.code);assert.equal(delivered[0].connection,'renko-stop-test');
     });
 
+    await test('VEIL C/X selected floor coordinates survive authenticated HTTP and direct delivery without adding snapshot fields', async () => {
+      const host=await create(),guest=await join(host);await start(host,guest);
+      const payload={type:'input',seq:1,round:1,input:{x:0,y:0,z:0,yaw:0,pitch:0},actions:[{type:'ability',seq:1,round:1,at:10,key:'c',smokePoint:[34,-3.2,-20]},{type:'ability',seq:2,round:1,at:10.2,key:'x',smokePoint:[-22,3.2,15]}]};
+      assert.equal((await send(guest,'host','game',payload)).status,201);assert.deepEqual((await getMessages(host)).value.messages[0].data,payload);
+      const {RoomClient}=await import(pathToFileURL(path.join(__dirname,'public/online.js')).href),delivered=[];
+      const client=Object.assign(Object.create(RoomClient.prototype),{host:false,closed:false,room:{status:'playing'},session:{code:host.code,memberId:guest.memberId,hostId:host.memberId},connectionId:'veil-map-test',peers:new Map([[host.memberId,{channel:{readyState:'open',bufferedAmount:0,send:value=>delivered.push(JSON.parse(value))}}]]),pendingState:null,pendingTeamStates:new Map(),lastRelay:clock,relayBusy:false});
+      client.send(payload);assert.deepEqual(delivered[0].actions,payload.actions);assert.ok(Buffer.byteLength(JSON.stringify(payload))<65536);
+    });
+
     await test('team snapshots remain private to authenticated membership and preserve relay limits', async () => {
       const host = await create(), red = await join(host), blue = await join(host, 'blue', 'ALLY');
       await ready(blue); await start(host, red);

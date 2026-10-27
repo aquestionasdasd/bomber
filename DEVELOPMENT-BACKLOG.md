@@ -984,3 +984,9 @@ RIFF chunk/PCM16 stereo44.1kHz/有限値/peak/RMS/SHAと実PCMを渡すWebAudio 
 最新第187巡の人間指定「gitのTRC改修をpullしてマージ」によりPR64/codex/trc-tactical-rebuildの89392568eb61954d466f980dd3662dbadd71199fを現行PR63へ三方merge。TRC110×140m、左右メイン/横入り口/MIDと5ドア・8階段・地下/ヘブン、非重複面と全域ベイク照明を取り込む。描画/衝突/床支持/戦術/崩壊復元を一致。地下ジェットの負の床高、階層別の武器とボンバー落下/回収、即時カメラ/定常HUD20Hz/TRC影2048を含む。最新の蓮子E3秒/Q再押下解除/C壁貫通半径.91m1秒スタン、CPU移動速度精度、4銃所有者WAV/他録音を保持。mainへのmerge/forceなし。元PRの実画面確認と今回の数値/VM確認を区別し、今回は音/tab/server/OS操作なし。
 
 関連検証/公開/GitHubの正本はworkspace cycle187記録。実browser/新2tab/実端末/聴感と対人バランスは今回未確認。旧fullmain fixture債務は保持。
+
+## 第188巡 / 草ブロックC・Xのマップ設置
+
+最新第188巡の人間指定: 草ブロックC土煙とXブラックアウトドームは技キーで戦術マップを開き、左クリックで床と範囲を選択、右クリック（または設置ボタン）で確定。選択だけでは消費せずEsc/M/閉じる/同じ技キー/blurで取消。マップ内の静的な歩行可能床を全域から選べ、TRC地下/上階は高さ選択。hostが地図範囲・実床・高さ・接地C・在庫・作業・封印を再検証し、guestは在庫予測のみ。C半径3.5m/0.2秒予告/7秒/C2/100coin、X半径9m/12秒/7pt、Q/Eと音源/物理/地形を保持。20event満杯C rollbackと64action満杯非消費、任意ability smokePoint3座標以外のsnapshot/HTTP頻度追加なし。旧自己中心だけのC/X操作へ戻さない。
+
+検証/公開/GitHubの正本はworkspace cycle188記録。実browser/新2tab/端末/聴感は未確認。旧fullmain fixture債務を保持。

@@ -20,7 +20,7 @@ function validEvent(event,now){
   return event.flight===0&&event.radius===spec.radius
     &&Math.abs(event.triggerAt-event.startedAt-spec.delay)<1e-7&&Math.abs(event.endsAt-event.triggerAt-spec.tail)<1e-7
     &&(event.type==='veil-roots'?distance>=VEIL_SKILLS.rootsMinRange-1e-7&&distance<=VEIL_SKILLS.rootsRange+1e-7
-      :distance<1e-7&&Math.abs(event.y-event.fromY-(event.type==='veil-dust'?VEIL_SKILLS.dustCenterOffset:0))<1e-7)
+      :event.type==='veil-dust'||distance<1e-7&&Math.abs(event.y-event.fromY)<1e-7)
     &&now>=event.startedAt&&now<event.endsAt;
 }
 function phase(id){let value=2166136261;for(let i=0;i<id.length;i++)value=Math.imul(value^id.charCodeAt(i),16777619);return (value>>>0)/4294967296*Math.PI*2;}

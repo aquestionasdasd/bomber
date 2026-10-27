@@ -423,3 +423,19 @@
 .kill-banner img{position:absolute;width:174%;height:174%;max-width:none;left:-37%;top:-37%;object-fit:contain;user-select:none;-webkit-user-drag:none}
 @media(max-width:800px){.kill-banner{width:150px;bottom:clamp(120px,24vh,180px)}}
 @media(max-height:500px){.kill-banner{width:116px;bottom:83px}}
+
+/* Grass C/X use the tactical map without hiding instructions on narrow screens. */
+.veil-smoke-placement{padding:12px 18px;background:#152c36;border-block:1px solid #8fadda;color:#e5edff}
+.veil-smoke-placement strong{color:#c5d2ff;font-size:16px}
+.veil-smoke-placement p{margin:6px 0;font-size:13px;line-height:1.5}
+.veil-smoke-placement p span{color:#b3c5cc;margin-left:10px}
+.veil-smoke-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.veil-smoke-actions label{font-size:13px}
+.veil-smoke-actions select{background:#10232d;color:#e5edff;padding:6px;border:1px solid #8fadda}
+.veil-smoke-actions button{padding:7px 12px;border:1px solid #8fadda;background:#284450;color:#fff;cursor:pointer}
+.veil-smoke-actions button:disabled{opacity:.45;cursor:default}
+.smoke-placement-active .tactical-map-panel{max-height:96vh;overflow:auto}
+.smoke-placement-active .map-content{grid-template-columns:minmax(0,1fr);margin-top:12px}
+.smoke-placement-active .map-intel{display:none}
+.smoke-placement-active #large-minimap{max-height:50vh;cursor:crosshair}
+@media(max-height:650px){.smoke-placement-active #large-minimap{max-height:38vh}.smoke-placement-active .tactical-map-panel>header{margin-bottom:8px}.veil-smoke-placement{padding:8px 10px}}

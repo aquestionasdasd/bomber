@@ -304,6 +304,12 @@
   <section id="map-overlay" class="overlay-screen map-screen" hidden>
     <div class="tactical-map-panel">
       <header><div><div class="dialog-eyebrow">TACTICAL OVERVIEW / 2 SITES · 3 ROUTES</div><h2 id="map-title">橋本駅前 / 戦術マップ</h2></div><button id="close-map" class="close-button" type="button" aria-label="マップを閉じる">× <kbd>M</kbd></button></header>
+      <div id="veil-smoke-placement" class="veil-smoke-placement" hidden>
+        <strong id="veil-smoke-title"></strong>
+        <p>左クリックで場所を選択 → 右クリックで設置 <span>Esc / M / 同じ技キーでキャンセル · 選択中も試合は進行</span></p>
+        <div class="veil-smoke-actions"><label>設置する床 <select id="veil-smoke-floor" aria-label="煙幕を設置する床の高さ" disabled></select></label><button id="veil-smoke-confirm" disabled>ここに設置</button><button id="veil-smoke-cancel">キャンセル</button></div>
+        <p id="veil-smoke-status" role="status" aria-live="polite"></p>
+      </div>
       <div class="map-content">
         <div class="large-map-wrap"><canvas id="large-minimap" width="720" height="720" aria-label="橋本駅前の戦術マップ"></canvas><span class="map-north">N ↑</span><span id="map-area-name" class="map-area-label">HASHIMOTO / TACTICAL ARENA</span></div>
         <aside class="map-intel"><span class="label-mini">PLAN YOUR NEXT MOVE</span><h3>サイトと進行ルート</h3><div class="map-sites"><span><i>A</i><strong id="map-site-a-name">北口コンコース</strong></span><span><i>B</i><strong id="map-site-b-name">ミウィ前広場</strong></span></div><p id="map-route-copy">バス通り / 中央連絡路 / ミウィ通り</p><div class="practice-nav-title">PRACTICE <span>練習モードでエリアへ移動</span></div><div id="landmark-travel" class="landmark-travel"></div><div class="map-legend" id="map-legend"><span><i class="legend-player"></i>あなた / 味方</span><span><i class="legend-enemy"></i>敵BOT</span><span><i class="legend-road"></i>通路</span><span><i class="legend-cover"></i>建物 / 遮蔽物</span><span><i class="legend-site"></i>A・Bサイト</span></div><p id="map-detail" class="map-detail">橋本駅前の景観をもとに、対戦向けに構成したオリジナルマップです。</p><div id="map-coordinate-copy" class="map-coordinate">35°35′42″N / 139°20′42″E</div></aside>

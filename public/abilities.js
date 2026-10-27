@@ -15,7 +15,7 @@ export const CHARACTER_DEFS = Object.freeze({
   echo: Object.freeze({ id: 'echo', label: 'IAGNU', role: '索敵', ultName: 'リコンパルス', ultShortName: '索敵', ultimatePoints: 7,
     description: `C：一度だけ侵入を知らせる金文字 / Q：反射閃光 / E：短い移動補助。X：半径${TEAM_ABILITIES.reconRadius}m内を3回索敵、検知地点を短時間表示（7pt）。`, color: '#d3c785', ultIcon: 'M18 3a12 12 0 1 0 12 12M18 8a7 7 0 1 0 7 7M18 15 29 4M23 4h6v6M18 14v2' }),
   veil: Object.freeze({ id: 'veil', label: '草ブロック', role: '制圧', ultName: 'ブラックアウトドーム', ultShortName: 'ドーム', ultimatePoints: 7,
-    description: 'C：近距離の土煙 / Q：地表の根の帯 / E：接地中の芝走り。X：自身を中心に半径9mの視界を12秒遮断（7pt）。', color: '#b0abd8', ultIcon: 'M4 24a14 14 0 0 1 28 0M3 24h30M9 24v-8m18 8v-8M18 6V3' }),
+    description: 'C・X：マップを左クリックで地点選択、右クリックで煙幕を設置 / Q：地表の根の帯 / E：接地中の芝走り。X：マップで地点を選び右クリックで設置。半径9m・12秒（7pt）。', color: '#b0abd8', ultIcon: 'M4 24a14 14 0 0 1 28 0M3 24h30M9 24v-8m18 8v-8M18 6V3' }),
   ember: Object.freeze({ id: 'ember', label: 'はんだごて握り太郎', role: '攻撃', ultName: 'フレアストライク', ultShortName: '爆撃', ultimatePoints: 7,
     description: 'C：小さく弾けるはんだ玉 / Q：新しい閃光を軽減する遮光眼鏡 / E：予備弾で素早く整備。X：半径6m・80ダメージ×3回の爆撃（通常装甲・7pt）。', color: '#eaa36f', ultIcon: 'M18 2v5m0 16v5M2 15h5m22 0h5M8 5l4 4m12 12 4 4M28 5l-4 4M12 21l-4 4M18 8l3 5 5 2-5 2-3 5-3-5-5-2 5-2Z' }),
   frost: Object.freeze({ id: 'frost', label: '尾野', role: '守備', ultName: 'クライオフィールド', ultShortName: '足止め', ultimatePoints: 7,
@@ -91,7 +91,7 @@ const iagnuSkills = {
   e: { name: 'カーニング', shortName: '移動補助', description: `${IAGNU_SKILLS.kerningDuration}秒間、自身の歩く速さを${IAGNU_SKILLS.kerningSpeedScale}倍にする。${IAGNU_SKILLS.signatureCooldown}秒で再使用できる。`, max: 1, price: 0, type: 'echo-kerning', icon: 'M4 7v20M4 7l11 20V7m6 0v20M21 7l11 20V7M10 3h16m-3-2 3 2-3 2' },
 };
 const veilSkills = {
-  c: { name: '土煙', shortName: '土煙', description: `接地中に発動。${VEIL_SKILLS.dustArmDelay}秒後から${VEIL_SKILLS.dustDuration}秒、自身の発動地点へ半径${VEIL_SKILLS.dustRadius}mの土煙を残し、双方の視界を遮る。`, max: 2, price: DUELIST.smokePrice, type: 'veil-dust', icon: 'M6 25h24M8 21a6 6 0 0 1 1-12 8 8 0 0 1 15 1 6 6 0 0 1 1 11H8M11 27v2m8-3v3m7-2v2' },
+  c: { name: '土煙', shortName: '土煙', description: `マップを左クリックで地点選択→右クリックで設置。接地中に発動。${VEIL_SKILLS.dustArmDelay}秒後から${VEIL_SKILLS.dustDuration}秒、マップで選んだ地点へ半径${VEIL_SKILLS.dustRadius}mの土煙を残し、双方の視界を遮る。`, max: 2, price: DUELIST.smokePrice, type: 'veil-dust', icon: 'M6 25h24M8 21a6 6 0 0 1 1-12 8 8 0 0 1 15 1 6 6 0 0 1 1 11H8M11 27v2m8-3v3m7-2v2' },
   q: { name: '根の帯', shortName: '根の帯', description: `接地中に発動。前方最大${VEIL_SKILLS.rootsRange}m・幅${VEIL_SKILLS.rootsWidth}mの地表へ${VEIL_SKILLS.rootsDuration}秒間の根を伸ばし、接地した敵の歩く速さを${VEIL_SKILLS.rootsSpeedScale*100}%にする。壁と離地で防げる。`, max: 1, price: DUELIST.updraftPrice, type: 'veil-roots', icon: 'M18 4v24M18 11l-7-5m7 10 9-6M18 21l-9-7m9 12 10-6M11 6V3m16 7V6M9 14H5m23 6h4M7 29h22' },
   e: { name: '芝走り', shortName: '芝走り', description: `接地中の自身の歩く速さを${VEIL_SKILLS.turfDuration}秒間${VEIL_SKILLS.turfSpeedScale}倍にする。離地と死亡で終了し、${VEIL_SKILLS.signatureCooldown}秒で再使用できる。`, max: 1, price: 0, type: 'veil-turf', icon: 'M3 25h30M7 25l-2-7 7 7 1-13 5 13 6-10-1 10 8-6-3 6M7 7h10m-7 5h8' },
 };
