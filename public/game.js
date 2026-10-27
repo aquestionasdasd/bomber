@@ -1958,6 +1958,18 @@ function echoBotGlintPoint(bot,enemy,aim,actors){
  if(actors.some(ally=>ally!==bot&&ally.alive&&ally.team===bot.team&&ordinarySkills.wouldBlind(ordinaryActorView(ally),event,options)))return null;
  return point;
 }
+function nopeBotFlashPoint(bot,enemy,aim,actors){
+ if(!enemy||!visibleBetween(bot,enemy))return null;
+ const dist=Math.hypot(enemy.x-bot.x,enemy.z-bot.z);if(dist<1.5)return null;
+ // Test the real lob in front of the visible face and the next firing view.
+ const ratio=(dist-1.5)/dist,point=getSkillTarget(bot,'nope-flash',{x:bot.x+(enemy.x-bot.x)*ratio,z:bot.z+(enemy.z-bot.z)*ratio},aim);
+ if(!point)return null;
+ const event={type:'nope-flash',...point,radius:NOPE_SKILLS.flashRadius},options={reachable:ordinaryReachable};
+ if(!ordinarySkills.wouldBlind(ordinaryActorView(enemy),event,options))return null;
+ if(ordinarySkills.wouldBlind({...ordinaryActorView(bot),yaw:aim.yaw,pitch:aim.pitch},event,options))return null;
+ if(actors.some(ally=>ally!==bot&&ally.alive&&ally.team===bot.team&&ordinarySkills.wouldBlind(ordinaryActorView(ally),event,options)))return null;
+ return point;
+}
 function catBotFetchAim(bot){
  if(bot.aiReload>0||bot.serviceReload)return null;
  const active=WEAPONS[actorWeaponId(bot)];let best=null;
@@ -3051,7 +3063,10 @@ function updateBots(dt){
             Math.abs(spot.y-landing.y)<=CHARACTER_SKILLS.heightTolerance&&
             ordinaryReachable({type:'nope-bottle',...landing},spot))cast=activateAbility(bot,'c',{zonePoint:spot,aim});
         }
-        if(!cast&&enemy&&dist>10&&dist<18&&bot.kit.updraft>0&&!actors.some(ally=>ally!==bot&&ally.alive&&ally.team===bot.team&&distance(ally,known)<NOPE_SKILLS.flashRadius))cast=activateAbility(bot,'q',{zonePoint:known,aim});
+        if(!cast&&enemy&&dist>10&&dist<18&&bot.kit.updraft>0){
+          const point=nopeBotFlashPoint(bot,enemy,aim,actors);
+          if(point)cast=activateAbility(bot,'q',{zonePoint:point,aim});
+        }
         if(!cast&&bot.kit.dash>0&&(bot.hp<65||!enemy))cast=activateAbility(bot,'e',{aim});
       }
       bot.nextSkillAt=elapsed+(cast?2.5:.5);

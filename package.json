@@ -37,7 +37,8 @@
     "check:renko-drive-toggle": "node tests-renko-drive-toggle.cjs && node tests-renko-drive-toggle-negative.cjs",
     "check:renko-stun": "node tests-renko-stun.cjs && node tests-renko-stun-negative.cjs",
     "check:user-gun-audio": "node tests-user-gun-audio.cjs",
-    "check:mend-emergency": "node tests-bot-mend-emergency.cjs && node tests-bot-mend-emergency-negative.cjs"
+    "check:mend-emergency": "node tests-bot-mend-emergency.cjs && node tests-bot-mend-emergency-negative.cjs",
+    "check:nope-bot-flash": "node tests-bot-nope-flash.cjs && node tests-bot-nope-flash-negative.cjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
