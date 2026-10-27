@@ -3180,7 +3180,9 @@ function updateBots(dt){
         for(const[key,type,stock,active]of options)if(!cast&&stock>0&&active===1){
           // Share the real field test: clipped throws need not reach a visible enemy.
           const point=getSkillTarget(bot,type,{x:enemy.x,y:enemy.y||0,z:enemy.z},aim);
-          if(point&&ordinarySkills.wouldNobi(ordinaryActorView(enemy),{type,team:bot.team,...point,radius:NOBI_SKILLS.areaRadius},{reachable:ordinaryReachable}))cast=activateAbility(bot,key,{aim,zonePoint:point});
+          // Include allied fields still in flight, but only where their real effect reaches.
+          const pose=ordinaryActorView(enemy),queries={reachable:ordinaryReachable};
+          if(point&&ordinarySkills.wouldNobi(pose,{type,team:bot.team,...point,radius:NOBI_SKILLS.areaRadius},queries)&&!ordinarySkills.events(elapsed).some(event=>event.type===type&&event.team===bot.team&&ordinarySkills.wouldNobi(pose,event,queries)))cast=activateAbility(bot,key,{aim,zonePoint:point});
         }
       }
       bot.nextSkillAt=elapsed+(cast?1:.5);

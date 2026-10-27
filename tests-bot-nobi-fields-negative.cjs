@@ -1,8 +1,8 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),run=require('./tests-bot-nobi-fields.cjs');
 (async()=>{
  const variants=[
-  ['ignore real field reach',s=>s.replace('point&&ordinarySkills.wouldNobi(ordinaryActorView(enemy),{type,team:bot.team,...point,radius:NOBI_SKILLS.areaRadius},{reachable:ordinaryReachable})','point'),'far targets'],
-  ['skip active-effect deduplication',s=>s.replace('stock>0&&active===1','stock>0'),'already active'],
+  ['ignore real field reach',s=>s.replace('ordinarySkills.wouldNobi(pose,{type,team:bot.team,...point,radius:NOBI_SKILLS.areaRadius},queries)','true'),'far targets'],
+  ['skip active-effect deduplication',s=>s.replace('stock>0&&active===1','stock>0').replace('&&!ordinarySkills.events(elapsed).some(event=>event.type===type&&event.team===bot.team&&ordinarySkills.wouldNobi(pose,event,queries))',''),'already active'],
   ['project Q with shorter C range',s=>s.replace('getSkillTarget(bot,type,','getSkillTarget(bot,\'nobi-bell\','),'ineffective C'],
   ['reverse useful C priority',s=>s.replace('for(const[key,type,stock,active]of options)','for(const[key,type,stock,active]of options.reverse())'),'ineffective C'],
  ];
