@@ -1,0 +1,24 @@
+const assert=require('node:assert/strict'),path=require('node:path'),{pathToFileURL}=require('node:url');
+async function main(){
+ const load=f=>import(pathToFileURL(path.join(__dirname,'public',f)).href),T=await load('vendor/three.module.js'),{cameraSweep,moveCamera}=await load('onnara-camera-motion.js'),{createCollisionIndex}=await load('collision.js'),{orbSeesActor,orbViewPose}=await load('onnara-rules.js'),{createOrbReveal}=await load('onnara-reveal.js'),{createOrbView}=await load('onnara-orb-view.js');let n=0;
+ const test=(name,fn)=>{fn();n++;console.log('PASS: '+name);},bounds={minX:-20,maxX:20,minZ:-20,maxZ:20},event=()=>({type:'onnara-orb',x:0,y:1.53,z:0,fromX:0,fromY:0,fromZ:-12,yaw:0,radius:.19,flight:15,startedAt:0,endsAt:15});
+ test('real polygon normal reflects angled wall; cutout stays open and disabled cover stops reflecting',()=>{
+  const c={minX:-4,maxX:4,minZ:-5,maxZ:-2,base:0,height:4,polygon:[[-4,-2],[4,-4],[4,-5],[-4,-3]]},index=createCollisionIndex([c]),e=event();moveCamera(e,.4,(a,b,r)=>cameraSweep(index,bounds,a,b,r));assert.ok(e.fromZ>0);assert.ok(e.fromX>4);assert.ok(Math.abs(Math.hypot(e.fromX,e.fromY,e.fromZ)-12)<1e-8);
+  const ring={minX:-4,maxX:4,minZ:-4,maxZ:4,base:2,height:3,polygon:[[-4,-4],[4,-4],[4,4],[-4,4]],holes:[[[-1,-1],[1,-1],[1,1],[-1,1]]]};const i=createCollisionIndex([ring]);assert.equal(cameraSweep(i,bounds,{x:0,y:1,z:0},{x:0,y:4,z:0},.19),null);
+  c.disabled=true;index.invalidate();const open=event();moveCamera(open,.4,(a,b,r)=>cameraSweep(index,bounds,a,b,r));assert.equal(open.fromZ,-12);assert.ok(Math.abs(open.z+4.8)<1e-7);
+ });
+ test('bounded repeated contacts and arena edge never escape finite playable bounds',()=>{
+  const walls=[{minX:-5,maxX:5,minZ:-2,maxZ:-1.98,height:4},{minX:-5,maxX:5,minZ:1.98,maxZ:2,height:4}],i=createCollisionIndex(walls),e=event();moveCamera(e,14.9,(a,b,r)=>cameraSweep(i,bounds,a,b,r));assert.ok(Math.abs(e.z)<1.81);assert.ok(Number.isFinite(e.yaw));const b=event();b.fromX=12;b.fromZ=0;moveCamera(b,3,(a,c,r)=>cameraSweep(createCollisionIndex([]),bounds,a,c,r));assert.ok(b.x<19.81);assert.equal(b.fromX,-12);
+ });
+ test('reveal frustum matches actual PerspectiveCamera across yaw, pitch, height and offscreen points',()=>{
+  for(const yaw of[0,.7,-2.1])for(const pitch of[-1,.2,1.2]){const e={...event(),yaw,fromY:Math.sin(pitch)*12};const p=orbViewPose(e,0),cam=new T.PerspectiveCamera(65,16/9,.08,140);cam.position.set(p.x,p.y,p.z);cam.rotation.set(p.pitch,p.yaw,0,'YXZ');cam.updateMatrixWorld(true);const f=new T.Frustum().setFromProjectionMatrix(new T.Matrix4().multiplyMatrices(cam.projectionMatrix,cam.matrixWorldInverse));for(let j=0;j<40;j++){const a={alive:true,x:Math.sin(j*2)*15,y:Math.cos(j*1.7)*10,z:Math.cos(j*2)*15,crouch:j%2};const v=new T.Vector3(a.x,a.y+1.45-a.crouch*.55,a.z);assert.equal(orbSeesActor(e,a,0,()=>true),f.containsPoint(v));}}
+ });
+ test('silhouettes borrow visible geometry only, reuse mesh and matrix, never dispose avatar resources or add hits',()=>{
+  const g=new T.BoxGeometry(),m=new T.MeshBasicMaterial(),a={alive:true,group:new T.Group()},mesh=new T.Mesh(g,m);mesh.position.set(2,3,4);a.group.add(mesh);const hidden=new T.Mesh(g,m);hidden.visible=false;a.group.add(hidden);const fx=createOrbReveal(T);fx.update([a]);assert.equal(fx.group.children.length,1);const item=fx.group.children[0];assert.equal(item.geometry,g);assert.deepEqual(item.matrix.elements,mesh.matrixWorld.elements);const hit=[];item.raycast({},hit);assert.equal(hit.length,0);mesh.position.x=9;fx.update([a]);assert.equal(fx.group.children[0],item);assert.equal(item.matrix.elements[12],9);let disposed=0;g.addEventListener('dispose',()=>disposed++);fx.dispose();assert.equal(disposed,0);assert.equal(m.depthTest,true);
+ });
+ test('two inset slots use actual flight height/pitch and restore renderer, hidden groups, fog even on render failure',()=>{
+  const sc=new T.Scene(),g=new T.Group(),gun=new T.Group();sc.fog=new T.Fog('#ffffff',20,80);g.visible=true;gun.visible=true;const renderer={autoClear:true,getSize:v=>v.set(1000,800),getViewport:v=>v.set(0,0,1000,800),getScissor:v=>v.set(0,0,1000,800),getScissorTest:()=>false,setViewport(...v){this.viewport=v},setScissor(){},setScissorTest(v){this.scissor=v},clear(){},render(scene,camera){this.pose=camera.position.clone();assert.equal(g.visible,false);throw Error('render fault')}};const view=createOrbView(T),e=event();assert.throws(()=>view.render(renderer,sc,e,{hide:[g],gun,slot:1,now:0}),/render fault/);assert.equal(renderer.pose.y,1.53);assert.equal(g.visible,true);assert.equal(gun.visible,true);assert.equal(renderer.autoClear,true);assert.equal(renderer.scissor,false);assert.equal(sc.fog.near,20);
+ });
+ console.log(`PASS: ${n} camera motion/frustum/resource/inset groups; silent`);
+}
+main().catch(e=>{console.error(e);process.exitCode=1});

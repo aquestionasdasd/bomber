@@ -1,4 +1,4 @@
-export const ONNARA_SKILLS=Object.freeze({jumpVelocity:12,jumpDuration:1.6,taxRange:40,taxDuration:8,taxPerShot:30,taxBudget:300,taxHealthPerShot:4,orbRange:40,orbDuration:8,hoverDuration:13,signatureCooldown:18,chainDuration:8,chainRange:12,chainScale:.7});
+export const ONNARA_SKILLS=Object.freeze({jumpVelocity:12,jumpDuration:1.6,taxRange:40,taxDuration:8,taxPerShot:30,taxBudget:300,taxHealthPerShot:4,orbRange:40,orbDuration:8,orbCameraDuration:15,orbSpeed:12,orbRadius:.19,hoverDuration:13,signatureCooldown:18,chainDuration:8,chainRange:12,chainScale:.7});
 export const URCHIN_SKILLS=Object.freeze({jamRange:40,jamDuration:8,lanceRange:40,lanceDelay:.65,lanceTail:.35,lanceRadius:.65,lanceDamage:80,disarmRange:32,gloomRange:36,gloomSpeed:24,gloomDelay:.25,gloomRadius:2,gloomDuration:3,gloomSight:8,tridentDuration:13,tridentFireRate:1.5,tridentAngle:Math.PI/45,tridentScale:.65,tridentRange:90,signatureCooldown:18});
 export const CAP_SKILLS=Object.freeze({lockRange:40,lockDuration:8,lockSpread:.07,lockAimScale:.55,cleanRange:24,bounceDuration:6,bounceScale:.75,bounceRange:90,magazineDuration:9,signatureCooldown:22});
 // Original fan-made tuning inspired by the duelist role; not an exact live-game ruleset.
@@ -132,7 +132,7 @@ const nobiSkills={
 };
 const onnaraSkills={
  c:{name:'星跳び',shortName:'大ジャンプ',description:'接地中にCで即ジャンプ。頭上が開いていれば足元から約4.8m上昇する。空中移動・射撃は通常通りで、Eの13秒空中静止にもつなげられる。天井に当たると上昇停止。空中での追加発動はできない。',max:2,price:100,type:'onnara-jump',icon:'M18 29V6M9 15l9-9 9 9M7 29h22M11 22l7-7 7 7'},
- q:{name:'星見の宝玉',shortName:'周回映像',description:'Qで構え40mの見える床へ左確定・右取消。8秒、固定地点から360度を一周見回す映像を本人の小窓に表示。脇道や背後の確認にも使える。壁・煙で遮られ、遠隔射撃や自動検知はしない。',max:1,price:100,type:'onnara-orb',icon:'M18 3a12 12 0 1 0 0 24 12 12 0 0 0 0-24ZM6 15h24M18 3v24'},
+ q:{name:'星見の宝玉',shortName:'反射カメラ',description:'Qで構え左クリックで手元から照準方向へ直進。毎秒12m、壁・床・天井で反射し15秒で消える。2個所持。周回映像に実際に映る敵だけ、本人のメイン画面にも透過表示。壁・煙でカメラの視線は遮られる。',max:2,price:100,type:'onnara-orb',icon:'M18 3a12 12 0 1 0 0 24 12 12 0 0 0 0-24ZM6 15h24M18 3v24'},
  e:{name:'星留め',shortName:'空中静止',description:'空中でE。13秒、その高さで静止し水平移動と射撃は継続。静止中の単発弾は照準どおりに飛び、散弾は通常の広がりを保つ。接地・高い床への侵入で終了。18秒で再使用。',max:1,price:0,type:'onnara-hover',icon:'M18 3v18M10 13l8 8 8-8M5 28h26'}
 };
 const renkoSkills={c:{name:'インパルス弾',shortName:'吹き飛ばし',description:'Cですぐ照準方向へ発射。40m/80m毎秒、直径2.6mの弾が最初の敵を吹き飛ばす。空所にも発射でき、壁停止・追尾/ダメージ/追加スタンなし。',max:2,price:200,type:'renko-dart',icon:'M3 18h23M18 9l10 9-10 9M8 11h6M8 25h6'},q:{name:'オーバードライブ',shortName:'高速走行',description:'6秒14.4m毎秒で走行し、ジャンプの初速が1.3倍。走行中にVで1秒の慣性滑走。滑走は曲がりにくく、ジャンプで終了。Vを離して走れば再度滑れる。',max:1,price:100,type:'renko-drive',icon:'M4 26h16l10-15M7 18h10M10 10h10'},e:{name:'ジェットパック',shortName:'長押し飛行',description:'E長押し中は16m毎秒で照準方向へ自動飛行。マウスで上下左右に操縦し、Eを離すと終了。壁/天井で停止、終了後は落下。18秒再使用。',max:1,price:0,type:'renko-jet',icon:'M12 23V8l6-5 6 5v15M12 25l-4 7M24 25l4 7M18 24v9'}};

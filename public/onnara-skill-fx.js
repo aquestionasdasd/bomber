@@ -26,7 +26,7 @@ export function createOnnaraSkillFX(T) {
   function update(events,now,{actors=[],reducedMotion=false}={}) {
     if(disposed)return;
     const seen=new Set();
-    for(const e of events){if(!shapes[e.type])continue;
+    for(const e of events){if(!shapes[e.type]||e.type==='onnara-orb'&&e.flight>0)continue;
       const actor=actors.find(a=>a.id===(e.targetId||e.sourceId));if(e.type!=='onnara-orb'&&!actor?.alive)continue;
       seen.add(e.id);let root=items.get(e.id);if(!root){root=makeRoot(e);items.set(e.id,root);}
       const orb=e.type==='onnara-orb',hover=e.type==='onnara-hover'||e.type==='onnara-jump',chain=e.type==='onnara-chain';

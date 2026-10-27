@@ -18,7 +18,8 @@
     "check:renko-controls": "node tests-renko-controls.cjs && node tests-renko-controls-negative.cjs",
     "check:prepared-skills": "node tests-prepared-skill-fx.cjs && node tests-prepared-skill-game.cjs && node tests-prepared-skill-negative.cjs",
     "check:plant-cancel": "node tests-plant-cancel.cjs && node tests-plant-cancel-negative.cjs && node tests-post-plant-equip.cjs",
-    "check:renko-jump": "node tests-renko-jump.cjs && node tests-renko-jump-negative.cjs"
+    "check:renko-jump": "node tests-renko-jump.cjs && node tests-renko-jump-negative.cjs",
+    "check:onnara-camera": "node tests-onnara-camera.cjs && node tests-onnara-camera-game.cjs && node tests-onnara-camera-negative.cjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

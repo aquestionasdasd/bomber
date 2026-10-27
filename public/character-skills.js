@@ -1,3 +1,4 @@
+import { moveCamera } from './onnara-camera-motion.js';
 import { nopeWalkPose } from './nope-walk.js';
 import { RENKO_SKILLS, ONNARA_SKILLS, URCHIN_SKILLS, CAP_SKILLS, JAPAN_SKILLS, NOBI_SKILLS, CAR_SKILLS, CAT_SKILLS, DUCK_SKILLS, DUELIST_SKILLS, NOPE_SKILLS, MEND_SKILLS, IAGNU_SKILLS, VEIL_SKILLS, EMBER_SKILLS, FROST_SKILLS } from './abilities.js';
 import { WEAPONS } from './rules.js';
@@ -81,7 +82,9 @@ const roundNumber = value => Number.isSafeInteger(value) && value > 0;
 const position = value => value && coordinate(value.x) && coordinate(value.z) && (value.y === undefined || coordinate(value.y));
 const living = value => position(value) && identifier(value.id) && team(value.team) && value.alive === true && Number.isFinite(value.hp) && value.hp > 0 && value.hp <= 1000;
 const point = value => position(value) && coordinate(value.y);
-const copy = value => ({ ...value, ...(value.link ? {link:[...value.link]} : {}) });
+const flyingOrb = e => e?.type==='onnara-orb'&&e.flight===ONNARA_SKILLS.orbCameraDuration;
+const orbVelocity = t => Array.isArray(t.cameraVelocity)&&t.cameraVelocity.length===3&&t.cameraVelocity.every(Number.isFinite)&&Math.abs(Math.hypot(...t.cameraVelocity)-ONNARA_SKILLS.orbSpeed)<.003;
+const copy = value => {const out={...value,...(value.link?{link:[...value.link]}:{})};if(flyingOrb(value))for(const k of ['x','y','z','fromX','fromY','fromZ'])out[k]=Math.round(out[k]*1000)/1000;return out;};
 const close = (a, b) => Math.abs(a - b) < 1e-7;
 const idSequence = (id, type) => {
   if (typeof id !== 'string' || !new RegExp(`^skill-${type}-[1-9][0-9]{0,14}$`).test(id)) return 0;
@@ -161,9 +164,10 @@ export function skillProjectilePosition(event, now) {
 
 export function createCharacterSkills() {
   let currentRound = null, currentTime = -Infinity, lastRestoreTime = -Infinity, sequence = 0;
-  const active = new Map(), owned = new Set(), blinds = new Map(), detections = new Map(), decoyOwners = new Set(), decoyReactions = new Map(), borderHistory=new Map(), nearsights=new Map(), waveSamples=new Map();
-  function clear() { nearsights.clear();waveSamples.clear();borderHistory.clear(); active.clear(); owned.clear(); blinds.clear(); detections.clear(); decoyOwners.clear(); decoyReactions.clear(); }
+  const active = new Map(), owned = new Set(), blinds = new Map(), detections = new Map(), decoyOwners = new Set(), decoyReactions = new Map(), borderHistory=new Map(), nearsights=new Map(), waveSamples=new Map(), cameraTimes=new Map();
+  function clear() { cameraTimes.clear();nearsights.clear();waveSamples.clear();borderHistory.clear(); active.clear(); owned.clear(); blinds.clear(); detections.clear(); decoyOwners.clear(); decoyReactions.clear(); }
   function prune(now) {
+    for(const id of cameraTimes.keys())if(!active.has(id)||active.get(id).endsAt<=now)cameraTimes.delete(id);
     for (const [id, event] of active) if (event.endsAt <= now) { active.delete(id); owned.delete(id); decoyOwners.delete(id); borderHistory.delete(id);waveSamples.delete(id); }
     for (const [id, endsAt] of decoyReactions) if (endsAt <= now) decoyReactions.delete(id);
     for(const collection of [blinds,nearsights])for(const[id,blind]of collection)if(blind.endsAt<=now)collection.delete(id);
@@ -180,7 +184,7 @@ export function createCharacterSkills() {
     // changing older skills. Self events round both ends identically.
     if(typeof type==='string'&&type.startsWith('onnara-')&&actor&&target){const q=v=>typeof v==='number'?Math.round(v*1000)/1000:v;actor={...actor,x:q(actor.x),y:q(actor.y||0),z:q(actor.z)};target={...target,x:q(target.x),y:q(target.y),z:q(target.z)};}
 
-    if (!isType(type) || !living(actor) || !point(target) || !withinCastRange(type, actor, target) || !coordinate(eyeY(actor)) || !clock(now) || !roundNumber(round)) return null;
+    if (!isType(type) || !living(actor) || !point(target) || !(type==='onnara-orb'&&target.cameraVelocity!==undefined ? orbVelocity(target)&&Math.hypot(target.x-actor.x,target.y-eyeY(actor),target.z-actor.z)<2 : withinCastRange(type, actor, target)) || !coordinate(eyeY(actor)) || !clock(now) || !roundNumber(round)) return null;
     if ((type.startsWith('veil-') || type === 'frost-unravel' || type === 'onnara-jump') && actor.grounded !== true) return null;
     if(['onnara-tax','urchin-jam','urchin-disarm'].includes(type)&&(!identifier(target.targetId)||target.targetId===actor.id))return null;
     if(['cap-lock','cap-clean'].includes(type)&&(!identifier(target.targetId)||type==='cap-lock'&&target.targetId===actor.id))return null;
@@ -196,10 +200,11 @@ export function createCharacterSkills() {
     if (type === 'ember-service' && (!serviceWeapon(target.weaponId) || actor.weaponId !== target.weaponId)) return null;
     if(type==='onnara-hover'&&actor.grounded!==false)return null;
     if(type==='onnara-orb'&&(!Number.isFinite(target.yaw)||Math.abs(target.yaw)>Math.PI))return null;
-    const spec = specs[type], endsAt = now + spec.delay + spec.tail;
+    const moving=type==='onnara-orb'&&target.cameraVelocity!==undefined;
+    const spec=moving?{flight:ONNARA_SKILLS.orbCameraDuration,delay:0,tail:ONNARA_SKILLS.orbCameraDuration,radius:ONNARA_SKILLS.orbRadius}:specs[type], endsAt = now + spec.delay + spec.tail;
     if (!Number.isFinite(endsAt) || !advance(now, round) || active.size >= CHARACTER_SKILLS.maxEvents || sequence >= 999999999999999) return null;
     if(type==='onnara-tax'&&[...active.values()].some(e=>e.type===type&&e.targetId===target.targetId))return null;
-    if (personal(type) && [...active.values()].some(event => event.type === type && event.sourceId === actor.id)) return null;
+    if (personal(type) && [...active.values()].filter(event => event.type === type && event.sourceId === actor.id).length >= (moving?2:1)) return null;
     const event = { id: `skill-${type}-${++sequence}`, type, team: actor.team, sourceId: actor.id, round,
       fromX: actor.x, fromY: feetSource(type) ? actor.y || 0 : eyeY(actor), fromZ: actor.z, x: target.x, y: target.y, z: target.z,
       startedAt: now, flight: spec.flight, triggerAt: now + spec.delay, endsAt, radius: spec.radius };
@@ -207,6 +212,7 @@ export function createCharacterSkills() {
     if(type==='nope-decoy'&&target.walkLength!==undefined){event.yaw=target.yaw;event.walkLength=target.walkLength;}
     if(type==='onnara-tax')event.power=ONNARA_SKILLS.taxBudget;
     if(type==='onnara-orb')event.yaw=target.yaw;
+    if(moving){event.fromX=target.cameraVelocity[0];event.fromY=target.cameraVelocity[1];event.fromZ=target.cameraVelocity[2];cameraTimes.set(event.id,now);}
     if(type==='japan-border')event.yaw=target.yaw;
     if(type==='japan-levy')event.targetId=target.targetId;
     if(['nobi-tag','nobi-brake'].includes(type))event.targetId=target.targetId;
@@ -278,7 +284,7 @@ export function createCharacterSkills() {
     }
     return effects;
   }
-  function update(actors, now, round, { reachable, projectileClear } = {}) {
+  function update(actors, now, round, { reachable, projectileClear, cameraSweep } = {}) {
     if (!advance(now, round)) return [];
     const effects = [], list = Array.isArray(actors) ? actors : [];
     for(const[id,b]of nearsights)if(!list.some(a=>living(a)&&a.id===id))nearsights.delete(id);
@@ -290,6 +296,10 @@ export function createCharacterSkills() {
         && (!groundedPersonal(event.type) || actor.grounded === true)
         && (event.type !== 'ember-service' || actor.weaponId === event.weaponId))) {active.delete(id);owned.delete(id);}
     for(const[id,event]of active)if((event.type.startsWith('renko-')||event.type.startsWith('onnara-')||event.type.startsWith('urchin-')||event.type.startsWith('cap-')||event.type.startsWith('japan-')||event.type.startsWith('nobi-')||event.type.startsWith('car-')||event.type.startsWith('duck-')||event.type.startsWith('cat-'))&&(!list.some(actor=>living(actor)&&actor.id===event.sourceId&&actor.team===event.team)||['onnara-tax','urchin-jam','cap-lock','japan-levy','duck-seal','nobi-tag','nobi-brake'].includes(event.type)&&!list.some(actor=>living(actor)&&actor.id===event.targetId&&actor.team!==event.team))){active.delete(id);owned.delete(id);borderHistory.delete(id);}
+    for(const id of cameraTimes.keys()){const e=active.get(id);if(!e||!owned.has(id)){cameraTimes.delete(id);continue;}
+      const previous=cameraTimes.get(id);cameraTimes.set(id,now);
+      if(typeof cameraSweep==='function'&&now>previous)moveCamera(e,now-previous,cameraSweep);
+    }
     for(const e of active.values())if(e.type==='japan-border'&&owned.has(e.id)&&now>=e.triggerAt){
       let history=borderHistory.get(e.id);if(!history){history=new Map();borderHistory.set(e.id,history);}
       const nx=Math.sin(e.yaw),nz=Math.cos(e.yaw);
@@ -523,6 +533,7 @@ export function createCharacterSkills() {
     if(value.type==='japan-border'&&(!Number.isFinite(value.yaw)||Math.abs(value.yaw)>Math.PI))return false;
     if(value.type==='duck-shield'&&(!Number.isFinite(value.yaw)||Math.abs(value.yaw)>Math.PI||!Number.isFinite(value.power)||value.power<=0||value.power>DUCK_SKILLS.shieldHP))return false;
     if(value.type==='duck-egg'&&(!Number.isInteger(value.power)||value.power<1||value.power>DUCK_SKILLS.eggLives))return false;
+    if(flyingOrb(value))return value.radius===ONNARA_SKILLS.orbRadius&&Math.abs(Math.hypot(value.fromX,value.fromY,value.fromZ)-ONNARA_SKILLS.orbSpeed)<.003&&close(value.triggerAt,value.startedAt)&&close(value.endsAt,value.startedAt+ONNARA_SKILLS.orbCameraDuration);
     return value.flight === spec.flight && value.radius === spec.radius && withinCastRange(value.type, { x: value.fromX, y: value.fromY, z: value.fromZ }, value, value.fromY)
       && close(value.triggerAt, value.startedAt + spec.delay) && close(value.endsAt, value.triggerAt + spec.tail);
   }
@@ -547,7 +558,7 @@ export function createCharacterSkills() {
     const nextEvents = new Map(), nextBlinds = new Map(), nextMarkers = new Map(); let nextSequence = sequence;
     for (const event of value.events) {
       if (!validEvent(event, now, round) || nextEvents.has(event.id)) return false;
-      if ((groundedPersonal(event.type) || (event.type.startsWith('renko-')||event.type.startsWith('onnara-')||event.type.startsWith('urchin-')||event.type.startsWith('cap-')||event.type.startsWith('japan-') || event.type.startsWith('nobi-') || event.type.startsWith('car-') || event.type.startsWith('ember-') || event.type.startsWith('cat-')) && personal(event.type)) && [...nextEvents.values()].some(other => other.type === event.type && other.sourceId === event.sourceId)) return false;
+      if ((groundedPersonal(event.type) || (event.type.startsWith('renko-')||event.type.startsWith('onnara-')||event.type.startsWith('urchin-')||event.type.startsWith('cap-')||event.type.startsWith('japan-') || event.type.startsWith('nobi-') || event.type.startsWith('car-') || event.type.startsWith('ember-') || event.type.startsWith('cat-')) && personal(event.type)) && [...nextEvents.values()].filter(other => other.type === event.type && other.sourceId === event.sourceId).length >= (flyingOrb(event)?2:1)) return false;
       if(event.type==='onnara-tax'&&[...nextEvents.values()].some(other=>other.type===event.type&&other.targetId===event.targetId))return false;
       const clean = { id: event.id, type: event.type, team: event.team, sourceId: event.sourceId, round, fromX: event.fromX, fromY: event.fromY, fromZ: event.fromZ,
         x: event.x, y: event.y, z: event.z, startedAt: event.startedAt, flight: event.flight, triggerAt: event.triggerAt, endsAt: event.endsAt, radius: event.radius };

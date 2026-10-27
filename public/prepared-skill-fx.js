@@ -1,4 +1,4 @@
-import { getCharacterSkill, NOBI_SKILLS, URCHIN_SKILLS } from './abilities.js';
+import { getCharacterSkill, NOBI_SKILLS, URCHIN_SKILLS, ONNARA_SKILLS } from './abilities.js';
 import { skillProjectilePosition } from './character-skills.js';
 import { CHARACTER_HANDS } from './viewmodel.js';
 
@@ -41,7 +41,7 @@ export function acquireSkillProps(T){
 
 const coordinate=n=>Number.isFinite(n)&&Math.abs(n)<=1000;
 const disposeProp=root=>{root.traverse(o=>{if(o.isInstancedMesh)o.dispose();});root.removeFromParent();};
-function validEvent(e,now,round){return e&&Object.hasOwn(PREPARED_SKILL_PROPS,e.type)&&['id','type','team','sourceId','round','fromX','fromY','fromZ','x','y','z','startedAt','triggerAt','endsAt','flight','radius'].every(k=>Object.hasOwn(e,k))&&typeof e.id==='string'&&new RegExp('^skill-'+e.type+'-[1-9][0-9]{0,14}$').test(e.id)&&['blue','red'].includes(e.team)&&typeof e.sourceId==='string'&&e.sourceId.length>0&&e.sourceId.length<=64&&Number.isSafeInteger(e.round)&&e.round===round&&[e.x,e.y,e.z,e.fromX,e.fromY,e.fromZ].every(coordinate)&&[e.startedAt,e.triggerAt,e.endsAt,e.flight,e.radius].every(n=>Number.isFinite(n)&&n>=0)&&e.radius<=30&&e.endsAt>e.startedAt&&now>=e.startedAt&&now<e.endsAt&&(e.type==='urchin-gloom'?e.flight===URCHIN_SKILLS.gloomRange/URCHIN_SKILLS.gloomSpeed:e.type.startsWith('nobi-')?e.flight===NOBI_SKILLS.throwFlight:e.flight===0);}
+function validEvent(e,now,round){return e&&Object.hasOwn(PREPARED_SKILL_PROPS,e.type)&&['id','type','team','sourceId','round','fromX','fromY','fromZ','x','y','z','startedAt','triggerAt','endsAt','flight','radius'].every(k=>Object.hasOwn(e,k))&&typeof e.id==='string'&&new RegExp('^skill-'+e.type+'-[1-9][0-9]{0,14}$').test(e.id)&&['blue','red'].includes(e.team)&&typeof e.sourceId==='string'&&e.sourceId.length>0&&e.sourceId.length<=64&&Number.isSafeInteger(e.round)&&e.round===round&&[e.x,e.y,e.z,e.fromX,e.fromY,e.fromZ].every(coordinate)&&[e.startedAt,e.triggerAt,e.endsAt,e.flight,e.radius].every(n=>Number.isFinite(n)&&n>=0)&&e.radius<=30&&e.endsAt>e.startedAt&&now>=e.startedAt&&now<e.endsAt&&(e.type==='urchin-gloom'?e.flight===URCHIN_SKILLS.gloomRange/URCHIN_SKILLS.gloomSpeed:e.type.startsWith('nobi-')?e.flight===NOBI_SKILLS.throwFlight:e.type==='onnara-orb'?e.flight===0||e.flight===ONNARA_SKILLS.orbCameraDuration:e.flight===0);}
 export function createPreparedSkillFX(T,camera){
  const assets=acquireSkillProps(T),group=new T.Group(),hand=new T.Group(),props=new Map(),flights=new Map();group.name='Prepared skills / confirmed flying items';hand.name='Prepared skills / holding hand';camera.add(hand);hand.visible=false;
  for(const type of Object.keys(PREPARED_SKILL_PROPS))props.set(type,assets.create(type));
@@ -65,11 +65,11 @@ export function createPreparedSkillFX(T,camera){
    if(!validEvent(e,now,round)||seen.has(e.id))continue;
    const delayed=e.type==='urchin-gloom',start=delayed?e.triggerAt:e.startedAt,duration=e.flight||.24,age=now-start;if(age<0||age>=duration)continue;seen.add(e.id);
    let o=flights.get(e.id);if(!o){o=assets.create(e.type);flights.set(e.id,o);group.add(o);}const t=Math.min(1,age/duration);
-   let p=e.flight?skillProjectilePosition(e,now):{x:e.fromX+(e.x-e.fromX)*t,y:e.fromY+(e.y+ (e.type==='onnara-orb'?1.65:.12)-e.fromY)*t+Math.sin(t*Math.PI)*.35,z:e.fromZ+(e.z-e.fromZ)*t};
+   const movingOrb=e.type==='onnara-orb'&&e.flight===ONNARA_SKILLS.orbCameraDuration;let p=movingOrb?{x:e.x,y:e.y,z:e.z}:e.flight?skillProjectilePosition(e,now):{x:e.fromX+(e.x-e.fromX)*t,y:e.fromY+(e.y+ (e.type==='onnara-orb'?1.65:.12)-e.fromY)*t+Math.sin(t*Math.PI)*.35,z:e.fromZ+(e.z-e.fromZ)*t};
    if(!p||![p.x,p.y,p.z].every(coordinate)){o.visible=false;continue;}
    // Local hand origin blends into the existing authoritative curve; it never
    // changes target, collision, delay or gameplay. Late joins skip this blend.
-   if(origin&&e.sourceId===sourceId&&e.round===releaseRound&&e.type===releaseType&&Math.abs(e.startedAt-releasedAt)<.001&&age<.08){const w=1-age/.08;p={x:p.x+(origin.x-e.fromX)*w,y:p.y+(origin.y-e.fromY)*w,z:p.z+(origin.z-e.fromZ)*w};}
+   if(!movingOrb&&origin&&e.sourceId===sourceId&&e.round===releaseRound&&e.type===releaseType&&Math.abs(e.startedAt-releasedAt)<.001&&age<.08){const w=1-age/.08;p={x:p.x+(origin.x-e.fromX)*w,y:p.y+(origin.y-e.fromY)*w,z:p.z+(origin.z-e.fromZ)*w};}
    o.position.set(p.x,p.y,p.z);o.scale.setScalar(delayed?e.radius:1);if(delayed)o.quaternion.setFromUnitVectors(new T.Vector3(0,0,1),new T.Vector3(e.x-e.fromX,e.y-e.fromY,e.z-e.fromZ).normalize());else o.rotation.set(0,reducedMotion?0:age*2,0);o.visible=visible(p,e)!==false;
   }
   for(const[id,o]of flights)if(!seen.has(id)){disposeProp(o);flights.delete(id);}group.visible=flights.size>0;group.userData.activeFlights=flights.size;
