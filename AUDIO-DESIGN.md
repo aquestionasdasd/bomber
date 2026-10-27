@@ -118,3 +118,9 @@ hostが実撃破時に本人別/ラウンド別の順番を確定し、既存cue
 新presentation6/実savedgame5、既存BGM8/事前準備8/勝利camera7が成功。20/60/144Hz、実media transportのread-only判定、重複結果・fresh結果のaudible:false・pause/hostpause/次R/menuの清掃を確認。新しい独立guestJSON検証ではなく既存勝利camera7の過去と今回回帰を根拠にする。所有hidden11の音声要素なし専用プレビューで最初OFF/AX0/ariafalse、6光線の実描画・縮小動作で光線0・停止非表示・warnerror0を確認。模擬時計と既存NOPEダンスによる見た目確認で、実BGMのbrowser同時再生/聴感検証ではない。画像cycle144-club-local.png。11閉鎖/8063保持sessionから停止listener0。一時previewは公開sourceから除去。初回非表示10は接続timeoutでhandleなし/UI操作なし、自動cleanup対象・手動閉鎖未確認。
 
 音素材/全113cue/共同版銃声/足音着地/ゲーム物理地形/判定/通信を変更しない。実音試聴/foreground/既存userタブ/OS/他アプリ操作なし。新実2タブ/端末/聴感は未確認。最終正規build/package/共有/公開/GitHubはworkspace cycle144-release/test-reportを正本とする。自動fps-19はPAUSED維持、手動依頼のみ。全main旧fixture債務を保持し無用反復なし。
+
+## 第183巡 / 敵に届く解除開始音
+
+人間報告「ボンバー解除音が全然敵に聞こえない」に対応。実host確定開始cueは既に敵味方へ共有されていたが、足音と同じ距離係数.11/遮蔽gain.40/lowpass1600Hzが短いピピッを小さくしていた。解除開始だけ係数.025/遮蔽gain.80/lowpass3200Hzへ。30mの開所gainは従来約2.46倍、壁越し約4.91倍。50mは約2.89/5.78倍。近距離本人gainを上げず、壁越しは開所の80%、方向と距離差を残し、65m上限を保持する。数値gainは聴感の倍率ではない。
+
+同じlab-beep1.oggの90ms×2・間隔160ms・rate1.35/gain.34を保持し、新素材/合成/遅延再生は追加しない。開始を受理した瞬間だけ一度。完了音・解除7秒/チェックポイント3.5秒・BOT聴覚・銃声の100m曲線・足音/着地・元8素材/ユーザー音源は不変。新snapshot field/HTTP頻度なし。独立savedgameの敵host/敵guest JSON受信を最終audio graphへ流し、壁/左右/距離/重複/65m/mute/volume0を数値で検証する。実音再生/試聴は行わない。正本はworkspace cycle183 release/test-report。

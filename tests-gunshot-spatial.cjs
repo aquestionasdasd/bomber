@@ -16,7 +16,7 @@ async function main(){
   });
   check('nearby/self level and collaborator sample recipe are unchanged; footsteps and knife retain their old curve',()=>{
    for(const weapon of guns){const own=voice('shot',{weapon,volume:.45,distance:0});near(own.gain,.45);assert.equal(own.frequency,10000)}
-   for(const type of ['step','land','shot','enemy','defuse-start','plant'])for(const occluded of [false,true]){const v=voice(type,{weapon:'knife',distance:30,volume:.45,occluded});near(v.gain,.45/(1+30*.11)*(occluded?.4:1));assert.equal(v.frequency,occluded?1600:10000)}
+   for(const type of ['step','land','shot','enemy','plant'])for(const occluded of [false,true]){const v=voice(type,{weapon:'knife',distance:30,volume:.45,occluded});near(v.gain,.45/(1+30*.11)*(occluded?.4:1));assert.equal(v.frequency,occluded?1600:10000)}
   });
   check('actual gain increase is bounded by unchanged near level, with2to4times the distant signal',()=>{
    for(const distance of [30,50]){const open=voice('enemy',{weapon:'vandal',distance,volume:.45}),wall=voice('enemy',{weapon:'vandal',distance,volume:.45,occluded:true}),oldOpen=.45/(1+distance*.11),oldWall=oldOpen*.4;assert.ok(open.gain/oldOpen>2&&open.gain/oldOpen<2.4);assert.ok(wall.gain/oldWall>3.5&&wall.gain/oldWall<4.2);assert.ok(open.gain<.45&&wall.gain<open.gain)}
