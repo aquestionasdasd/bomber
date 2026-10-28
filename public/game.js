@@ -1,3 +1,4 @@
+import { getSkillUseMessage } from './skill-messages.js';
 import { createKillBanner } from './kill-banner.js';
 import { createPreparedSkillFX, preparedSkillType } from './prepared-skill-fx.js';
 import { createCareerCoins, CAREER_COIN_KEY, CAREER_COIN_REWARDS } from './career-coins.js';
@@ -1482,6 +1483,8 @@ function showMessage(title,description='',seconds=2) {
   if(description){const small=document.createElement('small');small.textContent=description;node.append(small);}
   node.classList.add('visible');clearTimeout(messageTimeout);messageTimeout=setTimeout(()=>node.classList.remove('visible'),seconds*1000);
 }
+function showSkillMessage(character,key,effectType=''){const text=getSkillUseMessage(character,key,effectType);if(text)showMessage(text.title,text.description,2);}
+function showSkillAim(character,key){const text=getSkillUseMessage(character,key);if(text)showMessage(text.title,'左クリックで確定／右で取消',30);}
 function feed(text) {
   const item=document.createElement('div');item.className='feed-item';item.textContent=text;$('killfeed').prepend(item);
   while($('killfeed').children.length>4)$('killfeed').lastElementChild.remove();
@@ -2028,7 +2031,7 @@ function activateOnnaraAbility(actor,key,{predict=false,aim=null}={}){
  const before=actor.kit.snapshot(),effect=actor.kit.activate(key,elapsed);if(!effect)return;
  if(!predict&&!ordinarySkills.cast(effect,ordinaryActorView(actor),target,elapsed,match.round)){actor.kit.restore(before);return;}
  if(key==='c'){actor.vy=ONNARA_SKILLS.jumpVelocity;actor.trcLadder=null;}
- if(actor===player)showMessage(key==='x'?'星座裁定':getCharacterSkill('onnara',key).name,key==='x'?'8秒、命中した敵から12m以内の別の敵1人へ実被害70%を連鎖':getCharacterSkill('onnara',key).description,3);return effect;
+ if(actor===player)showSkillMessage('onnara',key,effect.type);return effect;
 }
 function confirmOnnaraSkill(key){
  if(netHostPaused||mode!=='play'||!player.alive||interactionHeld||objectivePractice)return;refillMapPracticeSkills();
@@ -2036,7 +2039,7 @@ function confirmOnnaraSkill(key){
  const aim={yaw:player.yaw,pitch:player.pitch},effect=activateAbility(player,key,{predict:isGuest(),aim});
  if(effect&&isGuest())queueNetAction('ability',{key,...aim});
  if(effect?.type==='onnara-jump'&&isGuest())player.onnaraJumpPending={round:match.round,team:player.team,seq:netActions.at(-1)?.seq};
- if(!effect)showMessage('発動できません','Cは接地中 / Qは照準方向へ反射カメラ / Eは空中で使用 · 重複や満杯は消費しません',2);
+ if(!effect)showMessage('発動できません','Cは地上／Eは空中で使用',2);
  refillMapPracticeSkills();updateHUD();
 }
 function starHoldClear(actor,event){return canStand(actor.x,actor.z,.34,event.y)&&getZoneFloor(actor.x,actor.z,event.y+.04)<event.y-.035;}
@@ -2097,9 +2100,9 @@ function activateUrchinAbility(actor,key,{predict=false,aim=null}={}){
   // C only commits a fixed telegraphed lane; its host tick resolves damage.
   if(key==='q')urchinDisarm(target.actor);
  }
- if(local)showMessage(key==='x'?'三叉潮':getCharacterSkill('urchin',key).name,key==='x'?'9秒、通常の射撃へ左右の副弾を追加。壁・盾・囮で止まります。':getCharacterSkill('urchin',key).description,3);return effect;
+ if(local)showSkillMessage('urchin',key,effect.type);return effect;
 }
-function confirmUrchinSkill(key){if(netHostPaused||mode!=='play'||!player.alive||interactionHeld||objectivePractice)return;refillMapPracticeSkills();const aim={yaw:player.yaw,pitch:player.pitch},effect=activateAbility(player,key,{predict:isGuest(),aim});if(effect&&isGuest())queueNetAction('ability',{key,...aim});if(!effect)showMessage('対象を確認','視線・距離・敵の購入銃・スキルの準備状態を確認 · 消費していません',2);refillMapPracticeSkills();updateHUD();}
+function confirmUrchinSkill(key){if(netHostPaused||mode!=='play'||!player.alive||interactionHeld||objectivePractice)return;refillMapPracticeSkills();const aim={yaw:player.yaw,pitch:player.pitch},effect=activateAbility(player,key,{predict:isGuest(),aim});if(effect&&isGuest())queueNetAction('ability',{key,...aim});if(!effect)showMessage('対象を確認','対象・視線・在庫を確認してください',2);refillMapPracticeSkills();updateHUD();}
 function urchinTridentShot(actor,origin,incoming,spec){
  if(!ordinarySkills.urchinTrident?.(actor.id,elapsed)||!spec.mag)return [];
  botsGroup.updateMatrixWorld(true);const results=[];
@@ -2127,9 +2130,9 @@ function activateCapAbility(actor,key,{predict=false,aim=null}={}){
  const target=['c','q'].includes(key)?capTarget(actor,key,aim):{x:actor.x,y:actor.y||0,z:actor.z};if(!target)return;
  const before=actor.kit.snapshot(),effect=actor.kit.activate(key,elapsed);if(!effect)return;
  if(!predict){const event=ordinarySkills.cast(effect,ordinaryActorView(actor),target,elapsed,match.round);if(!event){actor.kit.restore(before);return;}if(key==='q')ordinarySkills.cleanse(target.actor.id,target.actor.team,elapsed);if(key==='c'&&target.actor===player)aiming=false;}
- if(actor===player)showMessage(key==='x'?'エンドレスマガジン':getCharacterSkill('cap',key).name,key==='x'?'9秒、装填済みの銃弾を消費せず撃てます。空弾倉は装填が必要。':getCharacterSkill('cap',key).description,3);return effect;
+ if(actor===player)showSkillMessage('cap',key,effect.type);return effect;
 }
-function confirmCapSkill(key){if(netHostPaused||mode!=='play'||!player.alive||interactionHeld||objectivePractice)return;refillMapPracticeSkills();const aim={yaw:player.yaw,pitch:player.pitch},effect=activateAbility(player,key,{predict:isGuest(),aim});if(effect&&isGuest())queueNetAction('ability',{key,...aim});if(!effect)showMessage('対象を確認','敵・味方・現在の妨害・視線・距離を確認 · 消費していません',2);refillMapPracticeSkills();updateHUD();}
+function confirmCapSkill(key){if(netHostPaused||mode!=='play'||!player.alive||interactionHeld||objectivePractice)return;refillMapPracticeSkills();const aim={yaw:player.yaw,pitch:player.pitch},effect=activateAbility(player,key,{predict:isGuest(),aim});if(effect&&isGuest())queueNetAction('ability',{key,...aim});if(!effect)showMessage('対象を確認','対象と妨害を確認してください',2);refillMapPracticeSkills();updateHUD();}
 function capDistortAim(actor,aim){
  const sequence=actor===player?shotSequence:actor.shotSequence||1,offset=capShotOffset(sequence,ordinarySkills.capLocked(actor.id,elapsed));
  if(!offset.x&&!offset.y)return aim;
@@ -2200,9 +2203,9 @@ function activateJapanAbility(actor,key,{predict=false,aim=null}={}){
   if(key==='q'){const amount=Math.min(JAPAN_SKILLS.levyAmount,target.enemy.armor,(JAPAN_SKILLS.armorCap-(actor.armor||0))/JAPAN_SKILLS.levyScale);target.enemy.armor-=amount;actor.armor=(actor.armor||0)+amount*JAPAN_SKILLS.levyScale;}
   if(key==='x')for(const entry of revive)japanRevive(entry.actor,entry.point);
  }
- if(actor===player)showMessage(key==='x'?'総動員':getCharacterSkill('japan',key).name,key==='x'?(predict?'味方の復帰を要請しました':'倒れた味方を開始地点へ呼び戻しました'):getCharacterSkill('japan',key).description,3);return effect;
+ if(actor===player)showSkillMessage('japan',key,effect.type);return effect;
 }
-function confirmJapanSkill(key){if(netHostPaused||mode!=='play'||!player.alive||interactionHeld||objectivePractice)return;refillMapPracticeSkills();const aim={yaw:player.yaw,pitch:player.pitch},effect=activateAbility(player,key,{predict:isGuest(),aim});if(effect&&isGuest())queueNetAction('ability',{key,...aim});if(!effect)showMessage('対象を確認','床・視線・敵の装甲・自身の空き装甲を確認 · 消費していません',2);refillMapPracticeSkills();updateHUD();}
+function confirmJapanSkill(key){if(netHostPaused||mode!=='play'||!player.alive||interactionHeld||objectivePractice)return;refillMapPracticeSkills();const aim={yaw:player.yaw,pitch:player.pitch},effect=activateAbility(player,key,{predict:isGuest(),aim});if(effect&&isGuest())queueNetAction('ability',{key,...aim});if(!effect)showMessage('対象を確認','床や敵の装甲を確認してください',2);refillMapPracticeSkills();updateHUD();}
 
 function activateNobiAbility(actor,key,{predict=false,aim=null,zonePoint=null}={}){
  key=String(key).toLowerCase();if(netHostPaused||!actor?.alive||match?.phase!=='live'||actor.planting||actor.defusing||actor.serviceReload||!['c','q','e','x'].includes(key))return;
@@ -2210,9 +2213,9 @@ function activateNobiAbility(actor,key,{predict=false,aim=null,zonePoint=null}={
  const target=getSkillTarget(actor,type,zonePoint,aim);if(!target)return;
  const before=actor.kit.snapshot(),effect=actor.kit.activate(key,elapsed);if(!effect)return;
  if(!predict&&!ordinarySkills.cast(effect,ordinaryActorView(actor),target,elapsed,match.round)){actor.kit.restore(before);return;}
- actor.skillThrowUntil=elapsed+.32;if(actor===player){nobiSkillFX.playThrow(type,elapsed);firing=false;reloading=0;showMessage(definition.name,definition.description,2.5);}return effect;
+ actor.skillThrowUntil=elapsed+.32;if(actor===player){nobiSkillFX.playThrow(type,elapsed);firing=false;reloading=0;showSkillMessage('nobi',key,effect.type);}return effect;
 }
-function confirmNobiSkill(key){if(netHostPaused||mode!=='play'||!player.alive||interactionHeld||objectivePractice)return;refillMapPracticeSkills();const aim={yaw:player.yaw,pitch:player.pitch},effect=activateAbility(player,key,{predict:isGuest(),aim});if(effect&&isGuest())queueNetAction('ability',{key,...aim});if(!effect)showMessage('投げられません','着地点・在庫・壁・天井を確認 · 回数は消費していません',2);refillMapPracticeSkills();updateHUD();}
+function confirmNobiSkill(key){if(netHostPaused||mode!=='play'||!player.alive||interactionHeld||objectivePractice)return;refillMapPracticeSkills();const aim={yaw:player.yaw,pitch:player.pitch},effect=activateAbility(player,key,{predict:isGuest(),aim});if(effect&&isGuest())queueNetAction('ability',{key,...aim});if(!effect)showMessage('投げられません','着地点と在庫を確認してください',2);refillMapPracticeSkills();updateHUD();}
 function nobiShotInterval(spec,actor){return spec.interval*(spec.mag>0?ordinarySkills.nobiInterval(actor.id,elapsed,actor,ordinaryReachable)*(ordinarySkills.urchinInterval?.(actor.id,elapsed)||1):1);}
 function nobiBulletDamage(source,target,damage,headDamage,firearm=true){if(!firearm)return damage;return (ordinarySkills.nobiLegend(source.id,elapsed,source,ordinaryReachable)?Math.max(damage,headDamage):damage)*ordinarySkills.nobiVulnerability(target.id,elapsed,target,ordinaryReachable);}
 function carAim(actor,aim=null){const input=netInputs.get(actor.remoteId)?.input;return carAimVector(aim?.yaw??(actor===player?player.yaw:input?.yaw??actor.yaw??0),aim?.pitch??(actor===player?player.pitch:input?.pitch??0));}
@@ -2264,7 +2267,7 @@ function stopRenkoDrive(actor,{predict=false}={}){
  if(!renkoEvent(actor,'renko-drive')||!predict&&!ordinarySkills.cancelRenkoDrive(actor.id,elapsed))return false;
  if(predict&&actor.renkoPending?.key==='q')actor.renkoPending=null;
  actor.renkoDrive=null;actor.vx=0;actor.vz=0;
- if(actor===player){firing=false;showMessage('オーバードライブ解除',renkoFlight(actor)?'ジェットパック終了後に武器を持ち直します':'通常移動に戻りました',1.5);}return true;
+ if(actor===player){firing=false;showMessage('オーバードライブ解除',renkoFlight(actor)?'飛行終了後に武器を持ち直します':'通常移動に戻りました',1.5);}return true;
 }
 function syncRenkoJets(){
  if(isGuest())return;
@@ -2292,7 +2295,7 @@ function activateRenkoAbility(actor,key,{predict=false,aim=null}={}){
  const before=actor.kit.snapshot(),effect=actor.kit.activate(key,elapsed);if(!effect)return;
  if(!predict&&!ordinarySkills.cast(effect,ordinaryActorView(actor),target,elapsed,match.round)){actor.kit.restore(before);return;}
  if(predict&&key!=='c')actor.renkoPending={key,round:match.round,team:actor.team,event:{id:'pending-renko-'+key,type,sourceId:actor.id,team:actor.team,x:actor.x,y:actor.y||0,z:actor.z,startedAt:elapsed,endsAt:elapsed+(key==='q'?RENKO_SKILLS.driveDuration:RENKO_SKILLS.flightDuration)}};
- if(key==='e'){actor.renkoJetHeld=true;actor.trcLadder=null;actor.vy=0;}if(key==='q'||key==='e'){actor.netReload=0;actor.aiReload=0;if(actor===player){aiming=false;reloading=0;kick=0;}}if(actor===player){if(key!=='c')firing=false;showMessage(getCharacterSkill('renko',key).name,getCharacterSkill('renko',key).description,3);}return effect;
+ if(key==='e'){actor.renkoJetHeld=true;actor.trcLadder=null;actor.vy=0;}if(key==='q'||key==='e'){actor.netReload=0;actor.aiReload=0;if(actor===player){aiming=false;reloading=0;kick=0;}}if(actor===player){if(key!=='c')firing=false;showSkillMessage('renko',key,effect.type);}return effect;
 }
 function confirmRenkoSkill(key){
  if(netHostPaused||mode!=='play'||!player.alive||interactionHeld||objectivePractice)return;
@@ -2300,7 +2303,7 @@ function confirmRenkoSkill(key){
  if(key==='q'&&renkoEvent(player,'renko-drive')){if(isGuest()&&netActions.length>=64)return;if(stopRenkoDrive(player,{predict:isGuest()})&&isGuest())queueNetAction('ability',{key:'q',renkoStop:true});updateHUD();return;}
  refillMapPracticeSkills();if(isGuest()&&netActions.length>=64)return;
  const aim={yaw:player.yaw,pitch:player.pitch},effect=activateAbility(player,key,{predict:isGuest(),aim});if(effect&&isGuest()){queueNetAction('ability',{key,...aim});if(player.renkoPending?.key===key)player.renkoPending.seq=netActions.at(-1)?.seq;}
- if(!effect)showMessage('発動できません',key==='x'?'7pt必要 · 発動済みなら敵撃破でC・Q・E全回復':key==='c'?'在庫・封印状態を確認 · 消費していません':'在庫・接地・動作中の技を確認 · 消費していません',2);refillMapPracticeSkills();updateHUD();
+ if(!effect)showMessage('発動できません',key==='x'?'7pt必要／発動中は撃破で補給':key==='c'?'在庫と封印を確認してください':'在庫と接地状態を確認してください',2);refillMapPracticeSkills();updateHUD();
 }
 function updateRenkoVertical(actor,dt,radius){
  const e=renkoFlight(actor);if(!e)return false;
@@ -2390,13 +2393,13 @@ function activateCarAbility(actor,key,{predict=false,aim=null}={}){
   if(typeof field.id!=='string')syncSmokes(serializeSmokes().filter(s=>s.id!==field.id));
  }
  if(!predict&&key==='x')for(const ally of targets){ally.kit.smoke=getCharacterSkill(ally.kit.character,'c').max;ally.kit.updraft=getCharacterSkill(ally.kit.character,'q').max;ally.kit.dash=1;ally.kit.nextSignatureAt=0;ally.kit.dashKills=0;ally.kit.armReadyAt=null;ally.kit.armExpiresAt=null;}
- if(actor===player)showMessage(key==='x'?'ピットクルー':getCharacterSkill('car',key).name,key==='x'?'視線内24mの味方と自身のC/Q/Eを補給 · HP・弾・ULTは変わりません':getCharacterSkill('car',key).description,2.5);
+ if(actor===player)showSkillMessage('car',key,effect.type);
  return effect;
 }
 function confirmCarSkill(key){
  if(netHostPaused||mode!=='play'||!player.alive||interactionHeld||objectivePractice)return;
  refillMapPracticeSkills();const aim={yaw:player.yaw,pitch:player.pitch},effect=activateAbility(player,key,{predict:isGuest(),aim});if(effect&&isGuest())queueNetAction('ability',{key,...aim});
- if(!effect)showMessage('発動できません',key==='c'?'見える接地した敵と自身の接地を確認 · 回数は消費しません':'照準に重なる煙と壁を確認 · 回数は消費しません',2);
+ if(!effect)showMessage('発動できません',key==='c'?'地上の見える敵を狙ってください':'見える煙幕を狙ってください',2);
  refillMapPracticeSkills();updateHUD();
 }
 function activateCatAbility(actor,key,{predict=false,aim=null}={}){
@@ -2410,7 +2413,7 @@ function activateCatAbility(actor,key,{predict=false,aim=null}={}){
   Object.assign(actor,{x:bookmark.x,y:bookmark.y,z:bookmark.z,vy:0,vx:0,vz:0,dashTimer:0});cancelServiceReload(actor);
   if(actor===player){clearCombatInput();firing=false;reloading=0;}
   if(actor.remoteId){const data=netInputs.get(actor.remoteId);if(data){Object.assign(data.input,{x:actor.x,y:actor.y,z:actor.z});actor.netPositionAck={seq:data.seq,connection:data.connection,round:data.round,x:actor.x,z:actor.z};}}
-  if(actor===player)showMessage('白いしおり / 帰還','保存した場所へ戻りました · HPと弾は巻き戻しません',2);return{type:'cat-return'};
+  if(actor===player)showSkillMessage('cat','c','cat-return');return{type:'cat-return'};
  }
  if(key==='c'){if(!actorGrounded(actor))return;target={x:actor.x,y:actor.y||0,z:actor.z};}
  if(key==='q'){target=catEnemyTarget(actor,aim);if(!target)return;}
@@ -2425,14 +2428,14 @@ function activateCatAbility(actor,key,{predict=false,aim=null}={}){
   damageEntity(victim,removed*CAT_SKILLS.pluckDamagePerRound,actor,{skill:'cat'});
  }
  if(!predict&&key==='e'&&!pickupDroppedWeapon(actor,target.drop.id,{catFetch:true})){ordinarySkills.cancelCatEvent(event.id);actor.kit.restore(before);return;}
- if(actor===player)showMessage(key==='x'?'白紙の8秒':getCharacterSkill('cat',key).name,key==='x'?'8秒、試合時計を停止 · 移動・射撃・設置・電源オフは続きます':getCharacterSkill('cat',key).description,2);
+ if(actor===player)showSkillMessage('cat',key,effect.type);
  return effect;
 }
 function confirmCatSkill(key){
  if(netHostPaused||mode!=='play'||!player.alive||interactionHeld||objectivePractice)return;
  refillMapPracticeSkills();const aim={yaw:player.yaw,pitch:player.pitch},effect=activateAbility(player,key,{predict:isGuest(),aim});
  if(effect&&isGuest())queueNetAction('ability',{key,...aim});
- if(!effect)showMessage('発動できません',key==='q'?'視線の通る敵の銃と装填弾を確認してください · 回数は消費しません':'見える落ちた銃を狙ってください · 回数は消費しません',2);
+ if(!effect)showMessage('発動できません',key==='q'?'装填した銃を持つ敵を狙ってください':'見える落ちた銃を狙ってください',2);
  refillMapPracticeSkills();updateHUD();
 }
 
@@ -2549,7 +2552,7 @@ function activateAbility(actor,key,options={}){
 }
 function applyAbility(actor,key,{predict=false,zonePoint=null,aim=null}={}){
   if(carMotionActive(actor)||busSeat(actor))return;
-  if(ordinarySkills.sealUntil(actor?.id,elapsed)>elapsed){if(actor===player)showMessage('羽根の封印', '新しいスキルは使えません · 銃と移動は使えます',1);return;}
+  if(ordinarySkills.sealUntil(actor?.id,elapsed)>elapsed){if(actor===player)showMessage('羽根の封印', '封印中は新しい技を使えません',1);return;}
   if(actor?.kit?.character==='renko')return activateRenkoAbility(actor,key,{predict,aim});
   if(actor?.kit?.character==='onnara')return activateOnnaraAbility(actor,key,{predict,aim});
   if(actor?.kit?.character==='urchin')return activateUrchinAbility(actor,key,{predict,aim});
@@ -2571,7 +2574,7 @@ function applyAbility(actor,key,{predict=false,zonePoint=null,aim=null}={}){
   const healing=definition?.type==='mend-heal',healTarget=healing?selectMendTarget(actor,[player,...bots],mendReachable):null;
   if(healing&&!healTarget){if(actor===player)showMessage('ひまわりの手当て / 回復対象なし','12m以内で視線の通る負傷した味方が必要です · 回数は消費しません',2);return;}
   const target=healing?{x:healTarget.x,y:healTarget.y||0,z:healTarget.z,targetId:healTarget.id}:ordinary?getSkillTarget(actor,definition.type,zonePoint,aim):null;
-  if(ordinary&&!target){if(actor===player&&(definition.type.startsWith('veil-')||definition.type.startsWith('frost-')))showMessage(`${definition.name} / 床を確認`,definition.type==='veil-roots'?'根を伸ばせる床が必要です · 回数は消費しません':definition.type==='frost-unravel'?'床や階段に着地してから使えます · 回数は消費しません':definition.type.startsWith('frost-')?'視線と投げる道が通る床を狙ってください · 回数は消費しません':'床や階段に着地してから使えます · 回数は消費しません',1.5);return;}
+  if(ordinary&&!target){if(actor===player&&(definition.type.startsWith('veil-')||definition.type.startsWith('frost-')))showMessage(`${definition.name} / 床を確認`,definition.type==='veil-roots'?'根を伸ばせる床が必要です':definition.type==='frost-unravel'?'着地してから使ってください':definition.type.startsWith('frost-')?'見える床を狙ってください':'着地してから使ってください',1.5);return;}
   const veilDome=actor.kit.character==='veil'&&String(key).toLowerCase()==='x';
   const domeFloor=veilDome&&zonePoint?veilSmokeFloor(zonePoint):null;
   if(veilDome&&zonePoint&&domeFloor===null)return;
@@ -2610,8 +2613,8 @@ function applyAbility(actor,key,{predict=false,zonePoint=null,aim=null}={}){
   if(effect.type==='knives'){if(actor===player){ammoStore[inventory.active]={ammo:player.ammo,reserve:player.reserve};equip('knife',true);}else{actor.netStores||={};actor.netStores[actor.netWeapon]={ammo:actor.netAmmo,reserve:actor.netReserve};actor.netWeapon='knife';}}
   if(ordinary){if(!effect.type.startsWith('veil-')&&!['mend-heal','nope-decoy','echo-kerning','ember-shade','ember-service','frost-unravel','duelist-lift','duck-hush'].includes(effect.type))sound('skill-throw',{entity:actor,localOnly:true});}
   else if(effect.type!=='nope')sound({mend:'heal',recon:'recon',veil:'veil',ember:'ember-warning'}[effect.type]||effect.type,{entity:actor});
-  if(actor===player&&ordinary)showMessage(definition.name,definition.description,2);
-  if(actor===player){const texts={smoke:['CLOUD VEIL','4.5秒間、視線と射線の判断を遮る煙幕'],updraft:['UPDRAFT','上昇中もナイフは正確に飛びます'],'dash-armed':['TAILWIND READY',`${DUELIST.dashArmDelay}秒後から E でもう一度発動 · ${DUELIST.dashWindow}秒以内`],dash:['TAILWIND',`${DUELIST.signatureKills}キルで再チャージ`],knives:['BLADE STORM','左クリック：1本 / 右クリック：残り最大5本を同時投げ · 撃破で補充'],nope:['NOPE TAKEOVER','12秒間、街中にライフルを持つ歩行デコイ30体＋駅ロゴ化 · 敵が撃つと閃光'],mend:['RECOVERY WAVE','18m以内・視線の通る味方と自身を最大75HP回復'],recon:['RECON PULSE',`半径${effect.radius}mを3回索敵 · 検知した地点だけをミニマップへ表示`],veil:['BLACKOUT DOME','選んだ地点に半径9m・12秒の煙幕 · 敵味方双方の視界を遮断'],ember:['FLARE STRIKE','照準の先20m以内 · 1.2秒の予告後に3回爆撃 · 味方は無傷'],frost:['CRYO FIELD','照準の先20m以内 · 10秒の氷結地帯 · 敵の歩く速さを55%に']};const text=texts[effect.type];if(text)showMessage(...text,2);}
+  if(actor===player)showSkillMessage(actor.kit.character,key,effect.type);
+
   return effect;
 }
 function rangeInfiniteResources(){return !!rangeSession&&exploring&&!onlinePlaying&&player.alive;}
@@ -2639,23 +2642,23 @@ function confirmDuckSkill(key){
  if(netHostPaused||mode!=='play'||!player.alive||interactionHeld||objectivePractice)return;
  refillMapPracticeSkills();const aim={yaw:player.yaw,pitch:player.pitch},effect=activateAbility(player,key,{predict:isGuest(),aim});
  if(effect&&isGuest())queueNetAction('ability',{key,...aim});
- if(!effect)showMessage('発動できません',key==='c'?'視線の通る実際の床を狙ってください · 回数は消費しません':'床・在庫・封印状態を確認してください · 回数は消費しません',2);
+ if(!effect)showMessage('発動できません',key==='c'?'見える床を狙ってください':'床と在庫を確認してください',2);
  refillMapPracticeSkills();updateHUD();
 }
 function useAbility(key){if(busSeat())return;
  if(player.kit?.character==='veil'&&['c','x'].includes(key))return openVeilPlacement(key);
  if(player.kit?.character==='renko')return confirmRenkoSkill(key);
- if(player.kit?.character==='onnara'&&key==='q'&&mode==='play'&&player.alive&&match?.phase==='live'&&!netHostPaused&&!interactionHeld&&!objectivePractice){duckAim=duckAim===key?null:key;firing=false;aiming=false;if(duckAim)showMessage(getCharacterSkill('onnara',key).name,'照準で狙う → 左クリックで確定 / 右クリックで取消',30);return;}
+ if(player.kit?.character==='onnara'&&key==='q'&&mode==='play'&&player.alive&&match?.phase==='live'&&!netHostPaused&&!interactionHeld&&!objectivePractice){duckAim=duckAim===key?null:key;firing=false;aiming=false;if(duckAim)showSkillAim(player.kit.character,key);return;}
  if(player.kit?.character==='onnara'&&key==='c')return confirmOnnaraSkill(key);
- if(player.kit?.character==='urchin'&&['c','q','e'].includes(key)&&mode==='play'&&player.alive&&match?.phase==='live'&&!netHostPaused&&!interactionHeld&&!objectivePractice){duckAim=duckAim===key?null:key;firing=false;aiming=false;if(duckAim)showMessage(getCharacterSkill('urchin',key).name,'照準で狙う → 左クリックで確定 / 右クリックで取消',30);return;}
- if(player.kit?.character==='cap'&&['c','q'].includes(key)&&mode==='play'&&player.alive&&match?.phase==='live'&&!netHostPaused&&!interactionHeld&&!objectivePractice){duckAim=duckAim===key?null:key;firing=false;aiming=false;if(duckAim)showMessage(getCharacterSkill('cap',key).name,'照準で狙う → 左クリックで確定 / 右クリックで取消',30);return;}
- if(player.kit?.character==='japan'&&['c','q'].includes(key)&&mode==='play'&&player.alive&&match?.phase==='live'&&!netHostPaused&&!interactionHeld&&!objectivePractice){duckAim=duckAim===key?null:key;firing=false;aiming=false;if(duckAim)showMessage(getCharacterSkill('japan',key).name,'照準で狙う → 左クリックで確定 / 右クリックで取消',30);return;}
- if(player.kit?.character==='nobi'&&['c','q','e','x'].includes(key)&&mode==='play'&&player.alive&&match?.phase==='live'&&!netHostPaused&&!interactionHeld&&!objectivePractice){duckAim=duckAim===key?null:key;firing=false;aiming=false;if(duckAim)showMessage(getCharacterSkill('nobi',key)?.name||CHARACTER_DEFS.nobi.ultName,'照準で狙う → 左クリックで確定 / 右クリックで取消',30);return;}
- if(player.kit?.character==='car'&&['c','q'].includes(key)&&mode==='play'&&player.alive&&match?.phase==='live'&&!netHostPaused&&!interactionHeld&&!objectivePractice){duckAim=duckAim===key?null:key;firing=false;aiming=false;if(duckAim)showMessage(getCharacterSkill('car',key).name,'照準で狙う → 左クリックで確定 / 右クリックで取消',30);return;}
- if(player.kit?.character==='cat'&&['q','e'].includes(key)&&mode==='play'&&player.alive&&match?.phase==='live'&&!netHostPaused&&!interactionHeld&&!objectivePractice){duckAim=duckAim===key?null:key;firing=false;aiming=false;if(duckAim)showMessage(getCharacterSkill('cat',key).name,'狙って左クリックで確定 / 右クリックで取消',30);return;}
+ if(player.kit?.character==='urchin'&&['c','q','e'].includes(key)&&mode==='play'&&player.alive&&match?.phase==='live'&&!netHostPaused&&!interactionHeld&&!objectivePractice){duckAim=duckAim===key?null:key;firing=false;aiming=false;if(duckAim)showSkillAim(player.kit.character,key);return;}
+ if(player.kit?.character==='cap'&&['c','q'].includes(key)&&mode==='play'&&player.alive&&match?.phase==='live'&&!netHostPaused&&!interactionHeld&&!objectivePractice){duckAim=duckAim===key?null:key;firing=false;aiming=false;if(duckAim)showSkillAim(player.kit.character,key);return;}
+ if(player.kit?.character==='japan'&&['c','q'].includes(key)&&mode==='play'&&player.alive&&match?.phase==='live'&&!netHostPaused&&!interactionHeld&&!objectivePractice){duckAim=duckAim===key?null:key;firing=false;aiming=false;if(duckAim)showSkillAim(player.kit.character,key);return;}
+ if(player.kit?.character==='nobi'&&['c','q','e','x'].includes(key)&&mode==='play'&&player.alive&&match?.phase==='live'&&!netHostPaused&&!interactionHeld&&!objectivePractice){duckAim=duckAim===key?null:key;firing=false;aiming=false;if(duckAim)showSkillAim(player.kit.character,key);return;}
+ if(player.kit?.character==='car'&&['c','q'].includes(key)&&mode==='play'&&player.alive&&match?.phase==='live'&&!netHostPaused&&!interactionHeld&&!objectivePractice){duckAim=duckAim===key?null:key;firing=false;aiming=false;if(duckAim)showSkillAim(player.kit.character,key);return;}
+ if(player.kit?.character==='cat'&&['q','e'].includes(key)&&mode==='play'&&player.alive&&match?.phase==='live'&&!netHostPaused&&!interactionHeld&&!objectivePractice){duckAim=duckAim===key?null:key;firing=false;aiming=false;if(duckAim)showSkillAim(player.kit.character,key);return;}
  const catReturning=player.kit?.character==='cat'&&key==='c'&&!!ordinarySkills.catBookmark(player.id,elapsed);
  if(player.kit?.character==='duck'&&['c','q'].includes(key)&&mode==='play'&&player.alive&&match?.phase==='live'&&!netHostPaused&&!interactionHeld){
-  duckAim=duckAim===key?null:key;firing=false;aiming=false;if(duckAim)showMessage(getCharacterSkill('duck',key).name,'照準で狙う → 左クリックで確定 / 右クリックで取消',30);return;
+  duckAim=duckAim===key?null:key;firing=false;aiming=false;if(duckAim)showSkillAim(player.kit.character,key);return;
  }
  refillMapPracticeSkills();if(netHostPaused||mode!=='play'||!player.alive||interactionHeld||objectivePractice)return;const aim={yaw:player.yaw,pitch:player.pitch};const effect=activateAbility(player,key,{predict:isGuest(),aim});if(isGuest()){queueNetAction('ability',{key,...aim,...(catReturning?{catReturning:true}:{}),direction:effect?.type==='dash'?player.dashVec:null});if(effect?.type==='dash')player.netPredictDashUntil=elapsed+.6;}refillMapPracticeSkills();updateHUD();}
 function dash(){useAbility('q');}

@@ -1,0 +1,31 @@
+import { normalizeCharacter, getCharacterSkill, getCharacterUltimate, DUELIST, RENKO_SKILLS } from './abilities.js';
+
+// In-match cues carry one action or effect; full rules stay in the skill details.
+const hints = {
+  duelist: { c: '煙幕で視界を遮る', q: '上へジャンプ', e: '進行方向へダッシュ', x: '左：1本／右：まとめ投げ' },
+  nope: { c: '瓶が爆発し敵にダメージ', q: '顔を見た相手に閃光', e: '撃たれると閃光を放つ囮', x: '12秒、歩く囮を30体展開' },
+  mend: { c: '種の範囲で敵が減速', q: '花粉で視界を遮る', e: '負傷した1人を60回復', x: '近くの味方と自身を75回復' },
+  echo: { c: '侵入した敵の位置を通知', q: '反射を見た相手に閃光', e: '4秒、移動速度アップ', x: '周囲を3回索敵' },
+  veil: { c: '選んだ地点に7秒の煙幕', q: '根に触れた敵が減速', e: '3秒、地上を速く走る', x: '選んだ地点に12秒の大煙幕' },
+  ember: { c: 'はんだ玉が弾けて敵を攻撃', q: '8秒、新しい閃光を軽減', e: '予備弾から素早く装填', x: '指定地点へ3回爆撃' },
+  frost: { c: '霜の輪に触れた敵が減速', q: '霧で視界を遮る', e: '滑り込み、減速にも耐える', x: '10秒、範囲内の敵が減速' },
+  duck: { c: '乗ると跳べる床を設置', q: '両軍の弾を止める盾を設置', e: 'スペース連打で10秒飛行', x: '8秒、致死攻撃を2回耐える' },
+  cat: { c: '場所を保存／再Cで帰還', q: '敵の装填弾を裂いて攻撃', e: '狙った落ちた銃を回収', x: '8秒、試合とボンバーの時計停止' },
+  car: { c: '敵を吹き飛ばし5秒スタン', q: '狙った煙幕を1つ除去', e: '4秒、地上の移動射撃が安定', x: '近くの味方と自身のC/Q/E補給' },
+  nobi: { c: '範囲内の敵への銃ダメージ増加', q: '範囲内の敵の連射が遅くなる', e: '味方の設置・解除が加速', x: '範囲内の味方の銃撃が頭相当に' },
+  japan: { c: '線を越えた敵に大ダメージ', q: '敵の装甲を奪って強化', e: '5秒、受けた銃撃を撃ち手へ返す', x: '倒れた味方全員を10HPで復帰' },
+  cap: { c: '敵の照準とADSを妨害', q: '現在受けている妨害を解除', e: '6秒、銃弾が壁で最大3回反射', x: '9秒、装填済みの銃弾を消費なし' },
+  urchin: { c: '予告した直線へ棘を射出', q: '敵の購入主武器を落とす', e: '波に触れた相手の遠方視界を奪う', x: '13秒、三方向射撃＋連射アップ' },
+  onnara: { c: 'その場から大ジャンプ', q: '反射カメラに映る敵を透視', e: '13秒、空中で高さを固定', x: '8秒、銃の命中ダメージが連鎖' },
+  renko: { c: '壁貫通で吹き飛ばし＋1秒スタン', q: '素手で高速走行／再Qで解除', e: `E長押しで最大${RENKO_SKILLS.flightDuration}秒飛行`, x: '敵撃破ごとにC/Q/Eを全回復' },
+};
+
+export function getSkillUseMessage(character, key, effectType = '') {
+  const id = normalizeCharacter(character), slot = typeof key === 'string' ? key.toLowerCase().replace(/^key/, '') : '';
+  const hint = hints[id]?.[slot];
+  if (!hint) return null;
+  const definition = slot === 'x' ? getCharacterUltimate(id) : getCharacterSkill(id, slot);
+  const description = effectType === 'dash-armed' ? `${DUELIST.dashArmDelay}秒後、再Eでダッシュ`
+    : effectType === 'cat-return' ? '保存した場所へ帰還' : hint;
+  return { title: `${slot.toUpperCase()} ${definition.shortName}`, description };
+}
