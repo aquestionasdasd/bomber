@@ -1,4 +1,4 @@
-import { CHARACTER_DEFS, DUELIST, normalizeCharacter, getCharacterSkill, getCharacterUltimate, getSkillState } from './abilities.js';
+import { CHARACTER_DEFS, signatureKillsRequired, normalizeCharacter, getCharacterSkill, getCharacterUltimate, getSkillState } from './abilities.js';
 
 const KEYS = ['c', 'q', 'e'];
 const MOBILE = { c: 'mobile-smoke', q: 'mobile-dash', e: 'mobile-scan' };
@@ -43,7 +43,7 @@ export function createCharacterSkillUI({ document: doc = globalThis.document } =
       if (key === 'e') {
         count = state.charging ? `${Math.max(0, state.remaining).toFixed(1)}s`
           : state.remaining > 0 ? `${Math.ceil(state.remaining)}s`
-            : state.ready ? 'READY' : character === 'duelist' ? `${kit.dashKills || 0}/${DUELIST.signatureKills}` : `${state.count}/${state.max}`;
+            : state.ready ? 'READY' : signatureKillsRequired(character) ? `${kit.dashKills || 0}/${signatureKillsRequired(character)}${character === 'renko' ? 'キル' : ''}` : `${state.count}/${state.max}`;
       }
       text(`ability-${key}-name`, definition.shortName);
       text(`ability-${key}-count`, count);

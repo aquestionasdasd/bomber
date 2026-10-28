@@ -23,7 +23,7 @@ const suite=String.raw`
   setup('duelist');h.run("activateAbility(player,'e')");assert.match(displayed()[1],/再E/);h.run("elapsed+=1.1;activateAbility(player,'e')");assert.equal(displayed()[1],'進行方向へダッシュ');
  });
  check('guest prediction uses the same short cue and remote actors cannot overwrite the local message',()=>{
-  setup('renko');h.run("onlinePlaying=true;online={host:false,room:{code:'ABCDEFGH'},session:{memberId:'guest',hostId:'host'},send(){}};activateAbility(player,'e',{predict:true})");assert.equal(displayed()[1],'E長押しで最大1秒飛行');assert.equal(h.run('ordinarySkills.events(elapsed).length'),0);
+  setup('renko');h.run("onlinePlaying=true;online={host:false,room:{code:'ABCDEFGH'},session:{memberId:'guest',hostId:'host'},send(){}};activateAbility(player,'e',{predict:true})");assert.equal(displayed()[1],'長押し1秒／2キルで回復');assert.equal(h.run('ordinarySkills.events(elapsed).length'),0);
   setup('cap');h.run("showMessage('LOCAL','keep',4);makeBot({x:0,z:-10},0,'red',{id:'remote',team:'red',kit:new DuelistKit({character:'cap'})});bots[0].kit.dash=1;activateAbility(bots[0],'e')");assert.deepEqual(displayed(),['LOCAL','keep']);
  });
  check('failed casts stay brief, preserve resources, and unrelated messages retain their full text',()=>{

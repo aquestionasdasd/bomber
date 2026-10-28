@@ -724,11 +724,11 @@ function updateAbilityFeedback(){
   if(dashFeedback.round===match.round&&player.alive&&match.phase==='live'){
     if(dashFeedback.state==='charging'&&state==='ready')sound('dash-ready');
     if(dashFeedback.state==='ready'&&state==='idle'&&elapsed>=dashFeedback.expires)sound('dash-expired');
-    const cooldown=signatureCooldown(kit.character),signatureReady=cooldown>0?dashFeedback.signatureAt>0&&elapsed>=dashFeedback.signatureAt:kit.character==='duelist';
+    const cooldown=signatureCooldown(kit.character),signatureReady=cooldown>0?dashFeedback.signatureAt>0&&elapsed>=dashFeedback.signatureAt:kit.character==='duelist'||kit.character==='renko';
     const noticeKey=cooldown>0?`${match.round}:${kit.character}:${dashFeedback.signatureAt}`:null;
     if(dashFeedback.charge===0&&kit.dash===1&&signatureReady&&(!noticeKey||!signatureReadyNotices.has(noticeKey))){
       if(noticeKey){signatureReadyNotices.add(noticeKey);while(signatureReadyNotices.size>32)signatureReadyNotices.delete(signatureReadyNotices.values().next().value);}
-      sound('dash-ready');const definition=getCharacterSkill(kit.character,'e');showMessage(`${definition.name} / 再使用可能`,cooldown>0?`${cooldown}秒経過 · Eで${definition.name}を使えます`:`${DUELIST.signatureKills}キル達成 · Eを再び準備できます`,1.8);
+      sound('dash-ready');const definition=getCharacterSkill(kit.character,'e');showMessage(`${definition.name} / 再使用可能`,kit.character==='renko'?'Eで再使用できます':cooldown>0?`${cooldown}秒経過 · Eで${definition.name}を使えます`:`${DUELIST.signatureKills}キル達成 · Eを再び準備できます`,1.8);
     }
   }
   Object.assign(dashFeedback,{round:match.round,state,expires:kit.armExpiresAt??dashFeedback.expires,charge:kit.dash,signatureAt:kit.nextSignatureAt||0});
@@ -2187,7 +2187,7 @@ function japanMusterTargets(source){
 function japanRevive(actor,point){
  cancelServiceReload(actor);ordinarySkills.resetActor(actor.id);match.cancelPlant(actor.id);match.cancelDefuse(actor.id);
  Object.assign(actor,point,{hp:JAPAN_SKILLS.musterHP,armor:0,alive:true,vy:0,vx:0,vz:0,death:0,crouch:0,planting:false,defusing:false,dashTimer:0,dashVec:null,path:[],target:null,lastSeen:null,lastHeard:null,fire:.7});
- actor.kit.resetRound();actor.kit.smoke=0;actor.kit.updraft=0;actor.kit.dash=0;actor.kit.nextSignatureAt=elapsed+signatureCooldown(actor.kit.character);actor.kit.armReadyAt=null;actor.kit.armExpiresAt=null;
+ actor.kit.resetRound();actor.kit.smoke=0;actor.kit.updraft=0;actor.kit.dash=0;actor.kit.nextSignatureAt=actor.kit.character==='renko'?0:elapsed+signatureCooldown(actor.kit.character);actor.kit.armReadyAt=null;actor.kit.armExpiresAt=null;
  const record=recordOf(actor);if(record){record.primary=null;record.secondary='classic';record.armor=0;}
  if(actor===player){inventory={primary:null,secondary:'classic',active:'classic'};ammoStore={};roundPurchases={};equip('classic',true);player.ammo=WEAPONS.classic.mag;player.reserve=WEAPONS.classic.reserve;reloading=0;clearCombatInput();gun.visible=true;spectatedBot=null;setVisible('spectator-hint',false);showMessage('総動員','開始地点へ復帰しました',3);}
  else{actor.group.visible=true;actor.netWeapon='classic';actor.netAmmo=actor.aiAmmo=WEAPONS.classic.mag;actor.netReserve=actor.aiReserve=WEAPONS.classic.reserve;actor.netReload=actor.aiReload=0;actor.netStores={};actor.lastNetShot=-10;actor.shotSequence=0;actor.group.position.set(point.x,point.y,point.z);}
