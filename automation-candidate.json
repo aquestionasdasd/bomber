@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "baseCommit": "fc7a34bd9ba112d96b095687daa7b40690304497",
+  "changes": [
+    {
+      "path": "public/range.js",
+      "beforeSha256": "4e2a54afee503195520583f5f01460abbf8bf3a8651d3618aa85b6b43e4b8bf3",
+      "after": "/** A sixty-second, one-target-at-a-time aim drill. No match economy or spike state. */\nexport class RangeSession {\n  constructor({duration=60,waiting=false}={}){\n    this.started=!waiting;this.duration=duration;this.time=0;this.shots=0;this.hits=0;this.headHits=0;this.kills=0;this.headKills=0;this.score=0;this.lastTarget=-1;\n  }\n  get remaining(){return Math.max(0,this.duration-this.time);}\n  get complete(){return this.remaining<=1e-8;}\n  start(){if(this.started||this.complete)return false;this.started=true;return true;}\n  tick(dt){if(this.started&&Number.isFinite(dt)&&dt>0)this.time=Math.min(this.duration,this.time+dt);return this.complete;}\n  recordShot(){if(this.started&&!this.complete)this.shots++;}\n  recordHit({head=false,eliminated=false}={}){\n    if(!this.started||this.complete)return;\n    this.hits++;if(head)this.headHits++;\n    if(eliminated){this.kills++;if(head)this.headKills++;this.score+=head?150:100;}\n  }\n  nextTarget(count,random=Math.random){\n    if(!Number.isFinite(count)||count<=0)return-1;\n    let index=Math.min(count-1,Math.max(0,Math.floor(random()*count)));\n    if(count>1&&index===this.lastTarget)index=(index+1)%count;\n    this.lastTarget=index;return index;\n  }\n  summary(){return{score:this.score,kills:this.kills,shots:this.shots,hits:this.hits,headKills:this.headKills,\n    accuracy:this.shots?Math.round(this.hits/this.shots*100):0,headRate:this.hits?Math.round(this.headHits/this.hits*100):0,duration:this.duration};}\n}\n"
+    }
+  ]
+}
