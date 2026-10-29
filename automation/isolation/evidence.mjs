@@ -7,7 +7,7 @@ export function verifyEvidence({run,report,expected,proposal,baseline}){
   if(report?.version!==1||report.mode!==expected.mode||report.sourceCommit!==expected.headCommit||report.trustedTreeSha256!==expected.treeDigest||report.image!==image||report.passed!==true||report.publicationAuthorized!==false||report.probe?.probe!=='passed')no();
   const probe=['nonRoot','noCredentials','noHostMount','noDockerSocket','readOnlyProject','readOnlyRoot','noCapabilities','noNewPrivileges','networkBlocked'];
   if(probe.some(key=>report.probe[key]!==true)||!Array.isArray(report.tests))no();
-  const tests=new Set(coreTests);
+  const tests=new Set(expected.mode==='selftest'?[...coreTests,...Object.values(files).flat()]:coreTests);
   let manifest=null;
   if(expected.mode==='candidate'){
     manifest=validateProposal(proposal,baseline);

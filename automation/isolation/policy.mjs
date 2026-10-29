@@ -7,4 +7,5 @@ export const files=Object.freeze({
   'public/round-preparation.js':['tests-round-start-separation.cjs','tests-round-preparation-game.cjs'],
 });
 export const coreTests=Object.freeze(['tests-range.cjs','tests-renko-jet-duration.cjs','tests-renko-jet-kills.cjs','tests-skill-messages.cjs','tests-bot-perception.cjs']);
+export const testTimeouts=Object.freeze({'tests-range-game.cjs':180});
 export const limits=Object.freeze({files:2,proposalBytes:32768,moduleBytes:16384,nodeCount:1600,testSeconds:45,jobSeconds:360});
