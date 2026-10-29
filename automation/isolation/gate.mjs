@@ -18,9 +18,9 @@ function bound(s,name){for(;s;s=s.parent)if(s.names.has(name))return true;return
 export function validatePureModule(before,after){
   const original=tree(before),candidate=tree(after);
   if(JSON.stringify(exportsOf(original.ast))!==JSON.stringify(exportsOf(candidate.ast))||JSON.stringify(original.comments)!==JSON.stringify(candidate.comments))rejected();
-  const properties=new Set(),literals=new Set();let originalCount=0;
-  all(original.ast,n=>{originalCount++;if((n.type==='Property'||n.type==='MethodDefinition')&&!n.computed&&n.key.type==='Identifier')properties.add(n.key.name);if(n.type==='MemberExpression'&&!n.computed)properties.add(n.property.name);if(n.type==='Literal')literals.add(JSON.stringify(n.value));});
-  let count=0;all(candidate.ast,()=>{if(++count>Math.min(limits.nodeCount,originalCount*1.5+100))rejected();});
+  const properties=new Set(),literals=new Set(),identifiers=new Set();let originalCount=0;
+  all(original.ast,n=>{originalCount++;if(n.type==='Identifier')identifiers.add(n.name);if((n.type==='Property'||n.type==='MethodDefinition')&&!n.computed&&n.key.type==='Identifier')properties.add(n.key.name);if(n.type==='MemberExpression'&&!n.computed)properties.add(n.property.name);if(n.type==='Literal')literals.add(JSON.stringify(n.value));});
+  let count=0;all(candidate.ast,n=>{if(++count>Math.min(limits.nodeCount,originalCount*1.5+100)||(n.type==='Identifier'&&!identifiers.has(n.name)))rejected();});
   function pattern(p,s){if(!p)return;if(p.type==='AssignmentPattern'){pattern(p.left,s);visit(p.right,s);}else if(p.type==='ObjectPattern')p.properties.forEach(v=>{if(v.computed||forbidden.has(v.key?.name))rejected();pattern(v.type==='RestElement'?v.argument:v.value,s);});else if(p.type==='ArrayPattern')p.elements.forEach(v=>pattern(v,s));else if(p.type==='RestElement')pattern(p.argument,s);else if(p.type!=='Identifier')rejected();}
   function member(n,s){if(n.computed||n.property.type!=='Identifier'||forbidden.has(n.property.name)||!properties.has(n.property.name))rejected();visit(n.object,s);}
   function visit(n,s){

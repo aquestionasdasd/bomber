@@ -20,3 +20,4 @@ test('new hidden strings/comments/numbers, exports, classes, loops and getters c
   for(const changed of [after+'\n// do not publish private text',after.replace('count<=0',"count<='SECRET'"),after.replace('count<=0','count<=999'),after+'\nexport function surprise(){return 0;}',after+'\nclass X extends Array {}',after.replace('return-1','for(;;){}return-1')])assert.throws(()=>validatePureModule(before,changed));
 });
 test('hashes bind complete after-bytes; modifying a previous manifest is not a validation proof',()=>{const a=validateProposal(proposal(),baseline);const p=proposal();p.changes[0].after+='\n';const b=validateProposal(p,baseline);assert.notEqual(a.changes[0].afterSha256,b.changes[0].afterSha256);});
+test('private prose cannot be copied into new identifiers',()=>assert.throws(()=>validatePureModule(before,after+'\nconst privateRequestProse=0;')));

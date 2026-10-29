@@ -3,6 +3,7 @@ import {spawnSync} from 'node:child_process';
 import {readFileSync,writeFileSync,mkdirSync,existsSync,lstatSync} from 'node:fs';
 import {resolve,join,sep} from 'node:path';import {fileURLToPath} from 'node:url';import {randomUUID} from 'node:crypto';
 import {files,repository} from './policy.mjs';import {sha256,validateProposal} from './gate.mjs';import {generate,review} from './model.mjs';import {readRun} from './read-run.mjs';
+import {publicManifest} from './public-manifest.mjs';
 const root=resolve(import.meta.dirname,'../..'),privateRoot=resolve(root,'../.state'),jobs=join(privateRoot,'jobs');
 const sharedRoot=resolve(root,'../../collab-bomber'),siteRoot=resolve(root,'../../hashimoto-protocol');
 const read=path=>JSON.parse(readFileSync(path,'utf8'));
@@ -18,7 +19,7 @@ export function ticketFromRow(row){
   if(sha256(JSON.stringify(ticket))!==row.content_hash)throw Error('Intake hash mismatch');return ticket;
 }
 function load(id){if(!/^[a-f0-9-]{36}$/.test(id))throw Error('Job id rejected');const directory=join(jobs,id),job=read(join(directory,'job.json'));if(job.id!==id)throw Error('Job state mismatch');return{directory,job};}
-function current(c){clean(sharedRoot);clean(siteRoot);if(git(['rev-parse','HEAD'],sharedRoot).trim()!==c.sharedCommit||git(['rev-parse','HEAD'],siteRoot).trim()!==c.siteCommit)throw Error('Game base changed');const remote=git(['ls-remote','origin','refs/heads/codex/bus-round-retirement'],sharedRoot).trim().split(/\s/)[0];if(remote!==c.sharedCommit)throw Error('Shared remote changed');}
+function current(c){clean(sharedRoot);clean(siteRoot);if(git(['rev-parse','HEAD'],sharedRoot).trim()!==c.sharedCommit||git(['rev-parse','HEAD'],siteRoot).trim()!==c.siteCommit)throw Error('Game base changed');for(const[role,cwd]of [['shared',sharedRoot],['site',siteRoot]])if(JSON.stringify(publicManifest(cwd))!==JSON.stringify(c.publicHashes?.[role]))throw Error('Pinned public bytes changed');const remote=git(['ls-remote','origin','refs/heads/codex/bus-round-retirement'],sharedRoot).trim().split(/\s/)[0];if(remote!==c.sharedCommit)throw Error('Shared remote changed');}
 export async function prepare(row){
   const c=configuration(),ticket=ticketFromRow(row);mkdirSync(jobs,{recursive:true});
   const dedupe=join(jobs,'request-'+ticket.id+'.json');if(existsSync(dedupe))return read(dedupe);

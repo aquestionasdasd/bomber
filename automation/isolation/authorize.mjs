@@ -1,6 +1,7 @@
 // Independent privileged stage. Never consumes model instructions or executes a candidate.
 import {spawnSync} from 'node:child_process';import {readFileSync,writeFileSync,lstatSync} from 'node:fs';import {resolve,join,sep} from 'node:path';import {fileURLToPath} from 'node:url';
 import {files} from './policy.mjs';import {sha256,validateProposal} from './gate.mjs';import {readRun} from './read-run.mjs';import {validateRelease} from './release.mjs';
+import {publicManifest} from './public-manifest.mjs';
 const root=resolve(import.meta.dirname,'../..'),state=resolve(root,'../.state'),sharedRoot=resolve(root,'../../collab-bomber'),siteRoot=resolve(root,'../../hashimoto-protocol');
 const projectId='appgprj_6ad62c7885748191b7a47af3a3ac679b',game='https://hashimoto-protocol-north-exit.ohuraharah.chatgpt.site';
 const read=p=>JSON.parse(readFileSync(p,'utf8'));
@@ -18,11 +19,12 @@ export function authorize(id){
   const proposal=read(join(directory,'proposal.json')),review=read(join(directory,'review.json')),baseline=Object.fromEntries(Object.keys(files).map(p=>[p,git(['show',`${job.baseSharedCommit}:${p}`],sharedRoot)]));validateProposal(proposal,baseline);
   const evidence=readRun({runId:job.runId,headCommit:job.headCommit,branch:job.branch,mode:'candidate',controlCommit:job.controlCommit,proposal,baseline,root});
   const shared=source(sharedRoot,job.baseSharedCommit,proposal),site=source(siteRoot,job.baseSiteCommit,proposal);
+  for(const[role,cwd]of [['shared',sharedRoot],['site',siteRoot]]){const expected={...config.publicHashes?.[role]};for(const change of proposal.changes)expected[change.path]=sha256(change.after);if(JSON.stringify(Object.entries(publicManifest(cwd)).sort())!==JSON.stringify(Object.entries(expected).sort()))throw Error('Other public bytes changed');}
   shared.remoteVerified=git(['ls-remote','origin','refs/heads/codex/bus-round-retirement'],sharedRoot).trim().split(/\s/)[0]===shared.commit;
   const opened=read(join(directory,'site-open.json')),prepared=read(join(directory,'site-package.json'));
   if(opened.project_id!==projectId||opened.commit_sha!==job.baseSiteCommit||resolve(opened.checkout_path)!==siteRoot||prepared.project_id!==projectId||prepared.commit_sha!==site.commit||resolve(prepared.checkout_path)!==siteRoot)throw Error('Official Sites preparation mismatch');
   const archive=resolve(prepared.archive);if(!archive.startsWith(resolve(siteRoot,'..')+sep)||!archive.endsWith('.tar.gz')||!lstatSync(archive).isFile()||lstatSync(archive).isSymbolicLink())throw Error('Owned archive required');
-  const listing=git(['ls-tree','-rz','--name-only',site.commit,'--','public'],siteRoot).split('\0').filter(Boolean).sort(),hashes={};for(const p of listing){const file=join(siteRoot,p);if(!lstatSync(file).isFile()||lstatSync(file).isSymbolicLink())throw Error('Public asset type rejected');hashes[p]=sha256(readFileSync(file));}
+  const hashes=publicManifest(siteRoot);
   const build=read(join(directory,'build-proof.json'));if(build.jobId!==id||build.guarded!==true||build.buildSucceeded!==true||JSON.stringify(build.publicHashes)!==JSON.stringify(hashes))throw Error('Guarded build proof mismatch');
   const checked=JSON.parse(cli('python',[fileURLToPath(new URL('./archive-check.py',import.meta.url)),archive],root,JSON.stringify(hashes)));
   Object.assign(site,{officialHelperVerified:true,archiveVerified:checked.archivePublicExact===true,archiveSourceCommit:prepared.commit_sha,projectId,archive});
