@@ -18,7 +18,7 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
       - name: Validate trusted control and pure proposal gate
-        run: node --test automation/isolation/gate.test.mjs automation/isolation/evidence.test.mjs
+        run: node --test automation/isolation/gate.test.mjs automation/isolation/evidence.test.mjs automation/isolation/model.test.mjs automation/isolation/build-guard.test.mjs automation/isolation/release.test.mjs automation/isolation/local.test.mjs
       - name: Probe isolation and run fixed tests
         shell: bash
         run: |
