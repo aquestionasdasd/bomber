@@ -1,6 +1,6 @@
 // Independent privileged stage. Never consumes model instructions or executes a candidate.
 import {spawnSync} from 'node:child_process';import {readFileSync,writeFileSync,lstatSync} from 'node:fs';import {resolve,join,sep} from 'node:path';import {fileURLToPath} from 'node:url';
-import {files} from './policy.mjs';import {sha256,validateProposal} from './gate.mjs';import {readRun} from './read-run.mjs';import {validateRelease} from './release.mjs';
+import {files,limits} from './policy.mjs';import {sha256,validateProposal} from './gate.mjs';import {readRun} from './read-run.mjs';import {validateRelease} from './release.mjs';
 import {publicManifest} from './public-manifest.mjs';
 const root=resolve(import.meta.dirname,'../..'),state=resolve(root,'../.state'),sharedRoot=resolve(root,'../../collab-bomber'),siteRoot=resolve(root,'../../hashimoto-protocol');
 const projectId='appgprj_6ad62c7885748191b7a47af3a3ac679b',game='https://hashimoto-protocol-north-exit.ohuraharah.chatgpt.site';
@@ -34,7 +34,7 @@ export function authorize(id){
 export async function finish(id){
   const permit=authorize(id),{directory,job}=getJob(id),native=read(join(directory,'native-success.json'));
   if(native.project_id!==projectId||native.status!=='succeeded'||native.commit_sha!==permit.sourceCommit||native.url?.replace(/\/$/,'')!==game||!/^appgdep_[a-f0-9]{32}$/.test(native.deployment_id)||typeof native.saved_version_id!=='string'||!native.saved_version_id.startsWith(projectId+'~'))throw Error('Native successful deployment proof required');
-  for(const change of permit.manifest.changes){const response=await fetch(game+'/'+change.path.slice(7),{redirect:'error',signal:AbortSignal.timeout(10000),cache:'no-store'});if(response.status!==200)throw Error('Published asset unavailable');const reader=response.body.getReader(),parts=[];let size=0;try{while(true){const r=await reader.read();if(r.done)break;if((size+=r.value.length)>16384){await reader.cancel();throw Error('Published module oversized');}parts.push(r.value);}}finally{reader.releaseLock();}if(sha256(Buffer.concat(parts))!==change.afterSha256)throw Error('Published candidate bytes mismatch');}
+  for(const change of permit.manifest.changes){const response=await fetch(game+'/'+change.path.slice(7),{redirect:'error',signal:AbortSignal.timeout(10000),cache:'no-store'});if(response.status!==200)throw Error('Published asset unavailable');const reader=response.body.getReader(),parts=[];let size=0;try{while(true){const r=await reader.read();if(r.done)break;if((size+=r.value.length)>limits.moduleBytes){await reader.cancel();throw Error('Published module oversized');}parts.push(r.value);}}finally{reader.releaseLock();}if(sha256(Buffer.concat(parts))!==change.afterSha256)throw Error('Published candidate bytes mismatch');}
   const receipt={version:1,id:job.request.id,contentHash:job.contentHash,status:'published',reason:'published',sourceCommit:permit.sourceCommit,sharedCommit:permit.sharedCommit,deploymentId:native.deployment_id};
   writeFileSync(join(directory,'verified-receipt.json'),JSON.stringify(receipt,null,2)+'\n');job.phase='published';writeFileSync(join(directory,'job.json'),JSON.stringify(job,null,2)+'\n');return receipt;
 }

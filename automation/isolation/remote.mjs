@@ -5,7 +5,7 @@ import {tmpdir} from 'node:os';
 import {join,resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {randomUUID} from 'node:crypto';
-import {image,coreTests,files,limits,testTimeouts} from './policy.mjs';
+import {image,coreTests,files,selfTests,limits,testTimeouts} from './policy.mjs';
 import {sha256,validateProposal,validateEnvelope} from './gate.mjs';
 import {treeDigest} from './evidence.mjs';
 const root=resolve(import.meta.dirname,'../..');
@@ -24,7 +24,7 @@ export function executeRemote(mode='selftest'){
     // Pull only this digest, before entering the code execution boundary.
     const pull=run('docker',['pull',image],{timeout:120000});if(pull.status!==0)throw Error('Pinned image unavailable');
     const checked=dockerNode('bd3do-probe.mjs');if(checked.status!==0)throw Error('Isolation probe failed');report.probe=JSON.parse(checked.stdout.trim());if(report.probe.probe!=='passed')throw Error('Isolation probe readback failed');
-    const tests=new Set(mode==='selftest'?[...coreTests,...Object.values(files).flat()]:coreTests);
+    const tests=new Set(mode==='selftest'?[...coreTests,...selfTests]:coreTests);
     if(mode==='candidate'){
       const raw=readFileSync(join(root,'automation-candidate.json'),'utf8');if(Buffer.byteLength(raw)>limits.proposalBytes)throw Error('Proposal oversized');const proposal=JSON.parse(raw);validateEnvelope(proposal);
       const baseline={};for(const path of Object.keys(files))baseline[path]=git(['show',`${proposal.baseCommit}:${path}`]);

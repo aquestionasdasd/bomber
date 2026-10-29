@@ -1,8 +1,12 @@
 # Conditional request processing
 
 This owner-approved controller handles requests only; autonomous polish remains
-paused. It never merges main. No request can change this policy, the controller,
-tests, CI, dependencies, credentials, maps, sound, network or character rules.
+paused. It never merges main. The owner expanded delegated game scope on 2026-10-29. Requests may target
+characters, skill/weapon values, bots, map geometry, graphics, UI and new game
+features inside the 115 existing catalogued public text files. Only explicitly
+requested game behavior may change. No request can change this policy, the
+controller, tests, CI, dependencies, credentials, network transport, persistent
+storage, access permissions, deployment settings or original binary media.
 
 The local private configuration pins controller, shared-game and Sites commits.
 Native Sites reads are the only queue source. Read DB overview then bounded
@@ -66,3 +70,16 @@ installing software. Interrupted/partial jobs need explicit state reconciliation
 never create a second job to bypass a failure. Retain no raw public logs or Tokens.
 The local host/Ollama must be available; hosted test runners alone do not poll the
 queue or publish. Kernel/platform defects and semantic review limits remain.
+
+Scope version 2: policy.mjs and scope-catalog.json pin the exact game paths.
+At most 8 changed files / 16 exact snippet edits, 1 MiB per source and 4 MiB per
+complete proposal; no new/deleted files or third-party downloads. JavaScript
+imports and capability-bearing callables remain immutable; computed access
+cannot be added. CSS loading tokens and HTML active blocks/attributes are fixed.
+A fresh same-model review sees bounded actual diffs. The original five mandatory
+core checks and four baseline selftests remain unchanged, with relevant fixed
+per-module recipes added for candidates. Requests conflicting with a fixed
+regression, requiring protected code, or exceeding bounded context are held; do
+not alter the tests to make a submitted request pass. Broader eligibility is not
+a promise that every request can be implemented. Static checks and semantic
+review do not prove the absence of every browser logic/platform defect.

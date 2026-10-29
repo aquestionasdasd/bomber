@@ -1,6 +1,7 @@
 import {createHash} from 'node:crypto';
 import {parse} from './vendor/acorn.mjs';
 import {files,limits} from './policy.mjs';
+import {validateGameSource} from './game-gate.mjs';
 export const sha256=text=>createHash('sha256').update(text).digest('hex');
 const plain=v=>!!v&&Object.getPrototypeOf(v)===Object.prototype;
 const exact=(v,keys)=>plain(v)&&Object.keys(v).sort().join(',')===keys;
@@ -63,6 +64,6 @@ export function validateEnvelope(proposal){
 }
 export function validateProposal(proposal,baseline){
   validateEnvelope(proposal);
-  for(const change of proposal.changes){const before=baseline[change.path];if(typeof before!=='string'||sha256(before)!==change.beforeSha256||before===change.after)rejected();validatePureModule(before,change.after);}
+  for(const change of proposal.changes){const before=baseline[change.path];if(typeof before!=='string'||sha256(before)!==change.beforeSha256||before===change.after)rejected();validateGameSource(change.path,before,change.after);}
   return {version:1,baseCommit:proposal.baseCommit,changes:proposal.changes.map(c=>({path:c.path,beforeSha256:c.beforeSha256,afterSha256:sha256(c.after)}))};
 }

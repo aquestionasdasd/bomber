@@ -6,7 +6,7 @@ import {files} from './policy.mjs';
 const baseline=Object.fromEntries(Object.keys(files).map(path=>[path,readFileSync(new URL('../../'+path,import.meta.url),'utf8')]));
 const path='public/range.js',before=baseline[path],after=before.replace('if(count<=0)return-1;','if(!Number.isFinite(count)||count<=0)return-1;');
 const proposal=()=>({version:1,baseCommit:'f'.repeat(40),changes:[{path,beforeSha256:sha256(before),after}]});
-test('existing pure modules and a finite-input logic repair pass without executing candidate code',()=>{for(const source of Object.values(baseline))assert.equal(validatePureModule(source,source),true);assert.equal(validateProposal(proposal(),baseline).changes[0].afterSha256,sha256(after));});
+test('existing pure modules and a finite-input logic repair pass without executing candidate code',()=>{for(const source of [baseline['public/death-view.js'],baseline['public/range.js'],baseline['public/round-preparation.js']])assert.equal(validatePureModule(source,source),true);assert.equal(validateProposal(proposal(),baseline).changes[0].afterSha256,sha256(after));});
 test('only exact allowlisted files, schema, original bytes and bounded change count pass',()=>{
   for(const edit of [p=>p.changes[0].path='public/game.js',p=>p.changes[0].path='../.env',p=>p.changes[0].path='.github/workflows/x.yml',p=>p.changes[0].beforeSha256='0'.repeat(64),p=>p.changes.push(p.changes[0]),p=>p.extra=true,p=>p.changes[0].after=before,p=>p.baseCommit='--help']){const p=proposal();edit(p);assert.throws(()=>validateProposal(p,baseline));}
 });
