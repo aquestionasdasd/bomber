@@ -1,3 +1,4 @@
+import { SKILL_THROW, isLobbedSkill, throwSpec, throwPosition } from './skill-throw.js';
 import { moveCamera } from './onnara-camera-motion.js';
 import { nopeWalkPose } from './nope-walk.js';
 import { RENKO_SKILLS, ONNARA_SKILLS, URCHIN_SKILLS, CAP_SKILLS, JAPAN_SKILLS, NOBI_SKILLS, CAR_SKILLS, CAT_SKILLS, DUCK_SKILLS, DUELIST_SKILLS, NOPE_SKILLS, MEND_SKILLS, IAGNU_SKILLS, VEIL_SKILLS, veilRootSegment, EMBER_SKILLS, FROST_SKILLS } from './abilities.js';
@@ -160,6 +161,7 @@ export function skillProjectilePosition(event, now) {
   if (specs[event.type].flight === 0) return { x: event.x, y: event.y, z: event.z };
   if (![event.fromX, event.fromY, event.fromZ].every(coordinate) || !clock(event.startedAt) || !Number.isFinite(event.flight) || event.flight <= 0) return null;
   const t = Math.max(0, Math.min(1, (now - event.startedAt) / event.flight));
+  if(isLobbedSkill(event.type))return throwPosition(event,now);
   const arc = event.type === 'duelist-comet' || event.type === 'renko-dart' ? 0 : event.type === 'nope-bottle' || event.type === 'mend-seeds' ? 1.4 : .8;
   return { x: event.fromX + (event.x - event.fromX) * t,
     y: event.fromY + (event.y - event.fromY) * t + 4 * t * (1 - t) * arc,
@@ -216,7 +218,9 @@ export function createCharacterSkills() {
     if(type==='onnara-hover'&&actor.grounded!==false)return null;
     if(type==='onnara-orb'&&(!Number.isFinite(target.yaw)||Math.abs(target.yaw)>Math.PI))return null;
     const moving=type==='onnara-orb'&&target.cameraVelocity!==undefined;
-    const spec=moving?{flight:ONNARA_SKILLS.orbCameraDuration,delay:0,tail:ONNARA_SKILLS.orbCameraDuration,radius:ONNARA_SKILLS.orbRadius}:type==='renko-dart'?renkoDartSpec({x:actor.x,y:eyeY(actor),z:actor.z},target):specs[type], endsAt = now + spec.delay + spec.tail;
+    const spec=moving?{flight:ONNARA_SKILLS.orbCameraDuration,delay:0,tail:ONNARA_SKILLS.orbCameraDuration,radius:ONNARA_SKILLS.orbRadius}:type==='renko-dart'?renkoDartSpec({x:actor.x,y:eyeY(actor),z:actor.z},target):throwSpec(type,specs[type],{x:actor.x,y:eyeY(actor),z:actor.z},target);
+    if(!spec)return null;
+    const endsAt = now + spec.delay + spec.tail;
     if (!Number.isFinite(endsAt) || !advance(now, round) || active.size >= CHARACTER_SKILLS.maxEvents || sequence >= 999999999999999) return null;
     if(type==='onnara-tax'&&[...active.values()].some(e=>e.type===type&&e.targetId===target.targetId))return null;
     if (personal(type) && [...active.values()].filter(event => event.type === type && event.sourceId === actor.id).length >= (moving?2:1)) return null;
@@ -259,7 +263,7 @@ export function createCharacterSkills() {
     if (distance > event.radius) return false;
     if (distance < 1e-8) return true;
     const yaw = Number.isFinite(actor.yaw) ? actor.yaw : Number.isFinite(actor.netYaw) ? actor.netYaw : Number.isFinite(actor.group?.rotation?.y) ? actor.group.rotation.y - Math.PI : 0;
-    const pitch = Number.isFinite(actor.pitch) ? Math.max(-1.35, Math.min(1.35, actor.pitch)) : 0;
+    const pitch = Number.isFinite(actor.pitch) ? Math.max(-SKILL_THROW.maxPitch, Math.min(SKILL_THROW.maxPitch, actor.pitch)) : 0;
     return (-Math.sin(yaw) * Math.cos(pitch) * dx + Math.sin(pitch) * dy - Math.cos(yaw) * Math.cos(pitch) * dz) / distance > CHARACTER_SKILLS.flashFacingDot;
   }
   // Read-only forecast and actual detonation share the same facing/range/ray.
@@ -542,8 +546,9 @@ export function createCharacterSkills() {
     if (!value || typeof value !== 'object' || Array.isArray(value) || !isType(value.type) || !team(value.team) || !identifier(value.sourceId) || !point(value)
       || ![value.fromX, value.fromY, value.fromZ].every(coordinate) || value.round !== round || !clock(value.startedAt) || value.startedAt > now || !clock(value.triggerAt) || !clock(value.endsAt) || !idSequence(value.id, value.type)) return false;
     if(value.type==='nope-decoy'&&(!Object.keys(value).every(key=>eventFields.includes(key)||['yaw','walkLength'].includes(key))||(value.walkLength!==undefined||value.yaw!==undefined)&&(!Number.isFinite(value.yaw)||Math.abs(value.yaw)>Math.PI||!Number.isFinite(value.walkLength)||value.walkLength<0||value.walkLength>NOPE_SKILLS.decoyWalkRange)))return false;
-    const spec = value.type==='renko-dart'?renkoDartSpec({x:value.fromX,y:value.fromY,z:value.fromZ},value):specs[value.type];
-    if ((value.type.startsWith('renko-') || value.type.startsWith('onnara-') || value.type.startsWith('urchin-') || value.type.startsWith('cap-') || value.type.startsWith('japan-') || value.type.startsWith('nobi-') || value.type.startsWith('car-') || value.type.startsWith('cat-') || value.type.startsWith('duck-') || value.type.startsWith('duelist-') || value.type.startsWith('veil-') || value.type.startsWith('ember-') || value.type.startsWith('frost-')) && !Object.keys(value).every(key => eventFields.includes(key) || value.type==='onnara-chain'&&key==='link' || value.type==='onnara-tax'&&key==='power' || value.type==='onnara-orb'&&key==='yaw' || value.type==='japan-border'&&key==='yaw' || ['onnara-tax','urchin-jam','urchin-disarm','cap-lock','cap-clean','japan-levy'].includes(value.type)&&key==='targetId' || ['nobi-tag','nobi-brake'].includes(value.type)&&key==='targetId' || value.type==='car-bumper'&&key==='targetId' || value.type==='cat-pluck'&&key==='targetId' || value.type === 'duck-seal' && key === 'targetId' || value.type === 'duck-shield' && ['yaw','power'].includes(key) || value.type === 'duck-egg' && key === 'power' || value.type === 'ember-service' && key === 'weaponId')) return false;
+    const spec = value.type==='renko-dart'?renkoDartSpec({x:value.fromX,y:value.fromY,z:value.fromZ},value):throwSpec(value.type,specs[value.type],{x:value.fromX,y:value.fromY,z:value.fromZ},value);
+    if(!spec)return false;
+    if ((isLobbedSkill(value.type) || value.type.startsWith('renko-') || value.type.startsWith('onnara-') || value.type.startsWith('urchin-') || value.type.startsWith('cap-') || value.type.startsWith('japan-') || value.type.startsWith('nobi-') || value.type.startsWith('car-') || value.type.startsWith('cat-') || value.type.startsWith('duck-') || value.type.startsWith('duelist-') || value.type.startsWith('veil-') || value.type.startsWith('ember-') || value.type.startsWith('frost-')) && !Object.keys(value).every(key => eventFields.includes(key) || value.type==='onnara-chain'&&key==='link' || value.type==='onnara-tax'&&key==='power' || value.type==='onnara-orb'&&key==='yaw' || value.type==='japan-border'&&key==='yaw' || ['onnara-tax','urchin-jam','urchin-disarm','cap-lock','cap-clean','japan-levy'].includes(value.type)&&key==='targetId' || ['nobi-tag','nobi-brake'].includes(value.type)&&key==='targetId' || value.type==='car-bumper'&&key==='targetId' || value.type==='cat-pluck'&&key==='targetId' || value.type === 'duck-seal' && key === 'targetId' || value.type === 'duck-shield' && ['yaw','power'].includes(key) || value.type === 'duck-egg' && key === 'power' || value.type === 'ember-service' && key === 'weaponId')) return false;
     if (['onnara-tax','urchin-jam','urchin-disarm','cap-lock','cap-clean','japan-levy','nobi-tag','nobi-brake','mend-heal','duck-seal','cat-pluck','car-bumper'].includes(value.type) ? !identifier(value.targetId) : value.targetId !== undefined) return false;
     if (value.type === 'ember-service' ? !serviceWeapon(value.weaponId) : value.weaponId !== undefined) return false;
     if(['onnara-tax','urchin-jam','urchin-disarm','cap-lock','japan-levy','nobi-tag','nobi-brake','duck-seal','cat-pluck','car-bumper'].includes(value.type)&&value.targetId===value.sourceId)return false;

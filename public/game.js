@@ -1,3 +1,4 @@
+import { SKILL_THROW, isLobbedSkill, throwDuration } from './skill-throw.js';
 import { getSkillUseMessage } from './skill-messages.js';
 import { createKillBanner } from './kill-banner.js';
 import { createPreparedSkillFX, preparedSkillType } from './prepared-skill-fx.js';
@@ -1871,7 +1872,7 @@ function getRootsTarget(actor,point=null,aim=null){
 function getZoneTarget(actor,point=null,aim=null,maxReach=20-1e-6){
   const input=netInputs.get(actor.remoteId)?.input;
   const yaw=aim?.yaw??(actor===player?player.yaw:Number.isFinite(input?.yaw)?input.yaw:actor.yaw||0);
-  const pitch=aim?.pitch??(actor===player?player.pitch:clamp(Number(input?.pitch)||0,-1.35,1.35));
+  const pitch=aim?.pitch??(actor===player?player.pitch:clamp(Number(input?.pitch)||0,-SKILL_THROW.maxPitch,SKILL_THROW.maxPitch));
   const eye=(actor.y||0)+1.6,ground=getZoneFloor(actor.x,actor.z,eye);
   const reach=pitch<-.03?clamp((eye-ground)/-Math.tan(pitch),0,maxReach):maxReach;
   let dx=point&&Number.isFinite(point.x)?point.x-actor.x:-Math.sin(yaw)*reach;
@@ -1892,7 +1893,7 @@ function getZonePreview(){
 }
 function getCometTarget(actor,point=null,aim=null){
   const input=netInputs.get(actor.remoteId)?.input,origin={x:actor.x,y:(actor.y||0)+1.7-clamp(actor.crouch||0,0,1)*.55,z:actor.z};
-  const yaw=aim?.yaw??(actor===player?player.yaw:Number.isFinite(input?.yaw)?input.yaw:actor.yaw||0),pitch=aim?.pitch??(actor===player?player.pitch:clamp(Number(input?.pitch)||0,-1.35,1.35));
+  const yaw=aim?.yaw??(actor===player?player.yaw:Number.isFinite(input?.yaw)?input.yaw:actor.yaw||0),pitch=aim?.pitch??(actor===player?player.pitch:clamp(Number(input?.pitch)||0,-SKILL_THROW.maxPitch,SKILL_THROW.maxPitch));
   let dx,dy,dz,reach=DUELIST_SKILLS.cometRange;
   if(point&&Number.isFinite(point.x)&&Number.isFinite(point.z)){
     dx=point.x-origin.x;dy=(Number.isFinite(point.y)?point.y:(actor.y||0)+1.4)-origin.y;dz=point.z-origin.z;
@@ -2521,9 +2522,39 @@ function confirmVeilPlacement(){
  resumeGame();refillMapPracticeSkills();updateHUD();
 }
 
+function thrownSkillRange(type){return {'duelist-comet':DUELIST_SKILLS.cometRange,'nope-bottle':NOPE_SKILLS.bottleRange,'echo-tag':IAGNU_SKILLS.tagRange,'ember-solder':EMBER_SKILLS.solderRange,'frost-stitch':FROST_SKILLS.stitchRange,'frost-mist':FROST_SKILLS.mistRange,'veil-root-seed':VEIL_SKILLS.rootsThrowRange,'nobi-bell':NOBI_SKILLS.tagRange,'nobi-whisker':NOBI_SKILLS.brakeRange,'nobi-toolbox':NOBI_SKILLS.toolRange,'nobi-collar':NOBI_SKILLS.legendRange}[type]||CHARACTER_SKILLS.castDistance;}
+function thrownSkillHeight(type){return type==='nope-flash'||type==='echo-glint'?1.6:type==='mend-pollen'?1.7:type==='frost-mist'?FROST_SKILLS.mistCenterOffset:type==='duelist-comet'?.2:.12;}
+function getManualThrowTarget(actor,type,aim){
+ const input=netInputs.get(actor.remoteId)?.input,yaw=aim?.yaw??(actor===player?player.yaw:input?.yaw??actor.yaw??0),pitch=aim?.pitch??(actor===player?player.pitch:input?.pitch??0);
+ if(!Number.isFinite(yaw)||!Number.isFinite(pitch))return null;
+ const from={x:actor.x,y:(actor.y||0)+1.7-clamp(actor.crouch||0,0,1)*.55,z:actor.z},p=clamp(pitch,-SKILL_THROW.maxPitch,SKILL_THROW.maxPitch),c=Math.cos(p),v={x:-Math.sin(yaw)*c*SKILL_THROW.speed,y:Math.sin(p)*SKILL_THROW.speed+SKILL_THROW.lift,z:-Math.cos(yaw)*c*SKILL_THROW.speed};
+ const at=t=>({x:from.x+v.x*t,y:from.y+v.y*t-SKILL_THROW.gravity*t*t/2,z:from.z+v.z*t});
+ const bounds=map.bounds,limit=thrownSkillRange(type),offset=thrownSkillHeight(type);
+ // Fit the full fall inside the skill range instead of detonating in mid-air
+ // at an invisible horizontal boundary. Keep vertical lift and gravity.
+ if(type!=='duelist-comet'){const floor=Math.min(map.minY??0,getZoneFloor(from.x,from.z,from.y)),height=Math.min(offset,Math.max(.12,from.y-floor-.08)),fall=(v.y+Math.sqrt(v.y*v.y+2*SKILL_THROW.gravity*Math.max(.08,from.y-floor-height)))/SKILL_THROW.gravity,horizontal=Math.hypot(v.x,v.z)*fall,scale=Math.min(1,(limit-1e-5)/Math.max(1e-8,horizontal));v.x*=scale;v.z*=scale;}
+ const blocked=(a,b,time)=>{
+  if(!map.collision.rayClear(a.x,a.y,a.z,b.x,b.y,b.z))return true;
+  if(type==='duelist-comet'&&Math.hypot(b.x-from.x,b.y-from.y,b.z-from.z)>limit||b.x<bounds.minX+.12||b.x>bounds.maxX-.12||b.z<bounds.minZ+.12||b.z>bounds.maxZ-.12)return true;
+  const floor=getZoneFloor(b.x,b.z,Math.max(a.y,b.y));
+  return v.y-SKILL_THROW.gravity*time<0&&b.y<=floor+Math.min(offset,Math.max(.12,from.y-floor-.08));
+ };
+ let previous=from,previousTime=0;
+ // A deterministic 120Hz trace is independent of render/network cadence.
+ for(let time=1/120;time<=SKILL_THROW.maxFlight+1e-8;time+=1/120){
+  const next=at(time);
+  if(blocked(previous,next,time)){
+   let lo=previousTime,hi=time;for(let i=0;i<20;i++){const mid=(lo+hi)/2;if(blocked(previous,at(mid),mid))hi=mid;else lo=mid;}
+   if(lo<SKILL_THROW.minFlight)return null;
+   const end=at(lo);return {...end,flight:lo};
+  }
+  previous=next;previousTime=time;
+ }
+ return {...previous,flight:previousTime};
+}
 function getSkillTarget(actor,type,point=null,aim=null){
   if(type.startsWith('duck-'))return getDuckTarget(actor,type,aim);
-  if(type==='duelist-comet')return getCometTarget(actor,point,aim);
+  if(isLobbedSkill(type)&&!point)return getManualThrowTarget(actor,type,aim);
   if(type==='duelist-lift')return{x:actor.x,y:actor.y||0,z:actor.z};
   if(type==='frost-unravel')return actorGrounded(actor)?{x:actor.x,y:actor.y||0,z:actor.z}:null;
   if(type==='ember-shade'||type==='ember-service')return{x:actor.x,y:actor.y||0,z:actor.z,...(type==='ember-service'?{weaponId:actorWeaponId(actor)}:{})};
@@ -2535,11 +2566,11 @@ function getSkillTarget(actor,type,point=null,aim=null){
     return{x:actor.x,y:actor.y+(type==='veil-dust'?VEIL_SKILLS.dustCenterOffset:0),z:actor.z};
   }
   const nobiRange={'nobi-bell':NOBI_SKILLS.tagRange,'nobi-whisker':NOBI_SKILLS.brakeRange,'nobi-toolbox':NOBI_SKILLS.toolRange,'nobi-collar':NOBI_SKILLS.legendRange}[type];
-  const target=getZoneTarget(actor,point,aim,nobiRange|| (type==='nope-bottle'?NOPE_SKILLS.bottleRange:20-1e-6)),limit=nobiRange||(type==='nope-bottle'?NOPE_SKILLS.bottleRange:type==='nope-decoy'?6:type==='echo-tag'?IAGNU_SKILLS.tagRange:type==='ember-solder'?EMBER_SKILLS.solderRange:type==='frost-stitch'?FROST_SKILLS.stitchRange:type==='frost-mist'?FROST_SKILLS.mistRange:20);
+  const limit=isLobbedSkill(type)?thrownSkillRange(type):type==='nope-decoy'?6:20,target=getZoneTarget(actor,point,aim,limit-1e-6);
   let dx=target.x-actor.x,dz=target.z-actor.z,length=Math.hypot(dx,dz);
   if(length>limit){dx*=limit/length;dz*=limit/length;length=limit;}
   const eye=(actor.y||0)+1.7-clamp(actor.crouch||0,0,1)*.55;
-  const flight=type==='veil-root-seed'?VEIL_SKILLS.rootsThrowFlight:nobiRange?NOBI_SKILLS.throwFlight:type==='nope-bottle'?NOPE_SKILLS.bottleFlight:type==='mend-seeds'?MEND_SKILLS.seedsFlight:type==='nope-flash'?NOPE_SKILLS.flashFlight:type==='mend-pollen'?MEND_SKILLS.pollenFlight:type==='echo-tag'?IAGNU_SKILLS.tagFlight:type==='echo-glint'?IAGNU_SKILLS.glintFlight:type==='ember-solder'?EMBER_SKILLS.solderFlight:type==='frost-stitch'?FROST_SKILLS.stitchFlight:type==='frost-mist'?FROST_SKILLS.mistFlight:0;
+  const from={x:actor.x,y:eye,z:actor.z};
   // Check the same arc that will be drawn, including ceilings and stair landings.
   for(let step=Math.max(1,Math.ceil(length/.4));step>=0;step--){
     const ratio=step/Math.max(1,Math.ceil(length/.4)),x=actor.x+dx*ratio,z=actor.z+dz*ratio;
@@ -2550,6 +2581,8 @@ function getSkillTarget(actor,type,point=null,aim=null){
       if(map.collision.rayClear(actor.x,eye,actor.z,x,y+1.4,z))return{x,y,z,...decoyWalkPath({x,y,z},Math.atan2(dx,dz))};
       continue;
     }
+    if(type==='duelist-comet'&&Math.hypot(x-from.x,y-from.y,z-from.z)>limit)continue;
+    const flight=isLobbedSkill(type)?throwDuration(from,{x,y,z}):0;if(isLobbedSkill(type)&&flight===null)continue;
     const event={type,x,y,z,fromX:actor.x,fromY:eye,fromZ:actor.z,startedAt:elapsed,flight};
     let previous={x:actor.x,y:eye,z:actor.z},clear=true;
     for(let index=1;index<=32;index++){
@@ -2557,7 +2590,7 @@ function getSkillTarget(actor,type,point=null,aim=null){
       if(!next||!map.collision.rayClear(previous.x,previous.y,previous.z,next.x,next.y,next.z)){clear=false;break;}
       previous=next;
     }
-    if(clear)return{x,y,z};
+    if(clear)return{x,y,z,...(isLobbedSkill(type)?{flight}:{})};
   }
   return null;
 }
@@ -3207,7 +3240,7 @@ function updateBots(dt){
           const point=getSkillTarget(bot,'nobi-collar',{x:bot.x,y:bot.y||0,z:bot.z}),queries={reachable:ordinaryReachable};
           // Conserve X only while every current recipient can share an allied
           // collar through the next decision plus our own throw, including flight.
-          const collars=ordinarySkills.events(elapsed).filter(event=>event.type==='nobi-collar'&&event.team===bot.team&&event.endsAt>=elapsed+1+NOBI_SKILLS.throwFlight);
+          const collars=ordinarySkills.events(elapsed).filter(event=>event.type==='nobi-collar'&&event.team===bot.team&&event.endsAt>=elapsed+1+(point?.flight??NOBI_SKILLS.throwFlight));
           const recipients=point?[player,...bots].map(ordinaryActorView).filter(actor=>ordinarySkills.wouldNobi(actor,{type:'nobi-collar',team:bot.team,...point,radius:NOBI_SKILLS.areaRadius},queries)):[];
           const shared=recipients.length>0&&recipients.every(actor=>collars.some(event=>ordinarySkills.wouldNobi(actor,event,queries)));
           if(!shared)cast=activateAbility(bot,'x',{zonePoint:{x:bot.x,y:bot.y||0,z:bot.z}});
@@ -3970,7 +4003,7 @@ if(map.destruction){if(fresh||!packet.busDamage)map.destruction.reset();map.dest
 function updateRemoteActor(actor,dt){
   const data=netInputs.get(actor.remoteId);if(!data){cancelPlantAndEquip(actor);actor.planting=false;actor.defusing=false;match.cancelDefuse(actor.id);return;}
   const input=grassRemoteInput(actor,data.input),active=elapsed-data.received<.8&&actor.alive&&data.round===match.round,objectiveWork=active&&input.interact===true?objectiveActionFor(actor):null,previousX=actor.x,previousY=actor.y||0,previousZ=actor.z,wasDashing=actor.dashTimer>0;
-  if(actor.kit?.character==='renko'){ordinarySkills.holdRenkoJet(actor.id,elapsed,active&&input.jet===true&&!objectiveWork&&!carMotionActive(actor)&&!busSeat(actor));if(active){actor.netYaw=Number.isFinite(input.yaw)?input.yaw:0;actor.netPitch=clamp(Number(input.pitch)||0,-1.35,1.35);}}
+  if(actor.kit?.character==='renko'){ordinarySkills.holdRenkoJet(actor.id,elapsed,active&&input.jet===true&&!objectiveWork&&!carMotionActive(actor)&&!busSeat(actor));if(active){actor.netYaw=Number.isFinite(input.yaw)?input.yaw:0;actor.netPitch=clamp(Number(input.pitch)||0,-SKILL_THROW.maxPitch,SKILL_THROW.maxPitch);}}
   if(active&&duckPadAirborne(actor)&&actorGrounded(actor)&&Number.isFinite(input.y)&&Math.abs(input.y-actor.y)<.08)actor.duckPadUntil=0;
   const wasClimbing=!!actor.trcLadder&&!carMotionActive(actor);if(wasClimbing){const previous={x:actor.x,y:actor.y,z:actor.z};map.traversal.climb(actor,active&&[-1,0,1].includes(input.climb)?input.climb:0,dt,input.quiet===true);trcMotionSound(actor,dt,previous,input.quiet===true);}
   if(active&&!wasClimbing&&!busSeat(actor)&&Number.isFinite(input.x)&&Number.isFinite(input.z)){
@@ -4032,9 +4065,9 @@ function updateRemoteActor(actor,dt){
     }
     applyStarHold(actor);
     actorMovementScale(actor);
-    actor.netYaw=Number.isFinite(input.yaw)?input.yaw:0;actor.netPitch=clamp(Number(input.pitch)||0,-1.35,1.35);actor.group.rotation.y=actor.netYaw+Math.PI;
+    actor.netYaw=Number.isFinite(input.yaw)?input.yaw:0;actor.netPitch=clamp(Number(input.pitch)||0,-SKILL_THROW.maxPitch,SKILL_THROW.maxPitch);actor.group.rotation.y=actor.netYaw+Math.PI;
   }
-  if(active&&busSeat(actor)){actor.netYaw=Number.isFinite(input.yaw)?input.yaw:actor.netYaw||0;actor.netPitch=clamp(Number(input.pitch)||0,-1.35,1.35);}
+  if(active&&busSeat(actor)){actor.netYaw=Number.isFinite(input.yaw)?input.yaw:actor.netYaw||0;actor.netPitch=clamp(Number(input.pitch)||0,-SKILL_THROW.maxPitch,SKILL_THROW.maxPitch);}
   const remoteRunning=active&&match.phase==='live'&&(frostSlideSpeed(actor)>0||input.quiet!==true&&actor.crouch<.5)&&!wasDashing&&actorGrounded(actor)&&Math.hypot(actor.x-previousX,actor.z-previousZ)>dt*2;
   if(!wasClimbing)trcMotionSound(actor,dt,{x:previousX,y:previousY,z:previousZ},input.quiet===true);
   actor.netStepClock=remoteRunning?(actor.netStepClock||0)+dt:0;if(actor.netStepClock>.35){actor.netStepClock=0;sound('step',{entity:actor});}
@@ -4082,7 +4115,7 @@ function applyRemoteAction(actor,action,actionTime=elapsed){
       let aim=null;
       if(action.yaw!==undefined||action.pitch!==undefined){
         if(!Number.isFinite(action.yaw)||!Number.isFinite(action.pitch))return;
-        aim={yaw:action.yaw%(Math.PI*2),pitch:clamp(action.pitch,-1.35,1.35)};
+        aim={yaw:action.yaw%(Math.PI*2),pitch:clamp(action.pitch,-SKILL_THROW.maxPitch,SKILL_THROW.maxPitch)};
       }
       let zonePoint=null,zonePoints=null;
       if(actor.kit?.character==='veil'&&['c','x'].includes(action.key)){
@@ -4205,7 +4238,7 @@ function observeMouseLook(event){
 }
 function look(dx,dy){
   if(netHostPaused||mode!=='play'||!player.alive||!Number.isFinite(dx)||!Number.isFinite(dy)||Math.abs(dx)>500||Math.abs(dy)>500)return;
-  player.yaw-=dx*.002*sensitivity;player.pitch=clamp(player.pitch-dy*.002*sensitivity,-1.35,1.35);
+  player.yaw-=dx*.002*sensitivity;player.pitch=clamp(player.pitch-dy*.002*sensitivity,-SKILL_THROW.maxPitch,SKILL_THROW.maxPitch);
   // Input owns the view angle; physics/recoil still advance on the normal frame.
   // Keep victory/vehicle cameras under their own controller.
   if(!victoryCamera.active&&!busDriving())camera.rotation.set(player.pitch+renderedRecoil,player.yaw,0);

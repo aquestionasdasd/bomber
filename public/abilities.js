@@ -24,7 +24,7 @@ export const CHARACTER_DEFS = Object.freeze({
     description:'C：全員が跳べる羽根床を設置 / Q：弾だけを止める羽盾 / E：10秒スペース連打で飛行、最初の5秒は消音。X：8秒、致死攻撃を2回までHP1で耐える（7pt）。', color:'#77b34c', ultIcon:'M18 2C9 2 5 16 5 21a13 9 0 0 0 26 0C31 16 27 2 18 2Zm-2 10 5 5-5 4 4 5' }),
   cat: Object.freeze({id:'cat',label:'猫の画像',role:'回収・時制',ultName:'白紙の8秒',ultShortName:'時止め',ultimatePoints:7,description:'C：保存地点へ帰還 / Q：敵の装填弾を最大5発裂き、1発12・最大60ダメージ / E：落ちた銃を遠隔回収。X：8秒、ラウンドとボンバーの時計を止める。行動と電源オフは進む（7pt）。',color:'#eee8dd',ultIcon:'M18 3a12 12 0 1 0 0 24 12 12 0 0 0 0-24ZM14 9v12m8-12v12'}),
   car: Object.freeze({id:'car',label:'トミカ',role:'排除・補給',ultName:'ピットクルー',ultShortName:'補給',ultimatePoints:7,description:'C：本体突進で75ダメージ＋最大24m吹き飛ばし / Q：狙った煙を一つ除去 / E：接地中の移動射撃を安定化。X：視線内24mの味方と自身のC/Q/Eを補給（7pt）。',color:'#e9ece8',ultIcon:'M4 23h28V10H4ZM8 14h8v5H8Zm12 0h8v5h-8ZM12 4v4m12-4v4M9 25v4m18-4v4'}),
-  nobi:Object.freeze({id:'nobi',label:'のび',role:'弱点・工作',ultName:'逆転えり',ultShortName:'逆転',ultimatePoints:7,description:'4技とも構えて左クリックで投擲、右クリックで取消。C35m・Q40m・E/X35m。着地点の半径20mでCは敵の被銃撃1.35倍6秒、Qは敵の射撃間隔1.6倍5秒、Eは味方の作業1.5倍6秒。X：0.6秒後から8秒、自身と味方の胴・脚への銃撃も頭相当。壁・煙越し無効、範囲外は通常。X7ポイント。',color:'#f3cb48',ultIcon:'M18 3 3 13l15 15 15-15ZM10 13l8 8 8-8M18 3v11'}),
+  nobi:Object.freeze({id:'nobi',label:'のび',role:'弱点・工作',ultName:'逆転えり',ultShortName:'逆転',ultimatePoints:7,description:'4技とも構えて左クリックで投擲、右クリックで取消。C35m・Q40m・E/X35m。着地点の半径20mでCは敵の被銃撃1.35倍6秒、Qは敵の射撃間隔1.6倍5秒、Eは味方の作業1.5倍6秒。X：着地から8秒、自身と味方の胴・脚への銃撃も頭相当。壁・煙越し無効、範囲外は通常。X7ポイント。',color:'#f3cb48',ultIcon:'M18 3 3 13l15 15 15-15ZM10 13l8 8 8-8M18 3v11'}),
   japan:Object.freeze({id:'japan',label:'しばくでジャパン',role:'国境・総動員',ultName:'総動員',ultShortName:'総動員',ultimatePoints:7,description:'C：越えた敵へ国境線 / Q：敵の装甲を接収 / E：被銃撃を撃ち手へ返送。X：倒れた味方全員を開始地点へ10HPで呼び戻す（7pt）。',color:'#e8ca91',ultIcon:'M3 15h30M18 2v26M7 4l22 22M29 4 7 26M4 23h28'}),
   cap:Object.freeze({id:'cap',label:'キャップは？',role:'光学・解除',ultName:'エンドレスマガジン',ultShortName:'無消費',ultimatePoints:7,description:'C：敵の銃の照準とADSを妨害 / Q：現在の妨害を解除 / E：壁で弾を最大3回反射。X：9秒、装填済みの銃弾を消費せず発射（7pt）。',color:'#e36336',ultIcon:'M5 7h26v16H5ZM12 11c-8 0-8 8 0 8s4-8 12-8 8 8 0 8-4-8-12-8'}),
   urchin:Object.freeze({id:'urchin',label:'青ウニ',role:'棘・弾道',ultName:'三叉潮',ultShortName:'三叉',ultimatePoints:7,description:'C：予告した直線へ棘を一斉射出 / Q：敵の購入主武器を床へ落とす / E：壁を抜ける潮の波で遠くの視界を奪う。X：13秒、銃弾が三方向へ分かれ、連射速度が1.5倍（7pt）。',color:'#a9f1e4',ultIcon:'M18 28V4M18 20 5 7M18 20 31 7M2 11 5 7 9 8M27 8 31 7 34 11M14 8 18 4 22 8'}),
@@ -77,12 +77,12 @@ const duckSkills = {
  e:{name:'忍びガモ',shortName:'羽ばたき',description:'10秒、スペースを押すたび空中で羽ばたく。連打で上昇・維持、離すと落下。発動地点から最大8m。飛行中の銃弾は照準どおり（ショットガンの散弾は通常幅）。最初の5秒は足音・着地音なし。銃声は消えない。20秒で再使用。',max:1,price:0,type:'duck-hush',icon:'M18 24V10m-5 5 5-6 5 6M16 19 3 9l3 13 10 5m4-8L33 9l-3 13-10 5'},
 };
 const baseSkills = {
-  c: { name: '流れ星の幕', shortName: '星幕', description: `視線方向の空中${DUELIST_SKILLS.cometRange}m以内へ直線で投げ、到達から${DUELIST_SKILLS.cometDuration}秒、半径${DUELIST_SKILLS.cometRadius}mの星幕で敵味方双方の視界を遮る。`, max: DUELIST.smokeMax, price: DUELIST.smokePrice, type: 'duelist-comet', icon: 'm20 3 3 8 9 1-7 6 2 9-8-5-8 5 2-9-7-6 9-1ZM3 25l7-5M2 19l6-3m-2-6 4-1' },
+  c: { name: '流れ星の幕', shortName: '星幕', description: `視線方向の空中${DUELIST_SKILLS.cometRange}m以内へゆっくり山なりに投げ、到達から${DUELIST_SKILLS.cometDuration}秒、半径${DUELIST_SKILLS.cometRadius}mの星幕で敵味方双方の視界を遮る。`, max: DUELIST.smokeMax, price: DUELIST.smokePrice, type: 'duelist-comet', icon: 'm20 3 3 8 9 1-7 6 2 9-8-5-8 5 2-9-7-6 9-1ZM3 25l7-5M2 19l6-3m-2-6 4-1' },
   q: { name: 'アンテナリフト', shortName: '上昇', description: `上向き速度${DUELIST.updraftVelocity}で跳び上がる。${DUELIST.updraftMax}回まで所持でき、空中でも使用可能。横方向の加速や滑空は付かない。`, max: DUELIST.updraftMax, price: DUELIST.updraftPrice, type: 'duelist-lift', icon: 'm10 14 8-9 8 9M18 6v17M7 21l11 6 11-6M5 26l13 3 13-3M9 3 7 0m20 3 2-3' },
   e: { name: 'テイルウィンド', shortName: 'ダッシュ', description: `Eで準備し、${DUELIST.dashArmDelay}秒後から再Eで${DUELIST.dashDistance}m移動。準備開始から${DUELIST.dashWindow}秒以内に使う。`, max: 1, price: 0, type: 'dash', icon: 'm14 5-8 10h12l-6 10L31 10H18l4-5' },
 };
 const nopeSkills = {
-  c: { name: 'NOPEボトル', shortName: '瓶', description: `最大${NOPE_SKILLS.bottleRange}mへ投げ、${NOPE_SKILLS.bottleFuse}秒後に半径${NOPE_SKILLS.bottleRadius}mで爆発。敵へ最大${NOPE_SKILLS.bottleDamage}ダメージ、壁と距離で防げる。`, max: 2, price: DUELIST.smokePrice, type: 'nope-bottle', icon: 'M14 3h8v5l3 5v13H11V13l3-5ZM14 3v5h8M11 16h14M15 19l6 4m0-4-6 4' },
+  c: { name: 'NOPEボトル', shortName: '瓶', description: `最大${NOPE_SKILLS.bottleRange}mへ投げ、着地時（投げてから最低${NOPE_SKILLS.bottleFuse}秒）に半径${NOPE_SKILLS.bottleRadius}mで爆発。敵へ最大${NOPE_SKILLS.bottleDamage}ダメージ、壁と距離で防げる。`, max: 2, price: DUELIST.smokePrice, type: 'nope-bottle', icon: 'M14 3h8v5l3 5v13H11V13l3-5ZM14 3v5h8M11 16h14M15 19l6 4m0-4-6 4' },
   q: { name: 'NOPEフェイスフラッシュ', shortName: '顔閃光', description: `半径${NOPE_SKILLS.flashRadius}m内で正面から顔が見えると最大${NOPE_SKILLS.flashDuration}秒まぶしくなる。味方と自身にも有効。`, max: 1, price: DUELIST.updraftPrice, type: 'nope-flash', icon: 'M18 2v4M3 15h4m22 0h4M7 4l3 3m16 16 3 3M29 4l-3 3M9 10l5 5m0-5-5 5m13-5 5 5m0-5-5 5M11 21q7 7 14 0' },
   e: { name: 'NOPEボディデコイ', shortName: '全身の囮', description: `ライフルを構え、最大${NOPE_SKILLS.decoyDuration}秒前進する全身の囮。壁や段差の前で止まる。敵が撃つと壊れ、半径${NOPE_SKILLS.flashRadius}m内でこちらを見る敵へ最大${NOPE_SKILLS.flashDuration}秒の閃光。味方の弾は無反応。${NOPE_SKILLS.signatureCooldown}秒で再使用。`, max: 1, price: 0, type: 'nope-decoy', icon: 'M5 8h20v16H5ZM10 12l4 4m0-4-4 4m8-4 4 4m0-4-4 4M10 20q6 4 11 0M28 9q7 7 0 14' },
 };
@@ -132,9 +132,9 @@ const japanSkills={
  e:{name:'弾丸返送',shortName:'返送',description:'5秒、敵の銃撃で実際に失ったHPと装甲の650%を撃ち手へ返す。元の被害は受ける。ナイフ・スキルは対象外で返送は連鎖しない。20秒で再使用。',max:1,price:0,type:'japan-return',icon:'M4 10h19l-6-6m6 6-6 6M32 22H13l6-6m-6 6 6 6'}
 };
 const nobiSkills={
- c:{name:'鈴の弱点',shortName:'弱点の鈴',description:'Cで構え左クリックで35m先へ鈴を投げる。0.6秒後の着地点から半径20mに6秒、範囲内の敵の被銃撃ダメージ1.35倍。壁・煙越し無効、範囲を出ると解除。右クリックで取消。',max:2,price:100,type:'nobi-bell',icon:'M18 3a8 8 0 0 0-8 8v8l-4 5h24l-4-5v-8a8 8 0 0 0-8-8ZM15 27h6'},
- q:{name:'ひげブレーキ',shortName:'連射抑制',description:'Qで構え左クリックで40m先へひげ玉を投げる。0.6秒後の着地点から半径20mに5秒、範囲内の敵の銃の射撃間隔1.6倍。壁・煙越し無効、範囲を出ると解除。右クリックで取消。',max:1,price:100,type:'nobi-whisker',icon:'M3 8l12 4M3 16h12M3 24l12-4M33 8l-12 4M33 16H21M33 24l-12-4'},
- e:{name:'ポケット工具',shortName:'工作加速',description:'Eで構え左クリックで35m先へ工具箱を投げる。0.6秒後の着地点から半径20mに6秒、自身と味方の設置・電源オフが1.5倍。壁・煙越し無効、範囲外は通常速度。作業は4キー、18秒で再使用。右クリックで取消。',max:1,price:0,type:'nobi-toolbox',icon:'M8 3v12l5 5v9h10v-9l5-5V3l-6 7h-8ZM12 25h12'}
+ c:{name:'鈴の弱点',shortName:'弱点の鈴',description:'Cで構え左クリックで35m先へ鈴を投げる。着地点から半径20mに6秒、範囲内の敵の被銃撃ダメージ1.35倍。壁・煙越し無効、範囲を出ると解除。右クリックで取消。',max:2,price:100,type:'nobi-bell',icon:'M18 3a8 8 0 0 0-8 8v8l-4 5h24l-4-5v-8a8 8 0 0 0-8-8ZM15 27h6'},
+ q:{name:'ひげブレーキ',shortName:'連射抑制',description:'Qで構え左クリックで40m先へひげ玉を投げる。着地点から半径20mに5秒、範囲内の敵の銃の射撃間隔1.6倍。壁・煙越し無効、範囲を出ると解除。右クリックで取消。',max:1,price:100,type:'nobi-whisker',icon:'M3 8l12 4M3 16h12M3 24l12-4M33 8l-12 4M33 16H21M33 24l-12-4'},
+ e:{name:'ポケット工具',shortName:'工作加速',description:'Eで構え左クリックで35m先へ工具箱を投げる。着地点から半径20mに6秒、自身と味方の設置・電源オフが1.5倍。壁・煙越し無効、範囲外は通常速度。作業は4キー、18秒で再使用。右クリックで取消。',max:1,price:0,type:'nobi-toolbox',icon:'M8 3v12l5 5v9h10v-9l5-5V3l-6 7h-8ZM12 25h12'}
 };
 const onnaraSkills={
  c:{name:'星跳び',shortName:'大ジャンプ',description:'接地中にCで即ジャンプ。頭上が開いていれば足元から約4.8m上昇する。空中移動・射撃は通常通りで、Eの13秒空中静止にもつなげられる。天井に当たると上昇停止。空中での追加発動はできない。',max:2,price:100,type:'onnara-jump',icon:'M18 29V6M9 15l9-9 9 9M7 29h22M11 22l7-7 7 7'},
