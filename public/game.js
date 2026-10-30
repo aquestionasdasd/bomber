@@ -329,7 +329,7 @@ function grassSupport(actor,shapes=grassPlatforms()){
   if(!grassUsable(actor)||Math.abs(actor.vy||0)>1e-5)return null;
   return shapes.find(p=>p.id!==actor.id&&Math.abs(actor.y-p.top)<=.035&&grassOverlaps(p,actor.x,actor.z))||null;
 }
-function grassHeadClear(actor,x,z,r,feet,height){return !grassPlatforms().some(p=>p.id!==actor.id&&p.id!==actor.grassCarryOwner&&grassBlocks(p,x,z,r,feet,height));}
+function grassHeadClear(actor,x,z,r,feet,height,separatingOwner=null){return !grassPlatforms().some(p=>p.id!==actor.id&&p.id!==actor.grassCarryOwner&&p.id!==separatingOwner&&grassBlocks(p,x,z,r,feet,height));}
 function grassNearby(actor){return grassPlatforms().some(p=>p.id!==actor.id&&Math.hypot(p.x-actor.x,p.z-actor.z)<3);}
 function grassRideInput(actor){const p=grassSupport(actor);if(!p)return null;const q=grassLocal(p,actor.x,actor.z);return [p.id,q.x,q.z];}
 function beginNormalJump(actor){
@@ -1715,7 +1715,7 @@ function rampFloor(x,z,feet=Infinity) {
   }
   return floor;
 }
-function moveEntity(entity,dx,dz,r=.34) {
+function moveEntity(entity,dx,dz,r=.34,separatingOwner=null) {
   if(entity.trcLadder)return;
   // Substeps prevent sprint/dash from crossing thin cover at a low frame rate.
   const n=Math.max(1,Math.ceil(Math.hypot(dx,dz)/.16));
@@ -1737,7 +1737,7 @@ function moveEntity(entity,dx,dz,r=.34) {
         for(const c of map.collision.query(x,z,r))if(!c.disabled&&c.height>feet&&c.height<=entity.y+.22&&map.collision.overlaps(c,x,z,r))feet=c.height;
       }
       const height=actorBodyHeight(entity),mapClear=canStand(x,z,r,feet,height);
-      if(mapClear&&grassHeadClear(entity,x,z,r,feet,height)){entity.x=x;entity.z=z;if(followsFloor)entity.y=feet;}
+      if(mapClear&&grassHeadClear(entity,x,z,r,feet,height,separatingOwner)){entity.x=x;entity.z=z;if(followsFloor)entity.y=feet;}
       else if(mapClear&&grassHeadClear(entity,entity.x,entity.z,r,feet,height)){
         // Finish against the real cube face rather than stopping a whole
         // movement substep away, so a held direction can reach jump contact.
@@ -3672,16 +3672,16 @@ function grassBodyContact(a,b){
     return other&&(other.y||0)<p.top-.025&&(other.y||0)+actorBodyHeight(other)>p.base+.001;
   });
   if(!p)return undefined;
-  const other=p.id===a.id?b:a,q=grassLocal(p,other.x,other.z);
-  let x=q.x-clamp(q.x,-p.halfX,p.halfX),z=q.z-clamp(q.z,-p.halfZ,p.halfZ),distance=Math.hypot(x,z),depth=.34-distance;
-  if(distance>=.34)return null;
+  const other=p.id===a.id?b:a,q=grassLocal(p,other.x,other.z),radius=other===player?.34:.4;
+  let x=q.x-clamp(q.x,-p.halfX,p.halfX),z=q.z-clamp(q.z,-p.halfZ,p.halfZ),distance=Math.hypot(x,z),depth=radius-distance;
+  if(distance>=radius)return null;
   if(distance<1e-8){
     const gapX=p.halfX-Math.abs(q.x),gapZ=p.halfZ-Math.abs(q.z);
-    if(gapX<gapZ){x=q.x<0?-1:1;z=0;depth=.34+gapX;}else{x=0;z=q.z<0?-1:1;depth=.34+gapZ;}
+    if(gapX<gapZ){x=q.x<0?-1:1;z=0;depth=radius+gapX;}else{x=0;z=q.z<0?-1:1;depth=radius+gapZ;}
     distance=1;
   }
   const normal=grassWorld(p,x/distance,z/distance),sign=p.id===a.id?1:-1;
-  return {x:(normal.x-p.x)*sign,z:(normal.z-p.z)*sign,depth};
+  return {x:(normal.x-p.x)*sign,z:(normal.z-p.z)*sign,depth,owner:p.id};
 }
 function separateBots(dt){
   if(match?.phase!=='live')return;
@@ -3698,13 +3698,17 @@ function separateBots(dt){
     const overlap=contact?contact.depth:.88-Math.hypot(a.x-b.x,a.z-b.z),share=movable(a)&&movable(b)?.5:1;
     const correction=Math.min(overlap*share,dt*4);
     const ax=a.x,az=a.z,bx=b.x,bz=b.z;
-    if(movable(a))moveEntity(a,-dx*correction,-dz*correction,.4);
-    if(movable(b))moveEntity(b,dx*correction,dz*correction,.4);
+    // A moving/turning cube may already overlap its neighbour. Only this
+    // outward contact correction can leave that cube; map walls and every
+    // other cube remain solid. Ordinary walking still stops at its surface.
+    const push=(actor,x,z)=>moveEntity(actor,x,z,.4,contact&&actor.id!==contact.owner?contact.owner:null);
+    if(movable(a))push(a,-dx*correction,-dz*correction);
+    if(movable(b))push(b,dx*correction,dz*correction);
     // A wall may stop one actor; let the free actor absorb the remaining separation.
     const remaining=contact?(grassBodyContact(a,b)?.depth||0):.88-Math.hypot(a.x-b.x,a.z-b.z);
     if(remaining>.005){
-      if(movable(a)&&Math.hypot(b.x-bx,b.z-bz)<.001)moveEntity(a,-dx*Math.min(remaining,dt*4),-dz*Math.min(remaining,dt*4),.4);
-      else if(movable(b)&&Math.hypot(a.x-ax,a.z-az)<.001)moveEntity(b,dx*Math.min(remaining,dt*4),dz*Math.min(remaining,dt*4),.4);
+      if(movable(a)&&Math.hypot(b.x-bx,b.z-bz)<.001)push(a,-dx*Math.min(remaining,dt*4),-dz*Math.min(remaining,dt*4));
+      else if(movable(b)&&Math.hypot(a.x-ax,a.z-az)<.001)push(b,dx*Math.min(remaining,dt*4),dz*Math.min(remaining,dt*4));
     }
   }
   for(const bot of bots){bot.group.position.x=bot.x;bot.group.position.z=bot.z;}
