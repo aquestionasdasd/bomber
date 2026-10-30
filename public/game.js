@@ -8,7 +8,7 @@ import { URCHIN_LANCE } from './urchin-rift.js';
 import { ROOT_SENSOR } from './root-sensor.js';
 import { CAP_GRENADE, isCapGrenade } from './cap-grenades.js';
 import { createCapGrenadeFX } from './cap-grenade-fx.js';
-import { SKILL_THROW, isLobbedSkill, throwDuration } from './skill-throw.js';
+import { SKILL_THROW, isLobbedSkill, throwDuration, throwGravity, throwMaxFlight } from './skill-throw.js';
 import { getSkillUseMessage } from './skill-messages.js';
 import { createKillBanner } from './kill-banner.js';
 import { createPreparedSkillFX, preparedSkillType } from './prepared-skill-fx.js';
@@ -2723,21 +2723,23 @@ function getManualThrowTarget(actor,type,aim){
  const input=netInputs.get(actor.remoteId)?.input,yaw=aim?.yaw??(actor===player?player.yaw:input?.yaw??actor.yaw??0),pitch=aim?.pitch??(actor===player?player.pitch:input?.pitch??0);
  if(!Number.isFinite(yaw)||!Number.isFinite(pitch))return null;
  const from={x:actor.x,y:(actor.y||0)+1.7-clamp(actor.crouch||0,0,1)*.55,z:actor.z},p=clamp(pitch,-SKILL_THROW.maxPitch,SKILL_THROW.maxPitch),c=Math.cos(p),v={x:-Math.sin(yaw)*c*SKILL_THROW.speed,y:Math.sin(p)*SKILL_THROW.speed+SKILL_THROW.lift,z:-Math.cos(yaw)*c*SKILL_THROW.speed};
- const at=t=>({x:from.x+v.x*t,y:from.y+v.y*t-SKILL_THROW.gravity*t*t/2,z:from.z+v.z*t});
+ const gravity=throwGravity(type),maxFlight=throwMaxFlight(type);
+ const at=t=>({x:from.x+v.x*t,y:from.y+v.y*t-gravity*t*t/2,z:from.z+v.z*t});
  const bounds=map.bounds,limit=thrownSkillRange(type),offset=thrownSkillHeight(type);
  // Fit the full fall inside the skill range instead of detonating in mid-air
  // at an invisible horizontal boundary. Keep vertical lift and gravity.
- if(type!=='duelist-comet'){const floor=Math.min(map.minY??0,getZoneFloor(from.x,from.z,from.y)),height=Math.min(offset,Math.max(.12,from.y-floor-.08)),fall=(v.y+Math.sqrt(v.y*v.y+2*SKILL_THROW.gravity*Math.max(.08,from.y-floor-height)))/SKILL_THROW.gravity,horizontal=Math.hypot(v.x,v.z)*fall,scale=Math.min(1,(limit-1e-5)/Math.max(1e-8,horizontal));v.x*=scale;v.z*=scale;}
+ if(type!=='duelist-comet'){const floor=Math.min(map.minY??0,getZoneFloor(from.x,from.z,from.y)),height=Math.min(offset,Math.max(.12,from.y-floor-.08)),fall=(v.y+Math.sqrt(v.y*v.y+2*gravity*Math.max(.08,from.y-floor-height)))/gravity,horizontal=Math.hypot(v.x,v.z)*fall,scale=Math.min(1,(limit-1e-5)/Math.max(1e-8,horizontal));v.x*=scale;v.z*=scale;}
  const blocked=(a,b,time)=>{
   if(isCapGrenade(type)&&capGrenadeSweep(a,b,CAP_GRENADE.bodyRadius,elapsed+time))return true;
   if(!map.collision.rayClear(a.x,a.y,a.z,b.x,b.y,b.z))return true;
   if(type==='duelist-comet'&&Math.hypot(b.x-from.x,b.y-from.y,b.z-from.z)>limit||b.x<bounds.minX+.12||b.x>bounds.maxX-.12||b.z<bounds.minZ+.12||b.z>bounds.maxZ-.12)return true;
   const floor=getZoneFloor(b.x,b.z,Math.max(a.y,b.y));
-  return v.y-SKILL_THROW.gravity*time<0&&b.y<=floor+Math.min(offset,Math.max(.12,from.y-floor-.08));
+  return v.y-gravity*time<0&&b.y<=floor+Math.min(offset,Math.max(.12,from.y-floor-.08));
  };
  let previous=from,previousTime=0;
  // A deterministic 120Hz trace is independent of render/network cadence.
- for(let time=1/120;time<=SKILL_THROW.maxFlight+1e-8;time+=1/120){
+ for(let index=1;index<=Math.ceil(maxFlight*120);index++){
+  const time=Math.min(index/120,maxFlight);
   const next=at(time);
   if(blocked(previous,next,time)){
    let lo=previousTime,hi=time;for(let i=0;i<20;i++){const mid=(lo+hi)/2;if(blocked(previous,at(mid),mid))hi=mid;else lo=mid;}
@@ -2778,15 +2780,18 @@ function getSkillTarget(actor,type,point=null,aim=null){
       continue;
     }
     if(type==='duelist-comet'&&Math.hypot(x-from.x,y-from.y,z-from.z)>limit)continue;
-    const flight=isLobbedSkill(type)?throwDuration(from,{x,y,z}):0;if(isLobbedSkill(type)&&flight===null)continue;
+    const flight=isLobbedSkill(type)?throwDuration(from,{x,y,z},type):0;if(isLobbedSkill(type)&&flight===null)continue;
     const event={type,x,y,z,fromX:actor.x,fromY:eye,fromZ:actor.z,startedAt:elapsed,flight};
+    // Flash fuse expires in the air too. Forecast the real burst point rather
+    // than promising that a later landing will blind the observed enemy.
+    if(type==='nope-flash'&&flight>throwMaxFlight(type)){const burst=skillProjectilePosition(event,elapsed+throwMaxFlight(type));Object.assign(event,burst,{flight:throwMaxFlight(type)});}
     let previous={x:actor.x,y:eye,z:actor.z},clear=true;
     for(let index=1;index<=32;index++){
-      const next=skillProjectilePosition(event,elapsed+flight*index/32);
+      const next=skillProjectilePosition(event,elapsed+event.flight*index/32);
       if(!next||!map.collision.rayClear(previous.x,previous.y,previous.z,next.x,next.y,next.z)){clear=false;break;}
       previous=next;
     }
-    if(clear)return{x,y,z,...(isLobbedSkill(type)?{flight}:{})};
+    if(clear)return{x:event.x,y:event.y,z:event.z,...(isLobbedSkill(type)?{flight:event.flight}:{})};
   }
   return null;
 }

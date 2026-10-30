@@ -2,6 +2,7 @@ import { URCHIN_TIDE } from './urchin-tide.js';
 import { URCHIN_DISARM } from './urchin-disarm.js';
 import { URCHIN_LANCE } from './urchin-rift.js';
 import { ROOT_SENSOR } from './root-sensor.js';
+import { NOPE_FLASH_THROW } from './skill-throw.js';
 export const ONNARA_SKILLS=Object.freeze({jumpVelocity:12,jumpDuration:1.6,taxRange:40,taxDuration:8,taxPerShot:30,taxBudget:300,taxHealthPerShot:4,orbRange:40,orbDuration:8,orbCameraDuration:15,orbSpeed:12,orbRadius:.19,hoverDuration:13,signatureCooldown:18,chainDuration:8,chainRange:12,chainScale:.7});
 import { URCHIN_TRIDENT } from './urchin-trident.js';
 export const URCHIN_SKILLS=Object.freeze({jamRange:40,jamDuration:8,lanceRange:URCHIN_LANCE.range,lanceDelay:URCHIN_LANCE.telegraph,lanceTail:URCHIN_LANCE.residualDuration,lanceRadius:URCHIN_LANCE.width/2,lanceDamage:URCHIN_LANCE.damage,disarmRange:URCHIN_DISARM.range,gloomRange:URCHIN_TIDE.range,gloomSpeed:URCHIN_TIDE.speed,gloomDelay:URCHIN_TIDE.telegraph,gloomRadius:URCHIN_TIDE.width/2,gloomDuration:URCHIN_TIDE.enemyNear,gloomSight:URCHIN_TIDE.sight,tridentDuration:URCHIN_TRIDENT.duration,tridentFireRate:URCHIN_TRIDENT.fireRate,tridentAngle:URCHIN_TRIDENT.angle,tridentScale:URCHIN_TRIDENT.sideDamage,tridentRange:120,signatureCooldown:URCHIN_TIDE.cooldown});
@@ -44,7 +45,7 @@ export const DUELIST = Object.freeze({ smokeMax: 2, smokePrice: 100, smokeDurati
   signatureKills: 1, ultimatePoints: 7, knives: 5 });
 export const DUELIST_SKILLS = Object.freeze({ cometRange: 18, cometFlight: .25, cometRadius: 2.8, cometDuration: 5, liftVisualDuration: .45 });
 export const NOPE_SKILLS = Object.freeze({ bottleFuse: 1, bottleFlight: .55, bottleRadius: 8, bottleDamage: 90, bottleRange: 40,
-  flashFlight: .45, flashRadius: 30, flashDuration: 2.4, decoyDuration: 12, decoyWaveCount: 3, decoyWaveInterval: 5, signatureCooldown: 15, decoyWalkSpeed: 5.4*1.15, decoyWalkRange: 75 });
+  flashFlight: NOPE_FLASH_THROW.fuse, flashRadius: 30, flashDuration: 2.4, decoyDuration: 12, decoyWaveCount: 3, decoyWaveInterval: 5, signatureCooldown: 15, decoyWalkSpeed: 5.4*1.15, decoyWalkRange: 75 });
 export const MEND_SKILLS = Object.freeze({ seedsFlight: .65, seedsRadius: 4.5, seedsDuration: 9, seedsSpeedScale: .5, seedsGroundOffset: .12,
   pollenFlight: .55, pollenRadius: 4.2, pollenDuration: 9, healAmount: 60, healRange: 18, healVisualDuration: .8, signatureCooldown: 18 });
 export const IAGNU_SKILLS = Object.freeze({ tagFlight: .55, tagArmDelay: .5, tagDuration: 12, tagRadius: 4.5, tagRange: 18,
@@ -88,7 +89,7 @@ const baseSkills = {
 };
 const nopeSkills = {
   c: { name: 'NOPEボトル', shortName: '瓶', description: `最大${NOPE_SKILLS.bottleRange}mへ投げ、着地時（投げてから最低${NOPE_SKILLS.bottleFuse}秒）に半径${NOPE_SKILLS.bottleRadius}mで爆発。敵へ最大${NOPE_SKILLS.bottleDamage}ダメージ、壁と距離で防げる。`, max: 2, price: DUELIST.smokePrice, type: 'nope-bottle', icon: 'M14 3h8v5l3 5v13H11V13l3-5ZM14 3v5h8M11 16h14M15 19l6 4m0-4-6 4' },
-  q: { name: 'NOPEフェイスフラッシュ', shortName: '顔閃光', description: `半径${NOPE_SKILLS.flashRadius}m内で正面から顔が見えると最大${NOPE_SKILLS.flashDuration}秒まぶしくなる。味方と自身にも有効。`, max: 1, price: DUELIST.updraftPrice, type: 'nope-flash', icon: 'M18 2v4M3 15h4m22 0h4M7 4l3 3m16 16 3 3M29 4l-3 3M9 10l5 5m0-5-5 5m13-5 5 5m0-5-5 5M11 21q7 7 14 0' },
+  q: { name: 'NOPEフェイスフラッシュ', shortName: '顔閃光', description: `投げて1秒で炸裂。半径${NOPE_SKILLS.flashRadius}m内で正面から顔が見えると最大${NOPE_SKILLS.flashDuration}秒まぶしくなる。味方と自身にも有効。`, max: 1, price: DUELIST.updraftPrice, type: 'nope-flash', icon: 'M18 2v4M3 15h4m22 0h4M7 4l3 3m16 16 3 3M29 4l-3 3M9 10l5 5m0-5-5 5m13-5 5 5m0-5-5 5M11 21q7 7 14 0' },
   e: { name: 'NOPEボディデコイ', shortName: '全身の囮', description: `ライフルを構え、最大${NOPE_SKILLS.decoyDuration}秒前進する全身の囮。壁や段差の前で止まる。敵が撃つと壊れ、半径${NOPE_SKILLS.flashRadius}m内でこちらを見る敵へ最大${NOPE_SKILLS.flashDuration}秒の閃光。味方の弾は無反応。${NOPE_SKILLS.signatureCooldown}秒で再使用。`, max: 1, price: 0, type: 'nope-decoy', icon: 'M5 8h20v16H5ZM10 12l4 4m0-4-4 4m8-4 4 4m0-4-4 4M10 20q6 4 11 0M28 9q7 7 0 14' },
 };
 const mendSkills = {
