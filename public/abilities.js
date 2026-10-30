@@ -1,6 +1,7 @@
+import { URCHIN_LANCE } from './urchin-rift.js';
 import { ROOT_SENSOR } from './root-sensor.js';
 export const ONNARA_SKILLS=Object.freeze({jumpVelocity:12,jumpDuration:1.6,taxRange:40,taxDuration:8,taxPerShot:30,taxBudget:300,taxHealthPerShot:4,orbRange:40,orbDuration:8,orbCameraDuration:15,orbSpeed:12,orbRadius:.19,hoverDuration:13,signatureCooldown:18,chainDuration:8,chainRange:12,chainScale:.7});
-export const URCHIN_SKILLS=Object.freeze({jamRange:40,jamDuration:8,lanceRange:40,lanceDelay:.65,lanceTail:.35,lanceRadius:.65,lanceDamage:80,disarmRange:32,gloomRange:36,gloomSpeed:24,gloomDelay:.25,gloomRadius:2,gloomDuration:3,gloomSight:8,tridentDuration:13,tridentFireRate:1.5,tridentAngle:Math.PI/45,tridentScale:.65,tridentRange:90,signatureCooldown:18});
+export const URCHIN_SKILLS=Object.freeze({jamRange:40,jamDuration:8,lanceRange:URCHIN_LANCE.range,lanceDelay:URCHIN_LANCE.telegraph,lanceTail:URCHIN_LANCE.residualDuration,lanceRadius:URCHIN_LANCE.width/2,lanceDamage:URCHIN_LANCE.damage,disarmRange:32,gloomRange:36,gloomSpeed:24,gloomDelay:.25,gloomRadius:2,gloomDuration:3,gloomSight:8,tridentDuration:13,tridentFireRate:1.5,tridentAngle:Math.PI/45,tridentScale:.65,tridentRange:90,signatureCooldown:18});
 export const CAP_SKILLS=Object.freeze({lockRange:40,lockDuration:8,lockSpread:.07,lockAimScale:.55,cleanRange:24,bounceDuration:6,bounceScale:.75,bounceRange:90,bounceCount:3,magazineDuration:9,signatureCooldown:22});
 // Original fan-made tuning inspired by the duelist role; not an exact live-game ruleset.
 import { TEAM_ABILITIES } from './team-abilities.js';
@@ -28,7 +29,7 @@ export const CHARACTER_DEFS = Object.freeze({
   nobi:Object.freeze({id:'nobi',label:'のび',role:'弱点・工作',ultName:'逆転えり',ultShortName:'逆転',ultimatePoints:7,description:'4技とも構えて左クリックで投擲、右クリックで取消。C35m・Q40m・E/X35m。着地点の半径20mでCは敵の被銃撃1.35倍6秒、Qは敵の射撃間隔1.6倍5秒、Eは味方の作業1.5倍6秒。X：着地から8秒、自身と味方の胴・脚への銃撃も頭相当。壁・煙越し無効、範囲外は通常。X7ポイント。',color:'#f3cb48',ultIcon:'M18 3 3 13l15 15 15-15ZM10 13l8 8 8-8M18 3v11'}),
   japan:Object.freeze({id:'japan',label:'しばくでジャパン',role:'国境・総動員',ultName:'総動員',ultShortName:'総動員',ultimatePoints:7,description:'C：越えた敵へ国境線 / Q：敵の装甲を接収 / E：被銃撃を撃ち手へ返送。X：倒れた味方全員を開始地点へ10HPで呼び戻す（7pt）。',color:'#e8ca91',ultIcon:'M3 15h30M18 2v26M7 4l22 22M29 4 7 26M4 23h28'}),
   cap:Object.freeze({id:'cap',label:'キャップは？',role:'光学・投擲',ultName:'エンドレスマガジン',ultShortName:'無消費',ultimatePoints:7,description:'全技を投擲。C：着弾周囲の照準を妨害 / Q：右クリックで回復A・ダメージBを切替、7子弾に分裂 / E：味方に6秒の跳弾 / X：味方に9秒の弾数無消費（7pt）。命中敵を本人に3秒透過表示。',color:'#e36336',ultIcon:'M5 7h26v16H5ZM12 11c-8 0-8 8 0 8s4-8 12-8 8 8 0 8-4-8-12-8'}),
-  urchin:Object.freeze({id:'urchin',label:'青ウニ',role:'棘・弾道',ultName:'三叉潮',ultShortName:'三叉',ultimatePoints:7,description:'C：予告した直線へ棘を一斉射出 / Q：敵の購入主武器を床へ落とす / E：壁を抜ける潮の波で遠くの視界を奪う。X：13秒、銃弾が三方向へ分かれ、連射速度が1.5倍（7pt）。',color:'#a9f1e4',ultIcon:'M18 28V4M18 20 5 7M18 20 31 7M2 11 5 7 9 8M27 8 31 7 34 11M14 8 18 4 22 8'}),
+  urchin:Object.freeze({id:'urchin',label:'青ウニ',role:'棘・弾道',ultName:'三叉潮',ultShortName:'三叉',ultimatePoints:7,description:'C：直線水流と2.5秒の通路監視 / Q：敵の購入主武器を床へ落とす / E：壁を抜ける潮の波で遠くの視界を奪う。X：13秒、銃弾が三方向へ分かれ、連射速度が1.5倍（7pt）。',color:'#a9f1e4',ultIcon:'M18 28V4M18 20 5 7M18 20 31 7M2 11 5 7 9 8M27 8 31 7 34 11M14 8 18 4 22 8'}),
   onnara:Object.freeze({id:'onnara',label:'おんなら',role:'星冠・裁定',ultName:'星座裁定',ultShortName:'連鎖',ultimatePoints:7,description:'C：その場から約4.8mの大ジャンプ / Q：遠方を360度見回す宝玉 / E：空中で13秒静止し単発弾のブレをなくす。X：8秒、銃撃した敵から別の敵1人へ実被害の70%を連鎖（7pt）。',color:'#ffc948',ultIcon:'M18 2 22 11 32 12 24 19 27 29 18 23 9 29 12 19 4 12 14 11Z'}),
   renko:Object.freeze({id:'renko',label:'蓮子',role:'機動・押し出し',ultName:'リスタートラッシュ',ultShortName:'リスタート',ultimatePoints:7,description:'C：即発射の壁貫通・大型吹き飛ばし弾（ダメージなし） / Q：6秒14.4m毎秒走行、ジャンプ力1.3倍、Vで慣性滑走。高速移動中は素手、C使用可 / E：最大1秒、長押し中はマウス方向へジェット飛行。飛行中は素手でCのみ発射可能、終了時に武器へ。使用後に敵2キルでE回復。X中は単発銃のブレなし。X：7ptでラウンド中、敵撃破ごとにC・Q・E全回復（死亡で終了）。',color:'#91c5ef',ultIcon:'M8 27V12L18 3l10 9v15M10 19h16M13 30l5-7 5 7'}),
 });
@@ -118,7 +119,7 @@ const carSkills={
  e:{name:'タイヤジャイロ',shortName:'移動射撃',description:'4秒、接地中だけ銃の移動による精度低下をなくす。反動・連射拡散・空中精度・速度は通常通り。18秒で再使用。',max:1,price:0,type:'car-gyro',icon:'M18 3a12 12 0 1 0 0 24 12 12 0 0 0 0-24ZM18 8v14M11 15h14M7 25l-3 4m25-4 3 4'}
 };
 const urchinSkills={
- c:{name:'潮割り',shortName:'直線棘撃',description:'Cで構え、照準方向へ左確定・右取消。40mの固定射線を0.65秒予告し、幅1.3mの棘を一斉射出。線上の敵へ80ダメージ（装甲あり）。横回避と壁で防げる。',max:2,price:100,type:'urchin-lance',icon:'M6 9h24v18H6ZM11 9V5h14v4M18 13v10'},
+ c:{name:'潮割り',shortName:'水流と裂け目',description:'Cで構え、照準方向へ左確定・右取消。40mの固定射線を0.65秒予告し、幅1.3mの水流を一斉噴出。線上の敵へ80ダメージ（装甲あり）。地面に2.5秒の裂け目を残し、接地して横切った敵を水しぶきと音で知らせる。横回避と壁で防げる。',max:URCHIN_LANCE.maxStock,price:URCHIN_LANCE.price,type:'urchin-lance',icon:'M6 9h24v18H6ZM11 9V5h14v4M18 13v10'},
  q:{name:'棘抜き',shortName:'銃を落とす',description:'Qで構え32mの見える敵へ左確定・右取消。構え中の購入主武器を弾数ごと床へ落とす。無料CLASSIC・ナイフ・ボンバー・ULTは対象外。銃は拾い直せる。',max:1,price:100,type:'urchin-disarm',icon:'M4 6h28v8H4ZM14 14v8h8v-8M18 23v7m-5-4 5 4 5-4'},
  e:{name:'深潮のまなざし',shortName:'貫通暗闇',description:'Eで構え、照準方向へ左確定・右取消。0.25秒後に幅4mの潮の波を36m先まで放つ。壁を抜け、触れた敵と味方の8mより遠い視界を3秒奪う。背を向けても命中。横へ避けるか近距離で対処できる。弾・コイン消費なし、18秒で再使用。',max:1,price:0,type:'urchin-gloom',icon:'M3 15q15-18 30 0-15 18-30 0ZM18 10v10M7 26l5-3m12 0 5 3'}
 };
