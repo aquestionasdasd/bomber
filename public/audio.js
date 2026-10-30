@@ -1,3 +1,4 @@
+import { URCHIN_TIDE } from './urchin-tide.js';
 // Recorded skill/UI/TRC effects from Sound Effect Lab, OtoLogic and On-Jin plus user impacts. Owner Classic/Ghost/Vandal/Phantom WAVs and other collaborator weapon recordings; original step/landing graph is preserved. See audio/CREDITS.txt.
 const layer=(file,gain=.15,length=.35,delay=0,rate=1,offset=0)=>Object.freeze({file,gain,length,delay,rate,...(offset?{offset}:{})});
 const cloth=(gain=.18,length=.28,delay=0)=>layer('lab-cloth.ogg',gain,length,delay);
@@ -54,6 +55,7 @@ export const SAMPLE_CUES=Object.freeze({
  'nobi-tag':[bell(.10,.32),soft(.1,.15)],'nobi-brake':[layer('lab-cloth.ogg',.2,.25),soft(.09,.18,.02)],'nobi-tool':[layer('oto-cyber19-1.ogg',.2,.28)],'nobi-legend':[bell(.15,.6),page(.14,.25,.06)],
  'japan-border':[cloth(.25,.4),wood(.13,.26,.05)],'japan-levy':[layer('lab-beep1.ogg',.21,.3)],'japan-return':[air(.21,.3),cloth(.14,.22,.04)],'japan-muster':[layer('lab-cloth.ogg',.24,.4),bell(.13,.55,.07)],
  'cap-lock':[layer('lab-ice.ogg',.17,.32),air(.11,.2,.025)],'cap-clean':[cloth(.24,.3),glass(.08,.22,.04)],'cap-bank':[glass(.17,.25),soft(.12,.2,.025)],'cap-magazine':[layer('onjin-equipment.ogg',.24,.3),cloth(.12,.22,.05)],
+ 'urchin-gloom-wave':[liquid(.26,.32),air(.17,.24)],'urchin-gloom-pressure':[air(.10,.12),liquid(.08,.12)],'urchin-gloom-hit':[liquid(.11,.14)],'urchin-gloom-submerge':[liquid(.16,.32),air(.07,.25)],
  'urchin-jam':[wood(.14,.23),glass(.1,.22,.03)],'urchin-disarm':[air(.12,.18),liquid(.13,.24)],'urchin-disarm-lock':[glass(.045,.08)],'urchin-disarm-warning':[glass(.12,.12),air(.08,.1)],'urchin-disarm-hit':[layer('onjin-equipment.ogg',.25,.22),liquid(.2,.22)],'urchin-disarm-fail':[glass(.08,.16),liquid(.09,.18)],'urchin-pearl':[liquid(.15,.35),glass(.11,.26,.03)],'urchin-trident':[air(.19,.3),glass(.14,.3,.025)],
  'onnara-tax':[layer('lab-beep1.ogg',.20,.3),bell(.08,.3,.03)],'onnara-orb':[air(.2,.35),bell(.1,.5,.04)],'onnara-hover':[cloth(.23,.4),air(.12,.35,.04)],'onnara-chain':[bell(.12,.5),glass(.12,.3,.05)],
  recon:[bell(.12,.5),page(.14,.24,.08)],veil:[cloth(.27,.5),air(.18,.4,.08)],'ember-warning':[layer('onjin-latch.ogg',.17,.2),air(.15,.3,.08)],
@@ -91,7 +93,7 @@ export function createGameAudio(){
     let seed=127;for(let i=0;i<data.length;i++){seed=(Math.imul(seed,1664525)+1013904223)|0;data[i]=((seed>>>0)/2147483648-1)*Math.exp(-i/(data.length*.19));}
     buffers.set(length,buffer);return buffer;
   }
-  function play(type,{volume=.45,weapon='classic',pan=0,distance=0,occluded=false}={}){
+  function play(type,{volume=.45,weapon='classic',pan=0,distance=0,occluded=false,muffled=false}={}){
     if(!context||context.state!=='running'||volume<=0||active>=48)return;
     const protectedSound=['step','land'].includes(type);
     const cueType=type==='shot'||type==='enemy'?'weapon-'+(Object.hasOwn(SAMPLE_CUES,'weapon-'+weapon)?weapon:'classic'):type;
@@ -115,14 +117,14 @@ export function createGameAudio(){
     }
     function hiss(length,frequency,gain,highpass=false,delay=0){
       const source=context.createBufferSource(),filter=context.createBiquadFilter(),amp=context.createGain();source.buffer=noise(length);
-      filter.type=highpass?'highpass':'lowpass';filter.frequency.value=frequency*(occluded?.55:1);filter.Q.value=.65;
+      filter.type=highpass?'highpass':'lowpass';filter.frequency.value=frequency*(occluded?.55:1)*(muffled?.6:1);filter.Q.value=.65;
       amp.gain.value=gain;source.connect(filter);filter.connect(amp);amp.connect(out);source.start(t+delay);sources.push({source,end:length+delay});nodes.push(source,filter,amp);
     }
     function recording(id){
       const spec=recordings[id],available=spec?.files.map(file=>samples.get(file)).filter(Boolean);if(!available?.length)return false;
       const source=context.createBufferSource(),filter=context.createBiquadFilter(),amp=context.createGain();
       source.buffer=available[sampleSequence++%available.length];const rate=spec.rate||1,length=Math.min(source.buffer.duration/rate,spec.length||12);
-      source.playbackRate.value=rate;filter.type='lowpass';filter.frequency.value=occluded?1600:id==='explosion'||id==='ember-impact'?3600:10000;filter.Q.value=.65;
+      source.playbackRate.value=rate;filter.type='lowpass';filter.frequency.value=Math.min(muffled?URCHIN_TIDE.farAudioCutoff:Infinity,occluded?1600:id==='explosion'||id==='ember-impact'?3600:10000);filter.Q.value=.65;
       amp.gain.setValueAtTime(spec.gain,t);amp.gain.setValueAtTime(spec.gain,t+Math.max(0,length-.025));amp.gain.exponentialRampToValueAtTime(.0001,t+length);
       source.connect(filter);filter.connect(amp);amp.connect(out);source.start(t,0,length*rate);
       sources.push({source,end:length});nodes.push(source,filter,amp);return true;
@@ -133,7 +135,7 @@ export function createGameAudio(){
       for(const layer of layers){
         const source=context.createBufferSource(),filter=context.createBiquadFilter(),amp=context.createGain();source.buffer=samples.get(layer.file);
         const {rate,length,gain,delay,offset=0}=layer,duration=Math.min((source.buffer.duration-offset)/rate,length);
-        source.playbackRate.value=rate;filter.type='lowpass';filter.frequency.value=occluded?((gunshot||defuseStart)?3200:1600):10000;filter.Q.value=.65;
+        source.playbackRate.value=rate;filter.type='lowpass';filter.frequency.value=Math.min(muffled?URCHIN_TIDE.farAudioCutoff:Infinity,occluded?((gunshot||defuseStart)?3200:1600):10000);filter.Q.value=.65;
         amp.gain.setValueAtTime(gain,t+delay);amp.gain.setValueAtTime(gain,t+delay+Math.max(0,duration-.025));amp.gain.exponentialRampToValueAtTime(.0001,t+delay+duration);
         source.connect(filter);filter.connect(amp);amp.connect(out);source.start(t+delay,offset,duration*rate);sources.push({source,end:delay+duration});nodes.push(source,filter,amp);
       }

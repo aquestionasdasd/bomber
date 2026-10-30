@@ -442,3 +442,7 @@
 
 /* Urchin Q changes only its aimed reticle. */
 .crosshair.urchin-q{transform:translate(-50%,-50%) rotate(45deg) scale(.85);border:1px solid #65c4e8;border-radius:50%}.crosshair.urchin-q span,.crosshair.urchin-q i{background:#75daff}.crosshair.urchin-q.urchin-q-locked{transform:translate(-50%,-50%) rotate(45deg) scale(.65);border-color:#e9ffff;filter:drop-shadow(0 0 4px #89eeff)}
+
+#skill-nearsight-overlay::after{content:"";position:absolute;inset:0;border-radius:45%;box-shadow:inset 0 0 7vw #57c1d430;transform:scale(1.2);animation:deep-tide-ripple 4s ease-in-out infinite}
+@keyframes deep-tide-ripple{50%{transform:scale(1.3,1.12) rotate(3deg);opacity:.5}}
+@media(prefers-reduced-motion:reduce){#skill-nearsight-overlay::after{animation:none}}

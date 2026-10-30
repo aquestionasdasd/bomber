@@ -1,0 +1,2 @@
+const{spawnSync}=require('node:child_process'),path=require('node:path'),assert=require('node:assert/strict');
+for(const fault of['authority','once','ally','mark']){const r=spawnSync(process.execPath,[path.join(__dirname,'tests-urchin-tide.cjs'),'--fault='+fault],{encoding:'utf8',windowsHide:true});assert.notEqual(r.status,0,'fault escaped: '+fault);assert.match(r.stderr,/AssertionError/);console.log('PASS: memory-only E fault detected / '+fault);}
