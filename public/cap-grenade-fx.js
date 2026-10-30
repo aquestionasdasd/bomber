@@ -1,17 +1,17 @@
 import { CAP_GRENADE, isCapGrenade, createCapFlight } from './cap-grenades.js';
 // Replaceable presentation; no hit authority. All objects and materials are pooled.
 export function createCapGrenadeFX(T){
- const group=new T.Group(),geometry=new T.SphereGeometry(1,10,6),pose=new T.Object3D(),flights=new Map();
+ const group=new T.Group(),geometry=new T.SphereGeometry(1,10,6),pose=new T.Object3D(),flights=new Map(),limit=20*(CAP_GRENADE.children+1);
  group.name='Cap / pooled cluster grenades';
  const colors={'cap-lens':'#ffbf70','cap-cluster-heal':'#73ffad','cap-cluster-damage':'#ff745c','cap-bank-grenade':'#79e7ee','cap-magazine-grenade':'#c49aff'},pools=new Map();
  for(const [type,color]of Object.entries(colors)){
   const solid=new T.MeshBasicMaterial({color,depthTest:true,depthWrite:true}),glow=new T.MeshBasicMaterial({color,transparent:true,opacity:.45,depthTest:true,depthWrite:false});
-  const bodies=new T.InstancedMesh(geometry,solid,160),bursts=new T.InstancedMesh(geometry,glow,160);
+  const bodies=new T.InstancedMesh(geometry,solid,limit),bursts=new T.InstancedMesh(geometry,glow,limit);
   for(const mesh of [bodies,bursts]){mesh.count=0;mesh.frustumCulled=false;mesh.raycast=()=>{};group.add(mesh);}
   pools.set(type,{bodies,bursts,solid,glow});
  }
  function reset(){flights.clear();for(const p of pools.values())p.bodies.count=p.bursts.count=0;group.visible=false;}
- const put=(mesh,p,size)=>{if(mesh.count>=160)return;pose.position.set(p.x,p.y,p.z);pose.scale.setScalar(size);pose.updateMatrix();mesh.setMatrixAt(mesh.count++,pose.matrix);};
+ const put=(mesh,p,size)=>{if(mesh.count>=limit)return;pose.position.set(p.x,p.y,p.z);pose.scale.setScalar(size);pose.updateMatrix();mesh.setMatrixAt(mesh.count++,pose.matrix);};
  function update(events,now,{sweep,visible=()=>true}={}){
   for(const p of pools.values())p.bodies.count=p.bursts.count=0;
   const seen=new Set();

@@ -1,9 +1,10 @@
 import { CAP_SKILLS } from './abilities.js';
 // Gameplay tuning lives here. Parent throws use the shared slow, low-gravity lob.
-export const CAP_GRENADE=Object.freeze({range:40,radius:6,impactFuse:.22,children:7,
+export const CAP_GRENADE=Object.freeze({range:40,radius:6,impactFuse:.22,children:15,
  childRadius:3.2,childDamage:42,parentDamage:60,damageCap:180,
  childHeal:36,parentHeal:75,healCap:180,scatterSpeed:11,scatterMinAngle:.35,
- scatterMaxAngle:1.15,childFuse:1.35,groundFuse:.18,gravity:4,bounce:.58,
+ // childFuse bounds lifetime; airborne expiry fizzles without an effect.
+ scatterMaxAngle:1.15,childFuse:8,groundFuse:.18,gravity:15,bounce:.58,
  bodyRadius:.10,revealDuration:3,step:1/120,fxDuration:.38});
 export const CAP_THROW_TYPES=Object.freeze(['cap-lens','cap-cluster-heal','cap-cluster-damage','cap-bank-grenade','cap-magazine-grenade']);
 export const isCapGrenade=type=>CAP_THROW_TYPES.includes(type);
@@ -18,25 +19,32 @@ export function createCapFlight(event,sweep){
  const random=()=>{seed^=seed<<13;seed^=seed>>>17;seed^=seed<<5;return(seed>>>0)/4294967296;};
  const children=isCapCluster(event.type)?Array.from({length:c.children},(_,index)=>{
   const yaw=(index+random())*Math.PI*2/c.children,angle=c.scatterMinAngle+random()*(c.scatterMaxAngle-c.scatterMinAngle),speed=c.scatterSpeed*(.85+random()*.3);
-  return{index,x:event.x,y:event.y+.015,z:event.z,vx:Math.sin(yaw)*Math.cos(angle)*speed,vy:Math.sin(angle)*speed,vz:Math.cos(yaw)*Math.cos(angle)*speed,deadline:c.childFuse,alive:true};
+  return{index,x:event.x,y:event.y+.015,z:event.z,vx:Math.sin(yaw)*Math.cos(angle)*speed,vy:Math.sin(angle)*speed,vz:Math.cos(yaw)*Math.cos(angle)*speed,deadline:c.childFuse,grounded:false,alive:true};
  }):[];
  let ticks=0;const blasts=[{index:-1,x:event.x,y:event.y,z:event.z,at:event.triggerAt}];
  function advance(now){
   const target=Math.min(Math.ceil(c.childFuse/c.step),Math.floor(Math.max(0,now-event.triggerAt)/c.step+1e-8));
   while(ticks<target){ticks++;const at=ticks*c.step;
-   for(const p of children){if(!p.alive)continue;let dt=c.step;p.vy-=c.gravity*dt;
+   for(const p of children){if(!p.alive)continue;
+    if(p.grounded){
+     // Destroyed/moved floors must not leave an armed ball suspended in air.
+     const support=sweep?.({x:p.x,y:p.y,z:p.z},{x:p.x,y:p.y-.04,z:p.z},c.bodyRadius,event.triggerAt+at);
+     if(!support||!Number.isFinite(support.fraction)||!(support.normal?.y>.5)){p.grounded=false;p.deadline=c.childFuse;}
+    }
+    let dt=p.grounded?0:c.step;if(dt)p.vy-=c.gravity*dt;
     for(let contact=0;contact<4&&dt>1e-8;contact++){
      const a={x:p.x,y:p.y,z:p.z},b={x:a.x+p.vx*dt,y:a.y+p.vy*dt,z:a.z+p.vz*dt},hit=sweep?.(a,b,c.bodyRadius,event.triggerAt+at);
      if(!hit){Object.assign(p,b);break;}
      const f=Math.max(0,Math.min(1,hit.fraction)),n=hit.normal;
-     if(!n||![n.x,n.y,n.z].every(Number.isFinite)){p.vx=p.vy=p.vz=0;break;}
+     if(!Number.isFinite(hit.fraction)||!n||![n.x,n.y,n.z].every(Number.isFinite)){p.vx=p.vy=p.vz=0;break;}
      p.x=a.x+(b.x-a.x)*f+n.x*.002;p.y=a.y+(b.y-a.y)*f+n.y*.002;p.z=a.z+(b.z-a.z)*f+n.z*.002;
      const dot=p.vx*n.x+p.vy*n.y+p.vz*n.z;
+     if(dot<0&&n.y>.5){p.vx=p.vy=p.vz=0;p.grounded=true;p.deadline=at+c.groundFuse;break;}
      if(dot<0){p.vx-=(1+c.bounce)*dot*n.x;p.vy-=(1+c.bounce)*dot*n.y;p.vz-=(1+c.bounce)*dot*n.z;}
-     if(n.y>.5)p.deadline=Math.min(p.deadline,at+c.groundFuse);
      dt*=1-f;
     }
-    if(at+1e-8>=p.deadline){p.alive=false;blasts.push({index:p.index,x:p.x,y:p.y,z:p.z,at:event.triggerAt+at});}
+    if(p.grounded&&at+1e-8>=p.deadline){p.alive=false;blasts.push({index:p.index,x:p.x,y:p.y,z:p.z,at:event.triggerAt+at});}
+    else if(at+1e-8>=c.childFuse)p.alive=false;
    }
   }
   return {children,blasts:now>=event.triggerAt?blasts:[]};
