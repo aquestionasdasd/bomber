@@ -1,7 +1,8 @@
+import { URCHIN_DISARM } from './urchin-disarm.js';
 import { URCHIN_LANCE } from './urchin-rift.js';
 import { ROOT_SENSOR } from './root-sensor.js';
 export const ONNARA_SKILLS=Object.freeze({jumpVelocity:12,jumpDuration:1.6,taxRange:40,taxDuration:8,taxPerShot:30,taxBudget:300,taxHealthPerShot:4,orbRange:40,orbDuration:8,orbCameraDuration:15,orbSpeed:12,orbRadius:.19,hoverDuration:13,signatureCooldown:18,chainDuration:8,chainRange:12,chainScale:.7});
-export const URCHIN_SKILLS=Object.freeze({jamRange:40,jamDuration:8,lanceRange:URCHIN_LANCE.range,lanceDelay:URCHIN_LANCE.telegraph,lanceTail:URCHIN_LANCE.residualDuration,lanceRadius:URCHIN_LANCE.width/2,lanceDamage:URCHIN_LANCE.damage,disarmRange:32,gloomRange:36,gloomSpeed:24,gloomDelay:.25,gloomRadius:2,gloomDuration:3,gloomSight:8,tridentDuration:13,tridentFireRate:1.5,tridentAngle:Math.PI/45,tridentScale:.65,tridentRange:90,signatureCooldown:18});
+export const URCHIN_SKILLS=Object.freeze({jamRange:40,jamDuration:8,lanceRange:URCHIN_LANCE.range,lanceDelay:URCHIN_LANCE.telegraph,lanceTail:URCHIN_LANCE.residualDuration,lanceRadius:URCHIN_LANCE.width/2,lanceDamage:URCHIN_LANCE.damage,disarmRange:URCHIN_DISARM.range,gloomRange:36,gloomSpeed:24,gloomDelay:.25,gloomRadius:2,gloomDuration:3,gloomSight:8,tridentDuration:13,tridentFireRate:1.5,tridentAngle:Math.PI/45,tridentScale:.65,tridentRange:90,signatureCooldown:18});
 export const CAP_SKILLS=Object.freeze({lockRange:40,lockDuration:8,lockSpread:.07,lockAimScale:.55,cleanRange:24,bounceDuration:6,bounceScale:.75,bounceRange:90,bounceCount:3,magazineDuration:9,signatureCooldown:22});
 // Original fan-made tuning inspired by the duelist role; not an exact live-game ruleset.
 import { TEAM_ABILITIES } from './team-abilities.js';
@@ -120,7 +121,7 @@ const carSkills={
 };
 const urchinSkills={
  c:{name:'潮割り',shortName:'水流と裂け目',description:'Cで構え、照準方向へ左確定・右取消。40mの固定射線を0.65秒予告し、幅1.3mの水流を一斉噴出。線上の敵へ80ダメージ（装甲あり）。地面に2.5秒の裂け目を残し、接地して横切った敵を水しぶきと音で知らせる。横回避と壁で防げる。',max:URCHIN_LANCE.maxStock,price:URCHIN_LANCE.price,type:'urchin-lance',icon:'M6 9h24v18H6ZM11 9V5h14v4M18 13v10'},
- q:{name:'棘抜き',shortName:'銃を落とす',description:'Qで構え32mの見える敵へ左確定・右取消。構え中の購入主武器を弾数ごと床へ落とす。無料CLASSIC・ナイフ・ボンバー・ULTは対象外。銃は拾い直せる。',max:1,price:100,type:'urchin-disarm',icon:'M4 6h28v8H4ZM14 14v8h8v-8M18 23v7m-5-4 5 4 5-4'},
+ q:{name:'棘抜き',shortName:'銃を落とす',description:'Qで見える32mの敵を狙い左確定・右取消。0.45秒後、確定時の主武器を弾数ごと弾く。遮蔽0.10秒・射程外で回避。切替では回避できず、銃は両軍が拾える。',max:URCHIN_DISARM.maxStock,price:URCHIN_DISARM.price,type:'urchin-disarm',icon:'M4 6h28v8H4ZM14 14v8h8v-8M18 23v7m-5-4 5 4 5-4'},
  e:{name:'深潮のまなざし',shortName:'貫通暗闇',description:'Eで構え、照準方向へ左確定・右取消。0.25秒後に幅4mの潮の波を36m先まで放つ。壁を抜け、触れた敵と味方の8mより遠い視界を3秒奪う。背を向けても命中。横へ避けるか近距離で対処できる。弾・コイン消費なし、18秒で再使用。',max:1,price:0,type:'urchin-gloom',icon:'M3 15q15-18 30 0-15 18-30 0ZM18 10v10M7 26l5-3m12 0 5 3'}
 };
 const capSkills={
