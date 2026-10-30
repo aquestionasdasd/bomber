@@ -576,5 +576,30 @@
     "source": "Owner-supplied attachment explicitly requested as the matching weapon gunshot",
     "license": "User-provided; no CC0 or third-party license claim",
     "adopted_cycle": 221
+  },
+  {
+    "file": "victory-bd3do.mp3",
+    "original": "BD3DO 勝利BGM.mp3",
+    "format": "mp3",
+    "bytes": 240802,
+    "sha256": "d230e1c654b1e9ae4f4bc822abd37f60920e8593465ed8ef44d1eda97d6258ca",
+    "seconds": 10.03102040816333,
+    "frames": 384,
+    "sample_rate": [
+      44100
+    ],
+    "channels": [
+      2
+    ],
+    "bitrate_kbps": [
+      192
+    ],
+    "id3Bytes": 58,
+    "trailingBytes": 0,
+    "offlineValidation": "MPEG layer3 frame headers/lengths inspected; not decoded or played",
+    "pack": "user-provided",
+    "source": "Owner-supplied attachment explicitly requested as default victory BGM",
+    "license": "User-provided; no CC0 or third-party license claim",
+    "adopted_cycle": 222
   }
 ]
