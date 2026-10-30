@@ -1,7 +1,7 @@
 const assert=require('node:assert/strict'),path=require('node:path'),{pathToFileURL}=require('node:url');
 (async()=>{
  const fault=process.argv.find(x=>x.startsWith('--fault='))?.slice(8);
- const load=f=>{let source=require('node:fs').readFileSync(path.join(__dirname,'public',f),'utf8');const pairs={count:['children:7','children:6'],cap:['damageCap:60','damageCap:600'],team:["if((heal||['cap-bank-grenade','cap-magazine-grenade'].includes(event.type))?hostile:!hostile)continue;",'if(false)continue;'],authority:['if(!owned.has(e.id)||now<e.triggerAt)continue;','if(now<e.triggerAt)continue;']};
+ const load=f=>{let source=require('node:fs').readFileSync(path.join(__dirname,'public',f),'utf8');const pairs={count:['children:7','children:6'],cap:['damageCap:180','damageCap:1800'],team:["if((heal||['cap-bank-grenade','cap-magazine-grenade'].includes(event.type))?hostile:!hostile)continue;",'if(false)continue;'],authority:['if(!owned.has(e.id)||now<e.triggerAt)continue;','if(now<e.triggerAt)continue;']};
   if(fault&&((f==='cap-grenades.js'&&fault!=='authority')||(f==='character-skills.js'&&fault==='authority'))){const pair=pairs[fault];assert.ok(pair&&source.includes(pair[0]),'Missing fault anchor');source=source.replace(pair[0],pair[1]).replace(/from\s+(['"])(\.\/[^'"]+)\1/g,(_,q,p)=>'from '+q+pathToFileURL(path.join(__dirname,'public',p)).href+q);return import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));}
   return import(pathToFileURL(path.join(__dirname,'public',f)).href);
  },{createCharacterSkills}=await load('character-skills.js'),{CAP_GRENADE:c,createCapFlight,capBlastEffects}=await load('cap-grenades.js');
@@ -20,7 +20,12 @@ const assert=require('node:assert/strict'),path=require('node:path'),{pathToFile
  check('falloff, ally/self policy and per-source cap apply across all8 explosions',()=>{
   for(const type of['cap-cluster-damage','cap-cluster-heal']){const ev=e(type),totals=new Map(),list=[caster,friend,enemy,actor('far','red',5.7)],all=[];
    for(let i=-1;i<7;i++)all.push(...capBlastEffects(ev,{index:i,x:0,y:.8,z:0,at:1.22+i*.01},list,totals,()=>true));
-   for(const amount of totals.values())assert.ok(amount<=60+1e-8);
+   for(const amount of totals.values())assert.ok(amount<=180+1e-8);
+   assert.equal(totals.get(type.endsWith('heal')?'caster':'enemy'),180);
+   for(const [index,radius,previous] of[[-1,c.radius,type.endsWith('heal')?25:20],[0,c.childRadius,type.endsWith('heal')?12:14]])for(const fraction of[0,.25,.75]){
+    const target=actor('check',type.endsWith('heal')?'blue':'red',radius*fraction),effects=capBlastEffects(ev,{index,x:0,y:.8,z:0,at:2},[target],new Map(),()=>true);
+    assert.equal(effects.length,1);assert.ok(Math.abs(effects[0].amount-3*previous*(1-fraction))<1e-8,'parent/child effect retains exact triple linear falloff');
+   }
    assert.equal(totals.has('caster'),type.endsWith('heal'));assert.equal(totals.has('friend'),type.endsWith('heal'));assert.equal(totals.has('enemy'),type.endsWith('damage'));if(type.endsWith('damage'))assert.ok(totals.get('enemy')>totals.get('far'));
    assert.equal(capBlastEffects(e(type),{index:-1,x:0,y:0,z:0,at:2},list,new Map(),()=>false).length,0);
   }

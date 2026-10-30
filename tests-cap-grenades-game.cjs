@@ -10,9 +10,9 @@ const suite=String.raw`
   setup();h.run("useAbility('q')");mouse(2);assert.equal(h.run('capGrenadeMode'),'damage');assert.equal(h.run('duckAim'),'q');assert.equal(h.run('player.kit.updraft'),1);mouse(2);assert.equal(h.run('capGrenadeMode'),'heal');h.run("useAbility('q')");assert.equal(h.run('duckAim'),null);assert.equal(h.run('player.kit.updraft'),1);
   setup();h.run("useAbility('q')");for(const fn of h.listeners.get('keydown')||[])fn({code:'Escape',repeat:false,target:null,preventDefault(){}});assert.equal(h.run('mode'),'pause');assert.equal(h.run('duckAim'),null);assert.equal(h.run('player.kit.updraft'),1);
  });
- check('actual Q healing and enemy damage respect existing HP/armor, self/team rules and60raw cap at20/60/144Hz',()=>{
+ check('actual Q healing and enemy damage respect HP100, self/team rules and180raw cap at20/60/144Hz',()=>{
   for(const hz of[20,60,144])for(const mode of['heal','damage']){setup();h.sandbox.modeChoice=mode;h.run("player.hp=25;makeBot({x:1,z:-1},1,'blue',{id:'friend',team:'blue',secondary:'classic'});bots[1].remoteId='passive';bots[1].hp=25;capGrenadeMode=modeChoice;confirmCapSkill('q')");step(2.5,hz);assert.equal(h.run('player.kit.updraft'),0);
-   if(mode==='heal'){assert.ok(h.run('player.hp')>25);assert.ok(h.run('player.hp')<=85.001);assert.ok(h.run('bots[1].hp')>25);assert.equal(h.run('enemy.hp'),100);}else{assert.ok(h.run('enemy.hp')<100);assert.ok(h.run('enemy.hp')>=39.999);assert.equal(h.run('player.hp'),25);assert.equal(h.run('bots[1].hp'),25);assert.ok(h.run("ordinarySkills.capRevealed(player.id,enemy.id,elapsed)"));assert.ok(h.run('capHitReveal.group.visible'));}
+   if(mode==='heal'){assert.ok(h.run('player.hp')>25);assert.ok(h.run('player.hp')<=100);assert.ok(h.run('bots[1].hp')>25);assert.ok(h.run('bots[1].hp')<=100);assert.equal(h.run('enemy.hp'),100);}else{assert.ok(h.run('enemy.hp')<100);assert.ok(h.run('enemy.hp')>=0);assert.equal(h.run('player.hp'),25);assert.equal(h.run('bots[1].hp'),25);if(h.run('enemy.alive')){assert.ok(h.run("ordinarySkills.capRevealed(player.id,enemy.id,elapsed)"));assert.ok(h.run('capHitReveal.group.visible'));}else assert.equal(h.run('capHitReveal.group.visible'),false);}
   }
  });
  check('C/E/X effects begin after impact, use original8/6/9second durations, and thrown X consumes7points',()=>{

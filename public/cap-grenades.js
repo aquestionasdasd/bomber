@@ -1,8 +1,8 @@
 import { CAP_SKILLS } from './abilities.js';
 // Gameplay tuning lives here. Parent throws use the shared slow, low-gravity lob.
 export const CAP_GRENADE=Object.freeze({range:40,radius:6,impactFuse:.22,children:7,
- childRadius:3.2,childDamage:14,parentDamage:20,damageCap:60,
- childHeal:12,parentHeal:25,healCap:60,scatterSpeed:11,scatterMinAngle:.35,
+ childRadius:3.2,childDamage:42,parentDamage:60,damageCap:180,
+ childHeal:36,parentHeal:75,healCap:180,scatterSpeed:11,scatterMinAngle:.35,
  scatterMaxAngle:1.15,childFuse:1.35,groundFuse:.18,gravity:4,bounce:.58,
  bodyRadius:.10,revealDuration:3,step:1/120,fxDuration:.38});
 export const CAP_THROW_TYPES=Object.freeze(['cap-lens','cap-cluster-heal','cap-cluster-damage','cap-bank-grenade','cap-magazine-grenade']);
