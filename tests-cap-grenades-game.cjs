@@ -2,6 +2,7 @@ const fs=require('node:fs'),path=require('node:path'),Module=require('node:modul
 const fixture=fs.readFileSync(path.join(__dirname,'tests-renko-game.cjs'),'utf8'),cut=fixture.indexOf(' const h=harness();');if(cut<0)throw Error('Missing saved-game harness');
 const suite=String.raw`
  const h=harness();
+ const {createCapFlight}=await load('cap-grenades.js');
  function setup(g=h){g.reset();g.clearWalls();g.run("player.kit=new DuelistKit({character:'cap'});player.kit.smoke=2;player.kit.updraft=1;player.kit.ultPoints=7;match.phase='live';player.pitch=-.9;makeBot({x:0,z:-2.5},0,'red',{id:'enemy',team:'red',secondary:'classic'});var enemy=bots[0];enemy.remoteId='passive';enemy.hp=100;enemy.armor=0;enemy.reactionUntil=999;enemy.fire=999;");}
  function step(seconds,hz=60,g=h){g.sandbox.seconds=seconds;g.sandbox.hz=hz;g.run('for(let t=0;t<seconds-1e-8;t+=1/hz){updatePlay(Math.min(1/hz,seconds-t));renderOrdinarySkills()}');}
  function mouse(button){for(const fn of h.listeners.get('game:mousedown')||[])fn({button,preventDefault(){}});}
@@ -13,6 +14,16 @@ const suite=String.raw`
  check('actual Q healing and enemy damage respect HP100, self/team rules and180raw cap at20/60/144Hz',()=>{
   for(const hz of[20,60,144])for(const mode of['heal','damage']){setup();h.sandbox.modeChoice=mode;h.run("player.hp=25;makeBot({x:1,z:-1},1,'blue',{id:'friend',team:'blue',secondary:'classic'});bots[1].remoteId='passive';bots[1].hp=25;capGrenadeMode=modeChoice;confirmCapSkill('q')");step(2.5,hz);assert.equal(h.run('player.kit.updraft'),0);
    if(mode==='heal'){assert.ok(h.run('player.hp')>25);assert.ok(h.run('player.hp')<=100);assert.ok(h.run('bots[1].hp')>25);assert.ok(h.run('bots[1].hp')<=100);assert.equal(h.run('enemy.hp'),100);}else{assert.ok(h.run('enemy.hp')<100);assert.ok(h.run('enemy.hp')>=0);assert.equal(h.run('player.hp'),25);assert.equal(h.run('bots[1].hp'),25);if(h.run('enemy.alive')){assert.ok(h.run("ordinarySkills.capRevealed(player.id,enemy.id,elapsed)"));assert.ok(h.run('capHitReveal.group.visible'));}else assert.equal(h.run('capHitReveal.group.visible'),false);}
+  }
+ });
+ check('full updatePlay applies child HP effects only on the real floor, never at airborne old fuse; both modes20/60/144Hz',()=>{
+  for(const hz of[20,60,144])for(const mode of['heal','damage']){setup();h.sandbox.healing=mode==='heal';
+   h.run("enemy.team=healing?'blue':'red';enemy.hp=healing?25:100;player.x=15;if(healing){makeBot({x:60,z:60},1,'red',{id:'idle-red',team:'red',secondary:'classic'});bots[1].remoteId='passive';bots[1].fire=999;bots[1].reactionUntil=999;}var elevated=ordinarySkills.cast(healing?'cap-cluster-heal':'cap-cluster-damage',ordinaryActorView(player),{x:0,y:18,z:0,flight:3},elapsed,match.round)");
+   assert.ok(h.run('elevated'),'legal40m parent fixture');
+   const ev=copy(h.run('elevated')),flight=createCapFlight(ev,h.run('capGrenadeSweep')),landed=flight.advance(ev.triggerAt+8);
+   assert.equal(landed.children.length,15);assert.equal(landed.blasts.length,16);const first=landed.blasts.find(b=>b.index===0);h.sandbox.landing=first;h.run('enemy.x=landing.x;enemy.z=landing.z');
+   const initial=h.run('enemy.hp');step(ev.triggerAt-h.run('elapsed')+1.35,hz);assert.equal(h.run('enemy.hp'),initial,'old airborne fuse has no child effect');
+   step(3,hz);assert.ok(h.run('healing?enemy.hp>25:enemy.hp<100'),'grounded child actually affects HP');
   }
  });
  check('C/E/X effects begin after impact, use original8/6/9second durations, and thrown X consumes7points',()=>{
@@ -42,7 +53,9 @@ const suite=String.raw`
   const q=peers();q.host.run("for(let i=0;i<20;i++)ordinarySkills.cast('cap-lens',ordinaryActorView(player),{x:0,y:.12,z:0,flight:1},elapsed,match.round)");request(q);assert.equal(q.guest.run('player.kit.updraft'),0);ack(q);assert.equal(q.guest.run('player.kit.updraft'),1);assert.equal(q.host.run('enemy.kit.updraft'),1);
  });
  check('pooled child/explosion FX are bounded, opaque bodies; menu/death/team/round clean reveals and resources',()=>{
-  setup();h.run("capGrenadeMode='damage';confirmCapSkill('q')");step(.5);assert.ok(h.run('capGrenadeFX.group.children.every(m=>m.count<=160)'));assert.ok(h.run('capGrenadeFX.group.children.filter((m,i)=>i%2===0).every(m=>m.material.opacity===1&&m.material.depthTest&&m.material.depthWrite)'));h.run('backMenu()');assert.equal(h.run('capHitReveal.group.visible'),false);assert.equal(h.run('capGrenadeFX.group.visible'),false);
+  setup();h.run("capGrenadeMode='damage';confirmCapSkill('q')");step(.5);assert.ok(h.run('capGrenadeFX.group.children.every(m=>m.count<=320)'));assert.ok(h.run('capGrenadeFX.group.children.filter((m,i)=>i%2===0).every(m=>m.material.opacity===1&&m.material.depthTest&&m.material.depthWrite)'));
+  const fx=h.sandbox.createCapGrenadeFX(h.sandbox.THREE),events=Array.from({length:20},(_,i)=>({id:'pool-'+i,type:'cap-cluster-damage',x:0,y:18,z:0,startedAt:10,flight:1,triggerAt:11.22,endsAt:22.22}));fx.update(events,11.22,{sweep:h.run('capGrenadeSweep'),visible:()=>true});assert.equal(fx.group.children[4].count,300,'all20x15 children are drawn');assert.equal(fx.group.children[5].count,20);assert.ok(fx.group.children.every(m=>m.count<=320));fx.dispose();
+  h.run('backMenu()');assert.equal(h.run('capHitReveal.group.visible'),false);assert.equal(h.run('capGrenadeFX.group.visible'),false);
   for(const cleanup of["player.alive=false;player.hp=0", "player.team='red'", "match.round++"]){setup();h.run("confirmCapSkill('c')");step(.8);h.run(cleanup+';updateOrdinarySkills();renderOrdinarySkills()');assert.equal(h.run('ordinarySkills.events(elapsed).length'),0);assert.equal(h.run('capHitReveal.group.visible'),false);}
  });
  console.log('PASS: '+groups+' Cap saved-game groups; audio/rendering inert');
