@@ -1,3 +1,15 @@
+## 第208巡 / キャップは？全技投擲・回復と攻撃のクラスター
+
+所有者指定：CQEXすべて構えて左クリックで投擲。Qは構え中の右クリックでA回復/Bダメージを切替、再Q/Escで取消。共通の初速12/上向き2/重力4・上下±89.4度・水平40m以内・実壁/床/天井を使い、着弾.22秒後に起爆。Qは7子弾をhost固定seedで放ち、独立の固定120Hz掃引反射・1.35秒または最初の床衝突後.18秒で爆発。親6m/子3.2m、線形距離減衰、1投1人60raw/60HP上限。Aは本人/味方回復、Bは敵へ既存装甲ダメージ。Cは着弾周囲の敵に従来8秒の照準妨害、Eは周囲の本人/味方へ従来6秒の3跳弾75%/90m、Xは周囲の本人/味方へ従来9秒の装填弾無消費。C/B命中敵だけ本人に3秒透過表示。半径/数/威力/散開/ヒューズはcap-grenades.jsの設定、描画は別の有界プール、音は既存recipeを使用。hostだけHP/命中を確定しguestは在庫予測と描画のみ。20event/64action拒否rollback・独立JSON/重複ACK・10人/64KiB/HTTP頻度を保持。CAP-DESIGN.mdが最新正本。地形/モデル/音源/銃/他15人とfps-19 PAUSEDを保持。
+
+最新指定は下記の旧単体指定/自己強化/妨害解除Qを置き換える。既存16人との比較：のびは持続範囲の被害/射撃間隔/作業倍率、MENDは直接回復、NOPEは単一の爆発/閃光/囮。キャップQは回復/攻撃の二モードを一つの在庫から選び、物理的な親と7子弾の爆発を距離減衰・合計上限で制御する。C/E/Xは元の銃に関する効果を着弾時に付与し、他キャラの性能を移植しない。
+
+設定：CAP_GRENADEのparentDamage20/childDamage14、parentHeal25/childHeal12、各合計上限60。scatterSpeed11m毎秒・角度.35〜1.15rad・bounce.58・bodyRadius.1m。無限に再生成せず1eventにつき7子弾、各型の描画は160body/160burst以下。FXモジュールに命中権限を持たせない。音はgameの既存cap recipe割当、素材byte不変。
+
+通信：新5型は従来端点/flightで親の軌道を復元し、event IDから子弾seedを再現する。host命中IDは最大10人の共通辞書と有界hitsで送信。C/E/X期限は親triggerから復元し、Qの最終命中はミリ秒へ切り下げて3秒の表示を延長しない。無効/重複/範囲外辞書とdeadlineをstrict拒否。死亡/team/次R/menuで清掃する。敵移動や途中の地形変更に対しクライアント予測は視覚用で、実HPはhostだけが確定する。
+
+検証：専用engine5/メモリ故障4、実保存game7（操作/HP/地形/TRC地下/独立hostguest/拒否ACK/プール清掃）、元の3跳弾6/故障4、知覚8・戦術14（実地4seed）、SQLite27と新4型20event/10人最大ID/full busの容量を確認。実ブラウザー/端末/聴感/5v5勝率は未確認。旧固定投擲時計のordinary/fullmain fixture債務は別に保持する。
+
 # キャップは？ / thirteenth character
 
 Reference: bright swept red hair, round brown glasses, smiling face, navy hooded sweatshirt. Original low-poly full body on existing52-hit rig; no photo texture or identity assumption.

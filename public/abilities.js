@@ -26,7 +26,7 @@ export const CHARACTER_DEFS = Object.freeze({
   car: Object.freeze({id:'car',label:'トミカ',role:'排除・補給',ultName:'ピットクルー',ultShortName:'補給',ultimatePoints:7,description:'C：本体突進で75ダメージ＋最大24m吹き飛ばし / Q：狙った煙を一つ除去 / E：接地中の移動射撃を安定化。X：視線内24mの味方と自身のC/Q/Eを補給（7pt）。',color:'#e9ece8',ultIcon:'M4 23h28V10H4ZM8 14h8v5H8Zm12 0h8v5h-8ZM12 4v4m12-4v4M9 25v4m18-4v4'}),
   nobi:Object.freeze({id:'nobi',label:'のび',role:'弱点・工作',ultName:'逆転えり',ultShortName:'逆転',ultimatePoints:7,description:'4技とも構えて左クリックで投擲、右クリックで取消。C35m・Q40m・E/X35m。着地点の半径20mでCは敵の被銃撃1.35倍6秒、Qは敵の射撃間隔1.6倍5秒、Eは味方の作業1.5倍6秒。X：着地から8秒、自身と味方の胴・脚への銃撃も頭相当。壁・煙越し無効、範囲外は通常。X7ポイント。',color:'#f3cb48',ultIcon:'M18 3 3 13l15 15 15-15ZM10 13l8 8 8-8M18 3v11'}),
   japan:Object.freeze({id:'japan',label:'しばくでジャパン',role:'国境・総動員',ultName:'総動員',ultShortName:'総動員',ultimatePoints:7,description:'C：越えた敵へ国境線 / Q：敵の装甲を接収 / E：被銃撃を撃ち手へ返送。X：倒れた味方全員を開始地点へ10HPで呼び戻す（7pt）。',color:'#e8ca91',ultIcon:'M3 15h30M18 2v26M7 4l22 22M29 4 7 26M4 23h28'}),
-  cap:Object.freeze({id:'cap',label:'キャップは？',role:'光学・解除',ultName:'エンドレスマガジン',ultShortName:'無消費',ultimatePoints:7,description:'C：敵の銃の照準とADSを妨害 / Q：現在の妨害を解除 / E：壁で弾を最大3回反射。X：9秒、装填済みの銃弾を消費せず発射（7pt）。',color:'#e36336',ultIcon:'M5 7h26v16H5ZM12 11c-8 0-8 8 0 8s4-8 12-8 8 8 0 8-4-8-12-8'}),
+  cap:Object.freeze({id:'cap',label:'キャップは？',role:'光学・投擲',ultName:'エンドレスマガジン',ultShortName:'無消費',ultimatePoints:7,description:'全技を投擲。C：着弾周囲の照準を妨害 / Q：右クリックで回復A・ダメージBを切替、7子弾に分裂 / E：味方に6秒の跳弾 / X：味方に9秒の弾数無消費（7pt）。命中敵を本人に3秒透過表示。',color:'#e36336',ultIcon:'M5 7h26v16H5ZM12 11c-8 0-8 8 0 8s4-8 12-8 8 8 0 8-4-8-12-8'}),
   urchin:Object.freeze({id:'urchin',label:'青ウニ',role:'棘・弾道',ultName:'三叉潮',ultShortName:'三叉',ultimatePoints:7,description:'C：予告した直線へ棘を一斉射出 / Q：敵の購入主武器を床へ落とす / E：壁を抜ける潮の波で遠くの視界を奪う。X：13秒、銃弾が三方向へ分かれ、連射速度が1.5倍（7pt）。',color:'#a9f1e4',ultIcon:'M18 28V4M18 20 5 7M18 20 31 7M2 11 5 7 9 8M27 8 31 7 34 11M14 8 18 4 22 8'}),
   onnara:Object.freeze({id:'onnara',label:'おんなら',role:'星冠・裁定',ultName:'星座裁定',ultShortName:'連鎖',ultimatePoints:7,description:'C：その場から約4.8mの大ジャンプ / Q：遠方を360度見回す宝玉 / E：空中で13秒静止し単発弾のブレをなくす。X：8秒、銃撃した敵から別の敵1人へ実被害の70%を連鎖（7pt）。',color:'#ffc948',ultIcon:'M18 2 22 11 32 12 24 19 27 29 18 23 9 29 12 19 4 12 14 11Z'}),
   renko:Object.freeze({id:'renko',label:'蓮子',role:'機動・押し出し',ultName:'リスタートラッシュ',ultShortName:'リスタート',ultimatePoints:7,description:'C：即発射の壁貫通・大型吹き飛ばし弾（ダメージなし） / Q：6秒14.4m毎秒走行、ジャンプ力1.3倍、Vで慣性滑走。高速移動中は素手、C使用可 / E：最大1秒、長押し中はマウス方向へジェット飛行。飛行中は素手でCのみ発射可能、終了時に武器へ。使用後に敵2キルでE回復。X中は単発銃のブレなし。X：7ptでラウンド中、敵撃破ごとにC・Q・E全回復（死亡で終了）。',color:'#91c5ef',ultIcon:'M8 27V12L18 3l10 9v15M10 19h16M13 30l5-7 5 7'}),
@@ -122,9 +122,9 @@ const urchinSkills={
  e:{name:'深潮のまなざし',shortName:'貫通暗闇',description:'Eで構え、照準方向へ左確定・右取消。0.25秒後に幅4mの潮の波を36m先まで放つ。壁を抜け、触れた敵と味方の8mより遠い視界を3秒奪う。背を向けても命中。横へ避けるか近距離で対処できる。弾・コイン消費なし、18秒で再使用。',max:1,price:0,type:'urchin-gloom',icon:'M3 15q15-18 30 0-15 18-30 0ZM18 10v10M7 26l5-3m12 0 5 3'}
 };
 const capSkills={
- c:{name:'レンズブレイク',shortName:'照準妨害',description:'Cで構え40mの見える敵へ左確定・右取消。8秒、銃弾の照準が拡散しADSも使えない。BOTの射撃にも有効。近距離の胴撃ちや遮蔽で対処でき、弾数・連射・移動・スキルは変えない。',max:2,price:100,type:'cap-lock',icon:'M5 10h26v13H5ZM11 16h5m6 0h4M4 28 32 3'},
- q:{name:'クリアテイク',shortName:'妨害解除',description:'Qで構え24mの見える味方へ左確定・右取消。味方を狙わなければ自身。現在の閃光・対象指定の妨害を解除。回復や将来の耐性はなく、対象なしでは消費しない。',max:1,price:100,type:'cap-clean',icon:'M7 6h22v20H7ZM11 16l5 5 10-12'},
- e:{name:'バンクレンズ',shortName:'跳弾',description:'6秒、銃弾が縦の壁で最大3回反射し、通常の75%ダメージ。総経路90mまで。照準中央の反射後の経路を本人に点線表示（弾の拡散は別）。4枚目の壁・床・天井・盾・囮で止まり、自動追尾はない。22秒で再使用。',max:1,price:0,type:'cap-bank',icon:'M4 25 18 11l14 14M4 7h28M18 11v-6'}
+ c:{name:'レンズブレイク',shortName:'照準妨害',description:'Cで構え左クリックで投擲。着弾後.22秒、半径6mの射線が通る敵へ8秒の照準妨害とADS封印。命中敵を本人に3秒透過表示。',max:2,price:100,type:'cap-lens',icon:'M5 10h26v13H5ZM11 16h5m6 0h4M4 28 32 3'},
+ q:{name:'クラスターグレネード',shortName:'回復／ダメージ',description:'Qで構え、右クリックでA回復／Bダメージを切替、左で投擲。着弾.22秒後に爆発し7子弾へ分裂。距離減衰・1発1人合計60上限。Aは本人と味方を回復、Bは敵へ通常装甲ダメージと本人へ3秒の敵透過表示。再QかEscで取消。',max:1,price:100,type:'cap-cluster-heal',icon:'M7 6h22v20H7ZM11 16l5 5 10-12'},
+ e:{name:'バンクレンズ',shortName:'跳弾',description:'投擲の着弾周囲6mの本人と味方へ6秒、銃弾が縦の壁で最大3回反射し、通常の75%ダメージ。総経路90mまで。照準中央の反射後の経路を本人に点線表示（弾の拡散は別）。4枚目の壁・床・天井・盾・囮で止まり、自動追尾はない。22秒で再使用。',max:1,price:0,type:'cap-bank-grenade',icon:'M4 25 18 11l14 14M4 7h28M18 11v-6'}
 };
 const japanSkills={
  c:{name:'国境線',shortName:'国境線',description:'Cで構え40m先の床へ左確定・右取消。1秒後から14秒、幅10m・高さ2.8mの線を越えた敵へ一度だけ1000ダメージ。壁越しは無効。',max:2,price:100,type:'japan-border',icon:'M3 25V5m30 20V5M3 15h30M9 9v12m9-12v12m9-12v12'},
@@ -195,7 +195,7 @@ export class DuelistKit {
         if(this.character==='renko')return {type:'renko-dart'};
         if(this.character==='onnara')return {type:'onnara-jump',velocity:ONNARA_SKILLS.jumpVelocity};
         if(this.character==='urchin')return {type:'urchin-lance'};
-        if(this.character==='cap')return {type:'cap-lock'};
+        if(this.character==='cap')return {type:'cap-lens'};
         if(this.character==='japan')return {type:'japan-border'};
         if(this.character==='nobi')return {type:'nobi-bell'};
         if (this.character === 'car') return {type:'car-bumper'};
@@ -213,7 +213,7 @@ export class DuelistKit {
         if(this.character==='renko')return {type:'renko-drive'};
         if(this.character==='onnara')return {type:'onnara-orb'};
         if(this.character==='urchin')return {type:'urchin-disarm'};
-        if(this.character==='cap')return {type:'cap-clean'};
+        if(this.character==='cap')return {type:'cap-cluster-heal'};
         if(this.character==='japan')return {type:'japan-levy'};
         if(this.character==='nobi')return {type:'nobi-whisker'};
         if (this.character === 'car') return {type:'car-wash'};
@@ -236,7 +236,7 @@ export class DuelistKit {
           this.dash = 0; this.dashKills = 0; this.nextSignatureAt = now + signatureCooldown(this.character);
           if(this.character==='onnara')return {type:'onnara-hover'};
         if(this.character==='urchin')return {type:'urchin-gloom'};
-        if(this.character==='cap')return {type:'cap-bank'};
+        if(this.character==='cap')return {type:'cap-bank-grenade'};
         if(this.character==='japan')return {type:'japan-return'};
         if(this.character==='nobi')return {type:'nobi-toolbox'};
         if (this.character === 'car') return {type:'car-gyro'};
@@ -262,7 +262,7 @@ export class DuelistKit {
         if (this.knivesActive || this.ultPoints < DUELIST.ultimatePoints) return null;
         if(this.character==='onnara'){this.ultPoints-=DUELIST.ultimatePoints;return {type:'onnara-chain'};}
         if(this.character==='urchin'){this.ultPoints-=DUELIST.ultimatePoints;return {type:'urchin-trident'};}
-        if(this.character==='cap'){this.ultPoints-=DUELIST.ultimatePoints;return {type:'cap-magazine'};}
+        if(this.character==='cap'){this.ultPoints-=DUELIST.ultimatePoints;return {type:'cap-magazine-grenade'};}
         if(this.character==='japan'){this.ultPoints-=DUELIST.ultimatePoints;return {type:'japan-muster'};}
         if(this.character==='nobi'){this.ultPoints-=DUELIST.ultimatePoints;return {type:'nobi-collar'};}
         if (this.character === 'car') {this.ultPoints-=DUELIST.ultimatePoints;return {type:'car-pit'};}

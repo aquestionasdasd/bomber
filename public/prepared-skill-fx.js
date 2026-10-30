@@ -6,13 +6,14 @@ import { CHARACTER_HANDS } from './viewmodel.js';
 // Only aimed throws/placements. Targeted disarms, cleansing and body charges
 // keep their existing presentation and inputs. Colors identify the held item.
 export const PREPARED_SKILL_PROPS=Object.freeze(Object.fromEntries([
+ ['cap-lens','#ffbf70','ball'],['cap-cluster-heal','#73ffad','ball'],['cap-cluster-damage','#ff745c','ball'],['cap-bank-grenade','#79e7ee','ball'],['cap-magazine-grenade','#c49aff','ball'],
  ['nobi-bell','#ffe166','bell'],['nobi-whisker','#66d9ff','whisker'],
  ['nobi-toolbox','#ff934a','toolbox'],['nobi-collar','#c09aff','collar'],
  ['onnara-orb','#64ffe0','gem'],['urchin-gloom','#467fff','wave'],
  ['duck-pad','#bcf34d','ball'],['duck-shield','#ffcb49','ball'],
  ['japan-border','#ff6388','ball'],['veil-root-seed','#8acb5a','ball'],
 ].map(([type,color,shape])=>[type,Object.freeze({color,shape})])));
-export function preparedSkillType(character,key){const type=character==='nobi'&&key==='x'?'nobi-collar':getCharacterSkill(character,key)?.type;return Object.hasOwn(PREPARED_SKILL_PROPS,type)?type:null;}
+export function preparedSkillType(character,key){const type=character==='cap'&&key==='x'?'cap-magazine-grenade':character==='nobi'&&key==='x'?'nobi-collar':getCharacterSkill(character,key)?.type;return Object.hasOwn(PREPARED_SKILL_PROPS,type)?type:null;}
 const caches=new WeakMap();
 export function acquireSkillProps(T){
  let c=caches.get(T);
