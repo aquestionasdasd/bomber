@@ -423,7 +423,7 @@ async function main() {
       const heldBlinds = ordinarySkills.snapshot().blinds.map(blind => ({ ...blind, resisted: true, endsAt: blind.startedAt + NOPE_SKILLS.flashDuration * EMBER_SKILLS.shadeFlashScale }));
       ordinarySkills.reset();
       const tagOwner = actors[5];
-      for (let i = 0; i < 20; i++) assert.ok(ordinarySkills.cast('echo-tag', tagOwner, { x: tagOwner.x, y: .12, z: tagOwner.z }, now - 1.05, 1));
+      for (let i = 0; i < 20; i++) assert.ok(ordinarySkills.cast('echo-tag', tagOwner, { x: tagOwner.x, y: .12, z: tagOwner.z }, now - 2, 1));
       ordinarySkills.update([tagOwner, { ...player, x: tagOwner.x, z: tagOwner.z }], now, 1, { reachable: () => true });
       assert.equal(ordinarySkills.snapshot().markers.length, 20);
       // Keep all twenty blindness records while replacing the bounded visual

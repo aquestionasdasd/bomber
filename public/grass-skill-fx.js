@@ -1,3 +1,4 @@
+import { isLobbedSkill, validThrowFlight, throwDelay } from './skill-throw.js';
 import { VEIL_SKILLS, veilRootSegment } from './abilities.js';
 
 const MAX_EVENTS=20,caches=new WeakMap();
@@ -18,8 +19,8 @@ function validEvent(event,now){
     ||![event.x,event.y,event.z,event.fromX,event.fromY,event.fromZ].every(coordinate)
     ||![event.startedAt,event.triggerAt,event.endsAt].every(value=>Number.isFinite(value)&&value>=0))return false;
   const spec=specs[event.type],distance=Math.hypot(event.x-event.fromX,event.z-event.fromZ);
-  return event.flight===(spec.flight??0)&&event.radius===spec.radius
-    &&Math.abs(event.triggerAt-event.startedAt-spec.delay)<1e-7&&Math.abs(event.endsAt-event.triggerAt-spec.tail)<1e-7
+  return (isLobbedSkill(event.type)?validThrowFlight(event):event.flight===(spec.flight??0))&&event.radius===spec.radius
+    &&Math.abs(event.triggerAt-event.startedAt-(isLobbedSkill(event.type)?throwDelay(event,spec.flight,spec.delay):spec.delay))<1e-7&&Math.abs(event.endsAt-event.triggerAt-spec.tail)<1e-7
     &&(event.type==='veil-roots'?distance>=VEIL_SKILLS.rootsMinRange-1e-7&&distance<=VEIL_SKILLS.rootsRange+1e-7
       :event.type==='veil-root-seed'?distance<=VEIL_SKILLS.rootsThrowRange+1e-7
       :event.type==='veil-dust'||distance<1e-7&&Math.abs(event.y-event.fromY)<1e-7)
