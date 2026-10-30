@@ -1,3 +1,4 @@
+import { ROOT_SENSOR, sensorLive, sensorTouches, createRootContacts } from './root-sensor.js';
 import { SKILL_THROW, isLobbedSkill, throwSpec, throwPosition } from './skill-throw.js';
 import { moveCamera } from './onnara-camera-motion.js';
 import { nopeWalkPose } from './nope-walk.js';
@@ -68,6 +69,7 @@ const specs = Object.freeze({
   'echo-glint': Object.freeze({ flight: IAGNU_SKILLS.glintFlight, delay: IAGNU_SKILLS.glintFlight, tail: .4, radius: IAGNU_SKILLS.glintRadius }),
   'echo-kerning': Object.freeze({ flight: 0, delay: 0, tail: IAGNU_SKILLS.kerningDuration, radius: 0 }),
   'veil-dust': Object.freeze({ flight: 0, delay: VEIL_SKILLS.dustArmDelay, tail: VEIL_SKILLS.dustDuration, radius: VEIL_SKILLS.dustRadius }),
+  'veil-sensor': Object.freeze({flight:VEIL_SKILLS.rootsThrowFlight,delay:VEIL_SKILLS.rootsThrowFlight,tail:ROOT_SENSOR.duration+ROOT_SENSOR.linger,radius:ROOT_SENSOR.radius}),
   'veil-root-seed': Object.freeze({flight:VEIL_SKILLS.rootsThrowFlight,delay:VEIL_SKILLS.rootsThrowFlight+VEIL_SKILLS.rootsArmDelay,tail:VEIL_SKILLS.rootsDuration,radius:VEIL_SKILLS.rootsThrowWidth/2}),
   'veil-roots': Object.freeze({ flight: 0, delay: VEIL_SKILLS.rootsArmDelay, tail: VEIL_SKILLS.rootsDuration, radius: VEIL_SKILLS.rootsWidth / 2 }),
   'veil-turf': Object.freeze({ flight: 0, delay: 0, tail: VEIL_SKILLS.turfDuration, radius: 0 }),
@@ -103,13 +105,13 @@ const personal = type => ['renko-drive','renko-jet','onnara-jump','onnara-orb','
 const groundedPersonal = type => type === 'veil-turf' || type === 'frost-unravel';
 const nobiArea = type => ['nobi-bell','nobi-whisker','nobi-toolbox','nobi-collar'].includes(type);
 const nobiRange = type => type==='nobi-bell'?NOBI_SKILLS.tagRange:type==='nobi-whisker'?NOBI_SKILLS.brakeRange:type==='nobi-toolbox'?NOBI_SKILLS.toolRange:NOBI_SKILLS.legendRange;
-const feetSource = type => !isCapGrenade(type)&&( type.startsWith('onnara-') || type.startsWith('urchin-')&&!['urchin-lance','urchin-gloom'].includes(type) || type.startsWith('cap-') || type.startsWith('japan-') || type.startsWith('nobi-')&&!nobiArea(type) || type.startsWith('car-') || type.startsWith('cat-') || type === 'mend-heal' || type === 'duelist-lift' || personal(type) || type.startsWith('veil-')&&type!=='veil-root-seed');
+const feetSource = type => !isCapGrenade(type)&&( type.startsWith('onnara-') || type.startsWith('urchin-')&&!['urchin-lance','urchin-gloom'].includes(type) || type.startsWith('cap-') || type.startsWith('japan-') || type.startsWith('nobi-')&&!nobiArea(type) || type.startsWith('car-') || type.startsWith('cat-') || type === 'mend-heal' || type === 'duelist-lift' || personal(type) || type.startsWith('veil-')&&!['veil-root-seed','veil-sensor'].includes(type));
 const eventFields = ['id', 'type', 'team', 'sourceId', 'round', 'fromX', 'fromY', 'fromZ', 'x', 'y', 'z', 'startedAt', 'flight', 'triggerAt', 'endsAt', 'radius'];
 const withinCastRange = (type, actor, target, sourceEyeY = eyeY(actor)) => isCapGrenade(type)?Math.hypot(target.x-actor.x,target.z-actor.z)<=CAP_GRENADE.range+1e-8: type==='renko-dart' ? Math.hypot(target.x-actor.x,target.y-sourceEyeY,target.z-actor.z)>1e-8 : nobiArea(type) ? Math.hypot(target.x-actor.x,target.z-actor.z)<=nobiRange(type)+1e-8 : type.startsWith('onnara-') ? feetDistance(actor,target)<=(type==='onnara-tax'?ONNARA_SKILLS.taxRange+.002:type==='onnara-orb'?ONNARA_SKILLS.orbRange+.002:1e-8)+1e-8 : type==='urchin-gloom' ? close(Math.hypot(target.x-actor.x,target.y-sourceEyeY,target.z-actor.z),URCHIN_SKILLS.gloomRange) : type==='urchin-lance' ? Math.hypot(target.x-actor.x,target.y-sourceEyeY,target.z-actor.z)<=URCHIN_SKILLS.lanceRange+1e-8 : type.startsWith('urchin-') ? feetDistance(actor,target)<=(type==='urchin-jam'?URCHIN_SKILLS.jamRange:type==='urchin-disarm'?URCHIN_SKILLS.disarmRange:1e-8)+1e-8 : type.startsWith('cap-') ? feetDistance(actor,target)<=(type==='cap-lock'?CAP_SKILLS.lockRange:type==='cap-clean'?CAP_SKILLS.cleanRange:1e-8)+1e-8 : type.startsWith('japan-') ? feetDistance(actor,target)<=(type==='japan-border'?JAPAN_SKILLS.borderRange:type==='japan-levy'?JAPAN_SKILLS.levyRange:1e-8)+1e-8 : type.startsWith('nobi-') ? feetDistance(actor,target)<=(type==='nobi-tag'?NOBI_SKILLS.tagRange:type==='nobi-brake'?NOBI_SKILLS.brakeRange:1e-8)+1e-8 : type.startsWith('car-') ? feetDistance(actor,target)<=(type==='car-bumper'?CAR_SKILLS.bumperRange:type==='car-wash'?CAR_SKILLS.washRange:1e-8)+1e-8 : type.startsWith('cat-') ? feetDistance(actor,target) <= (type==='cat-return'?CAT_SKILLS.returnRange:type==='cat-pluck'?CAT_SKILLS.pluckRange:type==='cat-fetch'?CAT_SKILLS.fetchRange:1e-8)+1e-8 : type === 'duck-pad' || type === 'duck-seal' || type === 'duck-shield' ? Math.hypot(target.x-actor.x,target.y-sourceEyeY,target.z-actor.z) <= (type === 'duck-seal' ? DUCK_SKILLS.sealRange : type === 'duck-pad'?DUCK_SKILLS.padRange:DUCK_SKILLS.shieldRange)+1e-8 : type === 'duelist-comet' ? Math.hypot(target.x - actor.x, target.y - sourceEyeY, target.z - actor.z) <= DUELIST_SKILLS.cometRange + 1e-8
   : type === 'mend-heal' ? feetDistance(actor, target) <= MEND_SKILLS.healRange + 1e-8
   : personal(type) || type === 'duelist-lift' ? feetDistance(actor, target) <= 1e-8
   : type === 'veil-dust' ? true // Map floor/bounds are validated by the authoritative game before casting.
-  : type === 'veil-root-seed' ? Math.hypot(target.x-actor.x,target.z-actor.z)<=VEIL_SKILLS.rootsThrowRange+1e-8
+  : ['veil-root-seed','veil-sensor'].includes(type) ? Math.hypot(target.x-actor.x,target.z-actor.z)<=VEIL_SKILLS.rootsThrowRange+1e-8
   : type === 'veil-roots' ? Math.hypot(target.x - actor.x, target.z - actor.z) >= VEIL_SKILLS.rootsMinRange - 1e-8 && Math.hypot(target.x - actor.x, target.z - actor.z) <= VEIL_SKILLS.rootsRange + 1e-8
   : Math.hypot(target.x - actor.x, target.z - actor.z) <= (type === 'nope-bottle' ? NOPE_SKILLS.bottleRange : type === 'nope-decoy' ? CHARACTER_SKILLS.decoyDistance : type === 'echo-tag' ? IAGNU_SKILLS.tagRange : type === 'ember-solder' ? EMBER_SKILLS.solderRange : type === 'frost-stitch' ? FROST_SKILLS.stitchRange : type === 'frost-mist' ? FROST_SKILLS.mistRange : CHARACTER_SKILLS.castDistance) + 1e-8;
 const isGloomBlind = value => !!idSequence(value?.eventId, 'urchin-gloom');
@@ -173,8 +175,9 @@ export function skillProjectilePosition(event, now) {
 export function createCharacterSkills() {
   let currentRound = null, currentTime = -Infinity, lastRestoreTime = -Infinity, sequence = 0;
   const active = new Map(), owned = new Set(), blinds = new Map(), detections = new Map(), decoyOwners = new Set(), decoyReactions = new Map(), borderHistory=new Map(), nearsights=new Map(), waveSamples=new Map(), cameraTimes=new Map(), capFlights=new Map();
-  function clear() { capFlights.clear(); cameraTimes.clear();nearsights.clear();waveSamples.clear();borderHistory.clear(); active.clear(); owned.clear(); blinds.clear(); detections.clear(); decoyOwners.clear(); decoyReactions.clear(); }
-  function prune(now) { for(const id of capFlights.keys())if(!active.has(id)||active.get(id).endsAt<=now)capFlights.delete(id);
+  const rootContacts=createRootContacts();
+  function clear() { rootContacts.clear();capFlights.clear(); cameraTimes.clear();nearsights.clear();waveSamples.clear();borderHistory.clear(); active.clear(); owned.clear(); blinds.clear(); detections.clear(); decoyOwners.clear(); decoyReactions.clear(); }
+  function prune(now) { rootContacts.prune(active,now);for(const id of capFlights.keys())if(!active.has(id)||active.get(id).endsAt<=now)capFlights.delete(id);
     for(const id of cameraTimes.keys())if(!active.has(id)||active.get(id).endsAt<=now)cameraTimes.delete(id);
     for (const [id, event] of active) if (event.endsAt <= now) { active.delete(id); owned.delete(id); decoyOwners.delete(id); borderHistory.delete(id);waveSamples.delete(id); }
     for (const [id, endsAt] of decoyReactions) if (endsAt <= now) decoyReactions.delete(id);
@@ -204,7 +207,7 @@ export function createCharacterSkills() {
     if(typeof type==='string'&&type.startsWith('onnara-')&&actor&&target){const q=v=>typeof v==='number'?Math.round(v*1000)/1000:v;actor={...actor,x:q(actor.x),y:q(actor.y||0),z:q(actor.z)};target={...target,x:q(target.x),y:q(target.y),z:q(target.z)};}
 
     if (!isType(type) || !living(actor) || !point(target) || !(type==='onnara-orb'&&target.cameraVelocity!==undefined ? orbVelocity(target)&&Math.hypot(target.x-actor.x,target.y-eyeY(actor),target.z-actor.z)<2 : withinCastRange(type, actor, target)) || !coordinate(eyeY(actor)) || !clock(now) || !roundNumber(round)) return null;
-    if ((type.startsWith('veil-')&&type!=='veil-root-seed' || type === 'frost-unravel' || type === 'onnara-jump') && actor.grounded !== true) return null;
+    if ((type.startsWith('veil-')&&!['veil-root-seed','veil-sensor'].includes(type) || type === 'frost-unravel' || type === 'onnara-jump') && actor.grounded !== true) return null;
     if(['onnara-tax','urchin-jam','urchin-disarm'].includes(type)&&(!identifier(target.targetId)||target.targetId===actor.id))return null;
     if(['cap-lock','cap-clean'].includes(type)&&(!identifier(target.targetId)||type==='cap-lock'&&target.targetId===actor.id))return null;
     if(type==='japan-levy'&&(!identifier(target.targetId)||target.targetId===actor.id))return null;
@@ -246,7 +249,7 @@ export function createCharacterSkills() {
     if (type === 'ember-service') event.weaponId = target.weaponId;
     if(type.startsWith('renko-')||type.startsWith('onnara-')||type.startsWith('urchin-')||type.startsWith('cap-')||type.startsWith('japan-')||type.startsWith('nobi-')||type.startsWith('car-')||type.startsWith('duck-')||type.startsWith('cat-'))owned.add(event.id);
     active.set(event.id, event); if (type === 'nope-decoy') decoyOwners.add(event.id);
-    if (['nope-bottle', 'nope-flash', 'mend-heal', 'echo-tag', 'echo-glint', 'ember-solder'].includes(type)) owned.add(event.id); return copy(event);
+    if (['nope-bottle', 'nope-flash', 'mend-heal', 'echo-tag', 'echo-glint', 'ember-solder', 'veil-sensor'].includes(type)) owned.add(event.id); return copy(event);
   }
   function storeBlind(blind,near=false){
     const collection=near?nearsights:blinds;
@@ -305,7 +308,7 @@ export function createCharacterSkills() {
     }
     return effects;
   }
-  function update(actors, now, round, { reachable, cameraSweep, grenadeSweep } = {}) {
+  function update(actors, now, round, { reachable, groundHeight, cameraSweep, grenadeSweep } = {}) {
     if (!advance(now, round)) return [];
     const effects = [], list = Array.isArray(actors) ? actors : [];
     for(const[id,b]of nearsights)if(!list.some(a=>living(a)&&a.id===id))nearsights.delete(id);
@@ -317,6 +320,7 @@ export function createCharacterSkills() {
         && (!groundedPersonal(event.type) || actor.grounded === true)
         && (event.type !== 'ember-service' || actor.weaponId === event.weaponId))) {active.delete(id);owned.delete(id);}
     for(const[id,event]of active)if((event.type.startsWith('renko-')||event.type.startsWith('onnara-')||event.type.startsWith('urchin-')||event.type.startsWith('cap-')||event.type.startsWith('japan-')||event.type.startsWith('nobi-')||event.type.startsWith('car-')||event.type.startsWith('duck-')||event.type.startsWith('cat-'))&&(!list.some(actor=>living(actor)&&actor.id===event.sourceId&&actor.team===event.team)||['onnara-tax','urchin-jam','cap-lock','japan-levy','duck-seal','nobi-tag','nobi-brake'].includes(event.type)&&!list.some(actor=>living(actor)&&actor.id===event.targetId&&actor.team!==event.team))){active.delete(id);owned.delete(id);borderHistory.delete(id);}
+    rootContacts.update(active,owned,list,now,{reachable,groundHeight});
     for(const e of active.values())if(isCapGrenade(e.type)){
       if(e.hits)e.hits=e.hits.filter(h=>list.some(a=>living(a)&&a.id===h[0]&&(e.type==='cap-lens'||e.type==='cap-cluster-damage'?a.team!==e.team:a.team===e.team)));
       if(!owned.has(e.id)||now<e.triggerAt)continue;
@@ -380,7 +384,7 @@ export function createCharacterSkills() {
     }
     for (const id of owned) {
       const event = active.get(id); if (!event || now + 1e-8 < event.triggerAt) continue;
-      if (event.type.startsWith('renko-')||event.type.startsWith('onnara-')||event.type.startsWith('urchin-')||event.type.startsWith('cap-')||event.type.startsWith('japan-')||event.type.startsWith('nobi-')||event.type.startsWith('car-')||event.type.startsWith('duck-')||event.type.startsWith('cat-')) continue;
+      if (event.type==='veil-sensor'||event.type.startsWith('renko-')||event.type.startsWith('onnara-')||event.type.startsWith('urchin-')||event.type.startsWith('cap-')||event.type.startsWith('japan-')||event.type.startsWith('nobi-')||event.type.startsWith('car-')||event.type.startsWith('duck-')||event.type.startsWith('cat-')) continue;
       if (event.type === 'echo-tag') {
         const seen = new Set(), candidates = [];
         for (const actor of list) {
@@ -476,6 +480,7 @@ export function createCharacterSkills() {
   // Forecast and live movement share the nearest supported floor point.
   // This query never advances the event clock or grants effect ownership.
   function wouldRoot(actor, event, { reachable, groundHeight } = {}) {
+    if(event?.type==='veil-sensor')return sensorTouches(actor,event,{reachable,groundHeight});
     if (!living(actor) || actor.grounded !== true || !['veil-roots','veil-root-seed'].includes(event?.type) || actor.team === event.team
       || ![event.fromX,event.fromY,event.fromZ,event.x,event.y,event.z,event.radius].every(Number.isFinite) || event.radius <= 0) return false;
     const landing=event.type==='veil-root-seed'?{...event,y:event.y-VEIL_SKILLS.rootsGroundOffset}:null;
@@ -528,7 +533,8 @@ export function createCharacterSkills() {
       if (actor.team === event.team || currentTime < event.triggerAt) continue;
       if (wouldSeed(actor,event,{reachable})) scale = Math.min(scale, MEND_SKILLS.seedsSpeedScale);
       if (wouldStitch(actor,event,{reachable,groundHeight})) scale = Math.min(scale,FROST_SKILLS.stitchSpeedScale);
-      if (wouldRoot(actor, event, { reachable, groundHeight })) scale = Math.min(scale, VEIL_SKILLS.rootsSpeedScale);
+      if (sensorLive(event,currentTime)&&rootContacts.affected(actor,event,{reachable,groundHeight}))scale=Math.min(scale,ROOT_SENSOR.speedScale);
+      if (event.type!=='veil-sensor'&&wouldRoot(actor, event, { reachable, groundHeight })) scale = Math.min(scale, VEIL_SKILLS.rootsSpeedScale);
     }
     return scale;
   }
@@ -548,6 +554,8 @@ export function createCharacterSkills() {
   function nobiInterval(id,now,actor,reachable){return nobiActive('nobi-brake',id,now,true)||nobiField('nobi-whisker',id,now,actor,reachable)?NOBI_SKILLS.fireIntervalScale:1;}
   function nobiWork(id,now,actor,reachable){return nobiActive('nobi-tool',id,now)||nobiField('nobi-toolbox',id,now,actor,reachable)?NOBI_SKILLS.toolScale:1;}
   function nobiLegend(id,now,actor,reachable){return nobiActive('nobi-legend',id,now)||nobiField('nobi-collar',id,now,actor,reachable);}
+  function rootTracks(observerTeam,now){return team(observerTeam)&&viewTime(now)?rootContacts.list(active,now,observerTeam):[];}
+  function rootJumpScale(actor,now,queries){return living(actor)&&viewTime(now)&&[...active.values()].some(e=>sensorLive(e,currentTime)&&rootContacts.affected(actor,e,queries))?ROOT_SENSOR.jumpHeightScale:1;}
   function snapshot(observerTeam) {
     const capTargets=[...new Set([...active.values()].filter(e=>isCapGrenade(e.type)).flatMap(e=>(e.hits||[]).map(h=>h[0])))];
     const records=[...active.values()].map(e=>{const out=copy(e);if(isCapGrenade(e.type)&&e.hits)out.hits=e.hits.map(h=>{
@@ -557,7 +565,7 @@ export function createCharacterSkills() {
       return e.type==='cap-cluster-damage'?[index,Math.max(0,Math.floor((h[1]-e.triggerAt)*1000+1e-7))]:e.type==='cap-lens'&&h[1]<=e.triggerAt?-index-1:index;
     });return out;});
     return {events:records,blinds:[...blinds.values(),...nearsights.values()].map(copy),
-      markers:[...detections.values()].filter(marker=>observerTeam===undefined||marker.team===observerTeam).map(copy),...(capTargets.length?{capTargets}:{})};
+      markers:[...detections.values()].filter(marker=>observerTeam===undefined||marker.team===observerTeam).map(copy),...(capTargets.length?{capTargets}:{}),...(rootContacts.list(active,currentTime).length?{roots:rootContacts.encode(active,currentTime)}:{})};
   }
   function validEvent(value, now, round) {
     if (!value || typeof value !== 'object' || Array.isArray(value) || !isType(value.type) || !team(value.team) || !identifier(value.sourceId) || !point(value)
@@ -658,11 +666,12 @@ export function createCharacterSkills() {
       nextMarkers.set(marker.eventId, { eventId: marker.eventId, team: marker.team, round, x: marker.x, y: marker.y, z: marker.z, detectedAt: marker.detectedAt, endsAt: marker.endsAt });
       nextSequence = Math.max(nextSequence, idSequence(marker.eventId, 'echo-tag'));
     }
+    const nextRoots=rootContacts.decode(value.roots,nextEvents,now);if(nextRoots===null)return false;
     // The render clock may lead the host. Compare restore order only with the
     // previous host clock, while retaining monotonic expiry on this client.
     if (currentRound !== null && (round < currentRound || round === currentRound && now < lastRestoreTime)) return false;
     currentTime = round === currentRound ? Math.max(currentTime, now) : now; currentRound = round; lastRestoreTime = now; sequence = nextSequence;
-    clear();
+    clear();rootContacts.replace(nextRoots);rootContacts.prune(nextEvents,currentTime);
     for (const [id, event] of nextEvents) if (event.endsAt > currentTime) active.set(id, event);
     for (const blind of nextBlinds.values()) if (blind.endsAt > currentTime) (isGloomBlind(blind)?nearsights:blinds).set(blind.targetId,blind);
     for (const [id, marker] of nextMarkers) if (marker.endsAt > currentTime) detections.set(id, marker);
@@ -708,7 +717,7 @@ export function createCharacterSkills() {
       const floor=safeGround(groundHeight,actor.x,actor.z,e.y);if(floor!==null&&Math.abs(floor-e.y)<=.12)return copy(e);
     }return null;
   }
-  function resetActor(id){
+  function resetActor(id){rootContacts.resetActor(id);
     for(const[key,e]of active)if(e.sourceId===id&&(personal(e.type)||/^(renko|onnara|urchin|cap|japan|nobi|car|cat|duck)-/.test(e.type))||e.targetId===id&&/^(onnara|urchin|cap|japan|nobi|duck)-/.test(e.type)){active.delete(key);owned.delete(key);borderHistory.delete(key);}
     for(const e of active.values())if(e.hits)e.hits=e.hits.filter(h=>h[0]!==id);blinds.delete(id);nearsights.delete(id);
   }
@@ -735,5 +744,5 @@ export function createCharacterSkills() {
     if(!e)return false;active.delete(e.id);owned.delete(e.id);return true;
   }
   return {beginOnnaraHop(id,actor,now,sequence){const e=active.get(id);if(!e||e.type!=='onnara-hover'||e.sourceId!==actor.id||e.team!==actor.team||!actor.alive||!owned.has(id)||e.endsAt<=now||!clock(now)||!coordinate(actor.y)||!Number.isSafeInteger(sequence)||sequence<1)return false;e.hop=[sequence,now,actor.y];return true;},
-    capRevealed,moveOnnaraHold(id,actor,now){const e=active.get(id);if(!e||e.type!=='onnara-hover'||e.sourceId!==actor.id||e.team!==actor.team||!actor.alive||!owned.has(id)||e.endsAt<=now||!coordinate(actor.y)||!e.hop||actor.y<e.hop[2]-.002||actor.y>e.hop[2]+6.552**2/30+.002)return false;e.y=e.fromY=actor.y;return true;},cancelRenkoDrive,holdRenkoJet,renkoEvent:(type,id,now)=>events(now).find(e=>e.type===type&&e.sourceId===id)||null,nearsightUntil,sightRange,duckPad,recordConstellation(sourceId,from,to,now){const e=events(now).find(e=>e.type==='onnara-chain'&&e.sourceId===sourceId&&owned.has(e.id));if(!e||!point(from)||!point(to)||Math.hypot(from.x-to.x,from.y-to.y,from.z-to.z)>ONNARA_SKILLS.chainRange+.001)return false;active.get(e.id).link=[from.x,from.y,from.z,to.x,to.y,to.z,now].map(n=>Math.round(n*1000)/1000);active.get(e.id).link[6]=now;return true;},cancelOnnaraEvent(id,sourceId){const e=active.get(id);if(e?.type.startsWith('onnara-')&&e.sourceId===sourceId&&owned.has(id)){active.delete(id);owned.delete(id);return true;}return false;},consumeCrownTax,onnaraTax:(id,now)=>events(now).find(e=>e.type==='onnara-tax'&&e.targetId===id)||null,onnaraEvent,urchinJammed:(id,now)=>capState('urchin-jam',id,now,true),urchinTrident:(id,now)=>capState('urchin-trident',id,now),urchinInterval:(id,now)=>capState('urchin-trident',id,now)?1/URCHIN_SKILLS.tridentFireRate:1,hasImpairment,cleanse,capLocked:(id,now)=>capState('cap-lock',id,now,true),capBank:(id,now)=>capState('cap-bank',id,now),capMagazine:(id,now)=>capState('cap-magazine',id,now),resetActor,japanReturn:(id,now)=>events(now).some(e=>e.type==='japan-return'&&e.sourceId===id)?JAPAN_SKILLS.returnScale:0,nobiVulnerability,nobiInterval,nobiWork,nobiLegend,wouldNobi,carGyro,disperseSmoke,cancelCarEvent,catBookmark,returnToCatBookmark,cancelCatEvent,clockFrozen, wouldBlind, wouldRoot,wouldSeed,wouldTag,wouldStitch,sealUntil,quiet,guardLethal,interceptShield,castVeilDustBatch,cast, update, events, snapshot, restore, reset, blindUntil, speedScale, markers, movementScale, mitigateSlow, frostSlideSpeed, cancelService, consumeDecoy, flashDecoy };
+    rootTracks,rootJumpScale,capRevealed,moveOnnaraHold(id,actor,now){const e=active.get(id);if(!e||e.type!=='onnara-hover'||e.sourceId!==actor.id||e.team!==actor.team||!actor.alive||!owned.has(id)||e.endsAt<=now||!coordinate(actor.y)||!e.hop||actor.y<e.hop[2]-.002||actor.y>e.hop[2]+6.552**2/30+.002)return false;e.y=e.fromY=actor.y;return true;},cancelRenkoDrive,holdRenkoJet,renkoEvent:(type,id,now)=>events(now).find(e=>e.type===type&&e.sourceId===id)||null,nearsightUntil,sightRange,duckPad,recordConstellation(sourceId,from,to,now){const e=events(now).find(e=>e.type==='onnara-chain'&&e.sourceId===sourceId&&owned.has(e.id));if(!e||!point(from)||!point(to)||Math.hypot(from.x-to.x,from.y-to.y,from.z-to.z)>ONNARA_SKILLS.chainRange+.001)return false;active.get(e.id).link=[from.x,from.y,from.z,to.x,to.y,to.z,now].map(n=>Math.round(n*1000)/1000);active.get(e.id).link[6]=now;return true;},cancelOnnaraEvent(id,sourceId){const e=active.get(id);if(e?.type.startsWith('onnara-')&&e.sourceId===sourceId&&owned.has(id)){active.delete(id);owned.delete(id);return true;}return false;},consumeCrownTax,onnaraTax:(id,now)=>events(now).find(e=>e.type==='onnara-tax'&&e.targetId===id)||null,onnaraEvent,urchinJammed:(id,now)=>capState('urchin-jam',id,now,true),urchinTrident:(id,now)=>capState('urchin-trident',id,now),urchinInterval:(id,now)=>capState('urchin-trident',id,now)?1/URCHIN_SKILLS.tridentFireRate:1,hasImpairment,cleanse,capLocked:(id,now)=>capState('cap-lock',id,now,true),capBank:(id,now)=>capState('cap-bank',id,now),capMagazine:(id,now)=>capState('cap-magazine',id,now),resetActor,japanReturn:(id,now)=>events(now).some(e=>e.type==='japan-return'&&e.sourceId===id)?JAPAN_SKILLS.returnScale:0,nobiVulnerability,nobiInterval,nobiWork,nobiLegend,wouldNobi,carGyro,disperseSmoke,cancelCarEvent,catBookmark,returnToCatBookmark,cancelCatEvent,clockFrozen, wouldBlind, wouldRoot,wouldSeed,wouldTag,wouldStitch,sealUntil,quiet,guardLethal,interceptShield,castVeilDustBatch,cast, update, events, snapshot, restore, reset, blindUntil, speedScale, markers, movementScale, mitigateSlow, frostSlideSpeed, cancelService, consumeDecoy, flashDecoy };
 }

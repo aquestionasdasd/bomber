@@ -1,3 +1,4 @@
+import { ROOT_SENSOR } from './root-sensor.js';
 import { CAP_GRENADE, isCapGrenade } from './cap-grenades.js';
 import { createCapGrenadeFX } from './cap-grenade-fx.js';
 import { SKILL_THROW, isLobbedSkill, throwDuration } from './skill-throw.js';
@@ -75,6 +76,7 @@ import { createNopeDecoys } from './nope-decoys.js';
 import { createNopeDecoyFX } from './nope-decoy-fx.js';
 import { createMendSkillFX } from './mend-skill-fx.js';
 import { createIagnuSkillFX } from './iagnu-skill-fx.js';
+import { createRootSensorFX } from './root-sensor-fx.js';
 import { createGrassSkillFX } from './grass-skill-fx.js';
 import { grassPlatform, grassLocal, grassWorld, grassOverlaps, grassBlocks, validGrassRide } from './grass-platforms.js';
 import { createEmberSkillFX } from './ember-skill-fx.js';
@@ -166,6 +168,7 @@ const nopePops=[];
 const mendSkillFX=createMendSkillFX(THREE,camera);scene.add(mendSkillFX.group);
 const iagnuSkillFX=createIagnuSkillFX(THREE,camera);scene.add(iagnuSkillFX.group);
 const grassSkillFX=createGrassSkillFX(THREE,camera);scene.add(grassSkillFX.group);
+const rootSensorFX=createRootSensorFX(THREE);scene.add(rootSensorFX.group);
 const emberSkillFX=createEmberSkillFX(THREE,camera);scene.add(emberSkillFX.group);
 const renkoSkillFX=createRenkoSkillFX(THREE);scene.add(renkoSkillFX.group);
 const onnaraSkillFX=createOnnaraSkillFX(THREE);scene.add(onnaraSkillFX.group);const onnaraOrbView=createOrbView(THREE),starHold=createStarHold(),onnaraReveal=createOrbReveal(THREE);scene.add(onnaraReveal.group);const capHitReveal=createOrbReveal(THREE),capGrenadeFX=createCapGrenadeFX(THREE);scene.add(capHitReveal.group,capGrenadeFX.group);let capGrenadeMode='heal';
@@ -182,7 +185,7 @@ const frostSkillFX=createFrostSkillFX(THREE,camera);scene.add(frostSkillFX.group
 const duelistSkillFX=createDuelistSkillFX(THREE,camera);scene.add(duelistSkillFX.group);
 const stoppedServiceEvents=new Map();
 const ordinaryAudio=new Map();
-const ordinaryMarkerAudio=new Set();
+const ordinaryMarkerAudio=new Set(),rootEntryAudio=new Set();
 const zonePulseAudio=new Map();
 let duckAim=null,veilPlacement=null;
 let zoneTargetPreview=null,zoneTargetPreviewAt=-Infinity,zoneTargetCharacter=null;
@@ -300,7 +303,7 @@ function resetTakeover(){takeoverState=null;takeoverClock=0;stationTakeover.rese
 function resetZoneAbilities(){zoneAbilities.reset();zoneFX.reset();zonePulseAudio.clear();zoneTargetPreview=null;zoneTargetPreviewAt=-Infinity;zoneTargetCharacter=null;if($('status-effects')){$('status-effects').hidden=true;$('status-effects').textContent='';}}
 const stoppedTurfEvents=new Map();
 const stoppedFrostEvents=new Map();
-function resetOrdinarySkills(){clearVeilPlacement();grassFrame=null;grassPrevious=null;onnaraReveal.reset();capHitReveal.reset();capHitReveal.group.visible=false;capGrenadeFX.reset();capGrenadeMode='heal';preparedSkillFX.reset();renkoSkillFX.reset();flashStatusFX.reset();capBankPreviewFX.reset();capPreviewUntil=-Infinity;capPreviewPath=null;skillSpectacle.reset();skillFeedback.reset();starHold.reset();onnaraSkillFX.reset();urchinSkillFX.reset();capSkillFX.reset();japanSkillFX.reset();nobiSkillFX.reset();carSkillFX.reset();catReturnSeen.clear();catSkillFX.reset();duckAim=null;duckSkillFX.reset();botHearing.reset();ordinarySkills.reset();ordinaryFX.reset();nopeDecoys.reset();nopeDecoyFX.reset();nopePops.length=0;nopeSeenPopSequence=0;mendSkillFX.reset();iagnuSkillFX.reset();grassSkillFX.reset();emberSkillFX.reset();frostSkillFX.reset();duelistSkillFX.reset();for(const actor of [player,...bots]){actor.grassJump=null;actor.renkoPending=null;actor.renkoDrive=null;actor.renkoJetHeld=false;actor.renkoUltimate=null;if(actor.kit)actor.kit.renkoActive=false;actor.onnaraJumpPending=null;actor.onnaraHopPending=null;actor.onnaraHoldCastPending=null;actor.onnaraHoldCast=null;actor.nextNobiToolAt=0;actor.nextCatClockAt=0;actor.nextRenkoUltAt=0;actor.nextRenkoDriveAt=0;actor.nextMendHealAt=0;actor.decoySeen?.clear();actor.duckPadAt=-Infinity;actor.duckPadUntil=0;actor.duckPadRound=0;actor.duckPadTeam=null;actor.duckFlapEvent=null;actor.duckFlapAt=-Infinity;if(!(['play','pause'].includes(mode)&&match?.phase==='post'&&!actor.alive&&actor.carMotion?.round===match.round&&actor.carMotion?.endsAt>elapsed)){actor.carMotion=null;actor.carImpulseUntil=0;actor.carFallUntil=0;actor.carRecoveryUntil=0;}cancelServiceReload(actor);actor.lastHeard=null;actor.netStepClock=0;}stoppedServiceEvents.clear();stoppedTurfEvents.clear();stoppedFrostEvents.clear();ordinaryAudio.clear();ordinaryMarkerAudio.clear();const overlay=$('skill-blind-overlay');if(overlay){overlay.hidden=true;overlay.style.opacity='0';}const nearOverlay=$('skill-nearsight-overlay');if(nearOverlay){nearOverlay.hidden=true;nearOverlay.style.opacity='0';}}
+function resetOrdinarySkills(){rootEntryAudio.clear();rootSensorFX.reset();clearVeilPlacement();grassFrame=null;grassPrevious=null;onnaraReveal.reset();capHitReveal.reset();capHitReveal.group.visible=false;capGrenadeFX.reset();capGrenadeMode='heal';preparedSkillFX.reset();renkoSkillFX.reset();flashStatusFX.reset();capBankPreviewFX.reset();capPreviewUntil=-Infinity;capPreviewPath=null;skillSpectacle.reset();skillFeedback.reset();starHold.reset();onnaraSkillFX.reset();urchinSkillFX.reset();capSkillFX.reset();japanSkillFX.reset();nobiSkillFX.reset();carSkillFX.reset();catReturnSeen.clear();catSkillFX.reset();duckAim=null;duckSkillFX.reset();botHearing.reset();ordinarySkills.reset();ordinaryFX.reset();nopeDecoys.reset();nopeDecoyFX.reset();nopePops.length=0;nopeSeenPopSequence=0;mendSkillFX.reset();iagnuSkillFX.reset();grassSkillFX.reset();emberSkillFX.reset();frostSkillFX.reset();duelistSkillFX.reset();for(const actor of [player,...bots]){actor.grassJump=null;actor.renkoPending=null;actor.renkoDrive=null;actor.renkoJetHeld=false;actor.renkoUltimate=null;if(actor.kit)actor.kit.renkoActive=false;actor.onnaraJumpPending=null;actor.onnaraHopPending=null;actor.onnaraHoldCastPending=null;actor.onnaraHoldCast=null;actor.nextNobiToolAt=0;actor.nextCatClockAt=0;actor.nextRenkoUltAt=0;actor.nextRenkoDriveAt=0;actor.nextMendHealAt=0;actor.decoySeen?.clear();actor.duckPadAt=-Infinity;actor.duckPadUntil=0;actor.duckPadRound=0;actor.duckPadTeam=null;actor.duckFlapEvent=null;actor.duckFlapAt=-Infinity;if(!(['play','pause'].includes(mode)&&match?.phase==='post'&&!actor.alive&&actor.carMotion?.round===match.round&&actor.carMotion?.endsAt>elapsed)){actor.carMotion=null;actor.carImpulseUntil=0;actor.carFallUntil=0;actor.carRecoveryUntil=0;}cancelServiceReload(actor);actor.lastHeard=null;actor.netStepClock=0;}stoppedServiceEvents.clear();stoppedTurfEvents.clear();stoppedFrostEvents.clear();ordinaryAudio.clear();ordinaryMarkerAudio.clear();const overlay=$('skill-blind-overlay');if(overlay){overlay.hidden=true;overlay.style.opacity='0';}const nearOverlay=$('skill-nearsight-overlay');if(nearOverlay){nearOverlay.hidden=true;nearOverlay.style.opacity='0';}}
 function resetTeamAbilities(){teamAbilities.reset();characterFX.reset();resetZoneAbilities();resetOrdinarySkills();}
 // The grass cube is a movement solid; it adds no targeting or network state.
 let grassFrame=null,grassPrevious=null;
@@ -330,7 +333,7 @@ function beginNormalJump(actor){
       actor.grassJump={owner:p.id,ownerTeam:p.team,team:actor.team,round:match.round,top:p.top,until:elapsed+1.2};
     }
   }
-  actor.vy=velocity;
+  actor.vy=velocity*Math.sqrt(ordinarySkills.rootJumpScale(ordinaryActorView(actor),elapsed,{reachable:ordinaryReachable,groundHeight:ordinaryGroundHeight}));
 }
 function assistGrassJump(actor,dt,radius){
   const jump=actor.grassJump;if(!jump)return;
@@ -472,7 +475,7 @@ function mendReachable(actor,target){return actor===target||visibleBetween(actor
 function capGrenadeSweep(a,b,r,t){return cameraSweep(map.collision,{...activeArenaBounds(),minY:map.minY??0},a,b,r,map.traffic,t);}
 function ordinaryReachable(event,actor){
   if(event.type==='urchin-lance')return map.collision.rayClear(event.x,event.y,event.z,actor.x,(actor.y||0)+1.3-(actor.crouch||0)*.55,actor.z);
-  if(event.type==='japan-border'||event.type==='veil-roots'||event.type==='veil-root-seed'||event.type==='frost-stitch')return map.collision.rayClear(event.x,event.y+.18,event.z,actor.x,(actor.y||0)+.18,actor.z);
+  if(event.type==='japan-border'||event.type==='veil-roots'||event.type==='veil-root-seed'||event.type==='veil-sensor'||event.type==='frost-stitch')return map.collision.rayClear(event.x,event.y+.18,event.z,actor.x,(actor.y||0)+.18,actor.z);
   const eye=(actor.y||0)+1.7-clamp(actor.crouch||0,0,1)*.55;
   const y=(event.type.startsWith('nobi-')||['nope-bottle','mend-seeds','echo-tag'].includes(event.type))?event.y+.18:event.y;
   return map.collision.rayClear(event.x,y,event.z,actor.x,eye,actor.z)&&(event.type==='mend-seeds'||!smokeBlocks({x:event.x,y:y-1.45,z:event.z},actor));
@@ -577,6 +580,10 @@ function updateOrdinarySkills(){
       ordinaryAudio.set(event.id,triggered);
     }
   }
+  const tracks=ordinarySkills.rootTracks(player.team,elapsed),rootKeys=new Set(tracks.map(r=>r.key));
+  for(const key of rootEntryAudio)if(!rootKeys.has(key))rootEntryAudio.delete(key);
+  if(tracks.some(r=>!rootEntryAudio.has(r.key)&&elapsed-r.enteredAt<.3))sound('grass-roots',{localOnly:true});
+  for(const r of tracks)rootEntryAudio.add(r.key);
   const markers=ordinarySkills.markers(player.team,elapsed),markerIds=new Set(markers.map(marker=>marker.eventId));
   for(const id of ordinaryMarkerAudio)if(!markerIds.has(id))ordinaryMarkerAudio.delete(id);
   for(const marker of markers){
@@ -596,6 +603,7 @@ function renderOrdinarySkills(){
   nopeDecoyFX.update(live?allNopeDecoys():[],elapsed,{viewer:viewer||player,reducedMotion:reducedMotion.matches});
   mendSkillFX.update(live?ordinarySkills.events(elapsed):[],elapsed,{viewer:viewer||player,showHand:live&&mode==='play'&&player.alive,reducedMotion:reducedMotion.matches});
   iagnuSkillFX.update(live?ordinarySkills.events(elapsed):[],elapsed,{viewer:viewer||player,actors:[player,...bots],showHand:live&&mode==='play'&&player.alive,reducedMotion:reducedMotion.matches});
+  rootSensorFX.update(live?ordinarySkills.events(elapsed):[],live?ordinarySkills.rootTracks((viewer||player).team,elapsed):[],elapsed,{groundHeight:ordinaryGroundHeight,reachable:ordinaryReachable,terrainRevision:map.collision.revision,visible:p=>rootPointVisible(viewer||player,p),reducedMotion:reducedMotion.matches});
   grassSkillFX.update(live?ordinarySkills.events(elapsed):[],elapsed,{viewer:viewer||player,actors:[player,...bots].map(ordinaryActorView),groundHeight:ordinaryGroundHeight,reachable:ordinaryReachable,terrainRevision:map.collision.revision,showHand:live&&mode==='play'&&player.alive,reducedMotion:reducedMotion.matches});
   emberSkillFX.update(live?ordinarySkills.events(elapsed):[],elapsed,{viewer:viewer||player,actors:[player,...bots].map(ordinaryActorView),showHand:live&&mode==='play'&&player.alive,reducedMotion:reducedMotion.matches});
   renkoSkillFX.update(live?ordinarySkills.events(elapsed).filter(e=>!(e.type==='renko-drive'&&e.sourceId===player.id&&renkoDriveStopping(player))):[],elapsed,{actors:[player,...bots],visible:(p,e)=>e.sourceId===player.id||ordinarySkills.blindUntil((viewer||player).id,elapsed)<=elapsed&&visibleBetween(viewer||player,p)});
@@ -1701,6 +1709,11 @@ function moveEntity(entity,dx,dz,r=.34) {
     attempt(entity.x,entity.z+dz/n);
   }
 }
+function rootPointVisible(viewer,p){
+  if(ordinarySkills.blindUntil(viewer.id,elapsed)>elapsed||Math.hypot(viewer.x-p.x,(viewer.y||0)-p.y,viewer.z-p.z)>ordinarySkills.sightRange(viewer.id,elapsed))return false;
+  const from={x:viewer.x,y:(viewer.y||0)+actorBodyHeight(viewer)-.25,z:viewer.z},to={x:p.x,y:p.y+.08,z:p.z};
+  return !smokeBlocks({...from,y:from.y-1.45},{...to,y:to.y-1.45})&&map.collision.rayClear(from.x,from.y,from.z,to.x,to.y,to.z)&&(!map.traffic||map.traffic.rayClear(from,to,elapsed));
+}
 function visibleBetween(a,b) {
   if(a?.id&&Math.hypot(a.x-b.x,(a.y||0)-(b.y||0),a.z-b.z)>ordinarySkills.sightRange(a.id,elapsed))return false;
   const eye=entity=>(entity.y||0)+actorBodyHeight(entity)-.25;
@@ -2592,7 +2605,7 @@ function confirmVeilPlacement(){
  resumeGame();refillMapPracticeSkills();updateHUD();
 }
 
-function thrownSkillRange(type){if(isCapGrenade(type))return CAP_GRENADE.range;return {'duelist-comet':DUELIST_SKILLS.cometRange,'nope-bottle':NOPE_SKILLS.bottleRange,'echo-tag':IAGNU_SKILLS.tagRange,'ember-solder':EMBER_SKILLS.solderRange,'frost-stitch':FROST_SKILLS.stitchRange,'frost-mist':FROST_SKILLS.mistRange,'veil-root-seed':VEIL_SKILLS.rootsThrowRange,'nobi-bell':NOBI_SKILLS.tagRange,'nobi-whisker':NOBI_SKILLS.brakeRange,'nobi-toolbox':NOBI_SKILLS.toolRange,'nobi-collar':NOBI_SKILLS.legendRange}[type]||CHARACTER_SKILLS.castDistance;}
+function thrownSkillRange(type){if(isCapGrenade(type))return CAP_GRENADE.range;return {'duelist-comet':DUELIST_SKILLS.cometRange,'nope-bottle':NOPE_SKILLS.bottleRange,'echo-tag':IAGNU_SKILLS.tagRange,'ember-solder':EMBER_SKILLS.solderRange,'frost-stitch':FROST_SKILLS.stitchRange,'frost-mist':FROST_SKILLS.mistRange,'veil-sensor':VEIL_SKILLS.rootsThrowRange,'veil-root-seed':VEIL_SKILLS.rootsThrowRange,'nobi-bell':NOBI_SKILLS.tagRange,'nobi-whisker':NOBI_SKILLS.brakeRange,'nobi-toolbox':NOBI_SKILLS.toolRange,'nobi-collar':NOBI_SKILLS.legendRange}[type]||CHARACTER_SKILLS.castDistance;}
 function thrownSkillHeight(type){return type==='nope-flash'||type==='echo-glint'?1.6:type==='mend-pollen'?1.7:type==='frost-mist'?FROST_SKILLS.mistCenterOffset:type==='duelist-comet'?.2:.12;}
 function getManualThrowTarget(actor,type,aim){
  const input=netInputs.get(actor.remoteId)?.input,yaw=aim?.yaw??(actor===player?player.yaw:input?.yaw??actor.yaw??0),pitch=aim?.pitch??(actor===player?player.pitch:input?.pitch??0);
@@ -2630,7 +2643,7 @@ function getSkillTarget(actor,type,point=null,aim=null){
   if(type==='frost-unravel')return actorGrounded(actor)?{x:actor.x,y:actor.y||0,z:actor.z}:null;
   if(type==='ember-shade'||type==='ember-service')return{x:actor.x,y:actor.y||0,z:actor.z,...(type==='ember-service'?{weaponId:actorWeaponId(actor)}:{})};
   if(type==='echo-kerning')return{x:actor.x,y:actor.y||0,z:actor.z};
-  if(type.startsWith('veil-')&&type!=='veil-root-seed'){
+  if(type.startsWith('veil-')&&!['veil-root-seed','veil-sensor'].includes(type)){
     if(!actorGrounded(actor))return null;
     if(type==='veil-roots')return getRootsTarget(actor,point,aim);
     if(type==='veil-dust'&&point){const floor=veilSmokeFloor(point);return floor===null?null:{x:point.x,y:floor+VEIL_SKILLS.dustCenterOffset,z:point.z};}
@@ -2645,7 +2658,7 @@ function getSkillTarget(actor,type,point=null,aim=null){
   // Check the same arc that will be drawn, including ceilings and stair landings.
   for(let step=Math.max(1,Math.ceil(length/.4));step>=0;step--){
     const ratio=step/Math.max(1,Math.ceil(length/.4)),x=actor.x+dx*ratio,z=actor.z+dz*ratio;
-    const floor=getZoneFloor(x,z,eye),y=floor+(type==='nope-flash'||type==='echo-glint'?1.6:type==='mend-pollen'?1.7:type==='frost-mist'?FROST_SKILLS.mistCenterOffset:type==='frost-stitch'?FROST_SKILLS.stitchGroundOffset:(nobiRange||['nope-bottle','mend-seeds','echo-tag','ember-solder','veil-root-seed'].includes(type))?.12:0);
+    const floor=getZoneFloor(x,z,eye),y=floor+(type==='nope-flash'||type==='echo-glint'?1.6:type==='mend-pollen'?1.7:type==='frost-mist'?FROST_SKILLS.mistCenterOffset:type==='frost-stitch'?FROST_SKILLS.stitchGroundOffset:(nobiRange||['nope-bottle','mend-seeds','echo-tag','ember-solder','veil-root-seed','veil-sensor'].includes(type))?.12:0);
     if(!canStand(x,z,.12,floor))continue;
     if(type.startsWith('frost-')&&(ordinaryGroundHeight(x,z,floor)===null||!map.collision.rayClear(actor.x,eye,actor.z,x,floor+.12,z)))continue;
     if(type==='nope-decoy'){
@@ -2697,7 +2710,7 @@ function applyAbility(actor,key,{predict=false,zonePoint=null,zonePoints=null,ai
   const targets=veilBatch?zonePoints.map(p=>getSkillTarget(actor,definition.type,p,aim)):null;
   if(veilBatch&&targets.some(p=>!p))return;
   const target=veilBatch?targets[0]:healing?{x:healTarget.x,y:healTarget.y||0,z:healTarget.z,targetId:healTarget.id}:ordinary?getSkillTarget(actor,definition.type,zonePoint,aim):null;
-  if(ordinary&&!target){if(actor===player&&(definition.type.startsWith('veil-')||definition.type.startsWith('frost-')))showMessage(`${definition.name} / 床を確認`,definition.type==='veil-root-seed'?'見える床を狙ってください':definition.type==='veil-roots'?'根を伸ばせる床が必要です':definition.type==='frost-unravel'?'着地してから使ってください':definition.type.startsWith('frost-')?'見える床を狙ってください':'着地してから使ってください',1.5);return;}
+  if(ordinary&&!target){if(actor===player&&(definition.type.startsWith('veil-')||definition.type.startsWith('frost-')))showMessage(`${definition.name} / 床を確認`,['veil-root-seed','veil-sensor'].includes(definition.type)?'見える床を狙ってください':definition.type==='veil-roots'?'根を伸ばせる床が必要です':definition.type==='frost-unravel'?'着地してから使ってください':definition.type.startsWith('frost-')?'見える床を狙ってください':'着地してから使ってください',1.5);return;}
   const veilDome=actor.kit.character==='veil'&&String(key).toLowerCase()==='x';
   const domeFloor=veilDome&&zonePoint?veilSmokeFloor(zonePoint):null;
   if(veilDome&&zonePoint&&domeFloor===null)return;
@@ -2735,7 +2748,7 @@ function applyAbility(actor,key,{predict=false,zonePoint=null,zonePoints=null,ai
   if(['ember','frost'].includes(effect.type)&&!predict)zoneAbilities.cast(effect.type,actor,getZoneTarget(actor,zonePoint,aim),elapsed,match.round);
   if(effect.type==='dash'){let dx=-Math.sin(yaw),dz=-Math.cos(yaw);if(actor===player){const side=(keys.has('KeyD')?1:0)-(keys.has('KeyA')?1:0),forward=(keys.has('KeyW')?1:0)-(keys.has('KeyS')?1:0);if(side||forward){dx=-Math.sin(yaw)*forward+Math.cos(yaw)*side;dz=-Math.cos(yaw)*forward-Math.sin(yaw)*side;}}const len=Math.hypot(dx,dz)||1;actor.dashVec={x:dx/len,z:dz/len};actor.dashTimer=effect.duration;}
   if(effect.type==='knives'){if(actor===player){ammoStore[inventory.active]={ammo:player.ammo,reserve:player.reserve};equip('knife',true);}else{actor.netStores||={};actor.netStores[actor.netWeapon]={ammo:actor.netAmmo,reserve:actor.netReserve};actor.netWeapon='knife';}}
-  if(ordinary){if((!effect.type.startsWith('veil-')||effect.type==='veil-root-seed')&&!['mend-heal','nope-decoy','echo-kerning','ember-shade','ember-service','frost-unravel','duelist-lift','duck-hush'].includes(effect.type))sound('skill-throw',{entity:actor,localOnly:true});}
+  if(ordinary){if((!effect.type.startsWith('veil-')||['veil-root-seed','veil-sensor'].includes(effect.type))&&!['mend-heal','nope-decoy','echo-kerning','ember-shade','ember-service','frost-unravel','duelist-lift','duck-hush'].includes(effect.type))sound('skill-throw',{entity:actor,localOnly:true});}
   else if(effect.type!=='nope')sound({mend:'heal',recon:'recon',veil:'veil',ember:'ember-warning'}[effect.type]||effect.type,{entity:actor});
   if(actor===player)showSkillMessage(actor.kit.character,key,effect.type);
 
@@ -3128,7 +3141,7 @@ function updateBots(dt){
     if(search||heard)goal=search||heard;
     // A tag is a short-lived, frozen contact. It can guide investigation, never
     // supply a live actor reference or bypass the BOT's visible-target checks.
-    const tagContact=!enemy?ordinarySkills.markers(bot.team,elapsed).filter(point=>distance(bot,point)<24).sort((a,b)=>b.detectedAt-a.detectedAt||a.eventId.localeCompare(b.eventId))[0]:null;
+    const tagContact=!enemy?[...ordinarySkills.markers(bot.team,elapsed),...ordinarySkills.rootTracks(bot.team,elapsed).filter(p=>rootPointVisible(bot,p)).map(p=>({...p,detectedAt:p.at}))].filter(point=>distance(bot,point)<24).sort((a,b)=>b.detectedAt-a.detectedAt||a.eventId.localeCompare(b.eventId))[0]:null;
     if(tagContact&&!role?.urgent&&ordinarySkills.blindUntil(bot.id,elapsed)<=elapsed)goal=tagContact;
     // Mistake a visible fake for a threat once per ID, including during a
     // distant duel. Never publish it as a real sighting or abandon urgent work.
@@ -3254,13 +3267,13 @@ function updateBots(dt){
         const dist=distance(bot,known),aim={yaw:Math.atan2(bot.x-known.x,bot.z-known.z),pitch:0};
         if(dist>3&&dist<18&&bot.kit.smoke>0&&(bot.hp<65||role?.urgent)&&!activeOrdinarySmokeFields().some(event=>event.team===bot.team&&distance(event,bot)<event.radius))cast=activateAbility(bot,'c',{aim});
         else if(dist>=VEIL_SKILLS.rootsMinRange&&dist<=VEIL_SKILLS.rootsThrowRange&&bot.kit.updraft>0){
-          const point={x:known.x,y:known.y??bot.y??0,z:known.z},target=getSkillTarget(bot,'veil-root-seed',point,aim);
+          const point={x:known.x,y:known.y??bot.y??0,z:known.z},target=getSkillTarget(bot,'veil-sensor',point,aim);
           // A visible pose may be airborne; lost sight uses only its fixed
           // remembered location, conservatively assuming our current floor.
           const pose=enemy?ordinaryActorView(enemy):{...point,id:known.id,team:known.team,alive:true,hp:100,grounded:true};
-          const roots=target&&{type:'veil-root-seed',team:bot.team,fromX:bot.x,fromY:bot.y+1.7,fromZ:bot.z,...target,radius:VEIL_SKILLS.rootsThrowWidth/2};
+          const roots=target&&{type:'veil-sensor',team:bot.team,fromX:bot.x,fromY:bot.y+1.7,fromZ:bot.z,...target,radius:ROOT_SENSOR.radius};
           const queries={reachable:ordinaryReachable,groundHeight:ordinaryGroundHeight};
-          if(roots&&ordinarySkills.wouldRoot(pose,roots,queries)&&!ordinarySkills.events(elapsed).some(event=>event.team===bot.team&&ordinarySkills.wouldRoot(pose,event,queries)))cast=activateAbility(bot,'q',{zonePoint:point,aim});
+          if(roots&&ordinarySkills.wouldRoot(pose,roots,queries)&&!ordinarySkills.events(elapsed).some(event=>event.team===bot.team&&ordinarySkills.wouldRoot(pose,event,queries)&&(event.type!=='veil-sensor'||elapsed<event.triggerAt+ROOT_SENSOR.duration)))cast=activateAbility(bot,'q',{zonePoint:point,aim});
         }
       }
       if(!cast&&!enemy&&goal&&distance(bot,goal)>9&&bot.kit.dash>0)cast=activateAbility(bot,'e');
@@ -4057,7 +4070,7 @@ if(map.destruction){if(fresh||!packet.busDamage)map.destruction.reset();map.dest
   player.id=ownId;player.team=self.team;player.hp=self.hp;player.armor=self.armor;player.alive=self.alive;
   if(fresh||self.alive)deathView.reset();
   else if(wasAlive)beginDeathView();
-  if(fresh)for(const marker of ordinarySkills.markers(player.team,elapsed))ordinaryMarkerAudio.add(marker.eventId);
+  if(fresh){for(const marker of ordinarySkills.markers(player.team,elapsed))ordinaryMarkerAudio.add(marker.eventId);for(const r of ordinarySkills.rootTracks(player.team,elapsed))rootEntryAudio.add(r.key);}
   if(!fresh&&previousSpikeStatus!==match.spike.status){
     if(match.spike.status==='planted'){if(previousSpikeCarrier===ownId)interactionHeld=false;sound('plant',{entity:match.spike,localOnly:true});lastSpikeBeep=0;}
     if(match.spike.status==='defused')sound('defuse',{entity:match.spike,localOnly:true});

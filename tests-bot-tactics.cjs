@@ -13,6 +13,7 @@ async function main(){
     {id:'B',x:22,z:-12,radius:7,plantPositions:[{id:'B-cover',x:24,z:-11,style:'cover'},{id:'B-open',x:20,z:-14,style:'open'}]}];
   const makeMap=(colliders=[])=>({sites,colliders,collision:createCollisionIndex(colliders),bounds:{minX:-42,maxX:42,minZ:-42,maxZ:42},
     teamSpawns:{attack:[{x:0,z:30}],defend:[{x:0,z:-30}]},lanes:[]});
+  const {ROOT_SENSOR}=await load('root-sensor.js');
   const makeTactics=map=>createBotTactics({sites:map.sites,navigation:createNavigation(map),collision:map.collision});
   const actor=(id,team,x,z,index=0)=>({id,team,x,z,y:0,vy:0,index,hp:100,alive:true,path:[],pathTime:0,group:new THREE.Group(),muzzle:{visible:false},visual:{update(){}},fire:100});
   const matchState={attackerTeam:'blue',defenderTeam:'red',remaining:100,now:0};
@@ -97,9 +98,9 @@ async function main(){
   const targetSource=[['function getZoneFloor(', 'function ordinaryGroundHeight('],['function getZoneTarget(', 'function getZonePreview('],['function thrownSkillRange(', 'function activateAbility('],['function canStand(', 'function rampFloor(']].map(([a,b])=>source.slice(source.indexOf(a),source.indexOf(b))).join('\n');
   assert.ok(updateSource.length>5000);
   function integration({map=makeMap(),player=actor('player','blue',0,0),bots=[],match=new MatchRules(),random=.99,ordinarySkills={interceptShield:()=>null,quiet:()=>false,sealUntil:()=>0,blindUntil:()=>0,events:()=>[],markers:()=>[]}}={}){
-    match.startLive();let bulletHits=0,shots=0;const casts=[],traces=[];ordinarySkills={onnaraEvent:()=>null,capMagazine:()=>false,urchinJammed:()=>false,urchinTrident:()=>false,interceptShield:()=>null,quiet:()=>false,sealUntil:()=>0,cancelService(){},carGyro:()=>false,speedScale:()=>1,wouldRoot:createCharacterSkills().wouldRoot,wouldSeed:createCharacterSkills().wouldSeed,wouldTag:createCharacterSkills().wouldTag,wouldStitch:createCharacterSkills().wouldStitch,...ordinarySkills};
+    match.startLive();let bulletHits=0,shots=0;const casts=[],traces=[];ordinarySkills={rootTracks:()=>[],onnaraEvent:()=>null,capMagazine:()=>false,urchinJammed:()=>false,urchinTrident:()=>false,interceptShield:()=>null,quiet:()=>false,sealUntil:()=>0,cancelService(){},carGyro:()=>false,speedScale:()=>1,wouldRoot:createCharacterSkills().wouldRoot,wouldSeed:createCharacterSkills().wouldSeed,wouldTag:createCharacterSkills().wouldTag,wouldStitch:createCharacterSkills().wouldStitch,...ordinarySkills};
     const math=Object.create(Math);math.random=typeof random==='function'?random:()=>random;
-    const sandbox={...throwDependencies,...capDependencies,...grassDependencies,renkoFlightVelocity,starHold:createStarHold(),busSeat:()=>null,busSurfaceVisible:()=>true,applyStarHold:()=>false,crownShot:()=>{},activateCapAbility:()=>null,activateJapanAbility:()=>null,nobiBulletDamage:(_s,_t,d)=>d,THREE,WEAPONS,skillProjectilePosition,activeArenaBounds:()=>map.bounds,DUELIST_SKILLS,NOBI_SKILLS,MEND_SKILLS,CHARACTER_SKILLS,NOPE_SKILLS,IAGNU_SKILLS,VEIL_SKILLS,EMBER_SKILLS,FROST_SKILLS,RENKO_SKILLS,...areas,createBotTactics,inVisionCone,createBotHearing,map,navigation:createNavigation(map),player,bots,match,elapsed:0,inventory:{active:'classic'},reloading:0,
+    const sandbox={...throwDependencies,...capDependencies,...grassDependencies,renkoFlightVelocity,starHold:createStarHold(),busSeat:()=>null,busSurfaceVisible:()=>true,applyStarHold:()=>false,crownShot:()=>{},activateCapAbility:()=>null,activateJapanAbility:()=>null,nobiBulletDamage:(_s,_t,d)=>d,THREE,WEAPONS,skillProjectilePosition,activeArenaBounds:()=>map.bounds,DUELIST_SKILLS,NOBI_SKILLS,MEND_SKILLS,CHARACTER_SKILLS,ROOT_SENSOR,NOPE_SKILLS,IAGNU_SKILLS,VEIL_SKILLS,EMBER_SKILLS,FROST_SKILLS,RENKO_SKILLS,...areas,createBotTactics,inVisionCone,createBotHearing,map,navigation:createNavigation(map),player,bots,match,elapsed:0,inventory:{active:'classic'},reloading:0,
       levels:Function(source.match(/const levels = (.*);/)[0]+'return levels;')(),difficulty:'hard',Math:math,clamp:(v,a,b)=>Math.max(a,Math.min(b,v)),
       isGuest:()=>false,botHearing:createBotHearing(),ordinarySkills,zoneAbilities:{speedMultiplier:()=>1},actorSpeedScale:()=>1,frostSlideSpeed:()=>0,agentEquipment:()=>({}),selectMendTarget,activePollenFields:()=>[],
       ordinaryActorView:value=>({...value,grounded:sandbox.actorGrounded(value)}),ordinaryGroundHeight:()=>0,rampFloor:()=>null,netInputs:new Map(),
@@ -110,7 +111,7 @@ async function main(){
       mendReachable:(a,b)=>a===b||map.collision.rayClear(a.x,(a.y||0)+1.45,a.z,b.x,(b.y||0)+1.45,b.z),
       activateAbility(actor,key,options){const effect=actor.kit.activate(key,sandbox.elapsed);if(!effect)return;casts.push({actorId:actor.id,key,effect,options});if(effect.type==='mend-heal'){const selected=selectMendTarget(actor,[player,...bots],sandbox.mendReachable),target=[player,...bots].find(value=>value.id===selected?.id);if(target)target.hp=Math.min(100,target.hp+effect.healing);}if(effect.type==='ember-service')sandbox.beginServiceReload(actor,{id:'bot-service-'+casts.length,weaponId:sandbox.actorWeaponId(actor),endsAt:sandbox.elapsed+EMBER_SKILLS.serviceDuration});return effect;},
       damageEntity(target,damage){bulletHits++;target.hp-=damage;if(target.hp<=0){target.alive=false;match.dropSpike(target.id,target.x,target.z);}},
-      visibleBetween:(a,b)=>map.collision.rayClear(a.x,(a.y||0)+1.45,a.z,b.x,(b.y||0)+1.45,b.z),
+      rootPointVisible:(a,b)=>map.collision.rayClear(a.x,(a.y||0)+1.45,a.z,b.x,(b.y||0)+.08,b.z),visibleBetween:(a,b)=>map.collision.rayClear(a.x,(a.y||0)+1.45,a.z,b.x,(b.y||0)+1.45,b.z),
       moveEntity(entity,dx,dz,r){const x=entity.x+dx,z=entity.z+dz;if(!map.collision.blocked(x,entity.z,r,0))entity.x=x;if(!map.collision.blocked(entity.x,z,r,0))entity.z=z;},
       urchinTridentShot:()=>[],direction:new THREE.Vector3(),raycaster:{set(){},intersectObject:()=>[],far:190},environment:new THREE.Group()};
     vm.createContext(sandbox);vm.runInContext(`${grassSource}\n${source.slice(source.indexOf('function carMotionActive('),source.indexOf('function beginCarMotion('))}\n${renkoVerticalSource}\n${source.slice(source.indexOf('function duckFlight('),source.indexOf('function duckFlap('))}\n${source.slice(source.indexOf('function actorBodyHeight('),source.indexOf('function canStand('))}\n${serviceSource}\n${verticalSource}\n${rootsSource}\n${targetSource}\n${airAimSource}\n${updateSource}`,sandbox);
@@ -172,7 +173,7 @@ async function main(){
   assert.equal(pollenGame.casts[0]?.effect.type,'mend-pollen');assert.equal(pollenMedic.kit.updraft,0,'A wounded BOT without seeds or a ready heal may use one defensive pollen cover');
   console.log('PASS: real MEND BOT safe ordinary heal before ultimate,18s cooldown/wall rejection, finite seed attack and defensive pollen choice');
 
-  for(const [key,type]of [['c','veil-dust'],['q','veil-root-seed'],['e','veil-turf']]){
+  for(const [key,type]of [['c','veil-dust'],['q','veil-sensor'],['e','veil-turf']]){
     const grass=actor(`red-grass-${key}`,'red',0,0),visible=actor('player','blue',0,key==='q'?6:12);
     grass.kit=new DuelistKit({character:'veil'});grass.kit.smoke=key==='c'?1:0;grass.kit.updraft=key==='q'?1:0;grass.kit.dash=key==='e'?1:0;grass.hp=key==='c'?50:100;
     if(key==='e')visible.z=-35;

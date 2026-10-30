@@ -11,7 +11,7 @@ export const PREPARED_SKILL_PROPS=Object.freeze(Object.fromEntries([
  ['nobi-toolbox','#ff934a','toolbox'],['nobi-collar','#c09aff','collar'],
  ['onnara-orb','#64ffe0','gem'],['urchin-gloom','#467fff','wave'],
  ['duck-pad','#bcf34d','ball'],['duck-shield','#ffcb49','ball'],
- ['japan-border','#ff6388','ball'],['veil-root-seed','#8acb5a','ball'],
+ ['japan-border','#ff6388','ball'],['veil-sensor','#8acb5a','ball'],['veil-root-seed','#8acb5a','ball'],
 ].map(([type,color,shape])=>[type,Object.freeze({color,shape})])));
 export function preparedSkillType(character,key){const type=character==='cap'&&key==='x'?'cap-magazine-grenade':character==='nobi'&&key==='x'?'nobi-collar':getCharacterSkill(character,key)?.type;return Object.hasOwn(PREPARED_SKILL_PROPS,type)?type:null;}
 const caches=new WeakMap();
