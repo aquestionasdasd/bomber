@@ -417,7 +417,7 @@ async function main() {
       teamAbilities.update(actors, now, 1);
       for (let i = 0; i < 20; i++) { const actor = actors[i % 10]; zoneAbilities.cast(i % 2 ? 'ember' : 'frost', actor, { x: actor.x, y: 0, z: actor.z }, now, 1); }
       for (let i = 0; i < 20; i++) ordinarySkills.cast(i % 2 ? 'nope-bottle' : 'nope-flash', player,
-        { x: .123456789012345, y: 1.7, z: -5.23456789012345 }, now - .5, 1);
+        { x: .123456789012345, y: 1.7, z: -5.23456789012345 }, now - 1.05, 1);
       const blindRecipients = Array.from({ length: 20 }, (_, i) => ({ ...player, id: `ordinary-recipient-${String(i).padStart(2, '0')}`, team: 'red', yaw: 0 }));
       ordinarySkills.update(blindRecipients, now, 1, { reachable: () => true });
       const heldBlinds = ordinarySkills.snapshot().blinds.map(blind => ({ ...blind, resisted: true, endsAt: blind.startedAt + NOPE_SKILLS.flashDuration * EMBER_SKILLS.shadeFlashScale }));
