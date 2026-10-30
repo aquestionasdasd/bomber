@@ -20,6 +20,17 @@ const suite=String.raw`
  });
  function setup(h){h.reset();h.clearWalls();h.run("mode='play';match.phase='live';makeBot({x:70,z:70},0,'red',{id:'passive',team:'red',secondary:'classic'});bots[0].remoteId='passive';player.x=0;player.z=0;player.yaw=0;nopeDecoyTownCandidates=null;");}
  function step(h,seconds,hz){h.sandbox.seconds=seconds;h.sandbox.hz=hz;h.run('for(let t=0;t<seconds-1e-8;t+=1/hz)updatePlay(Math.min(1/hz,seconds-t))');}
+ check('viewer-relative colors in actual E/X render, opposing local team and dead-player spectator',()=>{
+   const h=harness();setup(h);h.run("player.team='blue';player.kit.ultPoints=7;activateAbility(player,'x');activateAbility(player,'e')");assert.ok(h.seed('red',6,-5));
+   const colors=()=>json(h.run("(()=>{renderOrdinarySkills();return Object.fromEntries(nopeDecoyFX.group.children.filter(m=>/team (red|blue)$/.test(m.name)).map(m=>[m.name.split(' ').at(-1),m.count]));})()"));
+   const original=json(h.run('allNopeDecoys()'));assert.equal(original.length,32);
+   assert.deepEqual(colors(),{blue:31,red:1});
+   h.run("player.team='red'");assert.deepEqual(colors(),{blue:1,red:31});
+   h.run("player.alive=false;bots[0].team='blue';spectatedBot=bots[0]");assert.deepEqual(colors(),{blue:31,red:1});
+   h.run("bots[0].team='red'");assert.deepEqual(colors(),{blue:1,red:31});
+   assert.deepEqual(json(h.run('allNopeDecoys()')),original,'Presentation never changes logical ownership or movement');
+   h.run('resetOrdinarySkills();resetTakeover()');assert.deepEqual(colors(),{blue:0,red:0});
+ });
  check('actual saved game full frames produce90 plus E, one7pt spend, no ordinary-event growth or elapsed/pause timer replay',()=>{
    for(const hz of[20,60,144]){const h=harness();setup(h);h.run("player.kit.ultPoints=7;activateAbility(player,'x');activateAbility(player,'e')");assert.equal(h.run('allNopeDecoys().length'),31);assert.equal(h.run('takeoverState.endsAt-takeoverState.startedAt'),22);assert.equal(h.run('player.kit.ultPoints'),0);step(h,10.1,hz);assert.equal(h.run('allNopeDecoys().length'),91);assert.equal(h.run('ordinarySkills.events(elapsed).length'),1);h.run('resetOrdinarySkills();resetTakeover()');assert.equal(h.run('allNopeDecoys().length'),0);step(h,6,hz);assert.equal(h.run('allNopeDecoys().length'),0);}
  });
@@ -42,7 +53,7 @@ const suite=String.raw`
  check('actual Hashimoto, Hirakata and TRC X casts choose30 real supported routes and retain90 bodies at the third wave',()=>{
    for(const id of['hashimoto','hirakata','trc']){const h=harness({realMap:true});h.sandbox.mapId=id;h.run("$('map-select').value=mapId");h.reset();h.run("mode='play';match.phase='live';Object.assign(player,map.teamSpawns.attack[0]);player.y=0;player.kit.ultPoints=7;activateAbility(player,'x')");assert.equal(h.run('allNopeDecoys().length'),30,id);const points=h.run('nopeDecoys.snapshot().points');for(const p of points)assert.ok(h.run('canStand('+p[0]/100+','+p[2]/100+',.34,'+p[1]/100+',1.95)'),id+' supported');h.run('elapsed+=10.1');assert.equal(h.run('allNopeDecoys().length'),90,id+' third wave');if(id==='trc')assert.equal(h.run('stationTakeover.group.userData.map'),'trc');}
  });
- console.log('NOPE waves passed:'+groups+' groups; actual frames20/60/144Hz; independent JSON; actual3-map geometry; inert audio.');
+ console.log('NOPE waves passed:'+groups+' groups; inert audio.');
 }
 main().catch(e=>{console.error(e);process.exitCode=1;});
 `;

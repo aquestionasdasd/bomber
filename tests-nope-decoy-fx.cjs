@@ -21,6 +21,25 @@ async function main(){
   const assertCap=fx=>{fx.update(Array.from({length:120},(_,i)=>event(i+1,{team:i%2?'blue':'red'})),1);assert.equal(fx.group.userData.activeEvents,110);assert.equal(meshes(fx).find(mesh=>mesh.name==='NOPE decoy / cloth').count,110);};
   const assertFeet=fx=>{fx.update([event()],1);const mesh=meshes(fx).find(mesh=>mesh.name==='NOPE decoy / rubber legR'),world=mesh.geometry.boundingBox.clone().applyMatrix4(pose(mesh).matrix);close(world.min.y,0);};
   const assertNonhit=fx=>{fx.update([event()],1);fx.group.updateMatrixWorld(true);const ray=new THREE.Raycaster(new THREE.Vector3(0,1.62,2),new THREE.Vector3(0,0,-1));assert.equal(ray.intersectObject(fx.group,true).length,0);};
+  const assertViewerColors=fx=>{
+    const data=Object.freeze([Object.freeze(event(1,{team:'blue',x:3})),Object.freeze(event(2,{team:'red',x:9}))]);
+    const blue=meshes(fx).find(mesh=>mesh.name.endsWith('team blue')),red=meshes(fx).find(mesh=>mesh.name.endsWith('team red'));
+    for(const team of ['blue','red','blue']){
+      fx.update(data,1,{viewer:{team}});assert.equal(blue.count,1);assert.equal(red.count,1);
+      assert.equal(pose(blue).position.x,team==='blue'?3:9,'Friendly decoy uses blue');
+      assert.equal(pose(red).position.x,team==='blue'?9:3,'Hostile decoy uses red');
+    }
+    for(const viewer of [null,{}, {team:'spectator'}]){
+      fx.update(data,1,{viewer});assert.equal(pose(blue).position.x,3);assert.equal(pose(red).position.x,9);
+    }
+  };
+
+  await test('viewer team makes enemies red and allies blue, including a changed viewer, without changing events or shared assets',()=>{
+    const fx=createNopeDecoyFX(THREE),assets=resources(fx),buffers=meshes(fx).map(mesh=>mesh.instanceMatrix.array.buffer),colors=meshes(fx).map(mesh=>mesh.material.color.getHex());
+    assertViewerColors(fx);assert.deepEqual(resources(fx),assets);assert.equal(meshes(fx).length,13);
+    meshes(fx).forEach((mesh,i)=>{assert.equal(mesh.instanceMatrix.array.buffer,buffers[i]);assert.equal(mesh.material.color.getHex(),colors[i]);});
+    fx.dispose();
+  });
 
   await test('the real curved NOPE expression and rounded body form a planted1.95m full mascot in twelve batches',()=>{
     const fx=createNopeDecoyFX(THREE),asset=acquireNopeDecoyAsset(THREE),face=createNopeFaceModel(THREE);fx.update([event()],1);
@@ -101,9 +120,9 @@ async function main(){
     assert.ok(agent.group.getObjectByName('NOPE avatar / painted smile mascot').visible);agent.dispose();
   });
 
-  await test('negative controls detect a30cap, floating face-height placement and accidentally enabled mesh raycasts',async()=>{
+  await test('negative controls detect absolute team colors, a30cap, floating face-height placement and enabled mesh raycasts',async()=>{
     const file=path.join(__dirname,'public','nope-decoy-fx.js'),source=fs.readFileSync(file,'utf8'),assetURL=pathToFileURL(path.join(__dirname,'public','nope-avatar.js')).href;
-    const mutations=[['MAX_DECOYS=110','MAX_DECOYS=30',assertCap],['transform.position.set(event.x,event.y,event.z)','transform.position.set(event.x,event.y+1.4,event.z)',assertFeet],['mesh.raycast=()=>{};','',assertNonhit]];
+    const mutations=[['team!==displayTeam','team!==event.team',assertViewerColors],['MAX_DECOYS=110','MAX_DECOYS=30',assertCap],['transform.position.set(event.x,event.y,event.z)','transform.position.set(event.x,event.y+1.4,event.z)',assertFeet],['mesh.raycast=()=>{};','',assertNonhit]];
     for(const [from,to,check]of mutations){assert.ok(source.includes(from));const code=source.replace(from,to).replace("'./nope-avatar.js'",JSON.stringify(assetURL));const module=await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`),fx=module.createNopeDecoyFX(THREE);try{assert.throws(()=>check(fx),assert.AssertionError,`Mutation ${from} must be rejected`);}finally{fx.dispose();}}
   });
 
