@@ -202,3 +202,7 @@
 .career-wallet>div{display:grid;gap:1px}.career-wallet-label{font-size:9px;font-weight:700;letter-spacing:1px;color:#d3bc8d}.career-wallet strong{font-size:20px;line-height:1.05;letter-spacing:1px;white-space:nowrap}
 @media(max-width:1100px){.menu-topbar .build-label{display:none}}
 @media(max-width:600px){.menu-topbar{height:auto;flex-wrap:wrap}.menu-topbar .menu-tools{margin-left:auto}.career-wallet{min-width:96px;padding:5px 8px;gap:7px;margin-right:2px}.career-wallet strong{font-size:17px}.career-coin-icon{width:24px;height:24px;font-size:9px}}
+
+/* 三叉潮: local duration/mode only, no enemy count or location. */
+#trident-hud{position:absolute;left:50%;bottom:160px;transform:translateX(-50%);padding:7px 16px;border:1px solid #70d8ec;border-radius:5px;color:#d7fbff;background:#092f43e8;font-size:14px;font-weight:700;pointer-events:none;letter-spacing:.08em}
+#trident-hud.mode-change{animation:trident-mode .22s ease-out}#trident-hud.ending{animation:trident-end 1s ease-in-out infinite}@keyframes trident-mode{from{transform:translateX(-50%) scale(1.12)}to{transform:translateX(-50%) scale(1)}}@keyframes trident-end{50%{opacity:.45}}@media(prefers-reduced-motion:reduce){#trident-hud.mode-change,#trident-hud.ending{animation:none}}
