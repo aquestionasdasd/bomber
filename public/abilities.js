@@ -51,7 +51,7 @@ export const MEND_SKILLS = Object.freeze({ seedsFlight: .65, seedsRadius: 4.5, s
 export const IAGNU_SKILLS = Object.freeze({ tagFlight: .55, tagArmDelay: .5, tagDuration: 12, tagRadius: 4.5, tagRange: 18,
   tagRevealDuration: 2.5, tagGroundOffset: .12, glintFlight: .5, glintRadius: 10, glintDuration: 2, glintEyeOffset: 1.6,
   kerningDuration: 4, kerningSpeedScale: 1.35, signatureCooldown: 18 });
-export const VEIL_SKILLS = Object.freeze({ dustMax: 3, mapFloorHeight: 6, dustArmDelay: .2, dustRadius: 3.5, dustDuration: 7, dustCenterOffset: 1.25,
+export const VEIL_SKILLS = Object.freeze({ dustMax: 3, mapFloorHeight: 6, dustArmDelay: .2, dustRadius: 3.5, dustDuration: 13, dustCenterOffset: 1.25,
   rootsRange: 10, rootsMinRange: .5, rootsWidth: 3.2, rootsThrowRange:20, rootsThrowWidth:6.4, rootsThrowLength:10, rootsThrowFlight:.6, rootsGroundOffset:.12, rootsArmDelay: .25, rootsDuration: 8, rootsSpeedScale: .45, rootsHeightTolerance: .45,
   turfDuration: 3, turfSpeedScale: 1.5, signatureCooldown: 15, decoyWalkSpeed: 3, decoyWalkRange: 36 });
 // Shared landing strip for physics, BOT forecasts and the visible roots.

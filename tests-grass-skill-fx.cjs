@@ -18,12 +18,12 @@ async function main(){
   const snapshot=fx=>fx.group.children.map(mesh=>({count:mesh.count,matrix:Array.from(mesh.instanceMatrix.array.slice(0,mesh.count*16)),color:Array.from(mesh.instanceColor.array.slice(0,mesh.count*3))}));
   let passed=0;const test=(name,fn)=>{fn();passed++;console.log(`PASS: ${name}`);};
 
-  test('real cast dust is a fixed opaque radius3.5 sphere from .2 through7.2s, including raised floors',()=>{
+  test('real cast dust is a fixed opaque radius3.5 sphere from .2 through13.2s, including raised floors',()=>{
     const camera=new THREE.PerspectiveCamera(),fx=createGrassSkillFX(THREE,camera),data=events(3.2);assert.ok(data.every(Boolean));const dust=pool(fx,'fixed opaque');
     fx.update([data[0]],.199);assert.equal(fx.group.visible,false);
-    for(const now of [.2,.3,1,7.199999]){fx.update([data[0]],now);assert.equal(dust.count,1);const actual=pose(dust);close(actual.p.x,0);close(actual.p.y,4.45);close(actual.p.z,0);assert.deepEqual(actual.s.toArray(),[3.5,3.5,3.5]);}
+    for(const now of [.2,.3,1,7.2,13.199999]){fx.update([data[0]],now);assert.equal(dust.count,1);const actual=pose(dust);close(actual.p.x,0);close(actual.p.y,4.45);close(actual.p.z,0);assert.deepEqual(actual.s.toArray(),[3.5,3.5,3.5]);}
     assert.equal(dust.material.transparent,false);assert.equal(dust.material.opacity,1);assert.equal(dust.material.depthWrite,true);assert.equal(dust.material.side,THREE.DoubleSide);
-    fx.update([data[0]],7.2);assert.equal(dust.count,0);assert.equal(fx.group.visible,false);fx.dispose();
+    fx.update([data[0]],13.2);assert.equal(dust.count,0);assert.equal(fx.group.visible,false);fx.dispose();
   });
 
   test('roots follow callback floor at+.085 with no visual support creation and exact arm/expiry',()=>{
