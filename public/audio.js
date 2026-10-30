@@ -1,5 +1,5 @@
 import { URCHIN_TIDE } from './urchin-tide.js';
-// Recorded skill/UI/TRC effects from Sound Effect Lab, OtoLogic and On-Jin plus user impacts. Owner Classic v2/Ghost/Spectre/Phantom v2/Vandal/Scout/Atlas WAVs and other collaborator weapon recordings; original step/landing graph is preserved. See audio/CREDITS.txt.
+// Recorded skill/UI/TRC effects from Sound Effect Lab, OtoLogic and On-Jin plus user impacts. Owner Classic v2/Ghost/Spectre/Phantom v2/Vandal/Scout/Atlas/Forge WAVs and other collaborator weapon recordings; original step/landing graph is preserved. See audio/CREDITS.txt.
 const layer=(file,gain=.15,length=.35,delay=0,rate=1,offset=0)=>Object.freeze({file,gain,length,delay,rate,...(offset?{offset}:{})});
 const cloth=(gain=.18,length=.28,delay=0)=>layer('lab-cloth.ogg',gain,length,delay);
 const air=(gain=.18,length=.28,delay=0)=>layer('onjin-dash.ogg',gain,length,delay);
@@ -14,7 +14,7 @@ export const SAMPLE_CUES=Object.freeze({
  'weapon-classic':[layer('gunsound_classic_v2.wav',0.34,1.2980725623582767)],'weapon-ghost':[layer('gunsound_ghost.wav',.21,0.42308390022675735)],
  'weapon-spectre':[layer('gunsound_spectre.wav',0.27,0.9807709750566893)],'weapon-phantom':[layer('gunsound_phantom_v2.wav',0.25,1.0769160997732425)],'weapon-vandal':[layer('gunsound_vandal.wav',.40,1.3413378684807256)],
  'weapon-knife':[layer('lab-knife-slash-1.ogg',.22,.36)],'weapon-pump':[layer('lab-handgun-firing1.ogg',.40,.42,0,.78)],'weapon-drum':[layer('lab-machinegun-firing1.ogg',.36,.12,0,.85)],
- 'weapon-scout':[layer('gunsound_scout.wav',0.36,1.5721088435374149)],'weapon-atlas':[layer('gunsound_atlas.wav',0.43,1.4663492063492063)],'weapon-forge':[layer('lab-machinegun-firing2.ogg',.31,.12,0,.8)],
+ 'weapon-scout':[layer('gunsound_scout.wav',0.36,1.5721088435374149)],'weapon-atlas':[layer('gunsound_atlas.wav',0.43,1.4663492063492063)],'weapon-forge':[layer('gunsound_forge.wav',0.31,1.3173015873015872)],
  // The punch's main transient is at 164ms; the old 120ms cut missed it.
  // Start at that impact, with a simultaneous short latch for a clear hit cue.
  'gun-hit':[layer('lab-punch-light1.ogg',.44,.055,0,1,.145),layer('onjin-latch.ogg',.30,.09,0,1.35)],

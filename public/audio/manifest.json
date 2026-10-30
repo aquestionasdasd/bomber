@@ -601,5 +601,24 @@
     "source": "Owner-supplied attachment explicitly requested as default victory BGM",
     "license": "User-provided; no CC0 or third-party license claim",
     "adopted_cycle": 222
+  },
+  {
+    "file": "gunsound_forge.wav",
+    "original": "gunsound_forge.wav",
+    "weapon": "forge",
+    "bytes": 232556,
+    "sha256": "9f119632869fe67a411d4d271a7259d407905a70f3a91d5a09cd7dc092271a9c",
+    "frames": 58093,
+    "seconds": 1.3173015873015872,
+    "format": "wav",
+    "channels": 2,
+    "sample_rate": 44100,
+    "bits_per_sample": 16,
+    "peak": 0.9749755859375,
+    "rms": 0.09052154748022953,
+    "pack": "user-provided",
+    "source": "Owner-supplied attachment explicitly requested as the Forge gunshot",
+    "license": "User-provided; no CC0 or third-party license claim",
+    "adopted_cycle": 225
   }
 ]
