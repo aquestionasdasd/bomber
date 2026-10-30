@@ -306,8 +306,9 @@
       <header><div><div class="dialog-eyebrow">TACTICAL OVERVIEW / 2 SITES · 3 ROUTES</div><h2 id="map-title">橋本駅前 / 戦術マップ</h2></div><button id="close-map" class="close-button" type="button" aria-label="マップを閉じる">× <kbd>M</kbd></button></header>
       <div id="veil-smoke-placement" class="veil-smoke-placement" hidden>
         <strong id="veil-smoke-title"></strong>
-        <p>左クリックで場所を選択 → 右クリックで設置 <span>Esc / M / 同じ技キーでキャンセル · 選択中も試合は進行</span></p>
-        <div class="veil-smoke-actions"><label>設置する床 <select id="veil-smoke-floor" aria-label="煙幕を設置する床の高さ" disabled></select></label><button id="veil-smoke-confirm" disabled>ここに設置</button><button id="veil-smoke-cancel">キャンセル</button></div>
+        <p id="veil-smoke-help">左クリックで場所を選択 → 右クリックで設置</p>
+        <div class="veil-smoke-actions"><label id="veil-smoke-multi">選択地点 <select id="veil-smoke-index" aria-label="編集する煙幕の地点"></select> <button id="veil-smoke-remove">この地点を削除</button></label><label>設置する床 <select id="veil-smoke-floor" aria-label="煙幕を設置する床の高さ" disabled></select></label><button id="veil-smoke-confirm" disabled>ここに設置</button><button id="veil-smoke-cancel">キャンセル</button></div>
+        <p>高い床を優先 · 地面から6m超の屋根は避ける（高さは変更可）<span>Esc / M / 同じ技キーでキャンセル · 選択中も試合は進行</span></p>
         <p id="veil-smoke-status" role="status" aria-live="polite"></p>
       </div>
       <div class="map-content">
