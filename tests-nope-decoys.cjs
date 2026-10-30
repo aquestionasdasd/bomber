@@ -20,7 +20,7 @@ async function main() {
     const events = engine.events(2), packet = engine.snapshot();
     assert.equal(events.length, 30); assert.equal(new Set(events.map(event => event.id)).size, 30);
     assert.deepEqual(Object.keys(packet).sort(), ['id', 'team', 'sourceId', 'round', 'startedAt', 'endsAt', 'points', 'shotMask'].sort());
-    assert.equal(packet.id, 'nope-wave-1-1'); assert.equal(packet.shotMask, 0); assert.equal(packet.points.length, 30);
+    assert.equal(packet.id, 'nope-wave-1-1'); assert.deepEqual(packet.shotMask, [0,0,0]); assert.equal(packet.points.length, 30);
     events.forEach((event, index) => {
       assert.deepEqual(Object.keys(event).sort(), eventFields); assert.equal(event.id, `nope-wave-1-1-${index + 1}`);
       assert.equal(event.type, 'nope-decoy'); assert.equal(event.sourceId, source.id); assert.equal(event.team, 'blue'); assert.equal(event.round, 1);
@@ -30,7 +30,7 @@ async function main() {
       assert.ok(packet.points[index].every(Number.isInteger));
     });
     positions[0].x = 900; events[0].x = 900; events.push({}); packet.points[0][0] = 90000; packet.shotMask = 1;
-    assert.equal(engine.events(2)[0].x, .12); assert.equal(engine.snapshot().shotMask, 0);
+    assert.equal(engine.events(2)[0].x, .12); assert.deepEqual(engine.snapshot().shotMask, [0,0,0]);
   });
 
   test('invalid living sources, clocks and rounds never replace an existing wave or consume sequence IDs', () => {
@@ -55,12 +55,12 @@ async function main() {
     const layered = points(); layered[29] = { ...layered[0], y: 3.21 }; assert.equal(engine.start(owner(), layered, 0, 1), true, 'The same XZ on a different floor is a distinct point');
   });
 
-  test('twelve-second expiry is absolute across frame cadences and a view clock cannot rewind it', () => {
+  test('three12-second cohorts and22-second expiry is absolute across frame cadences and a view clock cannot rewind it', () => {
     for (const hz of [20, 60, 144]) {
       const engine = createNopeDecoys(); engine.start(owner(), points(), .3, 1);
-      for (let frame = 0; frame < 12 * hz; frame++) assert.equal(engine.events(.3 + frame / hz).length, 30);
-      assert.equal(engine.events(12.299999).length, 30); assert.deepEqual(engine.events(12.3), []); assert.equal(engine.snapshot(), null);
-      assert.deepEqual(engine.events(.3), []); assert.equal(engine.consume('nope-wave-1-1-1', 'red', 12.3, 1), null);
+      for (let frame = 0; frame < 22 * hz; frame++) {const t=frame/hz;assert.equal(engine.events(.3 + t).length,(t<12?30:0)+(t>=5&&t<17?30:0)+(t>=10&&t<22?30:0));};
+      assert.equal(engine.events(22.299999).length, 30); assert.deepEqual(engine.events(22.3), []); assert.equal(engine.snapshot(), null);
+      assert.deepEqual(engine.events(.3), []); assert.equal(engine.consume('nope-wave-1-1-1', 'red', 22.3, 1), null);
     }
     const engine = createNopeDecoys(); engine.start(owner(), points(), 1, 1); const before = engine.snapshot();
     for (const now of [NaN, Infinity, -1, '2']) { assert.deepEqual(engine.events(now), []); assert.deepEqual(engine.snapshot(), before); }
@@ -71,15 +71,15 @@ async function main() {
     for (const [id, shooterTeam, now, round] of [[first.id, 'blue', 1, 1], [first.id, 'green', 1, 1], [first.id, null, 1, 1], [first.id, 'red', .999, 1], [first.id, 'red', 1, 2], [first.id, 'red', 1, '1'], ['unknown', 'red', 1, 1], [`${first.id}00`, 'red', 1, 1], ['nope-wave-1-1-01', 'red', 1, 1]]) assert.equal(engine.consume(id, shooterTeam, now, round), null);
     assert.deepEqual(engine.consume(first.id, 'red', 1, 1), first); assert.equal(engine.consume(first.id, 'red', 1, 1), null);
     const removed = engine.consume(last.id, 'red', 1, 1); assert.deepEqual(removed, last); removed.x = 900;
-    assert.equal(engine.snapshot().shotMask, 1 + 2 ** 29); assert.equal(engine.events(1).length, 28); assert.ok(engine.events(1).every(event => event.id !== first.id && event.id !== last.id));
-    assert.equal(engine.consume(events[1].id, 'red', 12, 1), null); assert.equal(engine.snapshot(), null);
+    assert.deepEqual(engine.snapshot().shotMask, [1 + 2 ** 29,0,0]); assert.equal(engine.events(1).length, 28); assert.ok(engine.events(1).every(event => event.id !== first.id && event.id !== last.id));
+    assert.equal(engine.consume(events[1].id, 'red', 12, 1), null); assert.equal(engine.events(12).length,60);engine.events(22);assert.equal(engine.snapshot(), null);
   });
 
   test('all thirty enemy hits set the full unsigned30-bit mask without extra effects or an ordinary-pool dependency', () => {
     const engine = createNopeDecoys(); engine.start(owner({ team: 'red' }), points(), 0, 1);
     const events = engine.events(0); for (const event of events) { assert.deepEqual(engine.consume(event.id, 'blue', 1, 1), event); assert.equal(engine.consume(event.id, 'blue', 1, 1), null); }
-    assert.equal(engine.snapshot().shotMask, 0x3fffffff); assert.deepEqual(engine.events(1), []);
-    assert.equal(engine.start(owner(), points(), 1, 1), true); assert.equal(engine.events(1).length, 30); assert.equal(engine.snapshot().shotMask, 0);
+    assert.deepEqual(engine.snapshot().shotMask, [0x3fffffff,0,0]); assert.deepEqual(engine.events(1), []);
+    assert.equal(engine.start(owner(), points(), 1, 1), true); assert.equal(engine.events(1).length, 30); assert.deepEqual(engine.snapshot().shotMask, [0,0,0]);
   });
 
   test('a newer same-time X replaces the global wave with unique IDs, fixed pose and no dependence on source death', () => {
@@ -96,7 +96,7 @@ async function main() {
     const host = createNopeDecoys(), guest = createNopeDecoys(); host.start(owner(), points(), 0, 1);
     const packet = json(host.snapshot()); assert.equal(guest.restore(packet, 0, 1), true); assert.deepEqual(guest.events(0), host.events(0));
     assert.equal(guest.consume(guest.events(0)[0].id, 'red', 0, 1), null); assert.equal(guest.events(0).length, 30);
-    packet.points[0][0] = 90000; packet.sourceId = 'injected'; packet.shotMask = 0x3fffffff;
+    packet.points[0][0] = 90000; packet.sourceId = 'injected'; packet.shotMask = [0x3fffffff,0x3fffffff,0x3fffffff];
     assert.equal(guest.events(0)[0].x, .12); assert.equal(guest.events(0)[0].sourceId, 'caster');
   });
 
@@ -105,14 +105,14 @@ async function main() {
     assert.equal(guest.restore(original, 0, 1), true); host.consume(first.id, 'red', 1, 1); const shot = json(host.snapshot());
     assert.equal(guest.restore(shot, 1, 1), true); assert.equal(guest.events(1).length, 29);
     assert.equal(guest.restore(original, .999999, 1), false); assert.equal(guest.restore(original, 1, 1), true); assert.equal(guest.events(1).length, 29);
-    assert.equal(guest.restore(original, 1.1, 1), true); assert.equal(guest.snapshot().shotMask, 1);
+    assert.equal(guest.restore(original, 1.1, 1), true); assert.deepEqual(guest.snapshot().shotMask, [1,0,0]);
     host.consume(host.events(1)[28].id, 'red', 1.1, 1); assert.equal(guest.restore(json(host.snapshot()), 1.1, 1), true); assert.equal(guest.events(1.1).length, 28);
   });
 
   test('host ordering remains independent of a leading render clock, while expiry and null clears are permanent for that wave', () => {
     const host = createNopeDecoys(), guest = createNopeDecoys(); host.start(owner(), points(), 0, 1); const original = json(host.snapshot());
-    assert.equal(guest.restore(original, .1, 1), true); assert.equal(guest.events(5).length, 30); assert.equal(guest.restore(original, .2, 1), true);
-    assert.deepEqual(guest.events(12), []); assert.equal(guest.restore(original, .3, 1), true); assert.deepEqual(guest.events(.3), []); assert.equal(guest.snapshot(), null);
+    assert.equal(guest.restore(original, .1, 1), true); assert.equal(guest.events(5).length, 60); assert.equal(guest.restore(original, .2, 1), true);
+    assert.deepEqual(guest.events(22), []); assert.equal(guest.restore(original, .3, 1), true); assert.deepEqual(guest.events(.3), []); assert.equal(guest.snapshot(), null);
     assert.equal(guest.restore(original, .25, 1), false);
     const cleared = createNopeDecoys(); assert.equal(cleared.restore(original, 0, 1), true); assert.equal(cleared.restore(null, .1, 1), true);
     assert.equal(cleared.restore(original, .1, 1), true); assert.deepEqual(cleared.events(.1), []); assert.equal(cleared.snapshot(), null);
@@ -132,6 +132,7 @@ async function main() {
     const host = createNopeDecoys(), guest = createNopeDecoys(); host.start(owner(), points(), 1, 2); const good = json(host.snapshot());
     assert.equal(guest.restore(good, 1, 2), true);
     const invalids = [undefined, [], {}, Object.create(good), { ...good, targetId: 'secret' }, { ...good, points: null }, { ...good, points: good.points.slice(1) }];
+    const sparseMask=[0,,0];sparseMask.extra=0;invalids.push({...good,shotMask:sparseMask});
     for (const [key, value] of [['id', 'nope-wave-2-0'], ['id', 'nope-wave-02-1'], ['id', 'nope-wave-2-01'], ['id', 'nope-wave-1-1'], ['id', 'nope-wave-2-1000000000000000'], ['sourceId', ''], ['sourceId', 'bad\nname'], ['team', 'green'], ['round', 1], ['round', '2'], ['startedAt', 2], ['startedAt', NaN], ['endsAt', 12], ['endsAt', 13.0001], ['shotMask', -1], ['shotMask', 2 ** 30], ['shotMask', 1.5], ['shotMask', '1']]) invalids.push({ ...good, [key]: value });
     for (const key of Object.keys(good)) { const bad = json(good); delete bad[key]; invalids.push(bad); }
     for (const replacement of [[0, 0, 0], [0, 0, 0, 0, 1], [100001, 0, 0, 0], [0, -100001, 0, 0], [0, 0, Infinity, 0], [0, 0, 0, 31417], [.1, 0, 0, 0], ['1', 0, 0, 0]]) { const bad = json(good); bad.points[1] = replacement; invalids.push(bad); }
@@ -145,9 +146,9 @@ async function main() {
 
   test('a known ID cannot silently change immutable identity, position, source, time or yaw even with a newer packet clock', () => {
     const host = createNopeDecoys(), guest = createNopeDecoys(); host.start(owner(), points(), 1, 1); const good = json(host.snapshot()); guest.restore(good, 1, 1);
-    for (const patch of [{ sourceId: 'another' }, { team: 'red' }, { startedAt: 1.1, endsAt: 13.1 }]) { const bad = { ...good, ...patch }; assert.equal(guest.restore(bad, 2, 1), false); assert.deepEqual(guest.snapshot(), good); }
+    for (const patch of [{ sourceId: 'another' }, { team: 'red' }, { startedAt: 1.1, endsAt: 23.1 }]) { const bad = { ...good, ...patch }; assert.equal(guest.restore(bad, 2, 1), false); assert.deepEqual(guest.snapshot(), good); }
     for (const axis of [0, 1, 2, 3]) { const bad = json(good); bad.points[0][axis]++; assert.equal(guest.restore(bad, 2, 1), false); assert.deepEqual(guest.snapshot(), good); }
-    const premature = { ...json(good), id: 'nope-wave-1-2', startedAt: .5, endsAt: 12.5 }; assert.equal(guest.restore(premature, 2, 1), false);
+    const premature = { ...json(good), id: 'nope-wave-1-2', startedAt: .5, endsAt: 22.5 }; assert.equal(guest.restore(premature, 2, 1), false);
   });
 
   let typicalBytes, maximumBytes;
@@ -155,7 +156,7 @@ async function main() {
     const engine = createNopeDecoys(); engine.start(owner(), points(), 0, 1); typicalBytes = Buffer.byteLength(JSON.stringify(engine.snapshot()));
     const edge = points().map((point, index) => ({ x: -1000 + index * .01, y: 1000 - index * .01, z: -999.99 + index * .01, yaw: index % 2 ? Math.PI : -Math.PI }));
     const huge = createNopeDecoys(), round = Number.MAX_SAFE_INTEGER; assert.equal(huge.start(owner({ id: '界'.repeat(64) }), edge, 1e12, round), true);
-    const packet = huge.snapshot(); packet.id = `nope-wave-${round}-999999999999999`; packet.shotMask = 0x3fffffff;
+    const packet = huge.snapshot(); packet.id = `nope-wave-${round}-999999999999999`; packet.shotMask = [0x3fffffff,0x3fffffff,0x3fffffff];
     const guest = createNopeDecoys(); assert.equal(guest.restore(json(packet), 1e12, round), true); maximumBytes = Buffer.byteLength(JSON.stringify(guest.snapshot()));
     assert.ok(typicalBytes <= 2200); assert.ok(maximumBytes <= 2200); assert.deepEqual(guest.events(1e12), []);
     const before = guest.snapshot(); assert.equal(guest.start(owner(), points(), 1e12, round), false, 'Sequence exhaustion never reuses IDs'); assert.deepEqual(guest.snapshot(), before);
@@ -169,7 +170,7 @@ async function main() {
     return (await import('data:text/javascript;base64,' + Buffer.from(code).toString('base64'))).createNopeDecoys;
   }
   const allowFriendly = await mutant('|| shooterTeam === wave.team', '|| false');
-  const rewindMask = await mutant('wave.shotMask |= value.shotMask;', 'wave.shotMask = value.shotMask;');
+  const rewindMask = await mutant('wave.shotMask[cohort] |= value.shotMask[cohort];', 'wave.shotMask[cohort] = value.shotMask[cohort];');
   const truncate = await mutant('index < COUNT; index++', 'index < COUNT - 1; index++');
   test('memory-only negative controls detect friendly activation, snapshot resurrection and a truncated30-body wave', () => {
     const friendly = allowFriendly(); friendly.start(owner(), points(), 0, 1);

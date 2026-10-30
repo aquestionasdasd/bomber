@@ -3,7 +3,7 @@ import { normalizeCharacter, getCharacterSkill, getCharacterUltimate, DUELIST, R
 // In-match cues carry one action or effect; full rules stay in the skill details.
 const hints = {
   duelist: { c: '煙幕で視界を遮る', q: '上へジャンプ', e: '進行方向へダッシュ', x: '左：1本／右：まとめ投げ' },
-  nope: { c: '瓶が爆発し敵にダメージ', q: '顔を見た相手に閃光', e: '撃たれると閃光を放つ囮', x: '12秒、歩く囮を30体展開' },
+  nope: { c: '瓶が爆発し敵にダメージ', q: '顔を見た相手に閃光', e: '撃たれると閃光を放つ囮', x: '30体ずつ、5秒おきに3回' },
   mend: { c: '種の範囲で敵が減速', q: '花粉で視界を遮る', e: '負傷した1人を60回復', x: '近くの味方と自身を75回復' },
   echo: { c: '侵入した敵の位置を通知', q: '反射を見た相手に閃光', e: '4秒、移動速度アップ', x: '周囲を3回索敵' },
   veil: { c: '最大3地点へ同時に7秒の煙幕', q: '投げた先に広い減速の帯', e: '3秒、地上を速く走る', x: '選んだ地点に12秒の大煙幕' },

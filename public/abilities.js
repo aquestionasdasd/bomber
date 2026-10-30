@@ -9,7 +9,7 @@ export const CHARACTER_DEFS = Object.freeze({
   duelist: Object.freeze({ id: 'duelist', label: 'ちぬつてのとのへめほ', role: '突入', ultName: 'ブレードストーム', ultShortName: 'ナイフ', ultimatePoints: 7,
     description: 'C：空中に短い流れ星の幕 / Q：アンテナリフトで上昇 / E：2段階のダッシュ。X：ナイフ5本。左クリックで1本、右クリックで残り最大5本を同時に散開投擲。撃破で5本補充（7pt）。', color: '#a7e3e7', ultIcon: 'm24 3 5 2-13 17-6 4 1-7L24 3M11 19l5 3M9 23l-4 5M22 7l4 3M4 7l4-3m21 18 4 2' }),
   nope: Object.freeze({ id: 'nope', label: 'NOPE', role: '特殊', ultName: 'ノープ・テイクオーバー', ultShortName: 'ノープ', ultimatePoints: 7,
-    description: 'C：瓶グレネード / Q：顔フラッシュ / E：銃を持って歩く全身の囮。撃たれると閃光。X：駅ごとのロゴ柄と、銃を持って歩く囮30体を12秒展開（7pt）。', color: '#d7a8f1', ultIcon: 'M7 25V5l22 20V5M7 5l22 20M14 5h7M15 25h7' }),
+    description: 'C：瓶グレネード / Q：顔フラッシュ / E：銃を持って通常移動と同じ速さで歩く囮。撃たれると閃光。X：室内にもロゴを貼り、囮30体を発動時・5秒後・10秒後に生成。各12秒（7pt）。', color: '#d7a8f1', ultIcon: 'M7 25V5l22 20V5M7 5l22 20M14 5h7M15 25h7' }),
   mend: Object.freeze({ id: 'mend', label: '丱凵してね', role: '支援', ultName: 'リカバリーウェーブ', ultShortName: '回復', ultimatePoints: 7,
     description: 'C：足止めの種 / Q：花粉の煙幕 / E：単体60回復。X：視線内18mの生存味方と自身を最大75回復（7pt）。', color: '#8fe2b5', ultIcon: 'M13 3h10v7h8v10h-8v7H13v-7H5V10h8Z' }),
   echo: Object.freeze({ id: 'echo', label: 'IAGNU', role: '索敵', ultName: 'リコンパルス', ultShortName: '索敵', ultimatePoints: 7,
@@ -39,7 +39,7 @@ export const DUELIST = Object.freeze({ smokeMax: 2, smokePrice: 100, smokeDurati
   signatureKills: 1, ultimatePoints: 7, knives: 5 });
 export const DUELIST_SKILLS = Object.freeze({ cometRange: 18, cometFlight: .25, cometRadius: 2.8, cometDuration: 5, liftVisualDuration: .45 });
 export const NOPE_SKILLS = Object.freeze({ bottleFuse: 1, bottleFlight: .55, bottleRadius: 8, bottleDamage: 90, bottleRange: 40,
-  flashFlight: .45, flashRadius: 30, flashDuration: 2.4, decoyDuration: 12, signatureCooldown: 15, decoyWalkSpeed: 3, decoyWalkRange: 36 });
+  flashFlight: .45, flashRadius: 30, flashDuration: 2.4, decoyDuration: 12, decoyWaveCount: 3, decoyWaveInterval: 5, signatureCooldown: 15, decoyWalkSpeed: 5.4*1.15, decoyWalkRange: 75 });
 export const MEND_SKILLS = Object.freeze({ seedsFlight: .65, seedsRadius: 4.5, seedsDuration: 9, seedsSpeedScale: .5, seedsGroundOffset: .12,
   pollenFlight: .55, pollenRadius: 4.2, pollenDuration: 9, healAmount: 60, healRange: 18, healVisualDuration: .8, signatureCooldown: 18 });
 export const IAGNU_SKILLS = Object.freeze({ tagFlight: .55, tagArmDelay: .5, tagDuration: 12, tagRadius: 4.5, tagRange: 18,
@@ -268,7 +268,7 @@ export class DuelistKit {
         if (this.character === 'car') {this.ultPoints-=DUELIST.ultimatePoints;return {type:'car-pit'};}
         if (this.character === 'cat') {this.ultPoints-=DUELIST.ultimatePoints;return {type:'cat-clock'};}
         if (this.character === 'duck') { this.ultPoints -= DUELIST.ultimatePoints; return {type:'duck-egg'}; }
-        if (this.character === 'nope') { this.ultPoints -= DUELIST.ultimatePoints; return { type: 'nope', duration: 12 }; }
+        if (this.character === 'nope') { this.ultPoints -= DUELIST.ultimatePoints; return { type: 'nope', duration: NOPE_SKILLS.decoyDuration+(NOPE_SKILLS.decoyWaveCount-1)*NOPE_SKILLS.decoyWaveInterval }; }
         if (this.character === 'mend') { this.ultPoints -= DUELIST.ultimatePoints; return { type: 'mend', radius: 18, healing: 75 }; }
         if (this.character === 'echo') { this.ultPoints -= DUELIST.ultimatePoints; return { type: 'recon', radius: TEAM_ABILITIES.reconRadius, duration: 6, pulses: 3, interval: 2, revealDuration: 1.25 }; }
         if (this.character === 'veil') { this.ultPoints -= DUELIST.ultimatePoints; return { type: 'veil', radius: 9, duration: 12 }; }
