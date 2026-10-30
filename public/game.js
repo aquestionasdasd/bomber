@@ -2457,23 +2457,36 @@ function veilSmokeFloors(x,z){
  for(const c of map.collision.query(x,z,0))if(!c.disabled&&map.collision.overlaps(c,x,z,0))candidates.push(c.height);
  return [...new Set(candidates.filter(Number.isFinite))].filter(y=>veilSmokeFloor({x,y,z})!==null).sort((a,b)=>a-b);
 }
+function veilSmokeDefaultFloor(x,z,floors=veilSmokeFloors(x,z)){
+ const base=map.floorBaseAt?.(x,z)??0,preferred=floors.filter(y=>y<=base+VEIL_SKILLS.mapFloorHeight);
+ return preferred.length?preferred[preferred.length-1]:null;
+}
+function refreshVeilFloorOptions(){
+ const point=veilPlacement?.point||veilPlacement?.candidate,select=$('veil-smoke-floor');select.replaceChildren();
+ if(point)for(const y of veilSmokeFloors(point.x,point.z)){const option=document.createElement('option');option.value=String(y);option.textContent=`高さ ${y.toFixed(1)}m`;select.append(option);}
+ select.value=veilPlacement?.point?String(veilPlacement.point.y):'';
+}
 function clearVeilPlacement(){veilPlacement=null;setVisible('veil-smoke-placement',false);$('map-overlay').classList.remove('smoke-placement-active');}
 function veilPlacementCurrent(){return !!veilPlacement&&mode==='map'&&player.alive&&player.kit?.character==='veil'&&player.team===veilPlacement.team&&match?.round===veilPlacement.round&&match?.phase==='live'&&!netHostPaused;}
 function openVeilPlacement(key){
  if(mode!=='play'||!player.alive||match?.phase!=='live'||netHostPaused||interactionHeld||objectivePractice||carMotionActive(player)||busSeat())return;
  refillMapPracticeSkills();pauseGame(true);
- veilPlacement={key,team:player.team,round:match.round,point:null};
+ veilPlacement={key,team:player.team,round:match.round,point:null,candidate:null,points:[]};
  $('map-overlay').classList.add('smoke-placement-active');
  setVisible('veil-smoke-placement',true);
- $('veil-smoke-title').textContent=key==='c'?'C 土煙 / 半径3.5m・7秒':'X ブラックアウトドーム / 半径9m・12秒';
+ $('veil-smoke-title').textContent=key==='c'?'C 土煙 / 最大3地点同時・半径3.5m・7秒':'X ブラックアウトドーム / 半径9m・12秒';
+ $('veil-smoke-help').textContent=key==='c'?'左クリックで最大3地点を追加 → 右クリックでまとめて設置':'左クリックで場所を選択 → 右クリックで設置';
+ setVisible('veil-smoke-multi',key==='c');refreshVeilFloorOptions();
  refreshVeilPlacement();
 }
 function refreshVeilPlacement(message=null){
  if(!veilPlacement)return;
- const point=veilPlacement.point,valid=point&&veilSmokeFloor(point)!==null;
+ const point=veilPlacement.point,points=veilPlacement.points,valid=points.length&&points.every(p=>veilSmokeFloor(p)!==null);
  $('veil-smoke-confirm').disabled=!valid;
- $('veil-smoke-floor').disabled=!point;
- $('veil-smoke-status').textContent=message||(valid?`設置位置 X ${point.x.toFixed(1)} / Z ${point.z.toFixed(1)} / 高さ ${point.y.toFixed(1)}m → 右クリックで設置`:'マップを左クリックして設置する床を選択');
+ $('veil-smoke-floor').disabled=!point&&!veilPlacement.candidate;
+ const select=$('veil-smoke-index');select.replaceChildren();for(let i=0;i<points.length;i++){const option=document.createElement('option');option.value=String(i);option.textContent=`${i+1}: 高さ ${points[i].y.toFixed(1)}m`;select.append(option);}select.value=String(points.indexOf(point));select.disabled=!points.length;$('veil-smoke-remove').disabled=!point;
+ $('veil-smoke-confirm').textContent=veilPlacement.key==='c'?`${points.length}個まとめて設置`:'ここに設置';
+ $('veil-smoke-status').textContent=message||(valid?`${points.length}地点を選択済み${point?` · X ${point.x.toFixed(1)} / Z ${point.z.toFixed(1)} / 高さ ${point.y.toFixed(1)}m`:''} → 右クリックで設置`:'マップを左クリックして設置する床を選択');
  drawMinimap($('large-minimap'),true);
 }
 function veilMapPointer(event){
@@ -2489,22 +2502,22 @@ function veilMapPointer(event){
  const b=activeArenaBounds(),scale=Math.min((canvas.width-80)/(b.maxX-b.minX),(canvas.height-80)/(b.maxZ-b.minZ));
  const x=b.minX+(u-(canvas.width-(b.maxX-b.minX)*scale)/2)/scale;
  const z=b.minZ+(v-(canvas.height-(b.maxZ-b.minZ)*scale)/2)/scale;
- const floors=veilSmokeFloors(x,z),select=$('veil-smoke-floor');select.replaceChildren();
- veilPlacement.point=null;
- if(floors.length){
-   const y=floors.reduce((best,h)=>Math.abs(h-player.y)<Math.abs(best-player.y)?h:best,floors[0]);
-   for(const h of floors){const option=document.createElement('option');option.value=String(h);option.textContent=`高さ ${h.toFixed(1)}m`;select.append(option);}
-   select.value=String(y);veilPlacement.point={x,y,z};
- }
- refreshVeilPlacement(floors.length?null:'設置できる床がありません · 別の地点を選んでください');
+ const floors=veilSmokeFloors(x,z),existing=veilPlacement.points.find(p=>Math.hypot(p.x-x,p.z-z)<.25);
+ if(existing){veilPlacement.point=existing;veilPlacement.candidate=null;refreshVeilFloorOptions();refreshVeilPlacement();return;}
+ const limit=veilPlacement.key==='c'?Math.min(VEIL_SKILLS.dustMax,player.kit.smoke):1;
+ if(veilPlacement.key==='c'&&veilPlacement.points.length>=limit){refreshVeilPlacement('所持数まで選択済みです · 地点を削除して選び直せます');return;}
+ const y=veilSmokeDefaultFloor(x,z,floors);veilPlacement.point=null;veilPlacement.candidate=floors.length?{x,z}:null;if(veilPlacement.key==='x')veilPlacement.points=[];
+ if(y!==null){const point={x,y,z};if(veilPlacement.key==='x')veilPlacement.points=[];veilPlacement.points.push(point);veilPlacement.point=point;veilPlacement.candidate=null;}
+ refreshVeilFloorOptions();refreshVeilPlacement(!floors.length?'設置できる床がありません · 別の地点を選んでください':y===null?'屋根より下の床がありません · 別の地点か高さを選んでください':null);
 }
 function confirmVeilPlacement(){
- if(!veilPlacementCurrent()||!veilPlacement.point)return;
+ if(!veilPlacementCurrent()||!veilPlacement.points.length)return;
  if(isGuest()&&netActions.length>=64){refreshVeilPlacement('通信待ちです · 回数は消費していません');return;}
- const {key,point}=veilPlacement;
- const effect=activateAbility(player,key,{predict:isGuest(),zonePoint:point});
+ const {key,points}=veilPlacement,point=points[0];
+ if(points.some(p=>veilSmokeFloor(p)===null)){refreshVeilPlacement('設置する床が変わりました · 地点を選び直してください');return;}
+ const effect=activateAbility(player,key,{predict:isGuest(),...(key==='c'?{zonePoints:points}:{zonePoint:point})});
  if(!effect){refreshVeilPlacement('発動できません · 床・在庫・接地・封印状態を確認してください');return;}
- if(isGuest())queueNetAction('ability',{key,smokePoint:[point.x,point.y,point.z]});
+ if(isGuest())queueNetAction('ability',{key,...(key==='c'?{smokePoints:points.map(p=>[p.x,p.y,p.z])}:{smokePoint:[point.x,point.y,point.z]})});
  resumeGame();refillMapPracticeSkills();updateHUD();
 }
 
@@ -2551,7 +2564,8 @@ function getSkillTarget(actor,type,point=null,aim=null){
 function activateAbility(actor,key,options={}){
  const effect=applyAbility(actor,key,options);if(effect&&actor===player)preparedSkillFX.release(effect.type,elapsed,player.id,match.round);return effect;
 }
-function applyAbility(actor,key,{predict=false,zonePoint=null,aim=null}={}){
+function applyAbility(actor,key,{predict=false,zonePoint=null,zonePoints=null,aim=null}={}){
+  if(zonePoints!==null&&!(actor?.kit?.character==='veil'&&key==='c'))return;
   if(carMotionActive(actor)||busSeat(actor))return;
   if(ordinarySkills.sealUntil(actor?.id,elapsed)>elapsed){if(actor===player)showMessage('羽根の封印', '封印中は新しい技を使えません',1);return;}
   if(actor?.kit?.character==='renko')return activateRenkoAbility(actor,key,{predict,aim});
@@ -2574,7 +2588,11 @@ function applyAbility(actor,key,{predict=false,zonePoint=null,aim=null}={}){
   if(definition?.type==='ember-service'&&!canServiceReload(actor))return;
   const healing=definition?.type==='mend-heal',healTarget=healing?selectMendTarget(actor,[player,...bots],mendReachable):null;
   if(healing&&!healTarget){if(actor===player)showMessage('ひまわりの手当て / 回復対象なし','12m以内で視線の通る負傷した味方が必要です · 回数は消費しません',2);return;}
-  const target=healing?{x:healTarget.x,y:healTarget.y||0,z:healTarget.z,targetId:healTarget.id}:ordinary?getSkillTarget(actor,definition.type,zonePoint,aim):null;
+  const veilBatch=zonePoints!==null;
+  if(veilBatch&&(!Array.isArray(zonePoints)||zonePoints.length<1||zonePoints.length>VEIL_SKILLS.dustMax||zonePoints.length>actor.kit.smoke||zonePoints.some(p=>veilSmokeFloor(p)===null)||new Set(zonePoints.map(p=>`${p.x}/${p.y}/${p.z}`)).size!==zonePoints.length))return;
+  const targets=veilBatch?zonePoints.map(p=>getSkillTarget(actor,definition.type,p,aim)):null;
+  if(veilBatch&&targets.some(p=>!p))return;
+  const target=veilBatch?targets[0]:healing?{x:healTarget.x,y:healTarget.y||0,z:healTarget.z,targetId:healTarget.id}:ordinary?getSkillTarget(actor,definition.type,zonePoint,aim):null;
   if(ordinary&&!target){if(actor===player&&(definition.type.startsWith('veil-')||definition.type.startsWith('frost-')))showMessage(`${definition.name} / 床を確認`,definition.type==='veil-roots'?'根を伸ばせる床が必要です':definition.type==='frost-unravel'?'着地してから使ってください':definition.type.startsWith('frost-')?'見える床を狙ってください':'着地してから使ってください',1.5);return;}
   const veilDome=actor.kit.character==='veil'&&String(key).toLowerCase()==='x';
   const domeFloor=veilDome&&zonePoint?veilSmokeFloor(zonePoint):null;
@@ -2584,9 +2602,10 @@ function applyAbility(actor,key,{predict=false,zonePoint=null,aim=null}={}){
   if(takeover&&!predict&&takeoverPoints.length!==30)return;
   const before=ordinary||takeover?actor.kit.snapshot():null;
   const effect=actor.kit.activate(key,elapsed);if(!effect)return;
+  if(veilBatch)for(let i=1;i<targets.length;i++)if(!actor.kit.activate(key,elapsed)){actor.kit.restore(before);return;}
   const yaw=aim?.yaw??(actor===player?player.yaw:(netInputs.get(actor.remoteId)?.input?.yaw??actor.yaw??0)),pitch=aim?.pitch??(actor===player?player.pitch:(netInputs.get(actor.remoteId)?.input?.pitch??0));
   if(ordinary){
-    const event=predict?null:ordinarySkills.cast(effect,ordinaryActorView(actor),target,elapsed,match.round);
+    const event=predict?null:veilBatch?ordinarySkills.castVeilDustBatch(ordinaryActorView(actor),targets,elapsed,match.round):ordinarySkills.cast(effect,ordinaryActorView(actor),target,elapsed,match.round);
     if(!predict&&!event){actor.kit.restore(before);return;}
     if(effect.type==='ember-service'&&!predict)beginServiceReload(actor,event);
     if(!['duck-hush','nope-decoy','echo-kerning','veil-turf','ember-shade','ember-service','frost-unravel','duelist-lift'].includes(effect.type))actor.skillThrowUntil=elapsed+.32;
@@ -2822,7 +2841,7 @@ function drawMinimap(target,large=false){
     ctx.fillStyle='#edb284';ctx.font=`bold ${large?26:14}px sans-serif`;ctx.fillText(pos.id,px(pos.x),pz(pos.z));
   }
   if(large){ctx.font='600 13px "Yu Gothic",sans-serif';for(const label of getMapCalloutLabels(map)){ctx.textAlign=label.align;ctx.strokeStyle='#101f28';ctx.lineWidth=4;ctx.strokeText(label.name,px(label.x),pz(label.z));ctx.fillStyle='#d7e2dc';ctx.fillText(label.name,px(label.x),pz(label.z));}}
-  if(large&&veilPlacementCurrent()&&veilPlacement.point){const point=veilPlacement.point,radius=veilPlacement.key==='c'?VEIL_SKILLS.dustRadius:9;ctx.strokeStyle='#c5d2ff';ctx.fillStyle='#a9b6ff55';ctx.lineWidth=2;ctx.beginPath();ctx.arc(px(point.x),pz(point.z),radius*scale,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.beginPath();ctx.moveTo(px(point.x)-6,pz(point.z));ctx.lineTo(px(point.x)+6,pz(point.z));ctx.moveTo(px(point.x),pz(point.z)-6);ctx.lineTo(px(point.x),pz(point.z)+6);ctx.stroke();}
+  if(large&&veilPlacementCurrent())for(const [index,point] of veilPlacement.points.entries()){const radius=veilPlacement.key==='c'?VEIL_SKILLS.dustRadius:9;ctx.strokeStyle=point===veilPlacement.point?'#ffffff':'#c5d2ff';ctx.fillStyle='#a9b6ff55';ctx.lineWidth=2;ctx.beginPath();ctx.arc(px(point.x),pz(point.z),radius*scale,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.fillStyle='#fff';ctx.fillText(String(index+1),px(point.x)+5,pz(point.z)-5);}
   for(const bot of bots){if(!bot.alive||bot.team!==player.team&&!(bot.spottedUntil>elapsed))continue;ctx.fillStyle=bot.team===player.team?'#8edcca':'#ff626b';ctx.beginPath();ctx.arc(px(bot.x),pz(bot.z),large?6:3.5,0,Math.PI*2);ctx.fill();}
   for(const ping of teamAbilities.markers(player.team,elapsed)){
     const size=large?8:5,alpha=clamp((ping.endsAt-elapsed)/1.25,0,1);
@@ -3904,7 +3923,11 @@ if(map.destruction){if(fresh||!packet.busDamage)map.destruction.reset();map.dest
     for(const action of netActions){
       if(action.round!==match.round)continue;
       if(action.type==='character'&&match.phase==='buy'&&match.round===1&&characterIds.includes(action.character))player.kit.character=action.character;
-      else if(action.type==='ability'&&!(player.kit.character==='cat'&&action.key==='c'&&action.catReturning===true)&&!(player.kit.character==='renko'&&action.key==='q'&&action.renkoStop===true)){const effect=player.kit.activate(action.key,action.at);if(effect?.type==='knives')predictedKnives=true;}
+      else if(action.type==='ability'&&!(player.kit.character==='cat'&&action.key==='c'&&action.catReturning===true)&&!(player.kit.character==='renko'&&action.key==='q'&&action.renkoStop===true)){
+        const batch=action.smokePoints,count=batch===undefined?1:player.kit.character==='veil'&&action.key==='c'&&Array.isArray(batch)&&batch.length>=1&&batch.length<=VEIL_SKILLS.dustMax&&batch.every(p=>Array.isArray(p)&&p.length===3&&p.every(Number.isFinite))?batch.length:0;
+        if(batch!==undefined&&player.kit.smoke<count)continue;
+        for(let i=0;i<count;i++){const effect=player.kit.activate(action.key,action.at);if(effect?.type==='knives')predictedKnives=true;}
+      }
       else if(action.type==='fire'&&action.ultimate)player.kit.consumeKnife(action.burst===true?Math.min(DUELIST.knives,player.kit.knives):1);
     }
     player.kit.tick(elapsed);bindRenkoUltimate(player);
@@ -4060,13 +4083,19 @@ function applyRemoteAction(actor,action,actionTime=elapsed){
         if(!Number.isFinite(action.yaw)||!Number.isFinite(action.pitch))return;
         aim={yaw:action.yaw%(Math.PI*2),pitch:clamp(action.pitch,-1.35,1.35)};
       }
-      let zonePoint=null;
+      let zonePoint=null,zonePoints=null;
       if(actor.kit?.character==='veil'&&['c','x'].includes(action.key)){
-        if(!Array.isArray(action.smokePoint)||action.smokePoint.length!==3||!action.smokePoint.every(Number.isFinite))return;
-        zonePoint={x:action.smokePoint[0],y:action.smokePoint[1],z:action.smokePoint[2]};
-        if(veilSmokeFloor(zonePoint)===null)return;
-      }else if(action.smokePoint!==undefined)return;
-      const effect=activateAbility(actor,action.key,{aim,zonePoint});
+        if(action.smokePoints!==undefined){
+          if(action.key!=='c'||action.smokePoint!==undefined||!Array.isArray(action.smokePoints)||action.smokePoints.length<1||action.smokePoints.length>VEIL_SKILLS.dustMax||!action.smokePoints.every(p=>Array.isArray(p)&&p.length===3&&p.every(Number.isFinite)))return;
+          zonePoints=action.smokePoints.map(p=>({x:p[0],y:p[1],z:p[2]}));
+          if(zonePoints.some(p=>veilSmokeFloor(p)===null))return;
+        }else{
+          if(!Array.isArray(action.smokePoint)||action.smokePoint.length!==3||!action.smokePoint.every(Number.isFinite))return;
+          zonePoint={x:action.smokePoint[0],y:action.smokePoint[1],z:action.smokePoint[2]};
+          if(veilSmokeFloor(zonePoint)===null)return;
+        }
+      }else if(action.smokePoint!==undefined||action.smokePoints!==undefined)return;
+      const effect=activateAbility(actor,action.key,{aim,zonePoint,zonePoints});
       if(effect?.type==='dash'){
         actor.netDashInputSequence=netInputs.get(actor.remoteId)?.seq;
         if(Number.isFinite(action.dashX)&&Number.isFinite(action.dashZ)){
@@ -4258,7 +4287,15 @@ window.addEventListener('contextmenu',e=>{if(mode==='play'||mode==='map'&&veilPl
 $('large-minimap').addEventListener('mousedown',veilMapPointer);
 $('veil-smoke-confirm').addEventListener('click',confirmVeilPlacement);
 $('veil-smoke-cancel').addEventListener('click',resumeGame);
-$('veil-smoke-floor').addEventListener('change',()=>{if(veilPlacement?.point){veilPlacement.point.y=Number($('veil-smoke-floor').value);refreshVeilPlacement();}});
+$('veil-smoke-floor').addEventListener('change',()=>{
+ if(!veilPlacementCurrent())return;const current=veilPlacement.point||veilPlacement.candidate;if(!current)return;
+ const point={x:current.x,y:Number($('veil-smoke-floor').value),z:current.z};if(veilSmokeFloor(point)===null)return;
+ if(veilPlacement.point)veilPlacement.point.y=point.y;
+ else{const limit=veilPlacement.key==='c'?Math.min(VEIL_SKILLS.dustMax,player.kit.smoke):1;if(veilPlacement.points.length>=limit)return;veilPlacement.points.push(point);veilPlacement.point=point;veilPlacement.candidate=null;}
+ refreshVeilPlacement();
+});
+$('veil-smoke-index').addEventListener('change',()=>{if(!veilPlacementCurrent())return;const point=veilPlacement.points[Number($('veil-smoke-index').value)];if(!point)return;veilPlacement.point=point;veilPlacement.candidate=null;refreshVeilFloorOptions();refreshVeilPlacement();});
+$('veil-smoke-remove').addEventListener('click',()=>{if(!veilPlacementCurrent()||!veilPlacement.point)return;veilPlacement.points=veilPlacement.points.filter(p=>p!==veilPlacement.point);veilPlacement.point=veilPlacement.points.at(-1)||null;veilPlacement.candidate=null;refreshVeilFloorOptions();refreshVeilPlacement();});
 document.addEventListener('keydown',e=>{
   if(victoryMusicUI?.isOpen())return;
   const editing=e.target instanceof HTMLInputElement||e.target instanceof HTMLSelectElement||e.target?.tagName==='TEXTAREA'||e.target?.isContentEditable||e.target?.closest?.('[contenteditable]:not([contenteditable="false"])');
