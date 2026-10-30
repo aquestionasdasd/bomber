@@ -1679,7 +1679,17 @@ function moveEntity(entity,dx,dz,r=.34) {
         // Only ankle-height ledges can be stepped onto; crates still require jumping.
         for(const c of map.collision.query(x,z,r))if(!c.disabled&&c.height>feet&&c.height<=entity.y+.22&&map.collision.overlaps(c,x,z,r))feet=c.height;
       }
-      if(canStand(x,z,r,feet,actorBodyHeight(entity))&&grassHeadClear(entity,x,z,r,feet,actorBodyHeight(entity))){entity.x=x;entity.z=z;if(followsFloor)entity.y=feet;}
+      const height=actorBodyHeight(entity),mapClear=canStand(x,z,r,feet,height);
+      if(mapClear&&grassHeadClear(entity,x,z,r,feet,height)){entity.x=x;entity.z=z;if(followsFloor)entity.y=feet;}
+      else if(mapClear&&grassHeadClear(entity,entity.x,entity.z,r,feet,height)){
+        // Finish against the real cube face rather than stopping a whole
+        // movement substep away, so a held direction can reach jump contact.
+        const fromX=entity.x,fromZ=entity.z;let low=0,high=1;
+        for(let step=0;step<6;step++){const mid=(low+high)/2,mx=fromX+(x-fromX)*mid,mz=fromZ+(z-fromZ)*mid;
+          if(canStand(mx,mz,r,feet,height)&&grassHeadClear(entity,mx,mz,r,feet,height))low=mid;else high=mid;
+        }
+        entity.x=fromX+(x-fromX)*low;entity.z=fromZ+(z-fromZ)*low;if(followsFloor)entity.y=feet;
+      }
     }
     attempt(entity.x+dx/n,entity.z);
     attempt(entity.x,entity.z+dz/n);
@@ -3503,6 +3513,24 @@ function updateBots(dt){
   }
   separateBots(dt);
 }
+function grassBodyContact(a,b){
+  if(a.kit?.character!=='veil'&&b.kit?.character!=='veil')return undefined;
+  const p=grassPlatforms().find(p=>{
+    const other=p.id===a.id?b:p.id===b.id?a:null;
+    return other&&(other.y||0)<p.top-.025&&(other.y||0)+actorBodyHeight(other)>p.base+.001;
+  });
+  if(!p)return undefined;
+  const other=p.id===a.id?b:a,q=grassLocal(p,other.x,other.z);
+  let x=q.x-clamp(q.x,-p.halfX,p.halfX),z=q.z-clamp(q.z,-p.halfZ,p.halfZ),distance=Math.hypot(x,z),depth=.34-distance;
+  if(distance>=.34)return null;
+  if(distance<1e-8){
+    const gapX=p.halfX-Math.abs(q.x),gapZ=p.halfZ-Math.abs(q.z);
+    if(gapX<gapZ){x=q.x<0?-1:1;z=0;depth=.34+gapX;}else{x=0;z=q.z<0?-1:1;depth=.34+gapZ;}
+    distance=1;
+  }
+  const normal=grassWorld(p,x/distance,z/distance),sign=p.id===a.id?1:-1;
+  return {x:(normal.x-p.x)*sign,z:(normal.z-p.z)*sign,depth};
+}
 function separateBots(dt){
   if(match?.phase!=='live')return;
   const actors=[...(player.alive&&player.y<1?[player]:[]),...bots.filter(bot=>bot.alive)];
@@ -3510,16 +3538,18 @@ function separateBots(dt){
   // Resolve crowded escorts without moving the player or interrupting a committed plant.
   for(let pass=0;pass<2;pass++)for(let i=0;i<actors.length;i++)for(let j=i+1;j<actors.length;j++){
     const a=actors[i],b=actors[j];if(carMotionActive(a)||carMotionActive(b)||a.trcLadder||b.trcLadder||a.grassJump?.owner===b.id||b.grassJump?.owner===a.id||Math.abs((a.y||0)-(b.y||0))>.7)continue;let dx=b.x-a.x,dz=b.z-a.z,dist=Math.hypot(dx,dz);
-    if(dist>=.88||!movable(a)&&!movable(b))continue;
-    if(dist<.0001){const angle=(i*2.39+j*1.57);dx=Math.sin(angle);dz=Math.cos(angle);dist=1;}
+    const contact=grassBodyContact(a,b);
+    if(contact===null||!contact&&dist>=.88||!movable(a)&&!movable(b))continue;
+    if(contact){dx=contact.x;dz=contact.z;}
+    else if(dist<.0001){const angle=(i*2.39+j*1.57);dx=Math.sin(angle);dz=Math.cos(angle);dist=1;}
     else{dx/=dist;dz/=dist;}
-    const overlap=.88-Math.hypot(a.x-b.x,a.z-b.z),share=movable(a)&&movable(b)?.5:1;
+    const overlap=contact?contact.depth:.88-Math.hypot(a.x-b.x,a.z-b.z),share=movable(a)&&movable(b)?.5:1;
     const correction=Math.min(overlap*share,dt*4);
     const ax=a.x,az=a.z,bx=b.x,bz=b.z;
     if(movable(a))moveEntity(a,-dx*correction,-dz*correction,.4);
     if(movable(b))moveEntity(b,dx*correction,dz*correction,.4);
     // A wall may stop one actor; let the free actor absorb the remaining separation.
-    const remaining=.88-Math.hypot(a.x-b.x,a.z-b.z);
+    const remaining=contact?(grassBodyContact(a,b)?.depth||0):.88-Math.hypot(a.x-b.x,a.z-b.z);
     if(remaining>.005){
       if(movable(a)&&Math.hypot(b.x-bx,b.z-bz)<.001)moveEntity(a,-dx*Math.min(remaining,dt*4),-dz*Math.min(remaining,dt*4),.4);
       else if(movable(b)&&Math.hypot(a.x-ax,a.z-az)<.001)moveEntity(b,dx*Math.min(remaining,dt*4),dz*Math.min(remaining,dt*4),.4);
