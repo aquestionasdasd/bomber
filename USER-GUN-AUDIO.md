@@ -1,3 +1,9 @@
+## 第225巡 / Forgeの銃声を所有者WAVへ
+
+所有者提供gunsound_forge.wavをForgeの本人/敵銃声へbyte変更なしで適用し、先頭から録音全体を速度1倍で一度再生する。Forgeのgain.31/100m距離減衰/壁遮蔽/定位/mono安全正規化/48voice/消音・読込失敗時の無音と遅延再生なしを保持。他の銃声・足音着地/キル/勝利BGM/技音のbyteとrecipe、銃性能・キャラ・地形・通信は変更しない。USER-GUN-AUDIO.md参照。音声再生/試聴なし、fps-19はPAUSED。
+
+提供WAVはRIFF/PCM16 stereo44.1kHz、58093frames（約1.3173秒）、232556bytes。SHA256は9f119632869fe67a411d4d271a7259d407905a70f3a91d5a09cd7dc092271a9c。変換なし。既存のWebAudio mockへ実PCMを渡し、8銃×本人/敵の速度1/先頭offset0/全長/一回/mono正規化と無音時の非再生を確認する。
+
 # 所有者指定の銃声
 
 第221巡はSpectre/Scout/Atlas/Classic v2/Phantom v2を提供WAVへ差し替える。5ファイルは元のbyteを保ち、メタデータのRIFF/PCM16 stereo44.1kHz・フレーム数・SHA/peak/RMSを記録。音程を変えず、先頭から録音全体の長さを本人と敵の銃声で共用する。Classic/Phantomはv2ファイル名にして旧force-cacheを参照しない。旧2ファイルは削除し、Ghost/Vandalとその他4武器のrecipeは維持する。

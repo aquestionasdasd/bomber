@@ -239,3 +239,11 @@ MPEG1 Layer3 stereo44.1kHz/192kbps;384 frames (~10.031s including encoder frames
 Default after this update; sandstorm and Break the dancefloor!! remain selectable.
 Owner-provided; no CC0 or third-party artist/license claim.
 Offline frame inspection and inert media mocks only; no decoding/listening.
+
+Owner-supplied Forge recording (cycle225)
+Forge: gunsound_forge.wav. Bundled byte-for-byte; local/enemy gunshots play
+once from the beginning through the complete recording at rate1. Existing
+Forge gain .31, mono peak safety, distance/occlusion/pan,48-voice bound and
+silent load/mute/failure behavior are preserved. Other audio is unchanged.
+The old collaborator source remains bundled as existing licensed material.
+Owner-provided; no CC0 or third-party license claim. No listening test performed.
