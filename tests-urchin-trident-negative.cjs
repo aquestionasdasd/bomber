@@ -1,0 +1,2 @@
+const{spawnSync}=require('node:child_process'),path=require('node:path'),assert=require('node:assert/strict');
+for(const fault of['ammo','ads']){const r=spawnSync(process.execPath,[path.join(__dirname,'tests-urchin-trident-game.cjs'),'--fault='+fault],{encoding:'utf8',windowsHide:true,timeout:180000});assert.notEqual(r.status,0,'fault escaped: '+fault);assert.match(r.stderr,/AssertionError/);console.log('PASS: memory-only X game fault detected / '+fault);}
