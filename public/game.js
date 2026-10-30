@@ -641,13 +641,13 @@ function updateTeamAbilities(){
 }
 function startTakeover(data,{audible=true}={}){
   if(takeoverState?.id===data.id)return false;
-  takeoverState={id:data.id,round:data.round,startedAt:data.startedAt,endsAt:data.endsAt};takeoverClock=elapsed;stationTakeover.start({...takeoverState,mapId:map.id});
+  takeoverState={id:data.id,round:data.round,startedAt:data.startedAt,endsAt:data.endsAt};takeoverClock=elapsed;stationTakeover.start({...takeoverState,mapId:map.id,world:environment});
   if(audible&&elapsed-data.startedAt>=0&&elapsed-data.startedAt<.25)sound('takeover',{localOnly:true});
   return true;
 }
 function applyNetTakeover(packet,{audible=true}={}){
   const d=packet.takeover;if(!d){resetTakeover();return;}
-  if(typeof d.id!=='string'||!d.id.length||d.id.length>96||d.round!==match.round||![d.startedAt,d.endsAt].every(Number.isFinite)||d.startedAt<0||d.startedAt>elapsed+.05||d.endsAt<=d.startedAt||d.endsAt-d.startedAt>12.001)return;
+  if(typeof d.id!=='string'||!d.id.length||d.id.length>96||d.round!==match.round||![d.startedAt,d.endsAt].every(Number.isFinite)||d.startedAt<0||d.startedAt>elapsed+.05||d.endsAt<=d.startedAt||d.endsAt-d.startedAt>NOPE_SKILLS.decoyDuration+(NOPE_SKILLS.decoyWaveCount-1)*NOPE_SKILLS.decoyWaveInterval+.001)return;
   startTakeover(d,{audible});
 }
 function startDetonation(data,{audible=true}={}){

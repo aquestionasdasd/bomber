@@ -1,6 +1,6 @@
 import { acquireNopeDecoyAsset } from './nope-avatar.js';
 
-const MAX_DECOYS=50,MAX_SCAN=200;
+const MAX_DECOYS=110,MAX_SCAN=200;
 const REQUIRED=['id','type','team','sourceId','round','x','y','z','startedAt','endsAt'];
 const CONTROL=/[\u0000-\u001f\u007f]/;
 const coordinate=value=>Number.isFinite(value)&&Math.abs(value)<=1000;

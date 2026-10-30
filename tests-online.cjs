@@ -495,6 +495,16 @@ async function main() {
       const nopeReplica=createNopeDecoys();assert.equal(nopeReplica.restore(snapshot.nopeDecoys,now,1),true);assert.equal(nopeReplica.events(now).length,30);
       assert.ok(bytes > 40 * 1024 && bytes <= 64 * 1024, `The complete conservative snapshot must exceed the former limit and fit the new cap, got ${bytes}B`);
       assert.equal((await send(host, 'team:red', 'game', snapshot)).status, 201);
+      // Three full30-bit masks are larger than an unshot wave, but bodies are
+      // derived from the same30 routes even when all90 have been created.
+      const maximumWave=JSON.parse(JSON.stringify(snapshot));
+      maximumWave.nopeDecoys.shotMask=[0x3fffffff,0x3fffffff,0x3fffffff];
+      maximumWave.takeover.endsAt=maximumWave.takeover.startedAt+22;
+      const fitMaximumWave=(await import(pathToFileURL(path.join(__dirname,'public/traffic-state.js')).href)).fitTrafficSnapshot;
+      const maximumPacket=fitMaximumWave(maximumWave);assert.ok(maximumPacket);
+      assert.deepEqual(maximumPacket.actors,maximumWave.actors);assert.deepEqual(maximumPacket.ordinarySkills,maximumWave.ordinarySkills);
+      assert.deepEqual(maximumPacket.nopeDecoys,maximumWave.nopeDecoys);
+      assert.ok(Buffer.byteLength(JSON.stringify(maximumPacket))<=65536);
       const delivered = (await getMessages(guest)).value.messages;
       assert.equal(delivered.length, 1); assert.deepEqual(delivered[0].data, snapshot, 'HTTP fallback must preserve every state/effect/cue/marker/drop without truncation');
       for(const type of ['nobi-bell','nobi-whisker','nobi-toolbox','nobi-collar','duck-pad','duck-seal','duck-shield','cat-pluck','car-bumper','nobi-tag','nobi-brake','japan-levy','japan-border','cap-lock','cap-clean','urchin-lance','urchin-jam','urchin-disarm']){
