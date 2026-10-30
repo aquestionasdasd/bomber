@@ -1,0 +1,2 @@
+const cp=require('node:child_process');
+for(const fault of ['jump','stop','authority']){const p=cp.spawnSync(process.execPath,['tests-onnara-hold-controls.cjs','--fault='+fault],{cwd:__dirname,encoding:'utf8',timeout:120000,windowsHide:true});if(p.status!==1||!p.stderr.includes('AssertionError'))throw Error('Undetected in-memory hold control fault '+fault+' '+p.stderr);console.log('PASS: in-memory ONNARA hold control fault detected / '+fault);}
