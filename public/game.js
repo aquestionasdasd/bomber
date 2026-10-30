@@ -2655,7 +2655,7 @@ function veilSmokeFloors(x,z){
 }
 function veilSmokeDefaultFloor(x,z,floors=veilSmokeFloors(x,z)){
  const base=map.floorBaseAt?.(x,z)??0,preferred=floors.filter(y=>y<=base+VEIL_SKILLS.mapFloorHeight);
- return preferred.length?preferred[preferred.length-1]:null;
+ return preferred.length?preferred.sort((a,b)=>Math.abs(a)-Math.abs(b))[0]:null;
 }
 function refreshVeilFloorOptions(){
  const point=veilPlacement?.point||veilPlacement?.candidate,select=$('veil-smoke-floor');select.replaceChildren();
