@@ -3,11 +3,15 @@ const fixture=fs.readFileSync(path.join(__dirname,'tests-renko-game.cjs'),'utf8'
 const fault=process.argv.find(a=>a.startsWith('--fault='))?.slice(8);
 const only=process.argv.find(a=>a.startsWith('--only='))?.slice(7);
 const faults={contact:['grassOverlaps(p,actor.x,actor.z,.41)','true','distant'],assist:['assistGrassJump(actor,verticalDt,radius);','','contact'],authority:['beginNormalJump(actor);actor.netTrcJumpActive=true;','actor.vy=normalJumpVelocity(actor);actor.netTrcJumpActive=true;','JSON']};
+faults.approach=['const contact=grassBodyContact(a,b);','const contact=undefined;','approach'];
 if(fault){const[a,b]=faults[fault]||[];if(!a)throw Error('Unknown fault');const read=fs.readFileSync;fs.readFileSync=function(file,...args){let t=read.call(this,file,...args);if(String(file).replaceAll('\\','/').endsWith('/public/game.js')&&typeof t==='string'){if(!t.includes(a))throw Error('Missing anchor');t=t.replace(a,b);}return t;};}
 const suite=String.raw`
  const h=harness();
  function setup(g=h){g.reset();g.clearWalls();g.run("delete map.floorBaseAt;keys.clear();mode='play';match.phase='live';player.x=.89;player.z=.31;makeBot({x:0,z:0},0,'red',{id:'grass',team:'red',secondary:'classic',kit:new DuelistKit({character:'veil'})});var block=bots[0];block.remoteId='passive';block.netYaw=0;block.group.rotation.y=Math.PI;block.y=0;block.vy=0;block.crouch=0;player.grassJump=null;");}
  function step(g,seconds,hz){g.sandbox.seconds=seconds;g.sandbox.hz=hz;g.run('for(let t=0;t<seconds-1e-8;t+=1/hz)updatePlay(Math.min(1/hz,seconds-t))');}
+ check('approach all four sides with real W input, then jump without pushing the support away',()=>{
+  for(const hz of[20,60,144])for(const side of[0,1,2,3]){setup();h.sandbox.side=side;h.run("var p=grassPlatforms()[0],q=grassWorld(p,side<2?(side?-3:3):0,side>=2?(side===2?3:-3):0);player.x=q.x;player.z=q.z;player.yaw=Math.atan2(player.x-p.x,player.z-p.z);keys.add('KeyW')");step(h,.6,hz);h.run("keys.delete('KeyW');jump()");assert.ok(h.run('player.grassJump'),'actual approach '+hz+'/'+side);near(h.run('block.x'),0,'support x preserved');near(h.run('block.z'),0,'support z preserved');step(h,1.2,hz);near(h.run('player.y'),1.86,'walk then mount '+hz+'/'+side,.00001);}
+ });
  check('contact jump mounts standing and crouched visible cube from each side without movement keys,20/60/144Hz',()=>{
   for(const hz of[20,60,144])for(const crouch of[0,1])for(const side of[0,1,2,3]){setup();h.sandbox.spec={crouch,side};h.run('block.crouch=spec.crouch;var p=grassPlatforms()[0],q=grassWorld(p,spec.side<2?(spec.side?-.89:.89):0,spec.side>=2?(spec.side===2?.88:-.88):0);player.x=q.x;player.z=q.z;jump()');assert.ok(h.run('player.grassJump'));step(h,1.2,hz);near(h.run('player.y'),h.run('grassPlatforms()[0].top'),'mount '+hz+'/'+crouch+'/'+side+' x='+h.run('player.x')+' z='+h.run('player.z')+' owner='+h.run('block.x')+','+h.run('block.z'),.00001);assert.ok(h.run('actorGrounded(player)'));assert.equal(h.run('keys.size'),0);assert.equal(h.run('player.yaw'),0);}
  });
