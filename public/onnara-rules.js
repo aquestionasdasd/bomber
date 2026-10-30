@@ -33,16 +33,38 @@ export function constellationTarget(victim, owner, actors, reachable) {
 // A stopped event stays stopped for its remaining lifetime, including a fresh
 // same-round snapshot. Keeping IDs here never grants damage or inventory rights.
 export function createStarHold() {
-  const stopped = new Map();
+  const stopped = new Map(), hops = new Map();
+  function stop(event) {if(!event)return false;stopped.set(event.id,event.endsAt);hops.delete(event.id);return true;}
+  function begin(actor,event,now,sequence) {
+    if(!event||event.endsAt<=now||stopped.has(event.id)||hops.get(event.id)?.moving||!actor?.alive)return false;
+    hops.set(event.id,{sequence,moving:true,anchor:null,endsAt:event.endsAt});actor.vy=6.552;return true;
+  }
+  function sync(actor,event,now) {
+    if(!event?.hop||stopped.has(event.id))return;
+    const [sequence,at]=event.hop,old=hops.get(event.id);
+    if(old?.sequence===sequence)return;
+    const vy=Math.max(0,6.552-15*Math.max(0,now-at));
+    hops.set(event.id,{sequence,moving:vy>0,anchor:null,endsAt:event.endsAt});actor.vy=vy;
+  }
+  function finish(actor,event) {
+    const h=hops.get(event?.id);if(!h?.moving||actor.vy>0)return false;
+    h.moving=false;h.anchor=actor.y;actor.vy=0;return true;
+  }
   function apply(actor, event, now, valid) {
     for (const [id,end] of stopped) if (end <= now) stopped.delete(id);
+    for (const [id,h] of hops) if (h.endsAt <= now) hops.delete(id);
     if (!event || event.endsAt <= now || stopped.has(event.id)) return false;
-    if (!actor?.alive || actor.team !== event.team || valid(actor,event) !== true) {
-      stopped.set(event.id,event.endsAt); return false;
-    }
-    actor.y=event.y; actor.vy=0; return true;
+    const h=hops.get(event.id);
+    if(h?.moving)return false;
+    // Keep a completed prediction until the host publishes its apex. Once it
+    // arrives, the existing authoritative coordinates replace the prediction.
+    if(h&&h.anchor!==null&&event.hop?.[0]===h.sequence&&event.y!==event.hop[2])h.anchor=null;
+    const anchor=h?.anchor??event.y,hold={...event,y:anchor};
+    if (!actor?.alive || actor.team !== event.team || valid(actor,hold) !== true) {stop(event);return false;}
+    actor.y=anchor; actor.vy=0; return true;
   }
-  return { apply, reset(){stopped.clear();}, stopped:(id)=>stopped.has(id) };
+  return { apply, begin, sync, finish, stop, moving:id=>hops.get(id)?.moving===true,
+    forget(id){hops.delete(id);}, reset(){stopped.clear();hops.clear();}, stopped:(id)=>stopped.has(id) };
 }
 
 // This pose and frustum are used by the inset, the main-view overlay and BOTs.

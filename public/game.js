@@ -298,7 +298,7 @@ function resetTakeover(){takeoverState=null;takeoverClock=0;stationTakeover.rese
 function resetZoneAbilities(){zoneAbilities.reset();zoneFX.reset();zonePulseAudio.clear();zoneTargetPreview=null;zoneTargetPreviewAt=-Infinity;zoneTargetCharacter=null;if($('status-effects')){$('status-effects').hidden=true;$('status-effects').textContent='';}}
 const stoppedTurfEvents=new Map();
 const stoppedFrostEvents=new Map();
-function resetOrdinarySkills(){clearVeilPlacement();grassFrame=null;grassPrevious=null;onnaraReveal.reset();preparedSkillFX.reset();renkoSkillFX.reset();flashStatusFX.reset();capBankPreviewFX.reset();capPreviewUntil=-Infinity;capPreviewPath=null;skillSpectacle.reset();skillFeedback.reset();starHold.reset();onnaraSkillFX.reset();urchinSkillFX.reset();capSkillFX.reset();japanSkillFX.reset();nobiSkillFX.reset();carSkillFX.reset();catReturnSeen.clear();catSkillFX.reset();duckAim=null;duckSkillFX.reset();botHearing.reset();ordinarySkills.reset();ordinaryFX.reset();nopeDecoys.reset();nopeDecoyFX.reset();nopePops.length=0;nopeSeenPopSequence=0;mendSkillFX.reset();iagnuSkillFX.reset();grassSkillFX.reset();emberSkillFX.reset();frostSkillFX.reset();duelistSkillFX.reset();for(const actor of [player,...bots]){actor.renkoPending=null;actor.renkoDrive=null;actor.renkoJetHeld=false;actor.renkoUltimate=null;if(actor.kit)actor.kit.renkoActive=false;actor.onnaraJumpPending=null;actor.nextNobiToolAt=0;actor.nextCatClockAt=0;actor.nextRenkoUltAt=0;actor.nextRenkoDriveAt=0;actor.nextMendHealAt=0;actor.decoySeen?.clear();actor.duckPadAt=-Infinity;actor.duckPadUntil=0;actor.duckPadRound=0;actor.duckPadTeam=null;actor.duckFlapEvent=null;actor.duckFlapAt=-Infinity;if(!(['play','pause'].includes(mode)&&match?.phase==='post'&&!actor.alive&&actor.carMotion?.round===match.round&&actor.carMotion?.endsAt>elapsed)){actor.carMotion=null;actor.carImpulseUntil=0;actor.carFallUntil=0;actor.carRecoveryUntil=0;}cancelServiceReload(actor);actor.lastHeard=null;actor.netStepClock=0;}stoppedServiceEvents.clear();stoppedTurfEvents.clear();stoppedFrostEvents.clear();ordinaryAudio.clear();ordinaryMarkerAudio.clear();const overlay=$('skill-blind-overlay');if(overlay){overlay.hidden=true;overlay.style.opacity='0';}const nearOverlay=$('skill-nearsight-overlay');if(nearOverlay){nearOverlay.hidden=true;nearOverlay.style.opacity='0';}}
+function resetOrdinarySkills(){clearVeilPlacement();grassFrame=null;grassPrevious=null;onnaraReveal.reset();preparedSkillFX.reset();renkoSkillFX.reset();flashStatusFX.reset();capBankPreviewFX.reset();capPreviewUntil=-Infinity;capPreviewPath=null;skillSpectacle.reset();skillFeedback.reset();starHold.reset();onnaraSkillFX.reset();urchinSkillFX.reset();capSkillFX.reset();japanSkillFX.reset();nobiSkillFX.reset();carSkillFX.reset();catReturnSeen.clear();catSkillFX.reset();duckAim=null;duckSkillFX.reset();botHearing.reset();ordinarySkills.reset();ordinaryFX.reset();nopeDecoys.reset();nopeDecoyFX.reset();nopePops.length=0;nopeSeenPopSequence=0;mendSkillFX.reset();iagnuSkillFX.reset();grassSkillFX.reset();emberSkillFX.reset();frostSkillFX.reset();duelistSkillFX.reset();for(const actor of [player,...bots]){actor.renkoPending=null;actor.renkoDrive=null;actor.renkoJetHeld=false;actor.renkoUltimate=null;if(actor.kit)actor.kit.renkoActive=false;actor.onnaraJumpPending=null;actor.onnaraHopPending=null;actor.onnaraHoldCastPending=null;actor.onnaraHoldCast=null;actor.nextNobiToolAt=0;actor.nextCatClockAt=0;actor.nextRenkoUltAt=0;actor.nextRenkoDriveAt=0;actor.nextMendHealAt=0;actor.decoySeen?.clear();actor.duckPadAt=-Infinity;actor.duckPadUntil=0;actor.duckPadRound=0;actor.duckPadTeam=null;actor.duckFlapEvent=null;actor.duckFlapAt=-Infinity;if(!(['play','pause'].includes(mode)&&match?.phase==='post'&&!actor.alive&&actor.carMotion?.round===match.round&&actor.carMotion?.endsAt>elapsed)){actor.carMotion=null;actor.carImpulseUntil=0;actor.carFallUntil=0;actor.carRecoveryUntil=0;}cancelServiceReload(actor);actor.lastHeard=null;actor.netStepClock=0;}stoppedServiceEvents.clear();stoppedTurfEvents.clear();stoppedFrostEvents.clear();ordinaryAudio.clear();ordinaryMarkerAudio.clear();const overlay=$('skill-blind-overlay');if(overlay){overlay.hidden=true;overlay.style.opacity='0';}const nearOverlay=$('skill-nearsight-overlay');if(nearOverlay){nearOverlay.hidden=true;nearOverlay.style.opacity='0';}}
 function resetTeamAbilities(){teamAbilities.reset();characterFX.reset();resetZoneAbilities();resetOrdinarySkills();}
 // The grass cube is a movement solid; it adds no targeting or network state.
 let grassFrame=null,grassPrevious=null;
@@ -511,6 +511,7 @@ function updateOrdinarySkills(){
   for(const actor of[player,...bots])renkoUltimateActive(actor);
   for(const actor of[player,...bots])if(!actor.alive||actor.renkoPending&&(actor.renkoPending.round!==match.round||actor.renkoPending.team!==actor.team)){actor.renkoPending=null;actor.renkoDrive=null;}
   for(const actor of [player,...bots])if(actor.onnaraJumpPending&&(!actor.alive||actor.onnaraJumpPending.round!==match.round||actor.onnaraJumpPending.team!==actor.team))actor.onnaraJumpPending=null;
+  for(const actor of[player,...bots])if(actor.onnaraHopPending&&(!actor.alive||actor.onnaraHopPending.round!==match.round||actor.onnaraHopPending.team!==actor.team)){starHold.forget(actor.onnaraHopPending.id);actor.onnaraHopPending=null;}
   if(match.phase!=='live'){resetOrdinarySkills();return;}
   if(ordinarySkills.capLocked(player.id,elapsed))aiming=false;
   if(!isGuest()){
@@ -2035,11 +2036,29 @@ function activateOnnaraAbility(actor,key,{predict=false,aim=null}={}){
  if(key==='c'){actor.vy=ONNARA_SKILLS.jumpVelocity;actor.trcLadder=null;}
  if(actor===player)showSkillMessage('onnara',key,effect.type);return effect;
 }
+function stopOnnaraHold(actor,id){
+ const event=ordinarySkills.onnaraEvent('onnara-hover',actor?.id,elapsed);
+ if(netHostPaused||!actor?.alive||match?.phase!=='live'||!event||event.id!==id||event.team!==actor.team||event.round!==match.round||starHold.stopped(id))return false;
+ starHold.stop(event);ordinarySkills.cancelOnnaraEvent(id,actor.id);return true;
+}
+function jumpOnnaraHold(actor,id,sequence,{predict=false}={}){
+ const event=ordinarySkills.onnaraEvent('onnara-hover',actor?.id,elapsed);
+ if(netHostPaused||actor?.kit?.character!=='onnara'||!onnaraAirAim(actor)||event?.id!==id||actor.planting||actor.defusing||actor.serviceReload||actor.trafficLaunch||starHold.moving(id))return false;
+ if(!predict&&!ordinarySkills.beginOnnaraHop(id,ordinaryActorView(actor),elapsed,sequence))return false;
+ return starHold.begin(actor,event,elapsed,sequence);
+}
 function confirmOnnaraSkill(key){
  if(netHostPaused||mode!=='play'||!player.alive||interactionHeld||objectivePractice)return;refillMapPracticeSkills();
  if(isGuest()&&netActions.length>=64)return;
+ const castPending=key==='e'&&isGuest()&&player.onnaraHoldCastPending;
+ if(castPending&&!ordinarySkills.onnaraEvent('onnara-hover',player.id,elapsed)){
+  if(!castPending.cancelled){queueNetAction('ability',{key:'e',onnaraStop:castPending.seq});castPending.cancelled=true;}return;
+ }
+ const hold=key==='e'&&ordinarySkills.onnaraEvent('onnara-hover',player.id,elapsed);
+ if(hold){if(stopOnnaraHold(player,hold.id)){if(isGuest())queueNetAction('ability',{key:'e',onnaraStop:hold.id});showMessage('星留め解除','通常の落下へ',2);}updateHUD();return;}
  const aim={yaw:player.yaw,pitch:player.pitch},effect=activateAbility(player,key,{predict:isGuest(),aim});
  if(effect&&isGuest())queueNetAction('ability',{key,...aim});
+ if(effect?.type==='onnara-hover'&&isGuest())player.onnaraHoldCastPending={seq:netActions.at(-1)?.seq,round:match.round,team:player.team};
  if(effect?.type==='onnara-jump'&&isGuest())player.onnaraJumpPending={round:match.round,team:player.team,seq:netActions.at(-1)?.seq};
  if(!effect)showMessage('発動できません','Cは地上／Eは空中で使用',2);
  refillMapPracticeSkills();updateHUD();
@@ -2047,7 +2066,7 @@ function confirmOnnaraSkill(key){
 function starHoldClear(actor,event){return canStand(actor.x,actor.z,.34,event.y)&&getZoneFloor(actor.x,actor.z,event.y+.04)<event.y-.035;}
 function onnaraAirAim(actor){
  const event=ordinarySkills.onnaraEvent?.('onnara-hover',actor?.id,elapsed);
- return !!(actor?.alive&&match?.phase==='live'&&event&&event.round===match.round&&event.team===actor.team&&!starHold.stopped(event.id)&&!actor.trcLadder&&!carMotionActive(actor)&&!busSeat(actor)&&Math.abs(actor.y-event.y)<1e-6&&Math.abs(actor.vy||0)<1e-6&&starHoldClear(actor,event));
+ return !!(actor?.alive&&match?.phase==='live'&&event&&event.round===match.round&&event.team===actor.team&&!starHold.stopped(event.id)&&!starHold.moving(event.id)&&!actor.trcLadder&&!carMotionActive(actor)&&!busSeat(actor)&&Math.abs(actor.y-event.y)<1e-6&&Math.abs(actor.vy||0)<1e-6&&starHoldClear(actor,event));
 }
 function steadyAirAim(actor){return duckAirAim(actor)||onnaraAirAim(actor)||renkoSteadyAim(actor);}
 function renkoSteadyAim(actor){return !!(actor?.alive&&actor.kit?.character==='renko'&&match?.phase==='live'&&!carMotionActive(actor)&&!busSeat(actor)&&renkoUltimateActive(actor));}
@@ -2703,7 +2722,7 @@ function useAbility(key){if(busSeat())return;
  if(player.kit?.character==='veil'&&key==='q'&&mode==='play'&&player.alive&&match?.phase==='live'&&!netHostPaused&&!interactionHeld&&!objectivePractice){duckAim=duckAim===key?null:key;firing=false;aiming=false;if(duckAim)showSkillAim(player.kit.character,key);return;}
  if(player.kit?.character==='renko')return confirmRenkoSkill(key);
  if(player.kit?.character==='onnara'&&key==='q'&&mode==='play'&&player.alive&&match?.phase==='live'&&!netHostPaused&&!interactionHeld&&!objectivePractice){duckAim=duckAim===key?null:key;firing=false;aiming=false;if(duckAim)showSkillAim(player.kit.character,key);return;}
- if(player.kit?.character==='onnara'&&key==='c')return confirmOnnaraSkill(key);
+ if(player.kit?.character==='onnara'&&['c','e'].includes(key))return confirmOnnaraSkill(key);
  if(player.kit?.character==='urchin'&&['c','q','e'].includes(key)&&mode==='play'&&player.alive&&match?.phase==='live'&&!netHostPaused&&!interactionHeld&&!objectivePractice){duckAim=duckAim===key?null:key;firing=false;aiming=false;if(duckAim)showSkillAim(player.kit.character,key);return;}
  if(player.kit?.character==='cap'&&['c','q'].includes(key)&&mode==='play'&&player.alive&&match?.phase==='live'&&!netHostPaused&&!interactionHeld&&!objectivePractice){duckAim=duckAim===key?null:key;firing=false;aiming=false;if(duckAim)showSkillAim(player.kit.character,key);return;}
  if(player.kit?.character==='japan'&&['c','q'].includes(key)&&mode==='play'&&player.alive&&match?.phase==='live'&&!netHostPaused&&!interactionHeld&&!objectivePractice){duckAim=duckAim===key?null:key;firing=false;aiming=false;if(duckAim)showSkillAim(player.kit.character,key);return;}
@@ -2730,7 +2749,12 @@ function duckFlap(actor){
   actor.duckFlapEvent=event.id;actor.duckFlapAt=elapsed;actor.vy=DUCK_SKILLS.flapVelocity;sound('duck-flap',{entity:actor,localOnly:true});return true;
 }
 function jump(){if(carMotionActive(player)||busSeat()||renkoFlight(player))return;if(player.trcLadder){trcInteract(player,{kind:'ladder',id:player.trcLadder});return;}if(!netHostPaused&&mode==='play'&&player.alive&&!interactionHeld&&duckFlap(player))return;
-if(!netHostPaused&&mode==='play'&&player.alive&&player.vy===0&&!ordinarySkills.onnaraEvent?.('onnara-hover',player.id,elapsed)&&!interactionHeld){player.vy=normalJumpVelocity(player);sound('jump',{localOnly:true});}}
+if(!netHostPaused&&mode==='play'&&player.alive&&!interactionHeld&&ordinarySkills.onnaraEvent?.('onnara-hover',player.id,elapsed)){
+ const event=ordinarySkills.onnaraEvent('onnara-hover',player.id,elapsed);if(isGuest()&&netActions.length>=64)return;
+ const sequence=isGuest()?netActionSequence+1:Math.max(1,(event.hop?.[0]||0)+1);
+ if(jumpOnnaraHold(player,event.id,sequence,{predict:isGuest()})){if(isGuest()){queueNetAction('ability',{key:'e',onnaraHop:event.id});player.onnaraHopPending={id:event.id,seq:netActions.at(-1).seq,round:match.round,team:player.team};}sound('jump',{localOnly:true});}return;
+}
+if(!netHostPaused&&mode==='play'&&player.alive&&player.vy===0&&!interactionHeld){player.vy=normalJumpVelocity(player);sound('jump',{localOnly:true});}}
 function updateCombatReport(){
   const panel=$('combat-report'),report=match?.phase==='buy'&&!exploring?roundDamage.report(player.id,roster,match.round):null;
   setVisible('combat-report',!!report);if(!panel||!report)return;
@@ -2796,7 +2820,7 @@ function updateHUD(){
     const carGyro=ordinarySkills.carGyro(player.id,elapsed);
     const tax=ordinarySkills.onnaraTax?.(player.id,elapsed);if(tax)statuses.push(tax.power>0?`王冠の徴税 · 発砲ごとHP4 / 残り${Math.ceil(tax.power/ONNARA_SKILLS.taxPerShot)}回 · HP1で止まる`:'王冠の徴税 · 10発分の代償を払い終えました');
     const renkoJetStatus=renkoFlight(player),renkoDriveStatus=renkoEvent(player,'renko-drive');if(renkoUltimateActive(player))statuses.push('リスタートラッシュ · 敵撃破でC・Q・E全回復');if(renkoJetStatus)statuses.push(`ジェットパック ${Math.ceil(Math.max(0,renkoJetStatus.endsAt-elapsed))}秒 · E長押し · マウスの向きへ飛行 / 離すと停止`);if(renkoDriveStatus)statuses.push(`高速走行 ${Math.ceil(renkoDriveStatus.endsAt-elapsed)}秒 · 素手 / C発射可 · Vで滑走 / Qで解除`);
-    if(ordinarySkills.onnaraEvent?.('onnara-hover',player.id,elapsed)&&!starHold.stopped(ordinarySkills.onnaraEvent('onnara-hover',player.id,elapsed).id))statuses.push('星留め · 空中静止');
+    if(ordinarySkills.onnaraEvent?.('onnara-hover',player.id,elapsed)&&!starHold.stopped(ordinarySkills.onnaraEvent('onnara-hover',player.id,elapsed).id))statuses.push(starHold.moving(ordinarySkills.onnaraEvent('onnara-hover',player.id,elapsed).id)?'星留め · ジャンプ中':'星留め · Spaceで跳ぶ／Eで解除');
     if(ordinarySkills.onnaraEvent?.('onnara-chain',player.id,elapsed))statuses.push('星座裁定 · 近くの敵へ70%連鎖');
     if(ordinarySkills.urchinJammed(player.id,elapsed))statuses.push('棘錠 · 装填不可');
     if(ordinarySkills.nearsightUntil(player.id,elapsed)>elapsed)statuses.push('深潮 · 8mより先が見えない');
@@ -3509,9 +3533,11 @@ function updateActorVertical(actor,dt,radius=.34){
           if(map.collision.overlaps(c,actor.x,actor.z,radius))support=c.height;
         }
       }
-      actor.y=nextFeet;
+      const hold=ordinarySkills.onnaraEvent('onnara-hover',actor.id,elapsed),hopping=hold&&starHold.moving(hold.id);
+      actor.y=hopping&&actor.vy<=0?previousFeet+Math.max(0,actor.vy+15*verticalDt)**2/30:nextFeet;
       if(actor.y>=ceiling){actor.y=ceiling;actor.vy=0;}
       if(actor.vy<=0&&actor.y<=support){actor.y=support;actor.vy=0;actor.duckPadUntil=0;}
+      if(hopping&&starHold.finish(actor,hold)){if(!isGuest()&&!ordinarySkills.moveOnnaraHold(hold.id,ordinaryActorView(actor),elapsed))stopOnnaraHold(actor,hold.id);applyStarHold(actor);break;}
     }
 }
 function tickDuckPads(){
@@ -3928,6 +3954,14 @@ if(map.destruction){if(fresh||!packet.busDamage)map.destruction.reset();map.dest
     if(!accepted&&!fresh&&player.onnaraJumpPending.round===match.round&&self.alive&&!carMotionActive(player)&&!player.trafficLaunch){player.y=self.y;player.vy=0;}
     player.onnaraJumpPending=null;
   }
+  if(player.onnaraHoldCastPending&&(fresh||ack>=player.onnaraHoldCastPending.seq||!self.alive||player.onnaraHoldCastPending.round!==match.round||player.onnaraHoldCastPending.team!==self.team))player.onnaraHoldCastPending=null;
+  if(player.onnaraHopPending&&(fresh||ack>=player.onnaraHopPending.seq||!self.alive||match.phase!=='live')){
+    const pending=player.onnaraHopPending,event=ordinarySkills.onnaraEvent('onnara-hover',ownId,elapsed);
+    if(event?.id!==pending.id||event.hop?.[0]!==pending.seq){starHold.forget(pending.id);player.y=self.y;player.vy=0;}
+    player.onnaraHopPending=null;
+  }
+  const heldEvent=ordinarySkills.onnaraEvent('onnara-hover',ownId,elapsed);
+  if(heldEvent&&!player.onnaraHopPending)starHold.sync(player,heldEvent,elapsed);
   const carMove=carMotionMarker(self.carMove,packet.time);
   if(carMove){
    const first=player.carMotion?.id!==carMove.id||player.carMotion?.phase!==carMove.phase;
@@ -3957,7 +3991,7 @@ if(map.destruction){if(fresh||!packet.busDamage)map.destruction.reset();map.dest
     for(const action of netActions){
       if(action.round!==match.round)continue;
       if(action.type==='character'&&match.phase==='buy'&&match.round===1&&characterIds.includes(action.character))player.kit.character=action.character;
-      else if(action.type==='ability'&&!(player.kit.character==='cat'&&action.key==='c'&&action.catReturning===true)&&!(player.kit.character==='renko'&&action.key==='q'&&action.renkoStop===true)){
+      else if(action.type==='ability'&&action.onnaraStop===undefined&&action.onnaraHop===undefined&&!(player.kit.character==='cat'&&action.key==='c'&&action.catReturning===true)&&!(player.kit.character==='renko'&&action.key==='q'&&action.renkoStop===true)){
         const batch=action.smokePoints,count=batch===undefined?1:player.kit.character==='veil'&&action.key==='c'&&Array.isArray(batch)&&batch.length>=1&&batch.length<=VEIL_SKILLS.dustMax&&batch.every(p=>Array.isArray(p)&&p.length===3&&p.every(Number.isFinite))?batch.length:0;
         if(batch!==undefined&&player.kit.smoke<count)continue;
         for(let i=0;i<count;i++){const effect=player.kit.activate(action.key,action.at);if(effect?.type==='knives')predictedKnives=true;}
@@ -4049,7 +4083,7 @@ function updateRemoteActor(actor,dt){
         }
       }
       const starJump=ordinarySkills.onnaraEvent?.('onnara-jump',actor.id,elapsed);
-      if((map.traversal||starJump||grassAuthority||actor.kit?.character==='renko')&&!flight&&!ordinarySkills.onnaraEvent?.('onnara-hover',actor.id,elapsed)){
+      if((map.traversal||starJump||grassAuthority||['renko','onnara'].includes(actor.kit?.character))&&!flight){
         // One airborne input stream can request one normal jump. Reusing its
         // last height after landing must not repeatedly launch the remote.
         const jumpKey=data.connection+':'+data.round;
@@ -4061,13 +4095,14 @@ function updateRemoteActor(actor,dt){
       actor.y=acceptedY;
       // Remote motion is consumed from its accepted pose; a prior lift impulse
       // must not leave a landed actor permanently classified as airborne.
-      if((!map.traversal&&!starJump&&!grassAuthority&&actor.kit?.character!=='renko')||flight||ordinarySkills.onnaraEvent?.('onnara-hover',actor.id,elapsed))actor.vy=inputGrounded?0:(actor.y-previousY)/Math.max(dt,1e-6);
+      if((!map.traversal&&!starJump&&!grassAuthority&&!['renko','onnara'].includes(actor.kit?.character))||flight)actor.vy=inputGrounded?0:(actor.y-previousY)/Math.max(dt,1e-6);
     }
     applyStarHold(actor);
     actorMovementScale(actor);
     actor.netYaw=Number.isFinite(input.yaw)?input.yaw:0;actor.netPitch=clamp(Number(input.pitch)||0,-SKILL_THROW.maxPitch,SKILL_THROW.maxPitch);actor.group.rotation.y=actor.netYaw+Math.PI;
   }
   if(active&&busSeat(actor)){actor.netYaw=Number.isFinite(input.yaw)?input.yaw:actor.netYaw||0;actor.netPitch=clamp(Number(input.pitch)||0,-SKILL_THROW.maxPitch,SKILL_THROW.maxPitch);}
+  if(actor.kit?.character==='onnara'&&actor.alive&&!wasClimbing&&!busSeat(actor)&&!carMotionActive(actor)&&(!active||!Number.isFinite(input.x)||!Number.isFinite(input.z)))updateActorVertical(actor,dt);
   const remoteRunning=active&&match.phase==='live'&&(frostSlideSpeed(actor)>0||input.quiet!==true&&actor.crouch<.5)&&!wasDashing&&actorGrounded(actor)&&Math.hypot(actor.x-previousX,actor.z-previousZ)>dt*2;
   if(!wasClimbing)trcMotionSound(actor,dt,{x:previousX,y:previousY,z:previousZ},input.quiet===true);
   actor.netStepClock=remoteRunning?(actor.netStepClock||0)+dt:0;if(actor.netStepClock>.35){actor.netStepClock=0;sound('step',{entity:actor});}
@@ -4109,6 +4144,13 @@ function applyRemoteAction(actor,action,actionTime=elapsed){
   }
   if(action.type==='ability'){
     // An explicit stop must never become a new cast after expiry or an X refill.
+    if(action.onnaraStop!==undefined||action.onnaraHop!==undefined){
+      if(actor.kit?.character==='onnara'&&action.key==='e'&&!(action.onnaraStop!==undefined&&action.onnaraHop!==undefined)){
+        if(typeof action.onnaraStop==='string')stopOnnaraHold(actor,action.onnaraStop);
+        else if(Number.isSafeInteger(action.onnaraStop)&&action.onnaraStop>0&&actor.onnaraHoldCast?.seq===action.onnaraStop&&actor.onnaraHoldCast.round===match.round)stopOnnaraHold(actor,actor.onnaraHoldCast.id);
+        else if(typeof action.onnaraHop==='string')jumpOnnaraHold(actor,action.onnaraHop,action.seq);
+      }return;
+    }
     if(action.renkoStop!==undefined){if(action.renkoStop===true&&action.key==='q'&&actor.kit?.character==='renko')stopRenkoDrive(actor);return;}
     if(actor.kit?.character==='renko'&&action.key==='e'&&netInputs.get(actor.remoteId)?.input.jet!==true)return;
     if(['c','q','e','x'].includes(action.key)){
@@ -4130,6 +4172,7 @@ function applyRemoteAction(actor,action,actionTime=elapsed){
         }
       }else if(action.smokePoint!==undefined||action.smokePoints!==undefined)return;
       const effect=activateAbility(actor,action.key,{aim,zonePoint,zonePoints});
+      if(effect?.type==='onnara-hover')actor.onnaraHoldCast={seq:action.seq,id:ordinarySkills.onnaraEvent('onnara-hover',actor.id,elapsed)?.id,round:match.round};
       if(effect?.type==='dash'){
         actor.netDashInputSequence=netInputs.get(actor.remoteId)?.seq;
         if(Number.isFinite(action.dashX)&&Number.isFinite(action.dashZ)){
@@ -4188,7 +4231,7 @@ function tickOnline(dt){
     const rules={format:match.format,startingSide:match.startingSide,round:match.round,score:{...match.score},phase:match.phase,phaseTime:match.phaseTime,roundTime:match.roundTime,winner:match.winner,lastRound:match.lastRound?{...match.lastRound}:null,spike:{...match.spike}};
     if(rules.lastRound&&match.phase!=='post')delete rules.lastRound.fullCombo;
     const teamState=teamAbilities.snapshot(),packet={type:'snapshot',mapId:map.id||'hashimoto',seq:++netSequence,time:elapsed,paused:netHostPaused,...(map.traversal?{trcDoors:map.traversal.snapshot()}:{}),cues:serializeNetCues(),smokes:serializeSmokes(),drops:serializeDrops(),detonation:detonationState?{...detonationState}:null,takeover:takeoverState?{...takeoverState}:null,zoneAbilities:zoneAbilities.snapshot(),...(map.traffic?{busTransit:map.traffic.service.snapshot([player,...bots].map(a=>a.id)),...(map.destruction?.snapshot()?{busDamage:map.destruction.snapshot()}:{})}:{}),rules,roster:roster.map(r=>({...r,kit:r.kit?.snapshot()})),actors:[player,...bots].map(captureNetActor),acks:Object.fromEntries(netApplied),positionAcks:Object.fromEntries(bots.filter(b=>b.remoteId&&b.netPositionAck).map(b=>[b.remoteId,{...b.netPositionAck}]))};
-    for(const team of ['blue','red']){let state={...packet,teamAbilities:{...teamState,pings:teamState.pings.filter(ping=>ping.observerTeam===team)},ordinarySkills:ordinarySkills.snapshot(team),nopeDecoys:nopeDecoys.snapshot(),nopePops:serializeNopePops()};if(match.phase==='buy'){const report=roundDamage.snapshot(team,match.round);if(report)state.damageReport=report;}if(state.damageReport||state.nopeDecoys||state.ordinarySkills.events.some(e=>['nope-decoy','urchin-gloom'].includes(e.type))||state.ordinarySkills.blinds.some(b=>b.eventId.startsWith('skill-urchin-gloom-'))||map.traffic||map.traversal||packet.actors.some(a=>a.crouch>0||a.kit?.renkoActive)||[player,...bots].some(carMotionActive)||match.phase==='post'||state.cues.some(c=>(['skill-hit','skill-heal','gun-hit'].includes(c.type)||isKillSoundCue(c.type))))state=fitTrafficSnapshot(state);if(state)online.send(state,{team});}
+    for(const team of ['blue','red']){let state={...packet,teamAbilities:{...teamState,pings:teamState.pings.filter(ping=>ping.observerTeam===team)},ordinarySkills:ordinarySkills.snapshot(team),nopeDecoys:nopeDecoys.snapshot(),nopePops:serializeNopePops()};if(match.phase==='buy'){const report=roundDamage.snapshot(team,match.round);if(report)state.damageReport=report;}if(state.damageReport||state.nopeDecoys||state.ordinarySkills.events.some(e=>['nope-decoy','urchin-gloom'].includes(e.type)||e.type==='onnara-hover'&&e.hop)||state.ordinarySkills.blinds.some(b=>b.eventId.startsWith('skill-urchin-gloom-'))||map.traffic||map.traversal||packet.actors.some(a=>a.crouch>0||a.kit?.renkoActive)||[player,...bots].some(carMotionActive)||match.phase==='post'||state.cues.some(c=>(['skill-hit','skill-heal','gun-hit'].includes(c.type)||isKillSoundCue(c.type))))state=fitTrafficSnapshot(state);if(state)online.send(state,{team});}
   }else if(netHasSnapshot){
     const ride=grassRideInput(player),seq=++netSequence,input={...(ride?{ride}:{}),...(match.phase==='match'?{matchFinished:true}:{}),...(map.traversal?{climb:mode==='play'?Math.sign((keys.has('KeyW')?1:0)-(keys.has('KeyS')?1:0)-touchMove.y):0}:{}),...(player.kit?.character==='renko'&&player.renkoJetHeld===true&&mode==='play'?{jet:true}:{}),x:player.x,z:player.z,y:player.y,yaw:player.yaw,pitch:player.pitch,crouch:player.crouch,quiet:keys.has('ShiftLeft')||keys.has('ShiftRight'),interact:mode==='play'&&interactionHeld,...(busDriving()?{bus:busControls(player.id)}:{})};
     netPositionHistory.set(seq,{x:input.x,z:input.z,correctionX:netPositionCorrectionX,correctionZ:netPositionCorrectionZ});while(netPositionHistory.size>128)netPositionHistory.delete(netPositionHistory.keys().next().value);
