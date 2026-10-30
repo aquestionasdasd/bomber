@@ -3,7 +3,7 @@ export const SKILL_THROW = Object.freeze({speed:12, gravity:4, lift:2, maxFlight
 export const NOPE_FLASH_THROW = Object.freeze({gravity:12, fuse:1});
 export const throwGravity = type => type==='nope-flash'?NOPE_FLASH_THROW.gravity:SKILL_THROW.gravity;
 export const throwMaxFlight = type => type==='nope-flash'?NOPE_FLASH_THROW.fuse:SKILL_THROW.maxFlight;
-export const LOBBED_SKILLS = Object.freeze(['cap-lens','cap-cluster-heal','cap-cluster-damage','cap-bank-grenade','cap-magazine-grenade','duelist-comet','nope-bottle','nope-flash','mend-seeds','mend-pollen','echo-tag','echo-glint','veil-sensor','veil-root-seed','ember-solder','frost-stitch','frost-mist','nobi-bell','nobi-whisker','nobi-toolbox','nobi-collar']);
+export const LOBBED_SKILLS = Object.freeze(['urchin-disarm','cap-lens','cap-cluster-heal','cap-cluster-damage','cap-bank-grenade','cap-magazine-grenade','duelist-comet','nope-bottle','nope-flash','mend-seeds','mend-pollen','echo-tag','echo-glint','veil-sensor','veil-root-seed','ember-solder','frost-stitch','frost-mist','nobi-bell','nobi-whisker','nobi-toolbox','nobi-collar']);
 export const isLobbedSkill = type => LOBBED_SKILLS.includes(type);
 export function throwDuration(from,to,type){
   const distance=Math.hypot(to.x-from.x,to.z-from.z),dy=to.y-from.y;

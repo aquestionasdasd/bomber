@@ -1,3 +1,13 @@
+## 第224巡 / 青ウニQを接触型の投擲へ
+
+所有者指定：青ウニQ棘抜きはQで構え、左で自由投擲、右で無料取消。対象ロック/.45秒後の遠隔剥離を廃止し、共通の初速12m/s＋上向き2/重力4・上下±89.4度・水平32m以内の軌道をhostが実接触まで掃引する。最初の壁/床/天井/身体で停止し、敵に当たればその時点で所持する購入主武器を通常dropへ移す。味方には効果なし、対象なし/外れも確定時に1個消費。装備切替だけでは主武器を守れず、主武器なし/特殊禁止/32drop満杯は無害に終了する。残弾/予備弾・通常の副武器→ナイフ・両軍のF回収/重複拾得防止と潮痕2m引き寄せを保持。Q1個/100coin/0damage/0stun、C/E/X・他15人・音源/地形/銃・HTTP頻度不変。新wire fieldなし、20event/64action拒否rollbackを保持。fps-19 PAUSED。下記旧Qの対象必須/固定.45秒/視線猶予/発動時instance固定は今回の投擲仕様で更新する。
+
+投擲中はtargetId/weaponIdを持たずdisarm=[0,0]。hostの最大1/120秒の軌道分割と敵の前後poseの相対capsule sweepで最初の接触を求め、世界との同時接触は世界を優先する。ワープは移動線でつながない。煙は物体を止めず、飛ぶ棘と命中演出は通常depth/煙/視線に従う。着弾点と飛行時間を既存eventに確定し、成功時だけ既存targetId/weaponId/disarm=[1,dropId]を返す。guestは描画/在庫予測だけで武器を変更しない。飛行中の局所標本はsnapshotへ追加せず、次R/menu/死亡・期限で清掃する。
+
+調整値：urchin-disarm.jsのrange32/bodyRadius.1/bodyStep1/120/tail1.2/maxStock1/price100と既存drop/pull値。飛行はskill-throw.jsのspeed12/lift2/gravity4/maxFlight8を共用。旧delay/occlusionGraceは旧helper互換として残るが、新Qの発動待ちには使わない。青い棘の手元と飛翔は有界の共通prepared pool、接触後は既存opaque棘FXと成功/不成立音を共用し、新音源は追加しない。
+
+検証：実updatePlayを一frame一回の20/60/144Hz、接触/壁/味方/煙/回避/交差、全主武器分類/残弾/両軍同時拾得、hostguest JSON/重複/容量/清掃。純粋7群・故障4種、実game10群、C6/E潮痕8/X12群、既存27 SQLiteを含むwire、全15人とC/E/X定義/音recipe不変。旧全mainと旧prepared10種/NOPE固定.55秒/草旧型fixture債務は未解消。実browser/実端末/聴感/BOT実戦頻度・通常5v5効果は未確認。音出力/ユーザーtab/server操作0。
+
 ## 第211巡 / 青ウニQ・棘抜きの予告と主武器争奪
 
 所有者指定：今回はQのみ。Qで青い棘を構え、実hit surfaceで狙った可視32m以内の敵の購入主武器1個へ左確定・右無料取消。確定時に1個消費して対象/主武器instanceを固定し、共通clockの.45秒後に通常dropへ移す。壁/煙の視線切れは連続.10秒で失敗し、射程外/死亡/team変更/既に手放したinstanceでも失敗、消費は戻さない。副武器/ナイフへの切替だけでは避けられず、弾倉/予備弾を保持して副武器→ナイフへ持ち替える。主武器は短い衝突検査済み放出後に通常F拾得となり、両軍が同じ残弾で回収可能。0damage/0stun、Q1/100coin。専用opaque depth FX/短い通知/既存素材recipeを使用。C/E/X・他15人・音源byte/地形/銃/HTTP頻度を保持。URCHIN-Q-DISARM.md参照。fps-19はPAUSED。

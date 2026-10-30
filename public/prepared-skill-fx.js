@@ -3,13 +3,13 @@ import { getCharacterSkill, NOBI_SKILLS, URCHIN_SKILLS, ONNARA_SKILLS, VEIL_SKIL
 import { skillProjectilePosition } from './character-skills.js';
 import { CHARACTER_HANDS } from './viewmodel.js';
 
-// Only aimed throws/placements. Targeted disarms, cleansing and body charges
+// Only aimed throws/placements. Targeted cleansing and body charges
 // keep their existing presentation and inputs. Colors identify the held item.
 export const PREPARED_SKILL_PROPS=Object.freeze(Object.fromEntries([
  ['cap-lens','#ffbf70','ball'],['cap-cluster-heal','#73ffad','ball'],['cap-cluster-damage','#ff745c','ball'],['cap-bank-grenade','#79e7ee','ball'],['cap-magazine-grenade','#c49aff','ball'],
  ['nobi-bell','#ffe166','bell'],['nobi-whisker','#66d9ff','whisker'],
  ['nobi-toolbox','#ff934a','toolbox'],['nobi-collar','#c09aff','collar'],
- ['onnara-orb','#64ffe0','gem'],['urchin-gloom','#467fff','wave'],
+ ['onnara-orb','#64ffe0','gem'],['urchin-gloom','#467fff','wave'],['urchin-disarm','#75eaff','thorn'],
  ['duck-pad','#bcf34d','ball'],['duck-shield','#ffcb49','ball'],
  ['japan-border','#ff6388','ball'],['veil-sensor','#8acb5a','ball'],['veil-root-seed','#8acb5a','ball'],
 ].map(([type,color,shape])=>[type,Object.freeze({color,shape})])));
@@ -26,7 +26,8 @@ export function acquireSkillProps(T){
    const s=PREPARED_SKILL_PROPS[type];if(!s)return null;
    const root=new T.Group(),m=palette[type];root.name='Skill prop / '+type;root.userData.skillType=type;root.userData.color=s.color;root.userData.shape=s.shape;
    const add=(g,material=m,p=[0,0,0],scale=[1,1,1])=>{const o=new T.Mesh(g,material);o.position.set(...p);o.scale.set(...scale);root.add(o);return o;};
-   if(s.shape==='bell'){add(sphere);add(ring,m,[0,-.12,0],[.2,.2,.2]).rotation.x=Math.PI/2;}
+   if(s.shape==='thorn'){for(let i=0;i<5;i++){const o=add(spine,m,[(i-2)*.035,0,0],[1,1.5,1]);o.rotation.z=(i-2)*.18;}}
+   else if(s.shape==='bell'){add(sphere);add(ring,m,[0,-.12,0],[.2,.2,.2]).rotation.x=Math.PI/2;}
    else if(s.shape==='whisker'){for(const side of[-1,1])for(let i=-1;i<=1;i++){const w=add(line,m,[side*.2,i*.07,0]);w.rotation.z=side*i*.2;}}
    else if(s.shape==='toolbox'){add(box);for(const side of[-1,1])add(line,white,[0,.16,0]).rotation.z=side*.8;}
    else if(s.shape==='collar'){for(const side of[-1,1])add(line,m,[side*.13,0,0],[1.5,1,1]).rotation.z=side*.75;}
