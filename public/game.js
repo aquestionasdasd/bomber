@@ -609,7 +609,7 @@ function renderOrdinarySkills(){
   const nearRemaining=live&&viewer?.alive?Math.max(0,ordinarySkills.nearsightUntil(viewer.id,elapsed)-elapsed):0,nearOverlay=$('skill-nearsight-overlay');
   if(nearOverlay){nearOverlay.hidden=!(nearRemaining>0&&mode==='play');nearOverlay.style.opacity=String(Math.min(1,nearRemaining/.25));}
   const remaining=live&&viewer?.alive?Math.max(0,ordinarySkills.blindUntil(viewer.id,elapsed)-elapsed):0,overlay=$('skill-blind-overlay');
-  if(overlay){overlay.hidden=!(remaining>0&&mode==='play');overlay.style.opacity=String(clamp(remaining/.35,0,.94));}
+  if(overlay){const blocked=remaining>0&&mode==='play';overlay.hidden=!blocked;overlay.style.opacity=blocked?'1':'0';}
   // Resolve the viewed equipment again after FX and asynchronous snapshots.
   updateFirstPersonEquipment(0);
 }
