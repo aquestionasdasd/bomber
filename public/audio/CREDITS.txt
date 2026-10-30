@@ -211,8 +211,8 @@ Bundled at the owner's explicit request. No third-party artist or CC0 license in
 Offline PCM inspection and mocked transport/selection tests only; no listening.
 
 Owner supplied weapon recordings (cycle186)
-Classic: gunsound_classic.wav; Ghost: gunsound_ghost.wav;
-Vandal: gunsound_vandal.wav; Phantom: gunsound_phantom.wav.
+Classic v2: gunsound_classic_v2.wav; Ghost: gunsound_ghost.wav;
+Vandal: gunsound_vandal.wav; Phantom v2: gunsound_phantom_v2.wav.
 Bundled unchanged at the owner's explicit request, matching filenames to weapons.
 No CC0, third-party author or redistribution license is inferred.
 PCM16 stereo44.1kHz; native pitch, complete recording for self/enemy fire.
@@ -220,3 +220,15 @@ Per-file byte counts, SHA256 and numeric PCM inspection are in manifest.json.
 These four cues supersede the collaborator recipes above; the other weapons,
 knife, original footstep/landing recordings and all other audio remain.
 Offline PCM inspection and inert WebAudio mocks only; no playback/listening.
+
+Owner-supplied weapon recordings (cycle221)
+Spectre: gunsound_spectre.wav; Scout: gunsound_scout.wav; Atlas: gunsound_atlas.wav.
+Classic v2: gunsound_classic_v2.wav (original gunsound_classic v2.wav).
+Phantom v2: gunsound_phantom_v2.wav (original gunsound_phantom v2.wav).
+All five supplied WAV files are bundled byte-for-byte, played once at rate1
+from the beginning through the complete recording by both local/enemy shots.
+Existing weapon gains, distance/occlusion/pan, mono peak safety and48-voice bound
+remain in place. The old Classic/Phantom files are replaced with versioned URLs
+to avoid replaying previously cached recordings. Ghost/Vandal and all other
+weapons, steps, impacts, UI/skill effects and victory music remain unchanged.
+Owner-provided; no CC0 or third-party license claim. No listening test performed.
