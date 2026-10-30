@@ -21,6 +21,16 @@ sibling `.state/` only. This recomputes the original receipt hash, uses tool-les
 local Ollama generation and a fresh review context, and parses the candidate.
 Never execute candidate tests or candidate modules on the owner's PC.
 
+Preparation writes private `diagnostics.json` before each bounded stage and on
+completion/failure. Its fixed schema contains only stage/category, elapsed time,
+timestamps and optional numeric HTTP status. Never add exception messages, stacks,
+request/author identifiers, prompts, source snippets, response bodies or secrets.
+Timeout, connection/HTTP, malformed response, patch/policy and review failures
+remain held with the existing signed result reasons; diagnostics do not authorize
+retries or publication. Interrupted jobs retain their last started stage. Older
+held jobs without these diagnostics cannot have their original cause reconstructed
+by this change and must not be silently retried.
+
 If held, report the fixed reason through the private signed result writer.
 If reviewed, `local.mjs dispatch <job-id>` creates a disposable candidate branch
 containing only sanitized source proposal JSON. `local.mjs collect <job-id>`

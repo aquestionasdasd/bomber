@@ -4,6 +4,7 @@ import {readFileSync,writeFileSync,mkdirSync,existsSync,lstatSync} from 'node:fs
 import {resolve,join,sep} from 'node:path';import {fileURLToPath} from 'node:url';import {randomUUID} from 'node:crypto';
 import {files,repository} from './policy.mjs';import {sha256,validateProposal} from './gate.mjs';import {generate,review} from './model.mjs';import {readRun} from './read-run.mjs';
 import {publicManifest} from './public-manifest.mjs';
+import {preparationDiagnostics} from './diagnostics.mjs';
 const root=resolve(import.meta.dirname,'../..'),privateRoot=resolve(root,'../.state'),jobs=join(privateRoot,'jobs');
 const sharedRoot=resolve(root,'../../collab-bomber'),siteRoot=resolve(root,'../../hashimoto-protocol');
 const read=path=>JSON.parse(readFileSync(path,'utf8'));
@@ -20,17 +21,23 @@ export function ticketFromRow(row){
 }
 function load(id){if(!/^[a-f0-9-]{36}$/.test(id))throw Error('Job id rejected');const directory=join(jobs,id),job=read(join(directory,'job.json'));if(job.id!==id)throw Error('Job state mismatch');return{directory,job};}
 function current(c){clean(sharedRoot);clean(siteRoot);if(git(['rev-parse','HEAD'],sharedRoot).trim()!==c.sharedCommit||git(['rev-parse','HEAD'],siteRoot).trim()!==c.siteCommit)throw Error('Game base changed');for(const[role,cwd]of [['shared',sharedRoot],['site',siteRoot]])if(JSON.stringify(publicManifest(cwd))!==JSON.stringify(c.publicHashes?.[role]))throw Error('Pinned public bytes changed');const remote=git(['ls-remote','origin','refs/heads/codex/bus-round-retirement'],sharedRoot).trim().split(/\s/)[0];if(remote!==c.sharedCommit)throw Error('Shared remote changed');}
+export async function assessPreparation(ticket,{baseCommit,loadSource,generatePlan=generate,reviewPlan=review,retain,persistDiagnostic}){
+  const diagnostic=preparationDiagnostics(persistDiagnostic),onStage=stage=>diagnostic.enter(stage);
+  try{
+    onStage('baseline');const source=loadSource(),plan=await generatePlan(ticket,{baseCommit,baseline:source,onStage});
+    if(plan.decision==='held')return{phase:'held',reason:plan.reason,diagnostic:diagnostic.finish('held','model_held',plan.reason)};
+    const checked=await reviewPlan(ticket,plan.candidate,source,undefined,onStage);
+    onStage('retaining_review');retain(plan.candidate,checked);
+    return{phase:checked.approved?'reviewed':'held',reason:checked.approved?'eligible':'needs_review',diagnostic:diagnostic.finish(checked.approved?'reviewed':'held',checked.approved?'eligible':'review_declined')};
+  }catch(error){return{phase:'held',reason:'needs_review',diagnostic:diagnostic.fail(error)};}
+}
 export async function prepare(row){
   const c=configuration(),ticket=ticketFromRow(row);mkdirSync(jobs,{recursive:true});
   const dedupe=join(jobs,'request-'+ticket.id+'.json');if(existsSync(dedupe))return read(dedupe);
   current(c);const id=randomUUID(),directory=join(jobs,id);mkdirSync(directory);
   const job={version:1,id,request:ticket,contentHash:row.content_hash,controlCommit:c.controlCommit,baseSharedCommit:c.sharedCommit,baseSiteCommit:c.siteCommit,dryRun:false,phase:'generating'};save(join(directory,'job.json'),job);save(dedupe,{jobId:id,phase:'generating'});
-  try{
-    const source=baseline(c.sharedCommit),plan=await generate(ticket,{baseCommit:c.sharedCommit,baseline:source});
-    if(plan.decision==='held'){job.phase='held';job.reason=plan.reason;}
-    else{const checked=await review(ticket,plan.candidate,source);save(join(directory,'proposal.json'),plan.candidate);save(join(directory,'review.json'),checked);job.phase=checked.approved?'reviewed':'held';job.reason=checked.approved?'eligible':'needs_review';}
-  }catch{job.phase='held';job.reason='needs_review';}
-  save(join(directory,'job.json'),job);const result={jobId:id,phase:job.phase,reason:job.reason};save(dedupe,result);return result;
+  const assessed=await assessPreparation(ticket,{baseCommit:c.sharedCommit,loadSource:()=>baseline(c.sharedCommit),persistDiagnostic:report=>save(join(directory,'diagnostics.json'),report),retain:(proposal,checked)=>{save(join(directory,'proposal.json'),proposal);save(join(directory,'review.json'),checked);}});
+  Object.assign(job,assessed);save(join(directory,'job.json'),job);const result={jobId:id,...assessed};save(dedupe,result);return result;
 }
 export function dispatch(id){
   const c=configuration(),{directory,job}=load(id);if(job.phase==='dispatched')return{jobId:id,phase:job.phase,branch:job.branch,headCommit:job.headCommit};if(job.phase!=='reviewed'||job.controlCommit!==c.controlCommit)throw Error('Reviewed job required');current(c);
