@@ -1,3 +1,4 @@
+import { createLanceRifts, lanceHitEffect, lanceGround } from './urchin-rift.js';
 import { ROOT_SENSOR, sensorLive, sensorTouches, createRootContacts } from './root-sensor.js';
 import { SKILL_THROW, isLobbedSkill, throwSpec, throwPosition } from './skill-throw.js';
 import { moveCamera } from './onnara-camera-motion.js';
@@ -175,9 +176,9 @@ export function skillProjectilePosition(event, now) {
 export function createCharacterSkills() {
   let currentRound = null, currentTime = -Infinity, lastRestoreTime = -Infinity, sequence = 0;
   const active = new Map(), owned = new Set(), blinds = new Map(), detections = new Map(), decoyOwners = new Set(), decoyReactions = new Map(), borderHistory=new Map(), nearsights=new Map(), waveSamples=new Map(), cameraTimes=new Map(), capFlights=new Map();
-  const rootContacts=createRootContacts();
-  function clear() { rootContacts.clear();capFlights.clear(); cameraTimes.clear();nearsights.clear();waveSamples.clear();borderHistory.clear(); active.clear(); owned.clear(); blinds.clear(); detections.clear(); decoyOwners.clear(); decoyReactions.clear(); }
-  function prune(now) { rootContacts.prune(active,now);for(const id of capFlights.keys())if(!active.has(id)||active.get(id).endsAt<=now)capFlights.delete(id);
+  const rootContacts=createRootContacts(),lanceRifts=createLanceRifts(),riftOwned=new Set();
+  function clear() { lanceRifts.clear();riftOwned.clear();rootContacts.clear();capFlights.clear(); cameraTimes.clear();nearsights.clear();waveSamples.clear();borderHistory.clear(); active.clear(); owned.clear(); blinds.clear(); detections.clear(); decoyOwners.clear(); decoyReactions.clear(); }
+  function prune(now) { lanceRifts.prune(active,now);for(const id of riftOwned)if(!active.has(id)||active.get(id).endsAt<=now)riftOwned.delete(id);rootContacts.prune(active,now);for(const id of capFlights.keys())if(!active.has(id)||active.get(id).endsAt<=now)capFlights.delete(id);
     for(const id of cameraTimes.keys())if(!active.has(id)||active.get(id).endsAt<=now)cameraTimes.delete(id);
     for (const [id, event] of active) if (event.endsAt <= now) { active.delete(id); owned.delete(id); decoyOwners.delete(id); borderHistory.delete(id);waveSamples.delete(id); }
     for (const [id, endsAt] of decoyReactions) if (endsAt <= now) decoyReactions.delete(id);
@@ -248,7 +249,7 @@ export function createCharacterSkills() {
     if (type === 'mend-heal') event.targetId = target.targetId;
     if (type === 'ember-service') event.weaponId = target.weaponId;
     if(type.startsWith('renko-')||type.startsWith('onnara-')||type.startsWith('urchin-')||type.startsWith('cap-')||type.startsWith('japan-')||type.startsWith('nobi-')||type.startsWith('car-')||type.startsWith('duck-')||type.startsWith('cat-'))owned.add(event.id);
-    active.set(event.id, event); if (type === 'nope-decoy') decoyOwners.add(event.id);
+    active.set(event.id, event);if(type==='urchin-lance')riftOwned.add(event.id); if (type === 'nope-decoy') decoyOwners.add(event.id);
     if (['nope-bottle', 'nope-flash', 'mend-heal', 'echo-tag', 'echo-glint', 'ember-solder', 'veil-sensor'].includes(type)) owned.add(event.id); return copy(event);
   }
   function storeBlind(blind,near=false){
@@ -308,7 +309,7 @@ export function createCharacterSkills() {
     }
     return effects;
   }
-  function update(actors, now, round, { reachable, groundHeight, cameraSweep, grenadeSweep } = {}) {
+  function update(actors, now, round, { reachable, groundHeight, lanceGroundHeight, cameraSweep, grenadeSweep } = {}) {
     if (!advance(now, round)) return [];
     const effects = [], list = Array.isArray(actors) ? actors : [];
     for(const[id,b]of nearsights)if(!list.some(a=>living(a)&&a.id===id))nearsights.delete(id);
@@ -321,6 +322,7 @@ export function createCharacterSkills() {
         && (event.type !== 'ember-service' || actor.weaponId === event.weaponId))) {active.delete(id);owned.delete(id);}
     for(const[id,event]of active)if((event.type.startsWith('renko-')||event.type.startsWith('onnara-')||event.type.startsWith('urchin-')||event.type.startsWith('cap-')||event.type.startsWith('japan-')||event.type.startsWith('nobi-')||event.type.startsWith('car-')||event.type.startsWith('duck-')||event.type.startsWith('cat-'))&&(!list.some(actor=>living(actor)&&actor.id===event.sourceId&&actor.team===event.team)||['onnara-tax','urchin-jam','cap-lock','japan-levy','duck-seal','nobi-tag','nobi-brake'].includes(event.type)&&!list.some(actor=>living(actor)&&actor.id===event.targetId&&actor.team!==event.team))){active.delete(id);owned.delete(id);borderHistory.delete(id);}
     rootContacts.update(active,owned,list,now,{reachable,groundHeight});
+    lanceRifts.update(active,riftOwned,list,now,{reachable,groundHeight:lanceGroundHeight});
     for(const e of active.values())if(isCapGrenade(e.type)){
       if(e.hits)e.hits=e.hits.filter(h=>list.some(a=>living(a)&&a.id===h[0]&&(e.type==='cap-lens'||e.type==='cap-cluster-damage'?a.team!==e.team:a.team===e.team)));
       if(!owned.has(e.id)||now<e.triggerAt)continue;
@@ -379,7 +381,7 @@ export function createCharacterSkills() {
         const ax=actor.x-e.fromX,ay=(actor.y||0)+1.3-Math.max(0,Math.min(1,actor.crouch||0))*.55-e.fromY,az=actor.z-e.fromZ;
         const along=(ax*dx+ay*dy+az*dz)/length;if(along<0||along>length)continue;
         if(Math.hypot(ax-dx*along/length,ay-dy*along/length,az-dz*along/length)>e.radius)continue;
-        if(canReach(reachable,{...e,x:e.fromX,y:e.fromY,z:e.fromZ},actor))effects.push({type:'damage',targetId:actor.id,sourceId:e.sourceId,amount:URCHIN_SKILLS.lanceDamage});
+        if(canReach(reachable,{...e,x:e.fromX,y:e.fromY,z:e.fromZ},actor))effects.push(lanceHitEffect(e,actor));
       }
     }
     for (const id of owned) {
@@ -565,7 +567,7 @@ export function createCharacterSkills() {
       return e.type==='cap-cluster-damage'?[index,Math.max(0,Math.floor((h[1]-e.triggerAt)*1000+1e-7))]:e.type==='cap-lens'&&h[1]<=e.triggerAt?-index-1:index;
     });return out;});
     return {events:records,blinds:[...blinds.values(),...nearsights.values()].map(copy),
-      markers:[...detections.values()].filter(marker=>observerTeam===undefined||marker.team===observerTeam).map(copy),...(capTargets.length?{capTargets}:{}),...(rootContacts.list(active,currentTime).length?{roots:rootContacts.encode(active,currentTime)}:{})};
+      markers:[...detections.values()].filter(marker=>observerTeam===undefined||marker.team===observerTeam).map(copy),...(capTargets.length?{capTargets}:{}),...(rootContacts.list(active,currentTime).length?{roots:rootContacts.encode(active,currentTime)}:{}),...(lanceRifts.list(active,currentTime).length?{rifts:lanceRifts.encode(active,currentTime)}:{})};
   }
   function validEvent(value, now, round) {
     if (!value || typeof value !== 'object' || Array.isArray(value) || !isType(value.type) || !team(value.team) || !identifier(value.sourceId) || !point(value)
@@ -667,11 +669,12 @@ export function createCharacterSkills() {
       nextSequence = Math.max(nextSequence, idSequence(marker.eventId, 'echo-tag'));
     }
     const nextRoots=rootContacts.decode(value.roots,nextEvents,now);if(nextRoots===null)return false;
+    const nextRifts=lanceRifts.decode(value.rifts,nextEvents,now);if(nextRifts===null)return false;
     // The render clock may lead the host. Compare restore order only with the
     // previous host clock, while retaining monotonic expiry on this client.
     if (currentRound !== null && (round < currentRound || round === currentRound && now < lastRestoreTime)) return false;
     currentTime = round === currentRound ? Math.max(currentTime, now) : now; currentRound = round; lastRestoreTime = now; sequence = nextSequence;
-    clear();rootContacts.replace(nextRoots);rootContacts.prune(nextEvents,currentTime);
+    clear();lanceRifts.replace(nextRifts);rootContacts.replace(nextRoots);rootContacts.prune(nextEvents,currentTime);
     for (const [id, event] of nextEvents) if (event.endsAt > currentTime) active.set(id, event);
     for (const blind of nextBlinds.values()) if (blind.endsAt > currentTime) (isGloomBlind(blind)?nearsights:blinds).set(blind.targetId,blind);
     for (const [id, marker] of nextMarkers) if (marker.endsAt > currentTime) detections.set(id, marker);
@@ -717,7 +720,7 @@ export function createCharacterSkills() {
       const floor=safeGround(groundHeight,actor.x,actor.z,e.y);if(floor!==null&&Math.abs(floor-e.y)<=.12)return copy(e);
     }return null;
   }
-  function resetActor(id){rootContacts.resetActor(id);
+  function resetActor(id){lanceRifts.resetActor(id);rootContacts.resetActor(id);
     for(const[key,e]of active)if(e.sourceId===id&&(personal(e.type)||/^(renko|onnara|urchin|cap|japan|nobi|car|cat|duck)-/.test(e.type))||e.targetId===id&&/^(onnara|urchin|cap|japan|nobi|duck)-/.test(e.type)){active.delete(key);owned.delete(key);borderHistory.delete(key);}
     for(const e of active.values())if(e.hits)e.hits=e.hits.filter(h=>h[0]!==id);blinds.delete(id);nearsights.delete(id);
   }
@@ -744,5 +747,5 @@ export function createCharacterSkills() {
     if(!e)return false;active.delete(e.id);owned.delete(e.id);return true;
   }
   return {beginOnnaraHop(id,actor,now,sequence){const e=active.get(id);if(!e||e.type!=='onnara-hover'||e.sourceId!==actor.id||e.team!==actor.team||!actor.alive||!owned.has(id)||e.endsAt<=now||!clock(now)||!coordinate(actor.y)||!Number.isSafeInteger(sequence)||sequence<1)return false;e.hop=[sequence,now,actor.y];return true;},
-    rootTracks,rootJumpScale,capRevealed,moveOnnaraHold(id,actor,now){const e=active.get(id);if(!e||e.type!=='onnara-hover'||e.sourceId!==actor.id||e.team!==actor.team||!actor.alive||!owned.has(id)||e.endsAt<=now||!coordinate(actor.y)||!e.hop||actor.y<e.hop[2]-.002||actor.y>e.hop[2]+6.552**2/30+.002)return false;e.y=e.fromY=actor.y;return true;},cancelRenkoDrive,holdRenkoJet,renkoEvent:(type,id,now)=>events(now).find(e=>e.type===type&&e.sourceId===id)||null,nearsightUntil,sightRange,duckPad,recordConstellation(sourceId,from,to,now){const e=events(now).find(e=>e.type==='onnara-chain'&&e.sourceId===sourceId&&owned.has(e.id));if(!e||!point(from)||!point(to)||Math.hypot(from.x-to.x,from.y-to.y,from.z-to.z)>ONNARA_SKILLS.chainRange+.001)return false;active.get(e.id).link=[from.x,from.y,from.z,to.x,to.y,to.z,now].map(n=>Math.round(n*1000)/1000);active.get(e.id).link[6]=now;return true;},cancelOnnaraEvent(id,sourceId){const e=active.get(id);if(e?.type.startsWith('onnara-')&&e.sourceId===sourceId&&owned.has(id)){active.delete(id);owned.delete(id);return true;}return false;},consumeCrownTax,onnaraTax:(id,now)=>events(now).find(e=>e.type==='onnara-tax'&&e.targetId===id)||null,onnaraEvent,urchinJammed:(id,now)=>capState('urchin-jam',id,now,true),urchinTrident:(id,now)=>capState('urchin-trident',id,now),urchinInterval:(id,now)=>capState('urchin-trident',id,now)?1/URCHIN_SKILLS.tridentFireRate:1,hasImpairment,cleanse,capLocked:(id,now)=>capState('cap-lock',id,now,true),capBank:(id,now)=>capState('cap-bank',id,now),capMagazine:(id,now)=>capState('cap-magazine',id,now),resetActor,japanReturn:(id,now)=>events(now).some(e=>e.type==='japan-return'&&e.sourceId===id)?JAPAN_SKILLS.returnScale:0,nobiVulnerability,nobiInterval,nobiWork,nobiLegend,wouldNobi,carGyro,disperseSmoke,cancelCarEvent,catBookmark,returnToCatBookmark,cancelCatEvent,clockFrozen, wouldBlind, wouldRoot,wouldSeed,wouldTag,wouldStitch,sealUntil,quiet,guardLethal,interceptShield,castVeilDustBatch,cast, update, events, snapshot, restore, reset, blindUntil, speedScale, markers, movementScale, mitigateSlow, frostSlideSpeed, cancelService, consumeDecoy, flashDecoy };
+    lancePulses(now){return viewTime(now)?lanceRifts.list(active,currentTime):[];},lanceHitPulse(eventId,actor,now,{groundHeight,reachable}={}){const e=active.get(eventId);if(!e||!riftOwned.has(eventId))return;const p=lanceGround(e,actor.x,actor.z,{groundHeight,reachable});if(p)lanceRifts.pulse(e,p,now,1);},rootTracks,rootJumpScale,capRevealed,moveOnnaraHold(id,actor,now){const e=active.get(id);if(!e||e.type!=='onnara-hover'||e.sourceId!==actor.id||e.team!==actor.team||!actor.alive||!owned.has(id)||e.endsAt<=now||!coordinate(actor.y)||!e.hop||actor.y<e.hop[2]-.002||actor.y>e.hop[2]+6.552**2/30+.002)return false;e.y=e.fromY=actor.y;return true;},cancelRenkoDrive,holdRenkoJet,renkoEvent:(type,id,now)=>events(now).find(e=>e.type===type&&e.sourceId===id)||null,nearsightUntil,sightRange,duckPad,recordConstellation(sourceId,from,to,now){const e=events(now).find(e=>e.type==='onnara-chain'&&e.sourceId===sourceId&&owned.has(e.id));if(!e||!point(from)||!point(to)||Math.hypot(from.x-to.x,from.y-to.y,from.z-to.z)>ONNARA_SKILLS.chainRange+.001)return false;active.get(e.id).link=[from.x,from.y,from.z,to.x,to.y,to.z,now].map(n=>Math.round(n*1000)/1000);active.get(e.id).link[6]=now;return true;},cancelOnnaraEvent(id,sourceId){const e=active.get(id);if(e?.type.startsWith('onnara-')&&e.sourceId===sourceId&&owned.has(id)){active.delete(id);owned.delete(id);return true;}return false;},consumeCrownTax,onnaraTax:(id,now)=>events(now).find(e=>e.type==='onnara-tax'&&e.targetId===id)||null,onnaraEvent,urchinJammed:(id,now)=>capState('urchin-jam',id,now,true),urchinTrident:(id,now)=>capState('urchin-trident',id,now),urchinInterval:(id,now)=>capState('urchin-trident',id,now)?1/URCHIN_SKILLS.tridentFireRate:1,hasImpairment,cleanse,capLocked:(id,now)=>capState('cap-lock',id,now,true),capBank:(id,now)=>capState('cap-bank',id,now),capMagazine:(id,now)=>capState('cap-magazine',id,now),resetActor,japanReturn:(id,now)=>events(now).some(e=>e.type==='japan-return'&&e.sourceId===id)?JAPAN_SKILLS.returnScale:0,nobiVulnerability,nobiInterval,nobiWork,nobiLegend,wouldNobi,carGyro,disperseSmoke,cancelCarEvent,catBookmark,returnToCatBookmark,cancelCatEvent,clockFrozen, wouldBlind, wouldRoot,wouldSeed,wouldTag,wouldStitch,sealUntil,quiet,guardLethal,interceptShield,castVeilDustBatch,cast, update, events, snapshot, restore, reset, blindUntil, speedScale, markers, movementScale, mitigateSlow, frostSlideSpeed, cancelService, consumeDecoy, flashDecoy };
 }

@@ -31,7 +31,7 @@ export const SAMPLE_CUES=Object.freeze({
  'door-close':[layer('onjin-equipment.ogg',.18,.35),layer('onjin-latch.ogg',.23,.23,.23)],
  'door-hit':[layer('onjin-latch.ogg',.12,.12,0,1.18)],
  'door-break':[layer('lab-ice.ogg',.22,.48),layer('lab-landing1.ogg',.27,.36,.04)],
- 'duck-pad':[cloth(.22,.25),layer('oto-cyber19-1.ogg',.08,.3,.04)],'urchin-lance':[air(.19,.28),glass(.13,.3,.03)],
+ 'duck-pad':[cloth(.22,.25),layer('oto-cyber19-1.ogg',.08,.3,.04)],'urchin-lance':[liquid(.28,.32),air(.19,.28),glass(.13,.3,.03)],'urchin-lance-pressure':[air(.12,.12)],'urchin-rift-splash':[liquid(.30,.24),soft(.08,.1)],'urchin-lance-hit':[liquid(.23,.18),glass(.10,.16)],
  jump:[cloth(.20,.16)],'duck-flap':[cloth(.18,.23)],'duck-launch':[air(.18,.3),cloth(.16,.2)],
  reload:[layer('lab-machinegun-magazine-set1.ogg',.22,.52)],hit:[soft(.23,.14)],
  spike:[layer('lab-beep1.ogg',.42,.18),bell(.18,.12)],plant:[bell(.34,.8),layer('onjin-latch.ogg',.25,.30),layer('lab-decision6.ogg',.12,.30,.20)],defuse:[layer('oto-cyber19-1.ogg',.2,.26),cloth(.18,.25,.08)],
