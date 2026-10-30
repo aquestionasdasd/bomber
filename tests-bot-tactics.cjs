@@ -170,7 +170,7 @@ async function main(){
   assert.equal(pollenGame.casts[0]?.effect.type,'mend-pollen');assert.equal(pollenMedic.kit.updraft,0,'A wounded BOT without seeds or a ready heal may use one defensive pollen cover');
   console.log('PASS: real MEND BOT safe ordinary heal before ultimate,18s cooldown/wall rejection, finite seed attack and defensive pollen choice');
 
-  for(const [key,type]of [['c','veil-dust'],['q','veil-roots'],['e','veil-turf']]){
+  for(const [key,type]of [['c','veil-dust'],['q','veil-root-seed'],['e','veil-turf']]){
     const grass=actor(`red-grass-${key}`,'red',0,0),visible=actor('player','blue',0,key==='q'?6:12);
     grass.kit=new DuelistKit({character:'veil'});grass.kit.smoke=key==='c'?1:0;grass.kit.updraft=key==='q'?1:0;grass.kit.dash=key==='e'?1:0;grass.hp=key==='c'?50:100;
     if(key==='e')visible.z=-35;

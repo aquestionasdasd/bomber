@@ -5,9 +5,9 @@ const assert=require('node:assert/strict');
  const event=type=>{const h=createCharacterSkills(),target=type==='urchin-gloom'?{x:0,y:1.7,z:-36}:{x:0,y:0,z:-10,yaw:0};const e=h.cast(type,owner,target,10,1);assert.ok(e,type);return e;};
  const meshes=g=>{const a=[];g.traverse(o=>{if(o.isMesh)a.push(o);});return a;};
  const finite=g=>{g.updateMatrixWorld(true);g.traverse(o=>assert.ok(o.matrixWorld.elements.every(Number.isFinite),o.name));};
- test('nine aimed throws/placements map to distinct colors; direct target skills and Renko instant dart stay unchanged',()=>{
-  assert.equal(Object.keys(PREPARED_SKILL_PROPS).length,9);assert.equal(new Set(Object.values(PREPARED_SKILL_PROPS).map(p=>p.color)).size,9);
-  for(const [c,keys]of Object.entries({nobi:['c','q','e','x'],onnara:['q'],urchin:['e'],duck:['c','q'],japan:['c']}))for(const k of keys)assert.ok(preparedSkillType(c,k),c+k);
+ test('ten aimed throws/placements map to distinct colors; direct target skills and Renko instant dart stay unchanged',()=>{
+  assert.equal(Object.keys(PREPARED_SKILL_PROPS).length,10);assert.equal(new Set(Object.values(PREPARED_SKILL_PROPS).map(p=>p.color)).size,10);
+  for(const [c,keys]of Object.entries({nobi:['c','q','e','x'],onnara:['q'],urchin:['e'],duck:['c','q'],japan:['c'],veil:['q']}))for(const k of keys)assert.ok(preparedSkillType(c,k),c+k);
   for(const [c,k]of[['car','c'],['cat','e'],['cap','q'],['renko','c'],['nope','c']])assert.equal(preparedSkillType(c,k),null);
  });
  test('held item has real hand/fingers and consistent factory model/color; no random, hitbox or extra light',()=>{

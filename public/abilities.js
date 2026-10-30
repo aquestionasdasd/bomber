@@ -15,7 +15,7 @@ export const CHARACTER_DEFS = Object.freeze({
   echo: Object.freeze({ id: 'echo', label: 'IAGNU', role: '索敵', ultName: 'リコンパルス', ultShortName: '索敵', ultimatePoints: 7,
     description: `C：一度だけ侵入を知らせる金文字 / Q：反射閃光 / E：短い移動補助。X：半径${TEAM_ABILITIES.reconRadius}m内を3回索敵、検知地点を短時間表示（7pt）。`, color: '#d3c785', ultIcon: 'M18 3a12 12 0 1 0 12 12M18 8a7 7 0 1 0 7 7M18 15 29 4M23 4h6v6M18 14v2' }),
   veil: Object.freeze({ id: 'veil', label: '草ブロック', role: '制圧', ultName: 'ブラックアウトドーム', ultShortName: 'ドーム', ultimatePoints: 7,
-    description: 'C：煙幕3個。マップで最大3地点を選び右クリックで一括設置 / Q：地表の根の帯 / E：接地中の芝走り。X：マップで1地点を選び設置。半径9m・12秒（7pt）。C・Xは高い床を優先し、地面から6m超の屋根は避ける。高さは変更可。', color: '#b0abd8', ultIcon: 'M4 24a14 14 0 0 1 28 0M3 24h30M9 24v-8m18 8v-8M18 6V3' }),
+    description: 'C：煙幕3個。マップで最大3地点を選び右クリックで一括設置 / Q：投げた先に広い根の帯 / E：接地中の芝走り。X：マップで1地点を選び設置。半径9m・12秒（7pt）。C・Xは高い床を優先し、地面から6m超の屋根は避ける。高さは変更可。', color: '#b0abd8', ultIcon: 'M4 24a14 14 0 0 1 28 0M3 24h30M9 24v-8m18 8v-8M18 6V3' }),
   ember: Object.freeze({ id: 'ember', label: 'はんだごて握り太郎', role: '攻撃', ultName: 'フレアストライク', ultShortName: '爆撃', ultimatePoints: 7,
     description: 'C：小さく弾けるはんだ玉 / Q：新しい閃光を軽減する遮光眼鏡 / E：予備弾で素早く整備。X：半径6m・80ダメージ×3回の爆撃（通常装甲・7pt）。', color: '#eaa36f', ultIcon: 'M18 2v5m0 16v5M2 15h5m22 0h5M8 5l4 4m12 12 4 4M28 5l-4 4M12 21l-4 4M18 8l3 5 5 2-5 2-3 5-3-5-5-2 5-2Z' }),
   frost: Object.freeze({ id: 'frost', label: '尾野', role: '守備', ultName: 'クライオフィールド', ultShortName: '足止め', ultimatePoints: 7,
@@ -46,8 +46,14 @@ export const IAGNU_SKILLS = Object.freeze({ tagFlight: .55, tagArmDelay: .5, tag
   tagRevealDuration: 2.5, tagGroundOffset: .12, glintFlight: .5, glintRadius: 10, glintDuration: 2, glintEyeOffset: 1.6,
   kerningDuration: 4, kerningSpeedScale: 1.35, signatureCooldown: 18 });
 export const VEIL_SKILLS = Object.freeze({ dustMax: 3, mapFloorHeight: 6, dustArmDelay: .2, dustRadius: 3.5, dustDuration: 7, dustCenterOffset: 1.25,
-  rootsRange: 10, rootsMinRange: .5, rootsWidth: 3.2, rootsArmDelay: .25, rootsDuration: 8, rootsSpeedScale: .45, rootsHeightTolerance: .45,
+  rootsRange: 10, rootsMinRange: .5, rootsWidth: 3.2, rootsThrowRange:20, rootsThrowWidth:6.4, rootsThrowLength:10, rootsThrowFlight:.6, rootsGroundOffset:.12, rootsArmDelay: .25, rootsDuration: 8, rootsSpeedScale: .45, rootsHeightTolerance: .45,
   turfDuration: 3, turfSpeedScale: 1.5, signatureCooldown: 15, decoyWalkSpeed: 3, decoyWalkRange: 36 });
+// Shared landing strip for physics, BOT forecasts and the visible roots.
+export function veilRootSegment(event){
+ if(event?.type!=='veil-root-seed')return event;
+ const dx=event.x-event.fromX,dz=event.z-event.fromZ,length=Math.hypot(dx,dz),ux=length>1e-8?dx/length:0,uz=length>1e-8?dz/length:-1,half=VEIL_SKILLS.rootsThrowLength/2,y=event.y-VEIL_SKILLS.rootsGroundOffset;
+ return {...event,fromX:event.x-ux*half,fromY:y,fromZ:event.z-uz*half,x:event.x+ux*half,y,z:event.z+uz*half};
+}
 export const EMBER_SKILLS = Object.freeze({ solderRange: 18, solderFlight: .45, solderArmDelay: .2, solderRadius: 3.2,
   solderDamage: 75, solderTail: .35, solderGroundOffset: .12, shadeDuration: 8, shadeFlashScale: .15,
   serviceDuration: .8, signatureCooldown: 18 });
@@ -92,7 +98,7 @@ const iagnuSkills = {
 };
 const veilSkills = {
   c: { name: '土煙', shortName: '土煙', description: `最大${VEIL_SKILLS.dustMax}個所持。マップを左クリックで最大${VEIL_SKILLS.dustMax}地点選択→右クリックで同時設置。接地中に発動。${VEIL_SKILLS.dustArmDelay}秒後から${VEIL_SKILLS.dustDuration}秒、半径${VEIL_SKILLS.dustRadius}mの土煙で双方の視界を遮る。高さは地面から${VEIL_SKILLS.mapFloorHeight}m以下の高い床を優先し、屋根は避ける。`, max: VEIL_SKILLS.dustMax, price: DUELIST.smokePrice, type: 'veil-dust', icon: 'M6 25h24M8 21a6 6 0 0 1 1-12 8 8 0 0 1 15 1 6 6 0 0 1 1 11H8M11 27v2m8-3v3m7-2v2' },
-  q: { name: '根の帯', shortName: '根の帯', description: `接地中に発動。前方最大${VEIL_SKILLS.rootsRange}m・幅${VEIL_SKILLS.rootsWidth}mの地表へ${VEIL_SKILLS.rootsDuration}秒間の根を伸ばし、接地した敵の歩く速さを${VEIL_SKILLS.rootsSpeedScale*100}%にする。壁と離地で防げる。`, max: 1, price: DUELIST.updraftPrice, type: 'veil-roots', icon: 'M18 4v24M18 11l-7-5m7 10 9-6M18 21l-9-7m9 12 10-6M11 6V3m16 7V6M9 14H5m23 6h4M7 29h22' },
+  q: { name: '根の帯', shortName: '根の帯', description: `Qで構え、左クリックで最大${VEIL_SKILLS.rootsThrowRange}m先へ投擲。着地点を中心に長さ${VEIL_SKILLS.rootsThrowLength}m・幅${VEIL_SKILLS.rootsThrowWidth}mの根の帯を${VEIL_SKILLS.rootsDuration}秒展開し、接地した敵を移動速度${VEIL_SKILLS.rootsSpeedScale*100}%にする。右クリックで取消。壁・離地で防げる。`, max: 1, price: DUELIST.updraftPrice, type: 'veil-root-seed', icon: 'M18 4v24M18 11l-7-5m7 10 9-6M18 21l-9-7m9 12 10-6M11 6V3m16 7V6M9 14H5m23 6h4M7 29h22' },
   e: { name: '芝走り', shortName: '芝走り', description: `接地中の自身の歩く速さを${VEIL_SKILLS.turfDuration}秒間${VEIL_SKILLS.turfSpeedScale}倍にする。離地と死亡で終了し、${VEIL_SKILLS.signatureCooldown}秒で再使用できる。`, max: 1, price: 0, type: 'veil-turf', icon: 'M3 25h30M7 25l-2-7 7 7 1-13 5 13 6-10-1 10 8-6-3 6M7 7h10m-7 5h8' },
 };
 const emberSkills = {
@@ -215,7 +221,7 @@ export class DuelistKit {
         if (this.character === 'duck') return {type:'duck-shield'};
         if (this.character === 'mend') return { type: 'mend-pollen', flight: MEND_SKILLS.pollenFlight, duration: MEND_SKILLS.pollenDuration, radius: MEND_SKILLS.pollenRadius };
         if (this.character === 'echo') return { type: 'echo-glint', flight: IAGNU_SKILLS.glintFlight, radius: IAGNU_SKILLS.glintRadius, duration: IAGNU_SKILLS.glintDuration };
-        if (this.character === 'veil') return { type: 'veil-roots', armDelay: VEIL_SKILLS.rootsArmDelay, duration: VEIL_SKILLS.rootsDuration, range: VEIL_SKILLS.rootsRange, width: VEIL_SKILLS.rootsWidth, speedScale: VEIL_SKILLS.rootsSpeedScale };
+        if (this.character === 'veil') return { type: 'veil-root-seed', flight:VEIL_SKILLS.rootsThrowFlight, armDelay: VEIL_SKILLS.rootsArmDelay, duration: VEIL_SKILLS.rootsDuration, range: VEIL_SKILLS.rootsThrowRange, width: VEIL_SKILLS.rootsThrowWidth, length:VEIL_SKILLS.rootsThrowLength, speedScale: VEIL_SKILLS.rootsSpeedScale };
         if (this.character === 'ember') return { type: 'ember-shade', duration: EMBER_SKILLS.shadeDuration, flashScale: EMBER_SKILLS.shadeFlashScale };
         if (this.character === 'frost') return { type: 'frost-mist', flight: FROST_SKILLS.mistFlight, duration: FROST_SKILLS.mistDuration, radius: FROST_SKILLS.mistRadius, range: FROST_SKILLS.mistRange };
         return this.character === 'nope' ? { type: 'nope-flash', flight: NOPE_SKILLS.flashFlight, radius: NOPE_SKILLS.flashRadius, duration: NOPE_SKILLS.flashDuration } : { type: 'duelist-lift', velocity: DUELIST.updraftVelocity, duration: DUELIST_SKILLS.liftVisualDuration };
