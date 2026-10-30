@@ -512,7 +512,7 @@ async function main() {
     for (const [key, destination] of [['c', target(0, 0, 1.25)], ['q', target(0, -7)], ['e', target(0, 0)]]) {
       const kit = new DuelistKit({ character: 'veil' }); kit.buy('c', () => true); kit.buy('q', () => true); const before = kit.snapshot(), effect = kit.activate(key, 0);
       assert.equal(skills.cast(effect, owner, destination, 0, 1), null); kit.restore(before); assert.deepEqual(kit.snapshot(), before); assert.deepEqual(skills.snapshot(), retained);
-      const empty = createCharacterSkills(); assert.equal(empty.cast(effect, { ...owner, grounded: false }, destination, 0, 1), null); kit.restore(before); assert.deepEqual(kit.snapshot(), before);
+      const empty = createCharacterSkills(), airborne=empty.cast(effect, { ...owner, grounded: false }, destination, 0, 1); if(key==='q')assert.equal(airborne?.type,'veil-root-seed');else assert.equal(airborne,null); kit.restore(before); assert.deepEqual(kit.snapshot(), before);
     }
     skills.events(12); const next = skills.cast('veil-turf', owner, target(0, 0), 12, 1); assert.ok(next.id.endsWith('-21'));
     assert.equal(createCharacterSkills().restore(retained, 0, 1), true); assert.ok(Buffer.byteLength(JSON.stringify(retained)) < 9000);

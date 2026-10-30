@@ -1,6 +1,6 @@
 import { moveCamera } from './onnara-camera-motion.js';
 import { nopeWalkPose } from './nope-walk.js';
-import { RENKO_SKILLS, ONNARA_SKILLS, URCHIN_SKILLS, CAP_SKILLS, JAPAN_SKILLS, NOBI_SKILLS, CAR_SKILLS, CAT_SKILLS, DUCK_SKILLS, DUELIST_SKILLS, NOPE_SKILLS, MEND_SKILLS, IAGNU_SKILLS, VEIL_SKILLS, EMBER_SKILLS, FROST_SKILLS } from './abilities.js';
+import { RENKO_SKILLS, ONNARA_SKILLS, URCHIN_SKILLS, CAP_SKILLS, JAPAN_SKILLS, NOBI_SKILLS, CAR_SKILLS, CAT_SKILLS, DUCK_SKILLS, DUELIST_SKILLS, NOPE_SKILLS, MEND_SKILLS, IAGNU_SKILLS, VEIL_SKILLS, veilRootSegment, EMBER_SKILLS, FROST_SKILLS } from './abilities.js';
 import { WEAPONS } from './rules.js';
 
 // Ordinary skills are separate from ultimates. A restored event owns visuals,
@@ -65,6 +65,7 @@ const specs = Object.freeze({
   'echo-glint': Object.freeze({ flight: IAGNU_SKILLS.glintFlight, delay: IAGNU_SKILLS.glintFlight, tail: .4, radius: IAGNU_SKILLS.glintRadius }),
   'echo-kerning': Object.freeze({ flight: 0, delay: 0, tail: IAGNU_SKILLS.kerningDuration, radius: 0 }),
   'veil-dust': Object.freeze({ flight: 0, delay: VEIL_SKILLS.dustArmDelay, tail: VEIL_SKILLS.dustDuration, radius: VEIL_SKILLS.dustRadius }),
+  'veil-root-seed': Object.freeze({flight:VEIL_SKILLS.rootsThrowFlight,delay:VEIL_SKILLS.rootsThrowFlight+VEIL_SKILLS.rootsArmDelay,tail:VEIL_SKILLS.rootsDuration,radius:VEIL_SKILLS.rootsThrowWidth/2}),
   'veil-roots': Object.freeze({ flight: 0, delay: VEIL_SKILLS.rootsArmDelay, tail: VEIL_SKILLS.rootsDuration, radius: VEIL_SKILLS.rootsWidth / 2 }),
   'veil-turf': Object.freeze({ flight: 0, delay: 0, tail: VEIL_SKILLS.turfDuration, radius: 0 }),
   'ember-solder': Object.freeze({ flight: EMBER_SKILLS.solderFlight, delay: EMBER_SKILLS.solderFlight + EMBER_SKILLS.solderArmDelay, tail: EMBER_SKILLS.solderTail, radius: EMBER_SKILLS.solderRadius }),
@@ -99,12 +100,13 @@ const personal = type => ['renko-drive','renko-jet','onnara-jump','onnara-orb','
 const groundedPersonal = type => type === 'veil-turf' || type === 'frost-unravel';
 const nobiArea = type => ['nobi-bell','nobi-whisker','nobi-toolbox','nobi-collar'].includes(type);
 const nobiRange = type => type==='nobi-bell'?NOBI_SKILLS.tagRange:type==='nobi-whisker'?NOBI_SKILLS.brakeRange:type==='nobi-toolbox'?NOBI_SKILLS.toolRange:NOBI_SKILLS.legendRange;
-const feetSource = type => type.startsWith('onnara-') || type.startsWith('urchin-')&&!['urchin-lance','urchin-gloom'].includes(type) || type.startsWith('cap-') || type.startsWith('japan-') || type.startsWith('nobi-')&&!nobiArea(type) || type.startsWith('car-') || type.startsWith('cat-') || type === 'mend-heal' || type === 'duelist-lift' || personal(type) || type.startsWith('veil-');
+const feetSource = type => type.startsWith('onnara-') || type.startsWith('urchin-')&&!['urchin-lance','urchin-gloom'].includes(type) || type.startsWith('cap-') || type.startsWith('japan-') || type.startsWith('nobi-')&&!nobiArea(type) || type.startsWith('car-') || type.startsWith('cat-') || type === 'mend-heal' || type === 'duelist-lift' || personal(type) || type.startsWith('veil-')&&type!=='veil-root-seed';
 const eventFields = ['id', 'type', 'team', 'sourceId', 'round', 'fromX', 'fromY', 'fromZ', 'x', 'y', 'z', 'startedAt', 'flight', 'triggerAt', 'endsAt', 'radius'];
 const withinCastRange = (type, actor, target, sourceEyeY = eyeY(actor)) => type==='renko-dart' ? Math.hypot(target.x-actor.x,target.y-sourceEyeY,target.z-actor.z)>1e-8 : nobiArea(type) ? Math.hypot(target.x-actor.x,target.z-actor.z)<=nobiRange(type)+1e-8 : type.startsWith('onnara-') ? feetDistance(actor,target)<=(type==='onnara-tax'?ONNARA_SKILLS.taxRange+.002:type==='onnara-orb'?ONNARA_SKILLS.orbRange+.002:1e-8)+1e-8 : type==='urchin-gloom' ? close(Math.hypot(target.x-actor.x,target.y-sourceEyeY,target.z-actor.z),URCHIN_SKILLS.gloomRange) : type==='urchin-lance' ? Math.hypot(target.x-actor.x,target.y-sourceEyeY,target.z-actor.z)<=URCHIN_SKILLS.lanceRange+1e-8 : type.startsWith('urchin-') ? feetDistance(actor,target)<=(type==='urchin-jam'?URCHIN_SKILLS.jamRange:type==='urchin-disarm'?URCHIN_SKILLS.disarmRange:1e-8)+1e-8 : type.startsWith('cap-') ? feetDistance(actor,target)<=(type==='cap-lock'?CAP_SKILLS.lockRange:type==='cap-clean'?CAP_SKILLS.cleanRange:1e-8)+1e-8 : type.startsWith('japan-') ? feetDistance(actor,target)<=(type==='japan-border'?JAPAN_SKILLS.borderRange:type==='japan-levy'?JAPAN_SKILLS.levyRange:1e-8)+1e-8 : type.startsWith('nobi-') ? feetDistance(actor,target)<=(type==='nobi-tag'?NOBI_SKILLS.tagRange:type==='nobi-brake'?NOBI_SKILLS.brakeRange:1e-8)+1e-8 : type.startsWith('car-') ? feetDistance(actor,target)<=(type==='car-bumper'?CAR_SKILLS.bumperRange:type==='car-wash'?CAR_SKILLS.washRange:1e-8)+1e-8 : type.startsWith('cat-') ? feetDistance(actor,target) <= (type==='cat-return'?CAT_SKILLS.returnRange:type==='cat-pluck'?CAT_SKILLS.pluckRange:type==='cat-fetch'?CAT_SKILLS.fetchRange:1e-8)+1e-8 : type === 'duck-pad' || type === 'duck-seal' || type === 'duck-shield' ? Math.hypot(target.x-actor.x,target.y-sourceEyeY,target.z-actor.z) <= (type === 'duck-seal' ? DUCK_SKILLS.sealRange : type === 'duck-pad'?DUCK_SKILLS.padRange:DUCK_SKILLS.shieldRange)+1e-8 : type === 'duelist-comet' ? Math.hypot(target.x - actor.x, target.y - sourceEyeY, target.z - actor.z) <= DUELIST_SKILLS.cometRange + 1e-8
   : type === 'mend-heal' ? feetDistance(actor, target) <= MEND_SKILLS.healRange + 1e-8
   : personal(type) || type === 'duelist-lift' ? feetDistance(actor, target) <= 1e-8
   : type === 'veil-dust' ? true // Map floor/bounds are validated by the authoritative game before casting.
+  : type === 'veil-root-seed' ? Math.hypot(target.x-actor.x,target.z-actor.z)<=VEIL_SKILLS.rootsThrowRange+1e-8
   : type === 'veil-roots' ? Math.hypot(target.x - actor.x, target.z - actor.z) >= VEIL_SKILLS.rootsMinRange - 1e-8 && Math.hypot(target.x - actor.x, target.z - actor.z) <= VEIL_SKILLS.rootsRange + 1e-8
   : Math.hypot(target.x - actor.x, target.z - actor.z) <= (type === 'nope-bottle' ? NOPE_SKILLS.bottleRange : type === 'nope-decoy' ? CHARACTER_SKILLS.decoyDistance : type === 'echo-tag' ? IAGNU_SKILLS.tagRange : type === 'ember-solder' ? EMBER_SKILLS.solderRange : type === 'frost-stitch' ? FROST_SKILLS.stitchRange : type === 'frost-mist' ? FROST_SKILLS.mistRange : CHARACTER_SKILLS.castDistance) + 1e-8;
 const isGloomBlind = value => !!idSequence(value?.eventId, 'urchin-gloom');
@@ -198,7 +200,7 @@ export function createCharacterSkills() {
     if(typeof type==='string'&&type.startsWith('onnara-')&&actor&&target){const q=v=>typeof v==='number'?Math.round(v*1000)/1000:v;actor={...actor,x:q(actor.x),y:q(actor.y||0),z:q(actor.z)};target={...target,x:q(target.x),y:q(target.y),z:q(target.z)};}
 
     if (!isType(type) || !living(actor) || !point(target) || !(type==='onnara-orb'&&target.cameraVelocity!==undefined ? orbVelocity(target)&&Math.hypot(target.x-actor.x,target.y-eyeY(actor),target.z-actor.z)<2 : withinCastRange(type, actor, target)) || !coordinate(eyeY(actor)) || !clock(now) || !roundNumber(round)) return null;
-    if ((type.startsWith('veil-') || type === 'frost-unravel' || type === 'onnara-jump') && actor.grounded !== true) return null;
+    if ((type.startsWith('veil-')&&type!=='veil-root-seed' || type === 'frost-unravel' || type === 'onnara-jump') && actor.grounded !== true) return null;
     if(['onnara-tax','urchin-jam','urchin-disarm'].includes(type)&&(!identifier(target.targetId)||target.targetId===actor.id))return null;
     if(['cap-lock','cap-clean'].includes(type)&&(!identifier(target.targetId)||type==='cap-lock'&&target.targetId===actor.id))return null;
     if(type==='japan-levy'&&(!identifier(target.targetId)||target.targetId===actor.id))return null;
@@ -462,8 +464,10 @@ export function createCharacterSkills() {
   // Forecast and live movement share the nearest supported floor point.
   // This query never advances the event clock or grants effect ownership.
   function wouldRoot(actor, event, { reachable, groundHeight } = {}) {
-    if (!living(actor) || actor.grounded !== true || event?.type !== 'veil-roots' || actor.team === event.team
+    if (!living(actor) || actor.grounded !== true || !['veil-roots','veil-root-seed'].includes(event?.type) || actor.team === event.team
       || ![event.fromX,event.fromY,event.fromZ,event.x,event.y,event.z,event.radius].every(Number.isFinite) || event.radius <= 0) return false;
+    const landing=event.type==='veil-root-seed'?{...event,y:event.y-VEIL_SKILLS.rootsGroundOffset}:null;
+    event=veilRootSegment(event);
     const dx = event.x - event.fromX, dz = event.z - event.fromZ, lengthSquared = dx * dx + dz * dz;
     if (lengthSquared <= 0) return false;
     const t = Math.max(0, Math.min(1, ((actor.x - event.fromX) * dx + (actor.z - event.fromZ) * dz) / lengthSquared));
@@ -472,7 +476,7 @@ export function createCharacterSkills() {
     const floor = safeGround(groundHeight, x, z, referenceY);
     if (floor === null || Math.abs(floor - referenceY) > VEIL_SKILLS.rootsHeightTolerance + 1e-8
       || Math.abs((actor.y || 0) - floor) > VEIL_SKILLS.rootsHeightTolerance + 1e-8) return false;
-    return canReach(reachable, { ...event, x, y: floor, z }, actor);
+    return (!landing||canReach(reachable,landing,actor))&&canReach(reachable, { ...event, x, y: floor, z }, actor);
   }
   // Read-only forecasts share the live radius, floor and ray predicates.
   function wouldTag(actor,event,{reachable}={}){

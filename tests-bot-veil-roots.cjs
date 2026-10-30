@@ -11,19 +11,19 @@ async function main({mutate=s=>s,only=()=>true,baseline=false}={}){
  Object.assign(worker,{aiWeapon:'vandal',aiAmmo:25,aiReserve:75,aiReload:0,fire:999,think:1,target:player,reactionUntil:0,nextSkillAt:0});worker.group.rotation.y=Math.PI;
  var goal={x:0,z:0};updateBots.tactics={reset(){},observe(){},contacts(){return[]},investigation(){return null},update(){return{siteId:'A',defuserId:null,roles:new Map([[worker.id,{goal,role:'guard',siteId:'A',urgent:false}]])}}};Math.random=()=>.5;`)}
  const step=(dt=.1)=>{h.sandbox.dt=dt;h.run('elapsed+=dt;worker.kit.tick(elapsed);updateOrdinarySkills();updateBots(dt)')};
- const event=()=>h.run("ordinarySkills.events(elapsed).find(e=>e.type==='veil-roots'&&e.sourceId===worker.id)");
+ const event=()=>h.run("ordinarySkills.events(elapsed).find(e=>e.type==='veil-root-seed'&&e.sourceId===worker.id)");
  const slow=()=>h.run('ordinarySkills.speedScale(ordinaryActorView(player),elapsed,{reachable:ordinaryReachable,groundHeight:ordinaryGroundHeight})');
  const result=()=>({cast:!!event(),stock:h.run('worker.kit.updraft'),scale:slow()});
- if(baseline){const rows=[];for(const d of[1,8]){setup(d);step();h.run('elapsed+=.26;updateOrdinarySkills()');rows.push({case:'flat-'+d,...result()})}setup();h.run('player.y=3;player.vy=1');step();h.run('elapsed+=.26;updateOrdinarySkills()');rows.push({case:'airborne',...result()});setup();h.wall({z:-4,width:20,height:1});step();h.run('elapsed+=.26;updateOrdinarySkills()');rows.push({case:'low-wall',...result()});return rows}
- test('close and full ten metre grounded opportunities produce the real forty-five percent movement scale',()=>{
-  for(const d of[.5,1,2,8,10]){setup(d);step();assert.ok(event(),String(d));assert.equal(h.run('worker.kit.updraft'),0);assert.equal(slow(),1);h.run('elapsed+=.26;updateOrdinarySkills()');assert.equal(slow(),.45,String(d))}
-  setup(10.01);step();assert.equal(event(),undefined);
+ if(baseline){const rows=[];for(const d of[1,8]){setup(d);step();h.run('elapsed+=.86;updateOrdinarySkills()');rows.push({case:'flat-'+d,...result()})}setup();h.run('player.y=3;player.vy=1');step();h.run('elapsed+=.86;updateOrdinarySkills()');rows.push({case:'airborne',...result()});setup();h.wall({z:-4,width:20,height:1});step();h.run('elapsed+=.86;updateOrdinarySkills()');rows.push({case:'low-wall',...result()});return rows}
+ test('close and full twenty metre grounded opportunities produce the real forty-five percent movement scale',()=>{
+  for(const d of[.5,1,2,8,10,20]){setup(d);step();assert.ok(event(),String(d));assert.equal(h.run('worker.kit.updraft'),0);assert.equal(slow(),1);h.run('elapsed+=.86;updateOrdinarySkills()');assert.equal(slow(),.45,String(d))}
+  setup(20.01);step();assert.equal(event(),undefined);
  });
  test('visible airborne or different-floor targets conserve Q',()=>{
   for(const code of['player.y=3;player.vy=1','player.y=1;player.vy=0']){setup();h.run(code);step();assert.equal(event(),undefined,code);assert.equal(h.run('worker.kit.updraft'),1)}
  });
- test('eye-visible low cover that stops the actual ground band conserves Q',()=>{
-  setup();h.wall({z:-4,width:20,height:1});step();assert.equal(h.run('worker.target'),h.run('player'));assert.equal(event(),undefined);assert.equal(h.run('worker.kit.updraft'),1);
+ test('fixed recent memory behind tall cover cannot bypass the actual throw clip',()=>{
+  setup();h.wall({z:-4,width:20,height:3});h.run('worker.lastSeen={id:player.id,team:player.team,x:0,y:0,z:-8,seenAt:elapsed}');step();assert.equal(h.run('worker.target'),null);assert.equal(event(),undefined);assert.equal(h.run('worker.kit.updraft'),1);
  });
  test('fixed recent sight memory never follows the hidden current pose and stale memory is ignored',()=>{
   setup();h.run('worker.target=null;worker.lastSeen={id:player.id,team:player.team,x:0,y:0,z:-8,seenAt:elapsed};player.x=30;player.z=30;player.y=3');step();assert.ok(event());assert.equal(event().x,0);assert.equal(event().z,-8);
@@ -39,12 +39,12 @@ async function main({mutate=s=>s,only=()=>true,baseline=false}={}){
   setup();h.run("ordinarySkills.cast('nope-flash',ordinaryActorView(player),{x:0,y:1.6,z:-2},elapsed-.6,match.round);updateOrdinarySkills()");assert.ok(h.run('ordinarySkills.blindUntil(worker.id,elapsed)>elapsed'));step();assert.equal(event(),undefined);
  });
  test('twenty sixty and one-forty-four Hz keep arming lifetime airborne counter and round cleanup',()=>{
-  for(const hz of[20,60,144]){setup();for(let i=0;i<Math.ceil(.4*hz);i++)step(1/hz);assert.equal(slow(),.45,String(hz));h.run('player.y=.6;player.vy=1');assert.equal(slow(),1);h.run('player.y=0;player.vy=0');assert.equal(slow(),.45);h.run('elapsed+=8.1;updateOrdinarySkills()');assert.equal(slow(),1);h.run('resetOrdinarySkills();backMenu()');assert.equal(event(),undefined)}
+  for(const hz of[20,60,144]){setup();for(let i=0;i<Math.ceil(1*hz);i++)step(1/hz);assert.equal(slow(),.45,String(hz));h.run('player.y=.6;player.vy=1');assert.equal(slow(),1);h.run('player.y=0;player.vy=0');assert.equal(slow(),.45);h.run('elapsed+=8.1;updateOrdinarySkills()');assert.equal(slow(),1);h.run('resetOrdinarySkills();backMenu()');assert.equal(event(),undefined)}
  });
  test('floor forecast is read-only and matches actual restored field movement without hit authority',()=>{
   setup();const snapshot=h.run('JSON.stringify(ordinarySkills.snapshot())');assert.equal(h.run("ordinarySkills.wouldRoot(ordinaryActorView(player),{type:'veil-roots',team:worker.team,fromX:0,fromY:0,fromZ:0,x:0,y:0,z:-8,radius:1.6},{reachable:ordinaryReachable,groundHeight:ordinaryGroundHeight})"),true);assert.equal(h.run('JSON.stringify(ordinarySkills.snapshot())'),snapshot);
-  step();h.run('var saved=JSON.parse(JSON.stringify(ordinarySkills.snapshot()));ordinarySkills.reset();ordinarySkills.restore(saved,elapsed,match.round);elapsed+=.26');assert.equal(slow(),.45);assert.equal(h.run('ordinarySkills.wouldRoot(ordinaryActorView(player),{type:"veil-roots",team:"blue",fromX:0,fromY:0,fromZ:0,x:0,y:0,z:0,radius:1.6},{reachable:ordinaryReachable,groundHeight:ordinaryGroundHeight})'),false);
+  step();h.run('var saved=JSON.parse(JSON.stringify(ordinarySkills.snapshot()));ordinarySkills.reset();ordinarySkills.restore(saved,elapsed,match.round);elapsed+=.86');assert.equal(slow(),.45);assert.equal(h.run('ordinarySkills.wouldRoot(ordinaryActorView(player),{type:"veil-roots",team:"blue",fromX:0,fromY:0,fromZ:0,x:0,y:0,z:0,radius:1.6},{reachable:ordinaryReachable,groundHeight:ordinaryGroundHeight})'),false);
  });
- console.log(`PASS: ${groups} actual saved-game VEIL Q ground-band opportunity groups; no audio`);
+ console.log(`PASS: ${groups} actual saved-game VEIL Q thrown-band opportunity groups; no audio`);
 }
 module.exports=main;if(require.main===module)main().catch(e=>{console.error(e);process.exitCode=1});
