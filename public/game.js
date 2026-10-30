@@ -1830,12 +1830,13 @@ function syncSmokes(values=[]){
     if(!s){const mesh=new THREE.Mesh(geometry,new THREE.MeshStandardMaterial({map:cloudTexture(),roughness:1,metalness:0,transparent:true,opacity:.98,side:THREE.DoubleSide}));s={...value,mesh};scene.add(mesh);smokes.push(s);}
     s.mesh.geometry=geometry;
     Object.assign(s,value);s.mesh.position.set(s.x,s.y,s.z);s.mesh.scale.setScalar(s.radius/3.6);s.mesh.material.color.set(s.kind==='veil'?'#77718f':'#c9dce7');
+    const transparent=s.kind!=='veil';if(s.mesh.material.transparent!==transparent){s.mesh.material.transparent=transparent;s.mesh.material.needsUpdate=true;}s.mesh.material.opacity=transparent?.98:1;
   }
   if(!smokes.some(s=>s.kind==='smoke')&&smokeGeometry){smokeGeometry.dispose();smokeGeometry=null;}
   if(!smokes.some(s=>s.kind==='veil')&&veilGeometry){veilGeometry.dispose();veilGeometry=null;}
 }
 function updateSmokeAppearance(time){
-  for(const s of smokes){s.mesh.rotation.y=time*.13;s.mesh.scale.setScalar(s.radius/3.6);const fade=clamp((s.expires-time)/.4,0,1);s.mesh.material.opacity=.98*fade;}
+  for(const s of smokes){s.mesh.rotation.y=time*.13;s.mesh.scale.setScalar(s.radius/3.6);const fade=clamp((s.expires-time)/.4,0,1);s.mesh.material.opacity=s.kind==='veil'?1:.98*fade;}
 }
 function activePollenFields(){return match?.phase==='live'?ordinarySkills.events(elapsed).filter(event=>event.type==='mend-pollen'&&elapsed>=event.triggerAt):[];}
 function activeOrdinarySmokeFields(){return match?.phase==='live'?ordinarySkills.events(elapsed).filter(event=>['mend-pollen','veil-dust','frost-mist','duelist-comet'].includes(event.type)&&elapsed>=event.triggerAt):[];}
