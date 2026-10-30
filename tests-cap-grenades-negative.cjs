@@ -1,0 +1,2 @@
+const {spawnSync}=require('node:child_process'),assert=require('node:assert/strict');
+for(const fault of['count','cap','team','authority']){const r=spawnSync(process.execPath,['tests-cap-grenades.cjs','--fault='+fault],{cwd:__dirname,encoding:'utf8',timeout:120000});assert.equal(r.error,undefined);assert.notEqual(r.status,0,fault);assert.match(r.stderr,/AssertionError/,fault);assert.doesNotMatch(r.stderr,/SyntaxError|ReferenceError|Missing fault anchor/,fault);console.log('PASS: memory-only cluster fault caught: '+fault);}

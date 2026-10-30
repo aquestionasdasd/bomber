@@ -1,6 +1,6 @@
 // Shared low-gravity lob. Existing event endpoints + flight encode the entire arc.
 export const SKILL_THROW = Object.freeze({speed:12, gravity:4, lift:2, maxFlight:8, minFlight:1/240, maxPitch:Math.PI/2-.01});
-export const LOBBED_SKILLS = Object.freeze(['duelist-comet','nope-bottle','nope-flash','mend-seeds','mend-pollen','echo-tag','echo-glint','veil-root-seed','ember-solder','frost-stitch','frost-mist','nobi-bell','nobi-whisker','nobi-toolbox','nobi-collar']);
+export const LOBBED_SKILLS = Object.freeze(['cap-lens','cap-cluster-heal','cap-cluster-damage','cap-bank-grenade','cap-magazine-grenade','duelist-comet','nope-bottle','nope-flash','mend-seeds','mend-pollen','echo-tag','echo-glint','veil-root-seed','ember-solder','frost-stitch','frost-mist','nobi-bell','nobi-whisker','nobi-toolbox','nobi-collar']);
 export const isLobbedSkill = type => LOBBED_SKILLS.includes(type);
 export function throwDuration(from,to){
   const distance=Math.hypot(to.x-from.x,to.z-from.z),dy=to.y-from.y;

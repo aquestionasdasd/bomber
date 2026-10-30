@@ -14,7 +14,7 @@ const hints = {
   car: { c: '敵を吹き飛ばし5秒スタン', q: '狙った煙幕を1つ除去', e: '4秒、地上の移動射撃が安定', x: '近くの味方と自身のC/Q/E補給' },
   nobi: { c: '範囲内の敵への銃ダメージ増加', q: '範囲内の敵の連射が遅くなる', e: '味方の設置・解除が加速', x: '範囲内の味方の銃撃が頭相当に' },
   japan: { c: '線を越えた敵に大ダメージ', q: '敵の装甲を奪って強化', e: '5秒、受けた銃撃を撃ち手へ返す', x: '倒れた味方全員を10HPで復帰' },
-  cap: { c: '敵の照準とADSを妨害', q: '現在受けている妨害を解除', e: '6秒、銃弾が壁で最大3回反射', x: '9秒、装填済みの銃弾を消費なし' },
+  cap: { c: '投擲で周囲の照準妨害・敵を透過', q: '7子弾に分裂／右で回復A・攻撃B', e: '着弾周囲の味方に6秒の跳弾', x: '着弾周囲の味方に9秒の弾数無消費' },
   urchin: { c: '予告した直線へ棘を射出', q: '敵の購入主武器を落とす', e: '波に触れた相手の遠方視界を奪う', x: '13秒、三方向射撃＋連射アップ' },
   onnara: { c: 'その場から大ジャンプ', q: '反射カメラに映る敵を透視', e: 'Spaceで跳ぶ／再Eで解除', x: '8秒、銃の命中ダメージが連鎖' },
   renko: { c: '壁貫通で吹き飛ばし＋1秒スタン', q: '素手で高速走行／再Qで解除', e: `長押し${RENKO_SKILLS.flightDuration}秒／${RENKO_SKILLS.signatureKills}キルで回復`, x: '敵撃破ごとにC/Q/Eを全回復' },
@@ -26,6 +26,6 @@ export function getSkillUseMessage(character, key, effectType = '') {
   if (!hint) return null;
   const definition = slot === 'x' ? getCharacterUltimate(id) : getCharacterSkill(id, slot);
   const description = effectType === 'dash-armed' ? `${DUELIST.dashArmDelay}秒後、再Eでダッシュ`
-    : effectType === 'cat-return' ? '保存した場所へ帰還' : hint;
+    : effectType === 'cat-return' ? '保存した場所へ帰還' : effectType==='cap-cluster-heal'?'回復の7子弾／自身と味方を回復':effectType==='cap-cluster-damage'?'攻撃の7子弾／命中敵を3秒透過':hint;
   return { title: `${slot.toUpperCase()} ${definition.shortName}`, description };
 }

@@ -1,6 +1,7 @@
 import { SKILL_THROW, isLobbedSkill, throwSpec, throwPosition } from './skill-throw.js';
 import { moveCamera } from './onnara-camera-motion.js';
 import { nopeWalkPose } from './nope-walk.js';
+import { CAP_GRENADE, CAP_THROW_TYPES, isCapGrenade, capGrenadeSpec, capEffectDuration, createCapFlight, capBlastEffects } from './cap-grenades.js';
 import { RENKO_SKILLS, ONNARA_SKILLS, URCHIN_SKILLS, CAP_SKILLS, JAPAN_SKILLS, NOBI_SKILLS, CAR_SKILLS, CAT_SKILLS, DUCK_SKILLS, DUELIST_SKILLS, NOPE_SKILLS, MEND_SKILLS, IAGNU_SKILLS, VEIL_SKILLS, veilRootSegment, EMBER_SKILLS, FROST_SKILLS } from './abilities.js';
 import { WEAPONS } from './rules.js';
 
@@ -24,6 +25,7 @@ const specs = Object.freeze({
  'urchin-disarm':Object.freeze({flight:0,delay:0,tail:.8,radius:0}),
  'urchin-pearl':Object.freeze({flight:0,delay:0,tail:.8,radius:0}),
  'urchin-trident':Object.freeze({flight:0,delay:0,tail:URCHIN_SKILLS.tridentDuration,radius:0}),
+ ...Object.fromEntries(CAP_THROW_TYPES.map(type=>[type,Object.freeze(capGrenadeSpec(type))])),
  'cap-lock':Object.freeze({flight:0,delay:0,tail:CAP_SKILLS.lockDuration,radius:0}),
  'cap-clean':Object.freeze({flight:0,delay:0,tail:.8,radius:0}),
  'cap-bank':Object.freeze({flight:0,delay:0,tail:CAP_SKILLS.bounceDuration,radius:0}),
@@ -87,7 +89,7 @@ const living = value => position(value) && identifier(value.id) && team(value.te
 const point = value => position(value) && coordinate(value.y);
 const flyingOrb = e => e?.type==='onnara-orb'&&e.flight===ONNARA_SKILLS.orbCameraDuration;
 const orbVelocity = t => Array.isArray(t.cameraVelocity)&&t.cameraVelocity.length===3&&t.cameraVelocity.every(Number.isFinite)&&Math.abs(Math.hypot(...t.cameraVelocity)-ONNARA_SKILLS.orbSpeed)<.003;
-const copy = value => {const out={...value,...(value.link?{link:[...value.link]}:{}),...(value.hop?{hop:[...value.hop]}:{})};if(flyingOrb(value))for(const k of ['x','y','z','fromX','fromY','fromZ'])out[k]=Math.round(out[k]*1000)/1000;return out;};
+const copy = value => {const out={...value,...(value.hits?{hits:value.hits.map(h=>h.slice())}:{}),...(value.link?{link:[...value.link]}:{}),...(value.hop?{hop:[...value.hop]}:{})};if(flyingOrb(value))for(const k of ['x','y','z','fromX','fromY','fromZ'])out[k]=Math.round(out[k]*1000)/1000;return out;};
 const close = (a, b) => Math.abs(a - b) < 1e-7;
 const idSequence = (id, type) => {
   if (typeof id !== 'string' || !new RegExp(`^skill-${type}-[1-9][0-9]{0,14}$`).test(id)) return 0;
@@ -101,9 +103,9 @@ const personal = type => ['renko-drive','renko-jet','onnara-jump','onnara-orb','
 const groundedPersonal = type => type === 'veil-turf' || type === 'frost-unravel';
 const nobiArea = type => ['nobi-bell','nobi-whisker','nobi-toolbox','nobi-collar'].includes(type);
 const nobiRange = type => type==='nobi-bell'?NOBI_SKILLS.tagRange:type==='nobi-whisker'?NOBI_SKILLS.brakeRange:type==='nobi-toolbox'?NOBI_SKILLS.toolRange:NOBI_SKILLS.legendRange;
-const feetSource = type => type.startsWith('onnara-') || type.startsWith('urchin-')&&!['urchin-lance','urchin-gloom'].includes(type) || type.startsWith('cap-') || type.startsWith('japan-') || type.startsWith('nobi-')&&!nobiArea(type) || type.startsWith('car-') || type.startsWith('cat-') || type === 'mend-heal' || type === 'duelist-lift' || personal(type) || type.startsWith('veil-')&&type!=='veil-root-seed';
+const feetSource = type => !isCapGrenade(type)&&( type.startsWith('onnara-') || type.startsWith('urchin-')&&!['urchin-lance','urchin-gloom'].includes(type) || type.startsWith('cap-') || type.startsWith('japan-') || type.startsWith('nobi-')&&!nobiArea(type) || type.startsWith('car-') || type.startsWith('cat-') || type === 'mend-heal' || type === 'duelist-lift' || personal(type) || type.startsWith('veil-')&&type!=='veil-root-seed');
 const eventFields = ['id', 'type', 'team', 'sourceId', 'round', 'fromX', 'fromY', 'fromZ', 'x', 'y', 'z', 'startedAt', 'flight', 'triggerAt', 'endsAt', 'radius'];
-const withinCastRange = (type, actor, target, sourceEyeY = eyeY(actor)) => type==='renko-dart' ? Math.hypot(target.x-actor.x,target.y-sourceEyeY,target.z-actor.z)>1e-8 : nobiArea(type) ? Math.hypot(target.x-actor.x,target.z-actor.z)<=nobiRange(type)+1e-8 : type.startsWith('onnara-') ? feetDistance(actor,target)<=(type==='onnara-tax'?ONNARA_SKILLS.taxRange+.002:type==='onnara-orb'?ONNARA_SKILLS.orbRange+.002:1e-8)+1e-8 : type==='urchin-gloom' ? close(Math.hypot(target.x-actor.x,target.y-sourceEyeY,target.z-actor.z),URCHIN_SKILLS.gloomRange) : type==='urchin-lance' ? Math.hypot(target.x-actor.x,target.y-sourceEyeY,target.z-actor.z)<=URCHIN_SKILLS.lanceRange+1e-8 : type.startsWith('urchin-') ? feetDistance(actor,target)<=(type==='urchin-jam'?URCHIN_SKILLS.jamRange:type==='urchin-disarm'?URCHIN_SKILLS.disarmRange:1e-8)+1e-8 : type.startsWith('cap-') ? feetDistance(actor,target)<=(type==='cap-lock'?CAP_SKILLS.lockRange:type==='cap-clean'?CAP_SKILLS.cleanRange:1e-8)+1e-8 : type.startsWith('japan-') ? feetDistance(actor,target)<=(type==='japan-border'?JAPAN_SKILLS.borderRange:type==='japan-levy'?JAPAN_SKILLS.levyRange:1e-8)+1e-8 : type.startsWith('nobi-') ? feetDistance(actor,target)<=(type==='nobi-tag'?NOBI_SKILLS.tagRange:type==='nobi-brake'?NOBI_SKILLS.brakeRange:1e-8)+1e-8 : type.startsWith('car-') ? feetDistance(actor,target)<=(type==='car-bumper'?CAR_SKILLS.bumperRange:type==='car-wash'?CAR_SKILLS.washRange:1e-8)+1e-8 : type.startsWith('cat-') ? feetDistance(actor,target) <= (type==='cat-return'?CAT_SKILLS.returnRange:type==='cat-pluck'?CAT_SKILLS.pluckRange:type==='cat-fetch'?CAT_SKILLS.fetchRange:1e-8)+1e-8 : type === 'duck-pad' || type === 'duck-seal' || type === 'duck-shield' ? Math.hypot(target.x-actor.x,target.y-sourceEyeY,target.z-actor.z) <= (type === 'duck-seal' ? DUCK_SKILLS.sealRange : type === 'duck-pad'?DUCK_SKILLS.padRange:DUCK_SKILLS.shieldRange)+1e-8 : type === 'duelist-comet' ? Math.hypot(target.x - actor.x, target.y - sourceEyeY, target.z - actor.z) <= DUELIST_SKILLS.cometRange + 1e-8
+const withinCastRange = (type, actor, target, sourceEyeY = eyeY(actor)) => isCapGrenade(type)?Math.hypot(target.x-actor.x,target.z-actor.z)<=CAP_GRENADE.range+1e-8: type==='renko-dart' ? Math.hypot(target.x-actor.x,target.y-sourceEyeY,target.z-actor.z)>1e-8 : nobiArea(type) ? Math.hypot(target.x-actor.x,target.z-actor.z)<=nobiRange(type)+1e-8 : type.startsWith('onnara-') ? feetDistance(actor,target)<=(type==='onnara-tax'?ONNARA_SKILLS.taxRange+.002:type==='onnara-orb'?ONNARA_SKILLS.orbRange+.002:1e-8)+1e-8 : type==='urchin-gloom' ? close(Math.hypot(target.x-actor.x,target.y-sourceEyeY,target.z-actor.z),URCHIN_SKILLS.gloomRange) : type==='urchin-lance' ? Math.hypot(target.x-actor.x,target.y-sourceEyeY,target.z-actor.z)<=URCHIN_SKILLS.lanceRange+1e-8 : type.startsWith('urchin-') ? feetDistance(actor,target)<=(type==='urchin-jam'?URCHIN_SKILLS.jamRange:type==='urchin-disarm'?URCHIN_SKILLS.disarmRange:1e-8)+1e-8 : type.startsWith('cap-') ? feetDistance(actor,target)<=(type==='cap-lock'?CAP_SKILLS.lockRange:type==='cap-clean'?CAP_SKILLS.cleanRange:1e-8)+1e-8 : type.startsWith('japan-') ? feetDistance(actor,target)<=(type==='japan-border'?JAPAN_SKILLS.borderRange:type==='japan-levy'?JAPAN_SKILLS.levyRange:1e-8)+1e-8 : type.startsWith('nobi-') ? feetDistance(actor,target)<=(type==='nobi-tag'?NOBI_SKILLS.tagRange:type==='nobi-brake'?NOBI_SKILLS.brakeRange:1e-8)+1e-8 : type.startsWith('car-') ? feetDistance(actor,target)<=(type==='car-bumper'?CAR_SKILLS.bumperRange:type==='car-wash'?CAR_SKILLS.washRange:1e-8)+1e-8 : type.startsWith('cat-') ? feetDistance(actor,target) <= (type==='cat-return'?CAT_SKILLS.returnRange:type==='cat-pluck'?CAT_SKILLS.pluckRange:type==='cat-fetch'?CAT_SKILLS.fetchRange:1e-8)+1e-8 : type === 'duck-pad' || type === 'duck-seal' || type === 'duck-shield' ? Math.hypot(target.x-actor.x,target.y-sourceEyeY,target.z-actor.z) <= (type === 'duck-seal' ? DUCK_SKILLS.sealRange : type === 'duck-pad'?DUCK_SKILLS.padRange:DUCK_SKILLS.shieldRange)+1e-8 : type === 'duelist-comet' ? Math.hypot(target.x - actor.x, target.y - sourceEyeY, target.z - actor.z) <= DUELIST_SKILLS.cometRange + 1e-8
   : type === 'mend-heal' ? feetDistance(actor, target) <= MEND_SKILLS.healRange + 1e-8
   : personal(type) || type === 'duelist-lift' ? feetDistance(actor, target) <= 1e-8
   : type === 'veil-dust' ? true // Map floor/bounds are validated by the authoritative game before casting.
@@ -170,9 +172,9 @@ export function skillProjectilePosition(event, now) {
 
 export function createCharacterSkills() {
   let currentRound = null, currentTime = -Infinity, lastRestoreTime = -Infinity, sequence = 0;
-  const active = new Map(), owned = new Set(), blinds = new Map(), detections = new Map(), decoyOwners = new Set(), decoyReactions = new Map(), borderHistory=new Map(), nearsights=new Map(), waveSamples=new Map(), cameraTimes=new Map();
-  function clear() { cameraTimes.clear();nearsights.clear();waveSamples.clear();borderHistory.clear(); active.clear(); owned.clear(); blinds.clear(); detections.clear(); decoyOwners.clear(); decoyReactions.clear(); }
-  function prune(now) {
+  const active = new Map(), owned = new Set(), blinds = new Map(), detections = new Map(), decoyOwners = new Set(), decoyReactions = new Map(), borderHistory=new Map(), nearsights=new Map(), waveSamples=new Map(), cameraTimes=new Map(), capFlights=new Map();
+  function clear() { capFlights.clear(); cameraTimes.clear();nearsights.clear();waveSamples.clear();borderHistory.clear(); active.clear(); owned.clear(); blinds.clear(); detections.clear(); decoyOwners.clear(); decoyReactions.clear(); }
+  function prune(now) { for(const id of capFlights.keys())if(!active.has(id)||active.get(id).endsAt<=now)capFlights.delete(id);
     for(const id of cameraTimes.keys())if(!active.has(id)||active.get(id).endsAt<=now)cameraTimes.delete(id);
     for (const [id, event] of active) if (event.endsAt <= now) { active.delete(id); owned.delete(id); decoyOwners.delete(id); borderHistory.delete(id);waveSamples.delete(id); }
     for (const [id, endsAt] of decoyReactions) if (endsAt <= now) decoyReactions.delete(id);
@@ -303,7 +305,7 @@ export function createCharacterSkills() {
     }
     return effects;
   }
-  function update(actors, now, round, { reachable, cameraSweep } = {}) {
+  function update(actors, now, round, { reachable, cameraSweep, grenadeSweep } = {}) {
     if (!advance(now, round)) return [];
     const effects = [], list = Array.isArray(actors) ? actors : [];
     for(const[id,b]of nearsights)if(!list.some(a=>living(a)&&a.id===id))nearsights.delete(id);
@@ -315,6 +317,12 @@ export function createCharacterSkills() {
         && (!groundedPersonal(event.type) || actor.grounded === true)
         && (event.type !== 'ember-service' || actor.weaponId === event.weaponId))) {active.delete(id);owned.delete(id);}
     for(const[id,event]of active)if((event.type.startsWith('renko-')||event.type.startsWith('onnara-')||event.type.startsWith('urchin-')||event.type.startsWith('cap-')||event.type.startsWith('japan-')||event.type.startsWith('nobi-')||event.type.startsWith('car-')||event.type.startsWith('duck-')||event.type.startsWith('cat-'))&&(!list.some(actor=>living(actor)&&actor.id===event.sourceId&&actor.team===event.team)||['onnara-tax','urchin-jam','cap-lock','japan-levy','duck-seal','nobi-tag','nobi-brake'].includes(event.type)&&!list.some(actor=>living(actor)&&actor.id===event.targetId&&actor.team!==event.team))){active.delete(id);owned.delete(id);borderHistory.delete(id);}
+    for(const e of active.values())if(isCapGrenade(e.type)){
+      if(e.hits)e.hits=e.hits.filter(h=>list.some(a=>living(a)&&a.id===h[0]&&(e.type==='cap-lens'||e.type==='cap-cluster-damage'?a.team!==e.team:a.team===e.team)));
+      if(!owned.has(e.id)||now<e.triggerAt)continue;
+      let state=capFlights.get(e.id);if(!state){state={flight:createCapFlight(e,grenadeSweep),seen:new Set(),totals:new Map()};capFlights.set(e.id,state);}
+      for(const blast of state.flight.advance(now).blasts){if(state.seen.has(blast.index))continue;state.seen.add(blast.index);effects.push(...capBlastEffects(e,blast,list,state.totals,reachable));}
+    }
     for(const id of cameraTimes.keys()){const e=active.get(id);if(!e||!owned.has(id)){cameraTimes.delete(id);continue;}
       const previous=cameraTimes.get(id);cameraTimes.set(id,now);
       if(typeof cameraSweep==='function'&&now>previous)moveCamera(e,now-previous,cameraSweep);
@@ -540,15 +548,31 @@ export function createCharacterSkills() {
   function nobiInterval(id,now,actor,reachable){return nobiActive('nobi-brake',id,now,true)||nobiField('nobi-whisker',id,now,actor,reachable)?NOBI_SKILLS.fireIntervalScale:1;}
   function nobiWork(id,now,actor,reachable){return nobiActive('nobi-tool',id,now)||nobiField('nobi-toolbox',id,now,actor,reachable)?NOBI_SKILLS.toolScale:1;}
   function nobiLegend(id,now,actor,reachable){return nobiActive('nobi-legend',id,now)||nobiField('nobi-collar',id,now,actor,reachable);}
-  function snapshot(observerTeam) { return { events: [...active.values()].map(copy), blinds: [...blinds.values(),...nearsights.values()].map(copy),
-    markers: [...detections.values()].filter(marker => observerTeam === undefined || marker.team === observerTeam).map(copy) }; }
+  function snapshot(observerTeam) {
+    const capTargets=[...new Set([...active.values()].filter(e=>isCapGrenade(e.type)).flatMap(e=>(e.hits||[]).map(h=>h[0])))];
+    const records=[...active.values()].map(e=>{const out=copy(e);if(isCapGrenade(e.type)&&e.hits)out.hits=e.hits.map(h=>{
+      const index=capTargets.indexOf(h[0]);
+      // Status deadlines follow the parent trigger exactly. Damage reveals
+      // encode the last hit in milliseconds, rounded down (never extended).
+      return e.type==='cap-cluster-damage'?[index,Math.max(0,Math.floor((h[1]-e.triggerAt)*1000+1e-7))]:e.type==='cap-lens'&&h[1]<=e.triggerAt?-index-1:index;
+    });return out;});
+    return {events:records,blinds:[...blinds.values(),...nearsights.values()].map(copy),
+      markers:[...detections.values()].filter(marker=>observerTeam===undefined||marker.team===observerTeam).map(copy),...(capTargets.length?{capTargets}:{})};
+  }
   function validEvent(value, now, round) {
     if (!value || typeof value !== 'object' || Array.isArray(value) || !isType(value.type) || !team(value.team) || !identifier(value.sourceId) || !point(value)
       || ![value.fromX, value.fromY, value.fromZ].every(coordinate) || value.round !== round || !clock(value.startedAt) || value.startedAt > now || !clock(value.triggerAt) || !clock(value.endsAt) || !idSequence(value.id, value.type)) return false;
+    if(isCapGrenade(value.type)&&value.hits!==undefined){
+      if(!Array.isArray(value.hits)||value.hits.length>10||new Set(value.hits.map(h=>h?.[0])).size!==value.hits.length)return false;
+      if(!value.hits.every(h=>Array.isArray(h)&&h.length===3&&identifier(h[0])
+        &&h.slice(1).every(t=>clock(t)&&t<=value.endsAt+1e-7)
+        &&h[1]>=value.triggerAt&&h[1]<=Math.min(now,value.triggerAt+CAP_GRENADE.childFuse)+capEffectDuration(value.type)+1e-7
+        &&(h[2]===0||h[2]>=value.triggerAt+CAP_GRENADE.revealDuration-1e-7&&h[2]<=Math.min(now,value.triggerAt+CAP_GRENADE.childFuse)+CAP_GRENADE.revealDuration+1e-7)))return false;
+    }
     if(value.type==='nope-decoy'&&(!Object.keys(value).every(key=>eventFields.includes(key)||['yaw','walkLength'].includes(key))||(value.walkLength!==undefined||value.yaw!==undefined)&&(!Number.isFinite(value.yaw)||Math.abs(value.yaw)>Math.PI||!Number.isFinite(value.walkLength)||value.walkLength<0||value.walkLength>NOPE_SKILLS.decoyWalkRange)))return false;
     const spec = value.type==='renko-dart'?renkoDartSpec({x:value.fromX,y:value.fromY,z:value.fromZ},value):throwSpec(value.type,specs[value.type],{x:value.fromX,y:value.fromY,z:value.fromZ},value);
     if(!spec)return false;
-    if ((isLobbedSkill(value.type) || value.type.startsWith('renko-') || value.type.startsWith('onnara-') || value.type.startsWith('urchin-') || value.type.startsWith('cap-') || value.type.startsWith('japan-') || value.type.startsWith('nobi-') || value.type.startsWith('car-') || value.type.startsWith('cat-') || value.type.startsWith('duck-') || value.type.startsWith('duelist-') || value.type.startsWith('veil-') || value.type.startsWith('ember-') || value.type.startsWith('frost-')) && !Object.keys(value).every(key => eventFields.includes(key) || value.type==='onnara-hover'&&key==='hop' || value.type==='onnara-chain'&&key==='link' || value.type==='onnara-tax'&&key==='power' || value.type==='onnara-orb'&&key==='yaw' || value.type==='japan-border'&&key==='yaw' || ['onnara-tax','urchin-jam','urchin-disarm','cap-lock','cap-clean','japan-levy'].includes(value.type)&&key==='targetId' || ['nobi-tag','nobi-brake'].includes(value.type)&&key==='targetId' || value.type==='car-bumper'&&key==='targetId' || value.type==='cat-pluck'&&key==='targetId' || value.type === 'duck-seal' && key === 'targetId' || value.type === 'duck-shield' && ['yaw','power'].includes(key) || value.type === 'duck-egg' && key === 'power' || value.type === 'ember-service' && key === 'weaponId')) return false;
+    if ((isLobbedSkill(value.type) || value.type.startsWith('renko-') || value.type.startsWith('onnara-') || value.type.startsWith('urchin-') || value.type.startsWith('cap-') || value.type.startsWith('japan-') || value.type.startsWith('nobi-') || value.type.startsWith('car-') || value.type.startsWith('cat-') || value.type.startsWith('duck-') || value.type.startsWith('duelist-') || value.type.startsWith('veil-') || value.type.startsWith('ember-') || value.type.startsWith('frost-')) && !Object.keys(value).every(key => eventFields.includes(key) || isCapGrenade(value.type)&&key==='hits' || value.type==='onnara-hover'&&key==='hop' || value.type==='onnara-chain'&&key==='link' || value.type==='onnara-tax'&&key==='power' || value.type==='onnara-orb'&&key==='yaw' || value.type==='japan-border'&&key==='yaw' || ['onnara-tax','urchin-jam','urchin-disarm','cap-lock','cap-clean','japan-levy'].includes(value.type)&&key==='targetId' || ['nobi-tag','nobi-brake'].includes(value.type)&&key==='targetId' || value.type==='car-bumper'&&key==='targetId' || value.type==='cat-pluck'&&key==='targetId' || value.type === 'duck-seal' && key === 'targetId' || value.type === 'duck-shield' && ['yaw','power'].includes(key) || value.type === 'duck-egg' && key === 'power' || value.type === 'ember-service' && key === 'weaponId')) return false;
     if (['onnara-tax','urchin-jam','urchin-disarm','cap-lock','cap-clean','japan-levy','nobi-tag','nobi-brake','mend-heal','duck-seal','cat-pluck','car-bumper'].includes(value.type) ? !identifier(value.targetId) : value.targetId !== undefined) return false;
     if (value.type === 'ember-service' ? !serviceWeapon(value.weaponId) : value.weaponId !== undefined) return false;
     if(['onnara-tax','urchin-jam','urchin-disarm','cap-lock','japan-levy','nobi-tag','nobi-brake','duck-seal','cat-pluck','car-bumper'].includes(value.type)&&value.targetId===value.sourceId)return false;
@@ -581,13 +605,31 @@ export function createCharacterSkills() {
     if (!clock(now) || !roundNumber(round) || !value || typeof value !== 'object' || Array.isArray(value) || !Array.isArray(value.events) || !Array.isArray(value.blinds)
       || value.events.length > CHARACTER_SKILLS.maxEvents || value.blinds.length > CHARACTER_SKILLS.maxBlinds || value.markers !== undefined && !Array.isArray(value.markers)
       || (value.markers?.length || 0) > CHARACTER_SKILLS.maxMarkers) return false;
+    const targets=value.capTargets;
+    if(targets!==undefined&&(!Array.isArray(targets)||targets.length>10||!targets.every(identifier)||new Set(targets).size!==targets.length))return false;
     const nextEvents = new Map(), nextBlinds = new Map(), nextMarkers = new Map(); let nextSequence = sequence;
-    for (const event of value.events) {
+    for (let event of value.events) {
+      if(isCapGrenade(event?.type)&&event.hits!==undefined&&targets!==undefined){
+        if(!Array.isArray(event.hits)||event.hits.length>10)return false;
+        const hits=[];
+        for(const hit of event.hits){
+          if(event.type==='cap-cluster-damage'){
+            if(!Array.isArray(hit)||hit.length!==2||!Number.isSafeInteger(hit[0])||hit[0]<0||hit[0]>=targets.length||!Number.isSafeInteger(hit[1])||hit[1]<0||hit[1]>CAP_GRENADE.childFuse*1000)return false;
+            const at=event.triggerAt+hit[1]/1000;hits.push([targets[hit[0]],at,at+CAP_GRENADE.revealDuration]);
+          }else{
+            if(!Number.isSafeInteger(hit)||hit<0&&event.type!=='cap-lens')return false;
+            const index=hit<0?-hit-1:hit;if(index>=targets.length)return false;
+            hits.push([targets[index],event.triggerAt+(hit<0?0:capEffectDuration(event.type)),event.type==='cap-lens'?event.triggerAt+CAP_GRENADE.revealDuration:0]);
+          }
+        }
+        event={...event,hits};
+      }
       if (!validEvent(event, now, round) || nextEvents.has(event.id)) return false;
       if ((groundedPersonal(event.type) || (event.type.startsWith('renko-')||event.type.startsWith('onnara-')||event.type.startsWith('urchin-')||event.type.startsWith('cap-')||event.type.startsWith('japan-') || event.type.startsWith('nobi-') || event.type.startsWith('car-') || event.type.startsWith('ember-') || event.type.startsWith('cat-')) && personal(event.type)) && [...nextEvents.values()].filter(other => other.type === event.type && other.sourceId === event.sourceId).length >= (flyingOrb(event)?2:1)) return false;
       if(event.type==='onnara-tax'&&[...nextEvents.values()].some(other=>other.type===event.type&&other.targetId===event.targetId))return false;
       const clean = { id: event.id, type: event.type, team: event.team, sourceId: event.sourceId, round, fromX: event.fromX, fromY: event.fromY, fromZ: event.fromZ,
         x: event.x, y: event.y, z: event.z, startedAt: event.startedAt, flight: event.flight, triggerAt: event.triggerAt, endsAt: event.endsAt, radius: event.radius };
+      if(isCapGrenade(event.type)&&event.hits)clean.hits=event.hits.map(h=>h.slice());
       if(event.type==='onnara-hover'&&event.hop)clean.hop=[...event.hop];
       if(event.type==='onnara-chain'&&event.link)clean.link=[...event.link];
       if(event.type==='nope-decoy'&&event.walkLength!==undefined){clean.yaw=event.yaw;clean.walkLength=event.walkLength;}
@@ -668,13 +710,14 @@ export function createCharacterSkills() {
   }
   function resetActor(id){
     for(const[key,e]of active)if(e.sourceId===id&&(personal(e.type)||/^(renko|onnara|urchin|cap|japan|nobi|car|cat|duck)-/.test(e.type))||e.targetId===id&&/^(onnara|urchin|cap|japan|nobi|duck)-/.test(e.type)){active.delete(key);owned.delete(key);borderHistory.delete(key);}
-    blinds.delete(id);nearsights.delete(id);
+    for(const e of active.values())if(e.hits)e.hits=e.hits.filter(h=>h[0]!==id);blinds.delete(id);nearsights.delete(id);
   }
   function reset() { clear(); currentRound = null; currentTime = -Infinity; lastRestoreTime = -Infinity; }
   const hostileDebuff = (e,id,ownTeam) => e.team!==ownTeam&&e.targetId===id&&['onnara-tax','urchin-jam','cap-lock','duck-seal','nobi-tag','nobi-brake'].includes(e.type);
-  function hasImpairment(id,ownTeam,now){return [...blinds.values(),...nearsights.values()].some(b=>b.targetId===id&&b.endsAt>now)||events(now).some(e=>hostileDebuff(e,id,ownTeam));}
-  function cleanse(id,ownTeam,now){let removed=0;for(const collection of[blinds,nearsights])for(const[k,b]of collection)if(b.targetId===id&&b.endsAt>now){collection.delete(k);removed++;}for(const[k,e]of active)if(hostileDebuff(e,id,ownTeam)){active.delete(k);owned.delete(k);removed++;}return removed;}
-  const capState=(type,id,now,target=false)=>events(now).some(e=>e.type===type&&(target?e.targetId:e.sourceId)===id);
+  function hasImpairment(id,ownTeam,now){return [...blinds.values(),...nearsights.values()].some(b=>b.targetId===id&&b.endsAt>now)||events(now).some(e=>hostileDebuff(e,id,ownTeam)||e.type==='cap-lens'&&e.team!==ownTeam&&e.hits?.some(h=>h[0]===id&&h[1]>now));}
+  function cleanse(id,ownTeam,now){let removed=0;for(const collection of[blinds,nearsights])for(const[k,b]of collection)if(b.targetId===id&&b.endsAt>now){collection.delete(k);removed++;}for(const[k,e]of active)if(hostileDebuff(e,id,ownTeam)){active.delete(k);owned.delete(k);removed++;}else if(e.type==='cap-lens'&&e.team!==ownTeam&&e.hits){for(const h of e.hits)if(h[0]===id&&h[1]>now){h[1]=e.triggerAt;removed++;}}return removed;}
+  const capState=(type,id,now,target=false)=>events(now).some(e=>e.type===type&&(target?e.targetId:e.sourceId)===id||e.type===({'cap-lock':'cap-lens','cap-bank':'cap-bank-grenade','cap-magazine':'cap-magazine-grenade'}[type])&&e.hits?.some(h=>h[0]===id&&h[1]>now));
+  function capRevealed(sourceId,targetId,now){return events(now).some(e=>isCapGrenade(e.type)&&e.sourceId===sourceId&&e.hits?.some(h=>h[0]===targetId&&h[2]>now));}
   function consumeCrownTax(id,now,credits){
     if(!Number.isSafeInteger(credits)||credits<0)return 0;
     const e=events(now).find(e=>e.type==='onnara-tax'&&e.targetId===id&&owned.has(e.id));
@@ -692,5 +735,5 @@ export function createCharacterSkills() {
     if(!e)return false;active.delete(e.id);owned.delete(e.id);return true;
   }
   return {beginOnnaraHop(id,actor,now,sequence){const e=active.get(id);if(!e||e.type!=='onnara-hover'||e.sourceId!==actor.id||e.team!==actor.team||!actor.alive||!owned.has(id)||e.endsAt<=now||!clock(now)||!coordinate(actor.y)||!Number.isSafeInteger(sequence)||sequence<1)return false;e.hop=[sequence,now,actor.y];return true;},
-    moveOnnaraHold(id,actor,now){const e=active.get(id);if(!e||e.type!=='onnara-hover'||e.sourceId!==actor.id||e.team!==actor.team||!actor.alive||!owned.has(id)||e.endsAt<=now||!coordinate(actor.y)||!e.hop||actor.y<e.hop[2]-.002||actor.y>e.hop[2]+6.552**2/30+.002)return false;e.y=e.fromY=actor.y;return true;},cancelRenkoDrive,holdRenkoJet,renkoEvent:(type,id,now)=>events(now).find(e=>e.type===type&&e.sourceId===id)||null,nearsightUntil,sightRange,duckPad,recordConstellation(sourceId,from,to,now){const e=events(now).find(e=>e.type==='onnara-chain'&&e.sourceId===sourceId&&owned.has(e.id));if(!e||!point(from)||!point(to)||Math.hypot(from.x-to.x,from.y-to.y,from.z-to.z)>ONNARA_SKILLS.chainRange+.001)return false;active.get(e.id).link=[from.x,from.y,from.z,to.x,to.y,to.z,now].map(n=>Math.round(n*1000)/1000);active.get(e.id).link[6]=now;return true;},cancelOnnaraEvent(id,sourceId){const e=active.get(id);if(e?.type.startsWith('onnara-')&&e.sourceId===sourceId&&owned.has(id)){active.delete(id);owned.delete(id);return true;}return false;},consumeCrownTax,onnaraTax:(id,now)=>events(now).find(e=>e.type==='onnara-tax'&&e.targetId===id)||null,onnaraEvent,urchinJammed:(id,now)=>capState('urchin-jam',id,now,true),urchinTrident:(id,now)=>capState('urchin-trident',id,now),urchinInterval:(id,now)=>capState('urchin-trident',id,now)?1/URCHIN_SKILLS.tridentFireRate:1,hasImpairment,cleanse,capLocked:(id,now)=>capState('cap-lock',id,now,true),capBank:(id,now)=>capState('cap-bank',id,now),capMagazine:(id,now)=>capState('cap-magazine',id,now),resetActor,japanReturn:(id,now)=>events(now).some(e=>e.type==='japan-return'&&e.sourceId===id)?JAPAN_SKILLS.returnScale:0,nobiVulnerability,nobiInterval,nobiWork,nobiLegend,wouldNobi,carGyro,disperseSmoke,cancelCarEvent,catBookmark,returnToCatBookmark,cancelCatEvent,clockFrozen, wouldBlind, wouldRoot,wouldSeed,wouldTag,wouldStitch,sealUntil,quiet,guardLethal,interceptShield,castVeilDustBatch,cast, update, events, snapshot, restore, reset, blindUntil, speedScale, markers, movementScale, mitigateSlow, frostSlideSpeed, cancelService, consumeDecoy, flashDecoy };
+    capRevealed,moveOnnaraHold(id,actor,now){const e=active.get(id);if(!e||e.type!=='onnara-hover'||e.sourceId!==actor.id||e.team!==actor.team||!actor.alive||!owned.has(id)||e.endsAt<=now||!coordinate(actor.y)||!e.hop||actor.y<e.hop[2]-.002||actor.y>e.hop[2]+6.552**2/30+.002)return false;e.y=e.fromY=actor.y;return true;},cancelRenkoDrive,holdRenkoJet,renkoEvent:(type,id,now)=>events(now).find(e=>e.type===type&&e.sourceId===id)||null,nearsightUntil,sightRange,duckPad,recordConstellation(sourceId,from,to,now){const e=events(now).find(e=>e.type==='onnara-chain'&&e.sourceId===sourceId&&owned.has(e.id));if(!e||!point(from)||!point(to)||Math.hypot(from.x-to.x,from.y-to.y,from.z-to.z)>ONNARA_SKILLS.chainRange+.001)return false;active.get(e.id).link=[from.x,from.y,from.z,to.x,to.y,to.z,now].map(n=>Math.round(n*1000)/1000);active.get(e.id).link[6]=now;return true;},cancelOnnaraEvent(id,sourceId){const e=active.get(id);if(e?.type.startsWith('onnara-')&&e.sourceId===sourceId&&owned.has(id)){active.delete(id);owned.delete(id);return true;}return false;},consumeCrownTax,onnaraTax:(id,now)=>events(now).find(e=>e.type==='onnara-tax'&&e.targetId===id)||null,onnaraEvent,urchinJammed:(id,now)=>capState('urchin-jam',id,now,true),urchinTrident:(id,now)=>capState('urchin-trident',id,now),urchinInterval:(id,now)=>capState('urchin-trident',id,now)?1/URCHIN_SKILLS.tridentFireRate:1,hasImpairment,cleanse,capLocked:(id,now)=>capState('cap-lock',id,now,true),capBank:(id,now)=>capState('cap-bank',id,now),capMagazine:(id,now)=>capState('cap-magazine',id,now),resetActor,japanReturn:(id,now)=>events(now).some(e=>e.type==='japan-return'&&e.sourceId===id)?JAPAN_SKILLS.returnScale:0,nobiVulnerability,nobiInterval,nobiWork,nobiLegend,wouldNobi,carGyro,disperseSmoke,cancelCarEvent,catBookmark,returnToCatBookmark,cancelCatEvent,clockFrozen, wouldBlind, wouldRoot,wouldSeed,wouldTag,wouldStitch,sealUntil,quiet,guardLethal,interceptShield,castVeilDustBatch,cast, update, events, snapshot, restore, reset, blindUntil, speedScale, markers, movementScale, mitigateSlow, frostSlideSpeed, cancelService, consumeDecoy, flashDecoy };
 }

@@ -3,12 +3,12 @@
 export function cameraSweep(collision, bounds, from, to, radius, traffic = null, now = 0) {
   const delta={x:to.x-from.x,y:to.y-from.y,z:to.z-from.z};
   const at=t=>({x:from.x+delta.x*t,y:from.y+delta.y*t,z:from.z+delta.z*t});
-  const clear=t=>{const p=at(t);return p.y>=radius&&p.x>=bounds.minX+radius&&p.x<=bounds.maxX-radius&&p.z>=bounds.minZ+radius&&p.z<=bounds.maxZ-radius&&collision.rayClear(from.x,from.y,from.z,p.x,p.y,p.z,radius)&&(!traffic||traffic.rayClear(from,p,now));};
+  const clear=t=>{const p=at(t);return p.y>=(bounds.minY??0)+radius&&p.x>=bounds.minX+radius&&p.x<=bounds.maxX-radius&&p.z>=bounds.minZ+radius&&p.z<=bounds.maxZ-radius&&collision.rayClear(from.x,from.y,from.z,p.x,p.y,p.z,radius)&&(!traffic||traffic.rayClear(from,p,now));};
   if(clear(1))return null;
   let lo=0,hi=1;for(let i=0;i<20;i++){const m=(lo+hi)/2;if(clear(m))lo=m;else hi=m;}
   const p=at(lo),normals=[];
   const surface=(distance,x,y,z)=>{if(distance<radius+.004&&x*delta.x+y*delta.y+z*delta.z<0)normals.push({distance,x,y,z});};
-  surface(p.y,0,1,0);surface(p.x-bounds.minX,1,0,0);surface(bounds.maxX-p.x,-1,0,0);surface(p.z-bounds.minZ,0,0,1);surface(bounds.maxZ-p.z,0,0,-1);
+  surface(p.y-(bounds.minY??0),0,1,0);surface(p.x-bounds.minX,1,0,0);surface(bounds.maxX-p.x,-1,0,0);surface(p.z-bounds.minZ,0,0,1);surface(bounds.maxZ-p.z,0,0,-1);
   for(const c of collision.query(p.x,p.z,radius+.01)){
     if(c.disabled||p.y<(c.base||0)-radius-.004||p.y>c.height+radius+.004)continue;
     if(collision.overlaps(c,p.x,p.z,radius)){
