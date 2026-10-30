@@ -124,7 +124,7 @@ const carSkills={
 };
 const urchinSkills={
  c:{name:'潮割り',shortName:'水流と裂け目',description:'Cで構え、照準方向へ左確定・右取消。40mの固定射線を0.65秒予告し、幅1.3mの水流を一斉噴出。線上の敵へ80ダメージ（装甲あり）。地面に2.5秒の裂け目を残し、接地して横切った敵を水しぶきと音で知らせる。横回避と壁で防げる。',max:URCHIN_LANCE.maxStock,price:URCHIN_LANCE.price,type:'urchin-lance',icon:'M6 9h24v18H6ZM11 9V5h14v4M18 13v10'},
- q:{name:'棘抜き',shortName:'銃を落とす',description:'Qで見える32mの敵を狙い左確定・右取消。0.45秒後、確定時の主武器を弾数ごと弾く。遮蔽0.10秒・射程外で回避。切替では回避できず、銃は両軍が拾える。',max:URCHIN_DISARM.maxStock,price:URCHIN_DISARM.price,type:'urchin-disarm',icon:'M4 6h28v8H4ZM14 14v8h8v-8M18 23v7m-5-4 5 4 5-4'},
+ q:{name:'棘抜き',shortName:'銃を落とす',description:'Qで構え左クリックで棘を投擲、右で取消。山なりに飛び、最初に当たった敵の主武器を残弾ごと落とす。壁や床で止まり、外れても1個消費。銃は両軍が拾える。',max:URCHIN_DISARM.maxStock,price:URCHIN_DISARM.price,type:'urchin-disarm',icon:'M4 6h28v8H4ZM14 14v8h8v-8M18 23v7m-5-4 5 4 5-4'},
  e:{name:'深潮のまなざし',shortName:'貫通暗闇',description:'36mの波・敵3秒/味方1秒の近視、敵に潮痕4秒。18秒で回復',max:1,price:0,type:'urchin-gloom',icon:'M3 15q15-18 30 0-15 18-30 0ZM18 10v10M7 26l5-3m12 0 5 3'}
 };
 const capSkills={

@@ -574,6 +574,11 @@ function updateOrdinarySkills(){
     for(const effect of ordinarySkills.update(views,elapsed,match.round,{reachable:ordinaryReachable,groundHeight:ordinaryGroundHeight,lanceGroundHeight:urchinGroundHeight,grenadeSweep:capGrenadeSweep,cameraSweep:(a,b,r)=>cameraSweep(map.collision,activeArenaBounds(),a,b,r,map.traffic,elapsed)})){
       const target=actors.find(actor=>actor.id===effect.targetId),source=actors.find(actor=>actor.id===effect.sourceId);
       if(effect.type==='renko-push'&&target?.alive&&source?.alive&&target.team!==source.team){beginCarMotion(target,{id:effect.eventId,phase:4,endsAt:elapsed+RENKO_SKILLS.launchDuration,vx:effect.vx,vz:effect.vz});burst(new THREE.Vector3(target.x,(target.y||0)+1,target.z),'#a9e6ff',12);}
+      if(effect.type==='urchin-disarm-hit'){
+        const e=ordinarySkills.events(elapsed).find(e=>e.id===effect.eventId),weaponId=(target===player?inventory:target?.record)?.primary;
+        const drop=e&&source?.alive&&target?.alive&&source.team!==target.team?urchinDisarm(target,weaponId,{source,event:e}):null;
+        ordinarySkills.resolveDisarm(effect.eventId,drop?1:2,drop?.id||0,drop?weaponId:undefined);
+      }
       if(effect.type==='damage'&&target&&source){const before=target.hp+target.armor;damageEntity(target,effect.amount,source,{skill:source.kit?.character});if(effect.ability==='urchin-lance'&&target.hp+target.armor<before)ordinarySkills.lanceHitPulse(effect.eventId,target,elapsed,{groundHeight:urchinGroundHeight,reachable:ordinaryReachable});}
       if(effect.type==='heal'&&target?.alive&&source?.alive&&target.team===source.team){const before=target.hp;target.hp=Math.max(before,Math.min(100,target.hp+effect.amount));if(target.hp>before)skillImpact(target,source,source.kit?.character==='cap'?'cap':'mend','heal');}
       if(target?.target&&(effect.type==='blind'||effect.type==='nearsight'&&!visibleBetween(target,target.target)))target.target=null;
@@ -2265,27 +2270,28 @@ function urchinPullDrop(drop,toward){
 function updateDisarmFeedback(events,{silent=false}={}){
  const live=new Set();for(const e of events){if(e.type!=='urchin-disarm'||!e.disarm)continue;live.add(e.id);const state=disarmState(e),age=elapsed-e.startedAt,old=disarmAudio.get(e.id)||{state:-1,warning:false};
  if(!silent&&old.state===-1&&age<.18)sound('urchin-disarm',{entity:{x:e.fromX,y:e.fromY,z:e.fromZ},localOnly:true});
- if(!silent&&!state&&!old.warning&&age>=URCHIN_DISARM.warningAt&&age<URCHIN_DISARM.delay)sound('urchin-disarm-warning',{entity:[player,...bots].find(a=>a.id===e.targetId)||e,localOnly:true});
+ if(!silent&&!state&&e.targetId&&!old.warning&&age>=URCHIN_DISARM.warningAt&&age<URCHIN_DISARM.delay)sound('urchin-disarm-warning',{entity:[player,...bots].find(a=>a.id===e.targetId)||e,localOnly:true});
  if(!silent&&state&&old.state!==state&&elapsed<e.endsAt){const target=[player,...bots].find(a=>a.id===e.targetId),drop=droppedWeapons.find(d=>d.id===e.disarm[1]);sound(state===1?'urchin-disarm-hit':'urchin-disarm-fail',{entity:target||e,localOnly:true});
   if(e.sourceId===player.id){showMessage(state===1?'棘抜き 成功':'棘抜き 不成立',state===1?'主武器を落とした':'対象に回避されました',1.2);if(state===1)hitFlash=.12;}
   if(state===1&&e.targetId===player.id){let arrow='';if(drop&&rootPointVisible(player,{x:drop.x,y:(drop.y||0)+.15,z:drop.z})){const a=Math.atan2(drop.x-player.x,player.z-drop.z)+player.yaw;arrow=['↑','↗','→','↘','↓','↙','←','↖'][(Math.round(a/(Math.PI/4))+8)%8]+' 落下方向';}showMessage('主武器を奪われた！',arrow,URCHIN_DISARM.notice);if(!reducedMotion.matches)kick=Math.max(kick,.025);}
  }disarmAudio.set(e.id,{state,warning:old.warning||age>=URCHIN_DISARM.warningAt});}for(const id of disarmAudio.keys())if(!live.has(id))disarmAudio.delete(id);
 }
 function renderDisarm(events,live,viewer){
- const holding=live&&mode==='play'&&player.alive&&!netHostPaused&&!interactionHeld&&player.kit.character==='urchin'&&duckAim==='q',target=holding?urchinTarget(player,'q'):null;
+ const holding=live&&mode==='play'&&player.alive&&!netHostPaused&&!interactionHeld&&player.kit.character==='urchin'&&duckAim==='q',target=null;
  const cross=$('crosshair');cross?.classList.toggle('urchin-q',holding);cross?.classList.toggle('urchin-q-locked',!!target);if(target?.targetId!==disarmAimId){if(target)sound('urchin-disarm-lock',{localOnly:true});disarmAimId=target?.targetId||null;}
- disarmFX.update(live?events:[],elapsed,{actors:[player,...bots],holding,aim:target,visible:p=>rootPointVisible(viewer||player,p),reducedMotion:reducedMotion.matches});
+  disarmFX.update(live?events:[],elapsed,{actors:[player,...bots],holding:false,aim:target,visible:p=>rootPointVisible(viewer||player,p),reducedMotion:reducedMotion.matches});
 }
 function activateUrchinAbility(actor,key,{predict=false,aim=null}={}){
  key=String(key).toLowerCase();if(netHostPaused||!actor?.alive||match?.phase!=='live'||actor.planting||actor.defusing||actor.serviceReload||!['c','q','e','x'].includes(key))return;
  const type={c:'urchin-lance',q:'urchin-disarm',e:'urchin-gloom',x:'urchin-trident'}[key];if(key==='x'&&ordinarySkills.urchinTrident(actor.id,elapsed))return;
- const target=['c','q','e'].includes(key)?urchinTarget(actor,key,aim):{x:actor.x,y:actor.y||0,z:actor.z};if(!target)return;
+ const target=key==='q'?getManualThrowTarget(actor,type,aim):['c','e'].includes(key)?urchinTarget(actor,key,aim):{x:actor.x,y:actor.y||0,z:actor.z};if(!target)return;
  const local=actor===player;
  const before=actor.kit.snapshot(),effect=actor.kit.activate(key,elapsed);if(!effect)return;
  if(!predict){const event=ordinarySkills.cast(effect,ordinaryActorView(actor),target,elapsed,match.round);if(!event){actor.kit.restore(before);return;}
   // C only commits a fixed telegraphed lane; its host tick resolves damage.
-  if(key==='q')disarmLocks.begin(event,actor,target.actor,target.weaponId);
+  if(key==='q')ordinarySkills.beginDisarmFlight(event.id,[player,...bots].map(ordinaryActorView));
  }
+ if(key==='q'){actor.skillThrowUntil=elapsed+.32;if(local){firing=false;urchinCancelReload(actor);}sound('skill-throw',{entity:actor,localOnly:true});}
  if(local)showSkillMessage('urchin',key,effect.type);return effect;
 }
 function confirmUrchinSkill(key){if(netHostPaused||mode!=='play'||!player.alive||interactionHeld||objectivePractice||['q','e'].includes(key)&&isGuest()&&netActions.length>=64)return;refillMapPracticeSkills();const aim={yaw:player.yaw,pitch:player.pitch},effect=activateAbility(player,key,{predict:isGuest(),aim});if(effect&&isGuest())queueNetAction('ability',{key,...aim});if(!effect){if(key==='q')duckAim='q';showMessage('対象を確認','対象・視線・在庫を確認してください',2);}refillMapPracticeSkills();updateHUD();}
@@ -2717,7 +2723,7 @@ function confirmVeilPlacement(){
  resumeGame();refillMapPracticeSkills();updateHUD();
 }
 
-function thrownSkillRange(type){if(isCapGrenade(type))return CAP_GRENADE.range;return {'duelist-comet':DUELIST_SKILLS.cometRange,'nope-bottle':NOPE_SKILLS.bottleRange,'echo-tag':IAGNU_SKILLS.tagRange,'ember-solder':EMBER_SKILLS.solderRange,'frost-stitch':FROST_SKILLS.stitchRange,'frost-mist':FROST_SKILLS.mistRange,'veil-sensor':VEIL_SKILLS.rootsThrowRange,'veil-root-seed':VEIL_SKILLS.rootsThrowRange,'nobi-bell':NOBI_SKILLS.tagRange,'nobi-whisker':NOBI_SKILLS.brakeRange,'nobi-toolbox':NOBI_SKILLS.toolRange,'nobi-collar':NOBI_SKILLS.legendRange}[type]||CHARACTER_SKILLS.castDistance;}
+function thrownSkillRange(type){if(isCapGrenade(type))return CAP_GRENADE.range;return {'duelist-comet':DUELIST_SKILLS.cometRange,'nope-bottle':NOPE_SKILLS.bottleRange,'echo-tag':IAGNU_SKILLS.tagRange,'ember-solder':EMBER_SKILLS.solderRange,'frost-stitch':FROST_SKILLS.stitchRange,'frost-mist':FROST_SKILLS.mistRange,'veil-sensor':VEIL_SKILLS.rootsThrowRange,'veil-root-seed':VEIL_SKILLS.rootsThrowRange,'nobi-bell':NOBI_SKILLS.tagRange,'nobi-whisker':NOBI_SKILLS.brakeRange,'nobi-toolbox':NOBI_SKILLS.toolRange,'nobi-collar':NOBI_SKILLS.legendRange,'urchin-disarm':URCHIN_DISARM.range}[type]||CHARACTER_SKILLS.castDistance;}
 function thrownSkillHeight(type){return type==='nope-flash'||type==='echo-glint'?1.6:type==='mend-pollen'?1.7:type==='frost-mist'?FROST_SKILLS.mistCenterOffset:type==='duelist-comet'?.2:.12;}
 function getManualThrowTarget(actor,type,aim){
  const input=netInputs.get(actor.remoteId)?.input,yaw=aim?.yaw??(actor===player?player.yaw:input?.yaw??actor.yaw??0),pitch=aim?.pitch??(actor===player?player.pitch:input?.pitch??0);
@@ -2730,7 +2736,7 @@ function getManualThrowTarget(actor,type,aim){
  // at an invisible horizontal boundary. Keep vertical lift and gravity.
  if(type!=='duelist-comet'){const floor=Math.min(map.minY??0,getZoneFloor(from.x,from.z,from.y)),height=Math.min(offset,Math.max(.12,from.y-floor-.08)),fall=(v.y+Math.sqrt(v.y*v.y+2*gravity*Math.max(.08,from.y-floor-height)))/gravity,horizontal=Math.hypot(v.x,v.z)*fall,scale=Math.min(1,(limit-1e-5)/Math.max(1e-8,horizontal));v.x*=scale;v.z*=scale;}
  const blocked=(a,b,time)=>{
-  if(isCapGrenade(type)&&capGrenadeSweep(a,b,CAP_GRENADE.bodyRadius,elapsed+time))return true;
+  if((isCapGrenade(type)||type==='urchin-disarm')&&capGrenadeSweep(a,b,type==='urchin-disarm'?URCHIN_DISARM.bodyRadius:CAP_GRENADE.bodyRadius,elapsed+time))return true;
   if(!map.collision.rayClear(a.x,a.y,a.z,b.x,b.y,b.z))return true;
   if(type==='duelist-comet'&&Math.hypot(b.x-from.x,b.y-from.y,b.z-from.z)>limit||b.x<bounds.minX+.12||b.x>bounds.maxX-.12||b.z<bounds.minZ+.12||b.z>bounds.maxZ-.12)return true;
   const floor=getZoneFloor(b.x,b.z,Math.max(a.y,b.y));

@@ -1,5 +1,17 @@
 // Q alone. Inventory ownership stays in the game's ordinary drop/pickup path.
-export const URCHIN_DISARM=Object.freeze({range:32,delay:.45,occlusionGrace:.10,maxStock:1,price:100,damage:0,tail:1.2,warningAt:.30,growthAt:.15,notice:1.2,dropDistance:.75,dropDuration:.30,dropGravity:15,dropUpSpeed:2,pullDistance:2,pullDuration:.25});
+export const URCHIN_DISARM=Object.freeze({range:32,delay:.45,occlusionGrace:.10,maxStock:1,price:100,damage:0,tail:1.2,bodyRadius:.1,bodyStep:1/120,warningAt:.30,growthAt:.15,notice:1.2,dropDistance:.75,dropDuration:.30,dropGravity:15,dropUpSpeed:2,pullDistance:2,pullDuration:.25});
+// Relative swept sphere/capsule contact also covers an actor crossing the arc
+// between two frames. Teleports are sampled only at their destination.
+export function disarmContact(from,to,actor,previous=actor){
+ const jump=Math.hypot(actor.x-previous.x,(actor.y||0)-(previous.y||0),actor.z-previous.z)>8;if(jump)previous=actor;
+ const p={x:from.x-previous.x,y:from.y-(previous.y||0),z:from.z-previous.z},d={x:to.x-actor.x-p.x,y:to.y-(actor.y||0)-p.y,z:to.z-actor.z-p.z},low=.34,high=Math.max(low,1.75-Math.max(actor.crouch||0,previous.crouch||0)*.55-.34),r=.34+URCHIN_DISARM.bodyRadius;
+ let first=Infinity;
+ for(const cap of[-1,0,1]){const y=cap?(cap<0?low:high):0,oy=cap?p.y-y:0,A=d.x*d.x+d.z*d.z+(cap?d.y*d.y:0),B=p.x*d.x+p.z*d.z+(cap?oy*d.y:0),C=p.x*p.x+p.z*p.z+(cap?oy*oy:0)-r*r;
+  if(A<1e-12){if(C<=0&&(cap<0?p.y<=low:cap>0?p.y>=high:p.y>=low&&p.y<=high))first=0;continue;}
+  const disc=B*B-A*C;if(disc<0)continue;const root=Math.sqrt(disc),enter=Math.max(0,(-B-root)/A),exit=Math.min(1,(-B+root)/A),height=p.y+d.y*enter;
+  if(enter>exit+1e-8||cap<0&&height>low+1e-8||cap>0&&height<high-1e-8||!cap&&(height<low-1e-8||height>high+1e-8))continue;first=Math.min(first,enter);
+ }return first;
+}
 export const disarmPrimary=spec=>!!spec&&spec.slot==='primary'&&Number.isFinite(spec.price)&&spec.price>0&&spec.mag>0;
 export const disarmState=e=>e?.disarm?.[0]||0;
 const landing=d=>d.motion?.length===8?{x:d.motion[5]/100,z:d.motion[6]/100,y:d.motion[7]/100}:d;
