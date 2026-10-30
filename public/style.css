@@ -439,3 +439,6 @@
 .smoke-placement-active .map-intel{display:none}
 .smoke-placement-active #large-minimap{max-height:50vh;cursor:crosshair}
 @media(max-height:650px){.smoke-placement-active #large-minimap{max-height:38vh}.smoke-placement-active .tactical-map-panel>header{margin-bottom:8px}.veil-smoke-placement{padding:8px 10px}}
+
+/* Urchin Q changes only its aimed reticle. */
+.crosshair.urchin-q{transform:translate(-50%,-50%) rotate(45deg) scale(.85);border:1px solid #65c4e8;border-radius:50%}.crosshair.urchin-q span,.crosshair.urchin-q i{background:#75daff}.crosshair.urchin-q.urchin-q-locked{transform:translate(-50%,-50%) rotate(45deg) scale(.65);border-color:#e9ffff;filter:drop-shadow(0 0 4px #89eeff)}
