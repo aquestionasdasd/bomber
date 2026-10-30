@@ -129,7 +129,7 @@ const urchinSkills={
 };
 const capSkills={
  c:{name:'レンズブレイク',shortName:'照準妨害',description:'Cで構え左クリックで投擲。着弾後.22秒、半径6mの射線が通る敵へ8秒の照準妨害とADS封印。命中敵を本人に3秒透過表示。',max:2,price:100,type:'cap-lens',icon:'M5 10h26v13H5ZM11 16h5m6 0h4M4 28 32 3'},
- q:{name:'クラスターグレネード',shortName:'回復／ダメージ',description:'Qで構え、右クリックでA回復／Bダメージを切替、左で投擲。着弾.22秒後に爆発し15子玉へ分裂。子玉は重力で落下し、床で静止して.18秒後に発動。距離減衰・1投1人合計180上限。Aは本人と味方を回復、Bは敵へ通常装甲ダメージと本人へ3秒の敵透過表示。再QかEscで取消。',max:1,price:100,type:'cap-cluster-heal',icon:'M7 6h22v20H7ZM11 16l5 5 10-12'},
+ q:{name:'クラスターグレネード',shortName:'回復／ダメージ',description:'Qで構え、右クリックでA回復／Bダメージを切替、左で投擲。着弾.22秒後に爆発し15子玉へ分裂。子玉は重力で落下し、床で静止して.18秒後に発動。距離減衰・1投1人合計180上限。Aは本人と味方を回復、Bは敵へ通常装甲ダメージと本人へ3秒の敵透過表示。再QかEscで取消。',max:2,price:50,type:'cap-cluster-heal',icon:'M7 6h22v20H7ZM11 16l5 5 10-12'},
  e:{name:'バンクレンズ',shortName:'跳弾',description:'投擲の着弾周囲6mの本人と味方へ6秒、銃弾が縦の壁で最大3回反射し、通常の75%ダメージ。総経路90mまで。照準中央の反射後の経路を本人に点線表示（弾の拡散は別）。4枚目の壁・床・天井・盾・囮で止まり、自動追尾はない。22秒で再使用。',max:1,price:0,type:'cap-bank-grenade',icon:'M4 25 18 11l14 14M4 7h28M18 11v-6'}
 };
 const japanSkills={
