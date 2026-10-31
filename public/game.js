@@ -3330,7 +3330,7 @@ function updateBots(dt){
     moveEntity(bot,dx/length*step,dz/length*step,.4);
     // During a duel the gun-facing branch controls orientation, including
     // urgent movement. Moving toward a path must never snap the body around.
-    if(!bot.target)face(bot,{x:bot.x+dx,z:bot.z+dz});
+    if(!bot.target)face(bot,bot.retakeWatch||{x:bot.x+dx,z:bot.z+dz});
     const moved=Math.hypot(bot.x-oldX,bot.z-oldZ)>.002;
     if(!moved)bot.pathTime=0;
     return moved;
@@ -3385,6 +3385,7 @@ function updateBots(dt){
     if(!enemy){bot.aimSample=null;bot.aimStillSince=elapsed;}
     let enemyDistance=enemy?distance(bot,enemy):Infinity;
     const role=plan?.roles.get(bot.id);
+    bot.retakeWatch=null;
     bot.tacticRole=role?.role||'anchor';bot.tacticSite=role?.siteId||null;
     let goal=role?.goal||null,plantSite=null,shouldDefuse=false;
     const site=map.sites.find(s=>s.id===(role?.siteId||targetSite))||map.sites[0];
@@ -3436,11 +3437,14 @@ function updateBots(dt){
     const committedDefuse=spike.defuseActor===bot.id&&spike.defuseProgress>0;
     const trafficEscape=actorGrounded(bot)?navigation.trafficEscape?.(bot.x,bot.z):null;
     const interactPlant=!trafficEscape&&Math.abs(bot.y||0)<.05&&actorGrounded(bot)&&plantSite&&(enemyDistance>10||committedPlant||role?.urgent);
-    const interactDefuse=!trafficEscape&&Math.abs(bot.y||0)<.05&&actorGrounded(bot)&&shouldDefuse&&(!spike.defuseActor||spike.defuseActor===bot.id)&&(enemyDistance>9||committedDefuse||role?.urgent);
+    const canDefuse=!trafficEscape&&Math.abs(bot.y||0)<.05&&actorGrounded(bot)&&shouldDefuse&&(!spike.defuseActor||spike.defuseActor===bot.id);
+    const retake=tactics.defuseDecision?.(bot,elapsed,role,spike,{enemy,canWork:canDefuse,impaired:ordinarySkills.blindUntil(bot.id,elapsed)>elapsed||ordinarySkills.nearsightUntil?.(bot.id,elapsed)>elapsed});
+    if(retake&&!retake.urgent){bot.retakeWatch=retake.watch;if(retake.hold)goal=null;else if(retake.goal)goal=retake.goal;}
+    const interactDefuse=canDefuse&&(retake?retake.allow:enemyDistance>9||committedDefuse||role?.urgent);
     // Arm the work tool immediately before starting a real assigned task.
     // Approaching a site alone must not spend its six-second working window.
     bot.planting=false;bot.defusing=false;bot.moving=false;
-    if(bot.kit?.character==='nobi'&&(interactPlant&&!committedPlant||interactDefuse&&!committedDefuse)&&elapsed>=(bot.nextNobiToolAt||0)){
+    if(bot.kit?.character==='nobi'&&(interactPlant&&!committedPlant||interactDefuse&&!committedDefuse)&&retake?.phase!=='tap'&&elapsed>=(bot.nextNobiToolAt||0)){
       cancelServiceReload(bot);
       // Share a reachable toolbox only if it lasts through the whole task,
       // conservatively allowing its remaining flight before accelerated work.
@@ -3694,9 +3698,9 @@ function updateBots(dt){
       face(bot,spike);
     }else if(enemy){
       // A deadline cannot be solved by standing still in an endless duel.
-      if(goal&&role?.urgent&&distance(bot,goal)>1.7)bot.moving=advance(bot,goal,'urgent');
+      if(goal&&(role?.urgent||retake?.urgent)&&distance(bot,goal)>1.7)bot.moving=advance(bot,goal,'urgent');
       else if(bot.aiReload>0&&bot.reloadGoal)bot.moving=advance(bot,bot.reloadGoal,'reload');
-      else if(goal&&enemyDistance>25&&distance(bot,goal)>5)bot.moving=advance(bot,goal,'advance-contact');
+      else if(goal&&enemyDistance>25&&distance(bot,goal)>(retake?1.7:5))bot.moving=advance(bot,goal,'advance-contact');
       const aligned=face(bot,enemy,8);bot.pathTime=Math.min(bot.pathTime||0,.15);
       // Arm the round-long refill before an eligible gun fight, independently
       // of C's cooldown. Only the current visible target can justify spending X.
@@ -3794,7 +3798,7 @@ function updateBots(dt){
     if(!enemy&&!bot.moving&&!bot.planting&&!bot.defusing){
       const remembered=bot.lastSeen&&elapsed-bot.lastSeen.seenAt<2.8?bot.lastSeen:null;
       const shared=tactics.contacts(bot.team,elapsed).filter(c=>distance(bot,c)<32).sort((a,b)=>b.seenAt-a.seenAt)[0];
-      if(remembered||shared||tagContact||heard||role?.watch)face(bot,remembered||shared||tagContact||heard||role.watch,3.5);
+      if(bot.retakeWatch||remembered||shared||tagContact||heard||role?.watch)face(bot,bot.retakeWatch||remembered||shared||tagContact||heard||role.watch,3.5);
     }
     bot.crouch=frostSlideSpeed(bot)>0&&bot.moving?1:0;
     if(!bot.planting)match.cancelPlant(bot.id);

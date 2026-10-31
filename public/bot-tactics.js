@@ -2,6 +2,7 @@
 const distance=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
 const aiActor=actor=>actor.alive&&!actor.remoteId&&!actor.rangeTarget&&actor.id!=='player'&&!actor.human;
 const hash=(text)=>{let value=2166136261;for(const char of String(text))value=Math.imul(value^char.charCodeAt(0),16777619);return(value>>>0)/4294967296;};
+export const BOT_RETAKE=Object.freeze({margin:3,inspectTime:1.1,tapTime:.3,peekTime:1.2,scanAngle:Math.PI/3,scanInterval:.8});
 
 export function inVisionCone(observer,target,{yaw=observer.yaw||0,range=240,angle=130}={}){
   const dx=target.x-observer.x,dz=target.z-observer.z,length=Math.hypot(dx,dz);
@@ -35,10 +36,10 @@ export function createBotHearing(){
 }
 
 export function createBotTactics({sites,navigation,collision,lanes=[],attackSpawn={x:0,z:65},defendSpawn={x:0,z:-70}}){
-  const intel=new Map(),plans=new Map(),routes=new Map();
+  const intel=new Map(),plans=new Map(),routes=new Map(),retakes=new Map();
   let round=1,cached=null,planTime=-Infinity,planKey='';
   const teamIntel=team=>{if(!intel.has(team))intel.set(team,new Map());return intel.get(team);};
-  function reset(value=1){round=value;intel.clear();plans.clear();routes.clear();cached=null;planTime=-Infinity;planKey='';}
+  function reset(value=1){round=value;intel.clear();plans.clear();routes.clear();retakes.clear();cached=null;planTime=-Infinity;planKey='';}
   function observe(team,observerId,enemy,now){
     if(!enemy||enemy.team===team||!Number.isFinite(enemy.x)||!Number.isFinite(enemy.z))return;
     teamIntel(team).set(enemy.id,{id:enemy.id,team:enemy.team,x:enemy.x,z:enemy.z,y:enemy.y||0,seenAt:now,observerId});
@@ -181,5 +182,51 @@ export function createBotTactics({sites,navigation,collision,lanes=[],attackSpaw
     if(spike.status==='planted'&&distance(seen,spike)>14)return null;
     return {x:seen.x,z:seen.z};
   }
-  return {reset,observe,contacts,routeDistance,plantPosition,selectSite,nearestReachable,update,investigation};
+  // Decisions only see copied sightings, fixed sound origins and the public bomb.
+  // They never query an unseen enemy actor or perform objective work themselves.
+  function defuseDecision(bot,now,role,spike,{enemy=null,canWork=false,impaired=false}={}){
+    if(role?.role!=='defuse'||spike.status!=='planted'||!bot.alive){retakes.delete(bot.id);return null;}
+    let state=retakes.get(bot.id);
+    if(!state||state.site!==spike.site||state.x!==spike.x||state.z!==spike.z||now<state.at){
+      state={site:spike.site,x:spike.x,z:spike.z,at:now,inspected:false,fakeUsed:false,phase:'approach'};retakes.set(bot.id,state);
+    }
+    const owned=spike.defuseActor===bot.id,progress=owned?spike.defuseProgress||0:spike.checkpoint||0;
+    const urgent=state.deadlineCommit||role.urgent||spike.timer<=routeDistance(bot,spike,now)/3.9+7-progress+BOT_RETAKE.margin;
+    // Once the deadline forces a commitment, a paused clock or plan refresh
+    // must not reopen a fake/duel and throw away the accepted work.
+    if(urgent){state.deadlineCommit=true;state.phase='commit';return {allow:true,urgent:true,phase:'commit'};}
+    const nearby=p=>p&&[p.x,p.z].every(Number.isFinite)&&distance(p,spike)<=26&&distance(bot,p)<=30;
+    const danger=enemy&&distance(enemy,spike)<32&&distance(bot,enemy)<40;
+    const seen=contacts(bot.team,now).filter(nearby).sort((a,b)=>b.seenAt-a.seenAt)[0];
+    const heard=bot.lastHeard&&now>=bot.lastHeard.at&&now-bot.lastHeard.at<1.8&&nearby(bot.lastHeard)?bot.lastHeard:null;
+    const threat=heard&&(!seen||heard.at>seen.seenAt)?heard:seen;
+    const base=role.watch||spike,angle=Math.atan2(base.x-bot.x,base.z-bot.z);
+    const sweep=[0,-1,1,0][Math.floor((now-state.at)/BOT_RETAKE.scanInterval)%4]*BOT_RETAKE.scanAngle;
+    const watch=threat?{x:threat.x,z:threat.z}:{x:bot.x+Math.sin(angle+sweep)*16,z:bot.z+Math.cos(angle+sweep)*16};
+    // A short, bounded check of a known approach must not become an endless hunt.
+    if(!state.inspected&&!owned&&!danger&&threat&&distance(bot,spike)>2.05&&distance(bot,spike)<18){
+      state.inspected=true;state.phase='inspect';state.until=now+BOT_RETAKE.inspectTime;
+      const point=safe(threat),cost=point?routeDistance(bot,point,now):Infinity;
+      state.probe=point&&cost<=10&&cost<=routeDistance(bot,spike,now)+5?{...point}:null;
+    }
+    if(state.phase==='inspect'){
+      if(now<state.until&&!danger)return {allow:false,urgent:false,phase:'inspect',watch,hold:!state.probe,goal:state.probe};
+      state.phase='approach';
+    }
+    if(state.phase==='tap'){
+      // Start the timer only after the real rules have accepted ownership.
+      if(owned&&state.started===undefined)state.started=now;
+      if(state.started!==undefined&&now-state.started>=BOT_RETAKE.tapTime){state.phase='peek';state.until=now+BOT_RETAKE.peekTime;}
+      else return {allow:!danger,urgent:false,phase:'tap',watch};
+    }
+    if(state.phase==='peek'){
+      if(now<state.until)return {allow:false,urgent:false,phase:'peek',watch,hold:true};
+      state.phase='commit';
+    }
+    if(!state.fakeUsed&&!owned&&canWork&&!danger&&!impaired&&threat&&spike.checkpoint===0&&spike.timer>7+BOT_RETAKE.tapTime+BOT_RETAKE.peekTime+BOT_RETAKE.margin){
+      state.fakeUsed=true;state.phase='tap';return {allow:true,urgent:false,phase:'tap',watch};
+    }
+    return {allow:!danger,urgent:false,phase:danger?'fight':state.phase,watch};
+  }
+  return {reset,observe,contacts,routeDistance,plantPosition,selectSite,nearestReachable,update,investigation,defuseDecision};
 }
