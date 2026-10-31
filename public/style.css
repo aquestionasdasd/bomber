@@ -426,11 +426,12 @@
 @media(max-height:500px) and (orientation:landscape){.combat-report{top:90px;right:12px;width:245px;padding:8px}.combat-report-scroll{max-height:100px}.combat-report-totals{margin-top:4px}.combat-report small{margin-top:4px}}
 
 /* User artwork, transparent PNG: a single transform/opacity pulse, no layout animation. */
-.kill-banner{position:absolute;left:50%;bottom:clamp(100px,17vh,180px);width:clamp(146px,15vw,210px);aspect-ratio:1;z-index:10;pointer-events:none;transform:translateX(-50%);transform-origin:50% 65%;filter:drop-shadow(0 3px 7px #000b) drop-shadow(0 0 12px #b7fff87a);will-change:transform,opacity}
+.kill-banner{position:absolute;left:50%;bottom:clamp(100px,17vh,180px);width:clamp(102.2px,10.5vw,147px);aspect-ratio:1;z-index:10;pointer-events:none;transform:translateX(-50%);transform-origin:50% 65%;filter:drop-shadow(0 3px 7px #000b) drop-shadow(0 0 12px #b7fff87a);will-change:transform,opacity}
 .kill-banner[hidden]{display:none}
 .kill-banner img{position:absolute;width:174%;height:174%;max-width:none;left:-37%;top:-37%;object-fit:contain;user-select:none;-webkit-user-drag:none}
-@media(max-width:800px){.kill-banner{width:150px;bottom:clamp(120px,24vh,180px)}}
-@media(max-height:500px){.kill-banner{width:116px;bottom:83px}}
+.kill-banner-count{position:absolute;top:108%;left:50%;transform:translateX(-50%);font:800 clamp(11px,1vw,14px)/1.2 Arial,sans-serif;letter-spacing:.08em;white-space:nowrap;color:var(--ivory);text-shadow:0 2px 4px #000}
+@media(max-width:800px){.kill-banner{width:105px;bottom:clamp(120px,24vh,180px)}}
+@media(max-height:500px){.kill-banner{width:81.2px;bottom:83px}}
 
 /* Grass C/X use the tactical map without hiding instructions on narrow screens. */
 .veil-smoke-placement{padding:12px 18px;background:#152c36;border-block:1px solid #8fadda;color:#e5edff}
