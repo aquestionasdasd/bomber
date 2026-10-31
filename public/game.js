@@ -73,6 +73,7 @@ import { createZoneAbilities } from './zone-abilities.js';
 import { createZoneFX } from './zone-fx.js';
 import { isInsideSite, getSitePlantPosition } from './site-areas.js';
 import { createBotTactics, inVisionCone, createBotHearing } from './bot-tactics.js';
+import { createShotgunTactics, SHOTGUN_TACTICS } from './bot-shotgun.js';
 import { createObjectiveModel } from './objective-model.js';
 import { createDroppedEquipment } from './dropped-equipment.js';
 import { createStationDetonation } from './detonation.js';
@@ -3284,6 +3285,7 @@ function updateBots(dt){
   const distance=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
   const spike=match?.spike;
   const tactics=updateBots.tactics||=createBotTactics({sites:map.sites,navigation,collision:map.collision,lanes:map.lanes,attackSpawn:map.teamSpawns.attack[0],defendSpawn:map.teamSpawns.defend[0]});
+  if(updateBots.shotgunNavigation!==navigation){updateBots.shotgunNavigation=navigation;updateBots.shotguns=createShotgunTactics({navigation,collision:map.collision});}
   let plan=null;
   // Share only sightings. A remembered enemy position never updates through a wall or smoke.
   if(match?.phase==='live'&&!isGuest()){
@@ -3306,7 +3308,7 @@ function updateBots(dt){
       if(heard)bot.lastHeard=heard;
       if(bot.target){
         const enemy=bot.target;
-        bot.lastSeen={id:enemy.id,team:enemy.team,x:enemy.x,z:enemy.z,seenAt:elapsed};
+        bot.lastSeen={id:enemy.id,team:enemy.team,x:enemy.x,y:enemy.y||0,z:enemy.z,seenAt:elapsed};
         tactics.observe(bot.team,bot.id,enemy,elapsed);
         if(bot.team==='blue')enemy.spottedUntil=elapsed+.6;
       }
@@ -3392,6 +3394,7 @@ function updateBots(dt){
     bot.fire=Math.max(0,(bot.fire||0)-dt);
     const weaponId=bot.record?.primary||bot.record?.secondary||'classic';
     const spec=WEAPONS[weaponId]||WEAPONS.classic;
+    const shotgun=spec.pellets>1;
     if(bot.aiWeapon!==weaponId){cancelServiceReload(bot);bot.aiWeapon=weaponId;bot.aiAmmo=spec.mag;bot.aiReserve=spec.reserve;bot.aiReload=0;bot.burst=0;}
     if(ordinarySkills.urchinJammed(bot.id,elapsed))urchinCancelReload(bot);
     if(!tickServiceReload(bot,dt)&&bot.aiReload>0){bot.aiReload-=dt;if(bot.aiReload<=0)bot.aiAmmo=spec.mag;}
@@ -3455,6 +3458,13 @@ function updateBots(dt){
     const retake=tactics.defuseDecision?.(bot,elapsed,role,spike,{enemy,canWork:canDefuse,impaired:ordinarySkills.blindUntil(bot.id,elapsed)>elapsed||ordinarySkills.nearsightUntil?.(bot.id,elapsed)>elapsed});
     if(retake&&!retake.urgent){bot.retakeWatch=retake.watch;if(retake.hold)goal=null;else if(retake.goal)goal=retake.goal;}
     const interactDefuse=canDefuse&&(retake?retake.allow:enemyDistance>9||committedDefuse||role?.urgent);
+    const shotgunIntent=shotgun&&!trafficEscape&&!interactPlant&&!interactDefuse&&!retake?.urgent&&!bot.serviceReload&&!(bot.aiReload>0)&&ordinarySkills.blindUntil(bot.id,elapsed)<=elapsed?
+      updateBots.shotguns.choose({bot,enemy,known:bot.lastSeen,role,goal,smokes:[...smokes,...activeOrdinarySmokeFields().map(s=>({...s,expires:s.endsAt}))],now:elapsed,round:match.round}):null;
+    if(shotgunIntent){goal=shotgunIntent.goal;bot.retakeWatch=shotgunIntent.watch;}
+    bot.shotgunMode=shotgunIntent?.mode||null;
+    if(shotgun&&!enemy&&!trafficEscape&&!interactPlant&&!interactDefuse&&!role?.urgent&&!retake?.urgent&&!bot.serviceReload&&!(bot.aiReload>0)&&bot.aiAmmo<=Math.floor(spec.mag/2)){
+      bot.aiReload=spec.reload;bot.fire=spec.reload;bot.burst=0;
+    }
     // Arm the work tool immediately before starting a real assigned task.
     // Approaching a site alone must not spend its six-second working window.
     bot.planting=false;bot.defusing=false;bot.moving=false;
@@ -3487,7 +3497,7 @@ function updateBots(dt){
       const known=enemy||(bot.lastSeen&&elapsed-bot.lastSeen.seenAt<1?bot.lastSeen:null);let cast=null;
       if(known){
         const dist=distance(bot,known),aim={yaw:Math.atan2(bot.x-known.x,bot.z-known.z),pitch:0},screen={x:bot.x+(known.x-bot.x)*.6,y:(bot.y||0)+1.4,z:bot.z+(known.z-bot.z)*.6};
-        if(dist>5&&dist<18&&bot.kit.smoke>0&&(bot.hp<65||role?.urgent)&&!ordinarySkills.events(elapsed).some(event=>event.type==='duelist-comet'&&event.team===bot.team&&distance(event,screen)<event.radius))cast=activateAbility(bot,'c',{zonePoint:screen,aim});
+        if(dist>5&&dist<18&&bot.kit.smoke>0&&(bot.hp<65||role?.urgent||shotgun&&enemy&&dist>10)&&!ordinarySkills.events(elapsed).some(event=>event.type==='duelist-comet'&&event.team===bot.team&&distance(event,screen)<event.radius))cast=activateAbility(bot,'c',{zonePoint:screen,aim});
         if(!cast&&enemy&&dist>6&&dist<16&&bot.hp<70&&bot.kit.updraft>0&&actorGrounded(bot)&&map.collision.rayClear(bot.x,(bot.y||0)+1.7,bot.z,bot.x,(bot.y||0)+3.2,bot.z))cast=activateAbility(bot,'q');
       }
       bot.nextSkillAt=elapsed+(cast?2:.5);
@@ -3668,7 +3678,7 @@ function updateBots(dt){
         // Only a live sighting can request this objective use; memory alone
         // retains the existing short-range wounded/emergency behaviour.
         const advancing=enemy&&!(bot.aiReload>0)&&goal&&['plant','recover','defuse'].includes(role?.role)&&goalDistance>2.5&&goalDistance<=FROST_SKILLS.mistRange&&(role?.urgent||dist>25);
-        const emergency=dist<20&&(bot.hp<65||role?.urgent);
+        const emergency=dist<20&&(bot.hp<65||role?.urgent||shotgun&&enemy&&dist>10);
         const reach=Math.min(dist*.6,FROST_SKILLS.mistRange-.5),fraction=dist>0?reach/dist:0;
         const screen=advancing?{x:goal.x,z:goal.z}:{x:bot.x+(known.x-bot.x)*fraction,z:bot.z+(known.z-bot.z)*fraction},aim={yaw:Math.atan2(bot.x-screen.x,bot.z-screen.z),pitch:0};
         const covered=ordinarySkills.events(elapsed).some(event=>event.team===bot.team&&['mend-pollen','veil-dust','frost-mist','duelist-comet'].includes(event.type)&&distance(event,screen)<event.radius);
@@ -3715,7 +3725,22 @@ function updateBots(dt){
       robotTarget=bot.robotTarget;
     }else bot.robotTarget=null;
     if(interactPlant||interactDefuse)cancelServiceReload(bot);
-    if(trafficEscape){
+    if(trafficEscape||interactPlant||interactDefuse)bot.dashTimer=0;
+    // A shotgun entry uses the existing two-stage dash only after a real
+    // sighting, reaction and finite turn. Check the complete 12m ground path
+    // before either arming or spending the dash; never dash through a corner.
+    if(shotgun&&bot.kit?.character==='duelist'&&enemy&&!trafficEscape&&!interactPlant&&!interactDefuse&&!role?.urgent&&!retake?.urgent&&!(bot.aiReload>0)&&!bot.serviceReload&&actorGrounded(bot)&&ordinarySkills.blindUntil(bot.id,elapsed)<=elapsed&&enemyDistance>=SHOTGUN_TACTICS.dashMin&&enemyDistance<=SHOTGUN_TACTICS.dashMax&&Math.abs((enemy.y||0)-(bot.y||0))<.3&&visibleBetween(bot,enemy)&&elapsed>=bot.reactionUntil&&!(bot.dashTimer>0)){
+      const dx=(enemy.x-bot.x)/enemyDistance,dz=(enemy.z-bot.z)/enemyDistance,end={x:bot.x+dx*DUELIST.dashDistance,z:bot.z+dz*DUELIST.dashDistance};
+      const safe=navigation.clearSegment(bot.x,bot.z,end.x,end.z,bot.y||0,bot.y||0)&&canStand(end.x,end.z,.4,bot.y||0)&&(!map.traffic||map.traffic.rayClear({x:bot.x,y:(bot.y||0)+1,z:bot.z},{...end,y:(bot.y||0)+1},elapsed));
+      if(safe&&face(bot,enemy,8))activateAbility(bot,'e',{aim:{yaw:Math.atan2(-dx,-dz),pitch:0}});
+    }
+    if(bot.dashTimer>0&&!trafficEscape){
+      const step=Math.min(dt,bot.dashTimer),before={x:bot.x,z:bot.z};
+      if(map.ductAt?.(bot.x,bot.z,bot.y))bot.dashTimer=0;
+      else{moveEntity(bot,bot.dashVec.x*(DUELIST.dashDistance/DUELIST.dashDuration)*step,bot.dashVec.z*(DUELIST.dashDistance/DUELIST.dashDuration)*step,.4);bot.dashTimer=Math.max(0,bot.dashTimer-step);}
+      bot.moving=distance(before,bot)>.002;bot.shotgunRecoverUntil=elapsed+SHOTGUN_TACTICS.dashRecovery;bot.path=[];bot.pathTime=0;
+      if(enemy)face(bot,enemy,8);
+    }else if(trafficEscape){
       bot.moving=advance(bot,trafficEscape,'bus-escape');
     }else if(interactPlant){
       match.interactPlant(dt*(ordinarySkills.nobiWork?.(bot.id,elapsed,bot,ordinaryReachable)||1),{actorId:bot.id,team:bot.team,site:plantSite.id,x:bot.x,z:bot.z,stationary:true});
@@ -3727,7 +3752,8 @@ function updateBots(dt){
       // A deadline cannot be solved by standing still in an endless duel.
       if(goal&&(role?.urgent||retake?.urgent)&&distance(bot,goal)>1.7)bot.moving=advance(bot,goal,'urgent');
       else if(bot.aiReload>0&&bot.reloadGoal)bot.moving=advance(bot,bot.reloadGoal,'reload');
-      else if(goal&&enemyDistance>25&&distance(bot,goal)>(retake?1.7:5))bot.moving=advance(bot,goal,'advance-contact');
+      else if(shotgunIntent&&distance(bot,shotgunIntent.goal)>.4)bot.moving=advance(bot,shotgunIntent.goal,'shotgun-'+shotgunIntent.mode);
+      else if(goal&&enemyDistance>(shotgun?SHOTGUN_TACTICS.fireRange:25)&&distance(bot,goal)>(retake?1.7:5))bot.moving=advance(bot,goal,'advance-contact');
       const aligned=face(bot,enemy,8);bot.pathTime=Math.min(bot.pathTime||0,.15);
       // Arm the round-long refill before an eligible gun fight, independently
       // of C's cooldown. Only the current visible target can justify spending X.
@@ -3751,7 +3777,7 @@ function updateBots(dt){
       bot.aimSample={id:enemy.id,x:enemy.x,y:enemy.y||0,z:enemy.z,at:elapsed};
       if(!aligned||targetSpeed>.65)bot.aimStillSince=elapsed;
       const settled=aligned&&elapsed-(bot.aimStillSince??elapsed)>=.2;
-      if(!renkoUnarmed(bot)&&aligned&&elapsed>=bot.reactionUntil&&elapsed>=(bot.skillThrowUntil||0)&&bot.fire<=0&&!(bot.aiReload>0)){
+      if(!renkoUnarmed(bot)&&aligned&&elapsed>=bot.reactionUntil&&elapsed>=(bot.skillThrowUntil||0)&&bot.fire<=0&&!(bot.aiReload>0)&&(!shotgun||enemyDistance<=SHOTGUN_TACTICS.fireRange&&elapsed>=(bot.shotgunRecoverUntil||0)&&visibleBetween(bot,enemy))){
         if(bot.aiAmmo<=0){if(ordinarySkills.urchinJammed(bot.id,elapsed))bot.fire=.2;else{bot.aiReload=spec.reload||1.7;bot.fire=bot.aiReload;bot.reloadGoal=role?.urgent?null:reloadCover(bot,enemy);}}
         else{
           // Gyro needs this tick's actual movement, not the cleared animation
@@ -3760,7 +3786,8 @@ function updateBots(dt){
             const gyro=activateAbility(bot,'e');bot.nextGyroAt=elapsed+(gyro?1:.5);
           }
           if(!ordinarySkills.capMagazine(bot.id,elapsed))bot.aiAmmo--;crownShot(bot);bot.flash=.065;if(spec.arsenal&&elapsed-(bot.lastArsenalShot??-10)>.3)bot.shotSequence=0;bot.lastArsenalShot=elapsed;bot.shotSequence=(bot.shotSequence||0)+1;bot.muzzle.visible=true;
-          if(spec.auto){bot.burst=(bot.burst||0)+1;bot.fire=bot.burst<3?spec.interval+.035:cfg.interval*.46+Math.random()*.22;if(bot.burst>=3)bot.burst=0;}
+          if(shotgun){bot.burst=0;bot.fire=spec.interval;}
+          else if(spec.auto){bot.burst=(bot.burst||0)+1;bot.fire=bot.burst<3?spec.interval+.035:cfg.interval*.46+Math.random()*.22;if(bot.burst>=3)bot.burst=0;}
           else bot.fire=Math.max(spec.interval,.19+cfg.interval*.25)+Math.random()*.12;
           if(spec.mag>0)bot.fire*=(ordinarySkills.nobiInterval?.(bot.id,elapsed,bot,ordinaryReachable)||1)*(ordinarySkills.urchinInterval?.(bot.id,elapsed)||1);
           let chance=cfg.aim*(settled?1:.76)*Math.max(.6,1-enemyDistance/160);
@@ -3770,7 +3797,7 @@ function updateBots(dt){
           chance*=trackingScale;
           if(bot.moving&&!steadyAirAim(bot)&&!(ordinarySkills.carGyro(bot.id,elapsed)&&actorGrounded(bot)))chance*=.72;
           if(spec.mag>0&&!spec.arsenal&&ordinarySkills.capLocked?.(bot.id,elapsed))chance*=CAP_SKILLS.lockAimScale;
-          const hit=Math.random()<chance,head=hit&&Math.random()<(settled?.34:.13);
+          const hit=Math.random()<chance,head=!shotgun&&hit&&Math.random()<(settled?.34:.13);
           const from=new THREE.Vector3(bot.x,(bot.y||0)+1.2,bot.z);
           const to=new THREE.Vector3(enemy.x,(enemy.y||0)+(head?1.62:1.15)-(enemy.crouch||0)*.55,enemy.z);
           if(!hit){to.x+=(Math.random()-.5)*1.8;to.y+=(Math.random()-.5)*.8;}
@@ -3797,14 +3824,15 @@ function updateBots(dt){
       }
     }else if(robotTarget){
       const aligned=face(bot,robotTarget,8);
-      if(!renkoUnarmed(bot)&&aligned&&elapsed>=bot.robotReactionUntil&&elapsed>=(bot.skillThrowUntil||0)&&bot.fire<=0&&!(bot.aiReload>0)){
+      if(!renkoUnarmed(bot)&&aligned&&elapsed>=bot.robotReactionUntil&&elapsed>=(bot.skillThrowUntil||0)&&bot.fire<=0&&!(bot.aiReload>0)&&(!shotgun||distance(bot,robotTarget)<=SHOTGUN_TACTICS.fireRange)){
         if(bot.aiAmmo<=0){if(ordinarySkills.urchinJammed(bot.id,elapsed))bot.fire=.2;else{bot.aiReload=spec.reload||1.7;bot.fire=bot.aiReload;}}
         else{
           const from=new THREE.Vector3(bot.x,(bot.y||0)+1.7,bot.z),to=new THREE.Vector3(robotTarget.x,robotTarget.y+ROBOT_TYPES[robotTarget.type].height*.5,robotTarget.z);
           if(Math.random()>cfg.aim*.9){to.x+=(Math.random()-.5)*1.8;to.y+=(Math.random()-.5)*.8;}
           if(!ordinarySkills.capMagazine(bot.id,elapsed))bot.aiAmmo--;crownShot(bot);bot.flash=.065;bot.muzzle.visible=true;
           if(spec.arsenal&&elapsed-(bot.lastArsenalShot??-10)>.3)bot.shotSequence=0;bot.lastArsenalShot=elapsed;bot.shotSequence=(bot.shotSequence||0)+1;
-          if(spec.auto){bot.burst=(bot.burst||0)+1;bot.fire=bot.burst<3?spec.interval+.035:cfg.interval*.46+Math.random()*.22;if(bot.burst>=3)bot.burst=0;}
+          if(shotgun){bot.burst=0;bot.fire=spec.interval;}
+          else if(spec.auto){bot.burst=(bot.burst||0)+1;bot.fire=bot.burst<3?spec.interval+.035:cfg.interval*.46+Math.random()*.22;if(bot.burst>=3)bot.burst=0;}
           else bot.fire=Math.max(spec.interval,.19+cfg.interval*.25)+Math.random()*.12;
           bot.fire*=(ordinarySkills.nobiInterval?.(bot.id,elapsed,bot,ordinaryReachable)||1)*(ordinarySkills.urchinInterval?.(bot.id,elapsed)||1);
           fireArsenal(bot,from,to.sub(from).normalize(),spec,false);sound('enemy',{weapon:weaponId,entity:bot});
@@ -3813,7 +3841,7 @@ function updateBots(dt){
     }else if(decoyTarget&&!bot.serviceReload&&elapsed>=(bot.skillThrowUntil||0)&&visibleBetween(bot,decoyTarget)){
       bot.goal={x:decoyTarget.x,z:decoyTarget.z};bot.pathTime=0;
       const aligned=face(bot,decoyTarget,8);
-      if(!renkoUnarmed(bot)&&aligned&&elapsed>=bot.decoySeen.get(decoyTarget.id)-1.05&&bot.fire<=0&&!(bot.aiReload>0)){
+      if(!renkoUnarmed(bot)&&aligned&&elapsed>=bot.decoySeen.get(decoyTarget.id)-1.05&&bot.fire<=0&&!(bot.aiReload>0)&&(!shotgun||distance(bot,decoyTarget)<=SHOTGUN_TACTICS.fireRange)){
         if(bot.aiAmmo<=0){if(ordinarySkills.urchinJammed(bot.id,elapsed))bot.fire=.2;else{bot.aiReload=spec.reload||1.7;bot.fire=bot.aiReload;}}
         else{
           const from=new THREE.Vector3(bot.x,(bot.y||0)+1.7,bot.z),to=new THREE.Vector3(decoyTarget.x,decoyTarget.y+1.55,decoyTarget.z),aim=to.clone().sub(from).normalize();
@@ -3821,7 +3849,7 @@ function updateBots(dt){
           const blocking=ray.intersectObjects([environment,botsGroup],true).find(hit=>hit.object.userData.bot!==bot&&(!hit.object.userData.bot||hit.object.userData.bot.alive));
           const fake=raycastNopeDecoy(from,aim,blocking?.distance??from.distanceTo(to)+1,bot.team);
           if(!ordinarySkills.capMagazine(bot.id,elapsed))bot.aiAmmo--;crownShot(bot);bot.fire=Math.max(spec.interval,.4)*(spec.mag>0?(ordinarySkills.nobiInterval?.(bot.id,elapsed,bot,ordinaryReachable)||1)*(ordinarySkills.urchinInterval?.(bot.id,elapsed)||1):1);bot.flash=.065;bot.shotSequence=(bot.shotSequence||0)+1;bot.muzzle.visible=true;
-          if(spec.mag>0&&ordinarySkills.urchinTrident(bot.id,elapsed)){fireArsenal(bot,from,aim,spec,!bot.moving);sound('enemy',{weapon:weaponId,entity:bot});}
+          if(spec.arsenal||spec.mag>0&&ordinarySkills.urchinTrident(bot.id,elapsed)){fireArsenal(bot,from,aim,spec,!bot.moving);sound('enemy',{weapon:weaponId,entity:bot});}
           else{
           const shield=interceptRobotAndShield(from,aim,fake?.distance??blocking?.distance??from.distanceTo(to)+1,spec.body||1,elapsed,match.round,{team:bot.team});
           tracer(from,shield?new THREE.Vector3(shield.point.x,shield.point.y,shield.point.z):fake?.point||blocking?.point||to,bot.team==='blue'?'#a5eee0':'#ff7b76',.09);sound('enemy',{weapon:weaponId,entity:bot});

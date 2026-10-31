@@ -1,7 +1,7 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),Module=require('node:module');
 async function main({mutate=s=>s,only=()=>true,measure=false}={}){
  const base=fs.readFileSync(path.join(__dirname,'tests-nope-decoy-game.cjs'),'utf8'),cut=base.indexOf('  const local = harness();');assert.ok(cut>0);
- const anchor='const hit=Math.random()<chance,head=hit&&Math.random()<(settled?.34:.13);';
+ const anchor='const hit=Math.random()<chance,head=!shotgun&&hit&&Math.random()<(settled?.34:.13);';
  const instrument=s=>{s=mutate(s.replace(/\r\n/g,'\n'));assert.ok(s.includes(anchor));return 'var __aimTrace=[];\n'+s.replace(anchor,'__aimTrace.push({id:bot.id,speed:targetSpeed,settled,chance,at:elapsed});'+anchor)};
  const prefix=base.slice(0,cut).replace("fs.readFileSync(path.join(__dirname, 'public/game.js'), 'utf8')","module.observe(fs.readFileSync(path.join(__dirname, 'public/game.js'), 'utf8'))");
  const m=new Module(path.join(__dirname,'speed-aim-harness.cjs'),module);m.filename=path.join(__dirname,'speed-aim-harness.cjs');m.paths=module.paths;m.observe=instrument;
