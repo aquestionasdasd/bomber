@@ -3366,6 +3366,7 @@ function updateBots(dt){
   }
   for(const bot of bots){
     bot.flash=Math.max(0,(bot.flash||0)-dt);bot.muzzle.visible=bot.flash>0;
+    if(!bot.alive||bot.remoteId||bot.rangeTarget||isGuest()||match?.phase!=='live'||busSeat(bot)||carMotionActive(bot)||bot.trcLadder){bot.sniperAds=false;bot.sniperAdsSince=null;}
     if(!bot.alive){
       if(!isGuest()&&!bot.carMotion&&bot.carFallUntil>elapsed&&!bot.trafficLaunch&&bot.vy)updateActorVertical(bot,dt,.4);
       if(isGuest()&&bot.netTarget){const t=1-Math.exp(-dt*15);bot.x=THREE.MathUtils.lerp(bot.x,bot.netTarget.x,t);bot.z=THREE.MathUtils.lerp(bot.z,bot.netTarget.z,t);bot.y=THREE.MathUtils.lerp(bot.y||0,bot.netTarget.y||0,t);bot.group.position.set(bot.x,bot.y,bot.z);}
@@ -3397,7 +3398,18 @@ function updateBots(dt){
     const weaponId=bot.record?.primary||bot.record?.secondary||'classic';
     const spec=WEAPONS[weaponId]||WEAPONS.classic;
     const shotgun=spec.pellets>1;
-    if(bot.aiWeapon!==weaponId){cancelServiceReload(bot);bot.aiWeapon=weaponId;bot.aiAmmo=spec.mag;bot.aiReserve=spec.reserve;bot.aiReload=0;bot.burst=0;}
+    if(bot.aiWeapon!==weaponId){cancelServiceReload(bot);bot.aiWeapon=weaponId;bot.aiAmmo=spec.mag;bot.aiReserve=spec.reserve;bot.aiReload=0;bot.burst=0;bot.sniperAds=false;bot.sniperAdsSince=null;}
+    let scopeUpdated=false;
+    // Scoped guns acquire ADS only after stopping and facing a legitimate
+    // sight line. The same clock serves players, robots, fakes and idle holds.
+    const sniperReady=aligned=>{
+      if(!spec.scope)return true;
+      scopeUpdated=true;
+      const ready=aligned&&!bot.moving&&actorGrounded(bot)&&!bot.planting&&!bot.defusing&&!bot.serviceReload&&!(bot.aiReload>0)&&elapsed>=(bot.skillThrowUntil||0)&&!renkoUnarmed(bot)&&!ordinarySkills.capLocked(bot.id,elapsed)&&ordinarySkills.blindUntil(bot.id,elapsed)<=elapsed;
+      if(!ready){bot.sniperAds=false;bot.sniperAdsSince=null;return false;}
+      bot.sniperAds=true;bot.sniperAdsSince??=elapsed;
+      return elapsed-bot.sniperAdsSince>=.2;
+    };
     if(ordinarySkills.urchinJammed(bot.id,elapsed))urchinCancelReload(bot);
     if(!tickServiceReload(bot,dt)&&bot.aiReload>0){bot.aiReload-=dt;if(bot.aiReload<=0)bot.aiAmmo=spec.mag;}
     let enemy=bot.target;
@@ -3755,8 +3767,9 @@ function updateBots(dt){
       if(goal&&(role?.urgent||retake?.urgent)&&distance(bot,goal)>1.7)bot.moving=advance(bot,goal,'urgent');
       else if(bot.aiReload>0&&bot.reloadGoal)bot.moving=advance(bot,bot.reloadGoal,'reload');
       else if(shotgunIntent&&distance(bot,shotgunIntent.goal)>.4)bot.moving=advance(bot,shotgunIntent.goal,'shotgun-'+shotgunIntent.mode);
-      else if(goal&&enemyDistance>(shotgun?SHOTGUN_TACTICS.fireRange:25)&&distance(bot,goal)>(retake?1.7:5))bot.moving=advance(bot,goal,'advance-contact');
+      else if(goal&&(!spec.scope||spike.carrier===bot.id||['plant','recover','defuse'].includes(role?.role))&&enemyDistance>(shotgun?SHOTGUN_TACTICS.fireRange:25)&&distance(bot,goal)>(retake?1.7:5))bot.moving=advance(bot,goal,'advance-contact');
       const aligned=face(bot,enemy,8);bot.pathTime=Math.min(bot.pathTime||0,.15);
+      const scopedReady=sniperReady(aligned);
       // Arm the round-long refill before an eligible gun fight, independently
       // of C's cooldown. Only the current visible target can justify spending X.
       if(bot.kit?.character==='renko'&&bot.kit.ultPoints>=7&&!renkoUltimateActive(bot)&&aligned&&elapsed>=bot.reactionUntil&&bot.aiAmmo>0&&spec.mag>0&&!bot.serviceReload&&!(bot.aiReload>0)&&elapsed>=(bot.nextRenkoUltAt||0)&&visibleBetween(bot,enemy)){
@@ -3779,7 +3792,7 @@ function updateBots(dt){
       bot.aimSample={id:enemy.id,x:enemy.x,y:enemy.y||0,z:enemy.z,at:elapsed};
       if(!aligned||targetSpeed>.65)bot.aimStillSince=elapsed;
       const settled=aligned&&elapsed-(bot.aimStillSince??elapsed)>=.2;
-      if(!renkoUnarmed(bot)&&aligned&&elapsed>=bot.reactionUntil&&elapsed>=(bot.skillThrowUntil||0)&&bot.fire<=0&&!(bot.aiReload>0)&&(!shotgun||enemyDistance<=SHOTGUN_TACTICS.fireRange&&elapsed>=(bot.shotgunRecoverUntil||0)&&visibleBetween(bot,enemy))){
+      if(!renkoUnarmed(bot)&&aligned&&scopedReady&&elapsed>=bot.reactionUntil&&elapsed>=(bot.skillThrowUntil||0)&&bot.fire<=0&&!(bot.aiReload>0)&&(!shotgun||enemyDistance<=SHOTGUN_TACTICS.fireRange&&elapsed>=(bot.shotgunRecoverUntil||0)&&visibleBetween(bot,enemy))){
         if(bot.aiAmmo<=0){if(ordinarySkills.urchinJammed(bot.id,elapsed))bot.fire=.2;else{bot.aiReload=spec.reload||1.7;bot.fire=bot.aiReload;bot.reloadGoal=role?.urgent?null:reloadCover(bot,enemy);}}
         else{
           // Gyro needs this tick's actual movement, not the cleared animation
@@ -3803,7 +3816,7 @@ function updateBots(dt){
           const from=new THREE.Vector3(bot.x,(bot.y||0)+1.2,bot.z);
           const to=new THREE.Vector3(enemy.x,(enemy.y||0)+(head?1.62:1.15)-(enemy.crouch||0)*.55,enemy.z);
           if(!hit){to.x+=(Math.random()-.5)*1.8;to.y+=(Math.random()-.5)*.8;}
-          if(spec.arsenal||spec.mag>0&&ordinarySkills.urchinTrident(bot.id,elapsed)){fireArsenal(bot,from,to.clone().sub(from).normalize(),spec,!bot.moving);sound('enemy',{weapon:weaponId,entity:bot});}
+          if(spec.arsenal||spec.mag>0&&ordinarySkills.urchinTrident(bot.id,elapsed)){fireArsenal(bot,from,to.clone().sub(from).normalize(),spec,spec.scope?bot.sniperAds:!bot.moving);sound('enemy',{weapon:weaponId,entity:bot});}
           else{
           const clearShot=map.collision.rayClear(from.x,from.y,from.z,to.x,to.y,to.z)&&(!map.traffic||map.traffic.rayClear(from,to,elapsed));let bounceSurface=null;
           if(!clearShot){
@@ -3826,7 +3839,8 @@ function updateBots(dt){
       }
     }else if(robotTarget){
       const aligned=face(bot,robotTarget,8);
-      if(!renkoUnarmed(bot)&&aligned&&elapsed>=bot.robotReactionUntil&&elapsed>=(bot.skillThrowUntil||0)&&bot.fire<=0&&!(bot.aiReload>0)&&(!shotgun||distance(bot,robotTarget)<=SHOTGUN_TACTICS.fireRange)){
+      const scopedReady=sniperReady(aligned);
+      if(!renkoUnarmed(bot)&&aligned&&scopedReady&&elapsed>=bot.robotReactionUntil&&elapsed>=(bot.skillThrowUntil||0)&&bot.fire<=0&&!(bot.aiReload>0)&&(!shotgun||distance(bot,robotTarget)<=SHOTGUN_TACTICS.fireRange)){
         if(bot.aiAmmo<=0){if(ordinarySkills.urchinJammed(bot.id,elapsed))bot.fire=.2;else{bot.aiReload=spec.reload||1.7;bot.fire=bot.aiReload;}}
         else{
           const from=new THREE.Vector3(bot.x,(bot.y||0)+1.7,bot.z),to=new THREE.Vector3(robotTarget.x,robotTarget.y+ROBOT_TYPES[robotTarget.type].height*.5,robotTarget.z);
@@ -3837,13 +3851,14 @@ function updateBots(dt){
           else if(spec.auto){bot.burst=(bot.burst||0)+1;bot.fire=bot.burst<3?spec.interval+.035:cfg.interval*.46+Math.random()*.22;if(bot.burst>=3)bot.burst=0;}
           else bot.fire=Math.max(spec.interval,.19+cfg.interval*.25)+Math.random()*.12;
           bot.fire*=(ordinarySkills.nobiInterval?.(bot.id,elapsed,bot,ordinaryReachable)||1)*(ordinarySkills.urchinInterval?.(bot.id,elapsed)||1);
-          fireArsenal(bot,from,to.sub(from).normalize(),spec,false);sound('enemy',{weapon:weaponId,entity:bot});
+          fireArsenal(bot,from,to.sub(from).normalize(),spec,spec.scope?bot.sniperAds:false);sound('enemy',{weapon:weaponId,entity:bot});
         }
       }
     }else if(decoyTarget&&!bot.serviceReload&&elapsed>=(bot.skillThrowUntil||0)&&visibleBetween(bot,decoyTarget)){
       bot.goal={x:decoyTarget.x,z:decoyTarget.z};bot.pathTime=0;
       const aligned=face(bot,decoyTarget,8);
-      if(!renkoUnarmed(bot)&&aligned&&elapsed>=bot.decoySeen.get(decoyTarget.id)-1.05&&bot.fire<=0&&!(bot.aiReload>0)&&(!shotgun||distance(bot,decoyTarget)<=SHOTGUN_TACTICS.fireRange)){
+      const scopedReady=sniperReady(aligned);
+      if(!renkoUnarmed(bot)&&aligned&&scopedReady&&elapsed>=bot.decoySeen.get(decoyTarget.id)-1.05&&bot.fire<=0&&!(bot.aiReload>0)&&(!shotgun||distance(bot,decoyTarget)<=SHOTGUN_TACTICS.fireRange)){
         if(bot.aiAmmo<=0){if(ordinarySkills.urchinJammed(bot.id,elapsed))bot.fire=.2;else{bot.aiReload=spec.reload||1.7;bot.fire=bot.aiReload;}}
         else{
           const from=new THREE.Vector3(bot.x,(bot.y||0)+1.7,bot.z),to=new THREE.Vector3(decoyTarget.x,decoyTarget.y+1.55,decoyTarget.z),aim=to.clone().sub(from).normalize();
@@ -3851,7 +3866,7 @@ function updateBots(dt){
           const blocking=ray.intersectObjects([environment,botsGroup],true).find(hit=>hit.object.userData.bot!==bot&&(!hit.object.userData.bot||hit.object.userData.bot.alive));
           const fake=raycastNopeDecoy(from,aim,blocking?.distance??from.distanceTo(to)+1,bot.team);
           if(!ordinarySkills.capMagazine(bot.id,elapsed))bot.aiAmmo--;crownShot(bot);bot.fire=Math.max(spec.interval,.4)*(spec.mag>0?(ordinarySkills.nobiInterval?.(bot.id,elapsed,bot,ordinaryReachable)||1)*(ordinarySkills.urchinInterval?.(bot.id,elapsed)||1):1);bot.flash=.065;bot.shotSequence=(bot.shotSequence||0)+1;bot.muzzle.visible=true;
-          if(spec.arsenal||spec.mag>0&&ordinarySkills.urchinTrident(bot.id,elapsed)){fireArsenal(bot,from,aim,spec,!bot.moving);sound('enemy',{weapon:weaponId,entity:bot});}
+          if(spec.arsenal||spec.mag>0&&ordinarySkills.urchinTrident(bot.id,elapsed)){fireArsenal(bot,from,aim,spec,spec.scope?bot.sniperAds:!bot.moving);sound('enemy',{weapon:weaponId,entity:bot});}
           else{
           const shield=interceptRobotAndShield(from,aim,fake?.distance??blocking?.distance??from.distanceTo(to)+1,spec.body||1,elapsed,match.round,{team:bot.team});
           tracer(from,shield?new THREE.Vector3(shield.point.x,shield.point.y,shield.point.z):fake?.point||blocking?.point||to,bot.team==='blue'?'#a5eee0':'#ff7b76',.09);sound('enemy',{weapon:weaponId,entity:bot});
@@ -3867,11 +3882,13 @@ function updateBots(dt){
     if(bot.kit?.character==='duck'&&!enemy&&!decoyTarget&&goal&&distance(bot,goal)>2&&distance(bot,goal)<=18&&bot.moving&&actorGrounded(bot)&&!interactPlant&&!interactDefuse&&!(bot.aiReload>0)&&ordinarySkills.blindUntil(bot.id,elapsed)<=elapsed&&bot.kit.dash>0&&!duckFlight(bot)&&elapsed>=(bot.nextHushAt||0)){
       const hush=activateAbility(bot,'e');bot.nextHushAt=elapsed+(hush?1:.5);
     }
-    if(!enemy&&!robotTarget&&!bot.moving&&!bot.planting&&!bot.defusing){
+    if(!enemy&&!robotTarget&&(!spec.scope||!decoyTarget)&&!bot.moving&&!bot.planting&&!bot.defusing){
       const remembered=bot.lastSeen&&elapsed-bot.lastSeen.seenAt<2.8?bot.lastSeen:null;
       const shared=tactics.contacts(bot.team,elapsed).filter(c=>distance(bot,c)<32).sort((a,b)=>b.seenAt-a.seenAt)[0];
-      if(bot.retakeWatch||remembered||shared||tagContact||heard||role?.watch)face(bot,bot.retakeWatch||remembered||shared||tagContact||heard||role.watch,3.5);
+      const watch=bot.retakeWatch||remembered||shared||tagContact||heard||role?.watch;
+      if(watch){const aligned=face(bot,watch,3.5);if(spike.carrier!==bot.id&&!['plant','recover','defuse'].includes(role?.role))sniperReady(aligned);}
     }
+    if(!scopeUpdated||bot.aiReload>0){bot.sniperAds=false;bot.sniperAdsSince=null;}
     bot.crouch=frostSlideSpeed(bot)>0&&bot.moving?1:0;
     if(!bot.planting)match.cancelPlant(bot.id);
     if(!bot.defusing)match.cancelDefuse(bot.id);
