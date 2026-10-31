@@ -1,6 +1,6 @@
 // All combat/economy/AI tuning for Ember's eight formations. Shared by host,
 // presentation and tests. The old ordinary Ember events remain read-compatible.
-export const ROBOT_RULES=Object.freeze({ownerLimit:32,teamLimit:64,worldLimit:96,attackers:3,think:.125,memory:1.2,fov:Math.PI*1.5,pathInterval:.75,wreckLife:5,wreckLimit:96,signatureCooldown:24,commandRange:40,repairRange:5,materialRange:14,armorBonus:40,wireLength:6,wireSlow:.7,wireDuration:1,wireCooldown:2,captureScale:.6,captureDuration:2,groupDamageCap:70,encircleScale:1.5,encircleDuration:2,killBoost:1.2,killBoostDuration:2});
+export const ROBOT_RULES=Object.freeze({ownerLimit:32,teamLimit:64,worldLimit:96,xUnitHp:30,attackers:3,think:.125,memory:1.2,fov:Math.PI*1.5,pathInterval:.75,wreckLife:5,wreckLimit:96,signatureCooldown:24,commandRange:40,repairRange:5,materialRange:14,armorBonus:40,wireLength:6,wireSlow:.7,wireDuration:1,wireCooldown:2,captureScale:.6,captureDuration:2,groupDamageCap:70,encircleScale:1.5,encircleDuration:2,killBoost:1.2,killBoostDuration:2});
 export const ROBOT_TYPES=Object.freeze({
  bomb:{hp:30,speed:5,detect:12,life:8,radius:.3,height:.45,range:1.5,damage:35,blast:1.8,warning:.35},
  crab:{hp:30,speed:4,detect:10,life:7,radius:.32,height:.4,range:.85},

@@ -321,7 +321,7 @@ function resetZoneAbilities(){zoneAbilities.reset();zoneFX.reset();zonePulseAudi
 const stoppedTurfEvents=new Map();
 const stoppedFrostEvents=new Map();
 const lancePulseAudio=new Set(),lancePressureAudio=new Set();
-function resetOrdinarySkills(){robotArmy.reset();robotFX.reset();robotPreviewCache=null;Object.assign(emberModes,{c:0,q:0,e:0,x:0});tridentFX.reset();tridentAudio.clear();tridentHUDMode='';tridentFocusSoundAt=tridentHitSoundAt=-Infinity;if($('trident-hud'))$('trident-hud').hidden=true;tideFX.reset();tideAudio.clear();nearAudioUntil=0;disarmLocks.reset();disarmFX.reset();disarmAudio.clear();disarmAimId=null;$('crosshair')?.classList.remove('urchin-q','urchin-q-locked');lancePulseAudio.clear();lancePressureAudio.clear();rootEntryAudio.clear();rootSensorFX.reset();clearVeilPlacement();grassFrame=null;grassPrevious=null;onnaraReveal.reset();capHitReveal.reset();capHitReveal.group.visible=false;capGrenadeFX.reset();capGrenadeMode='heal';preparedSkillFX.reset();renkoSkillFX.reset();flashStatusFX.reset();capBankPreviewFX.reset();capPreviewUntil=-Infinity;capPreviewPath=null;skillSpectacle.reset();skillFeedback.reset();starHold.reset();onnaraSkillFX.reset();urchinSkillFX.reset();capSkillFX.reset();japanSkillFX.reset();nobiSkillFX.reset();carSkillFX.reset();catReturnSeen.clear();catSkillFX.reset();duckAim=null;duckSkillFX.reset();botHearing.reset();ordinarySkills.reset();ordinaryFX.reset();nopeDecoys.reset();nopeDecoyFX.reset();nopePops.length=0;nopeSeenPopSequence=0;mendSkillFX.reset();iagnuSkillFX.reset();grassSkillFX.reset();emberSkillFX.reset();frostSkillFX.reset();duelistSkillFX.reset();for(const actor of [player,...bots]){actor.grassJump=null;actor.renkoPending=null;actor.renkoDrive=null;actor.renkoJetHeld=false;actor.renkoUltimate=null;if(actor.kit)actor.kit.renkoActive=false;actor.onnaraJumpPending=null;actor.onnaraHopPending=null;actor.onnaraHoldCastPending=null;actor.onnaraHoldCast=null;actor.nextNobiToolAt=0;actor.nextCatClockAt=0;actor.nextRenkoUltAt=0;actor.nextRenkoDriveAt=0;actor.nextMendHealAt=0;actor.decoySeen?.clear();actor.duckPadAt=-Infinity;actor.duckPadUntil=0;actor.duckPadRound=0;actor.duckPadTeam=null;actor.duckFlapEvent=null;actor.duckFlapAt=-Infinity;if(!(['play','pause'].includes(mode)&&match?.phase==='post'&&!actor.alive&&actor.carMotion?.round===match.round&&actor.carMotion?.endsAt>elapsed)){actor.carMotion=null;actor.carImpulseUntil=0;actor.carFallUntil=0;actor.carRecoveryUntil=0;}cancelServiceReload(actor);actor.lastHeard=null;actor.netStepClock=0;}stoppedServiceEvents.clear();stoppedTurfEvents.clear();stoppedFrostEvents.clear();ordinaryAudio.clear();ordinaryMarkerAudio.clear();const overlay=$('skill-blind-overlay');if(overlay){overlay.hidden=true;overlay.style.opacity='0';}const nearOverlay=$('skill-nearsight-overlay');if(nearOverlay){nearOverlay.hidden=true;nearOverlay.style.opacity='0';}}
+function resetOrdinarySkills(){robotArmy.reset();robotFX.reset();robotPreviewCache=null;Object.assign(emberModes,{c:0,q:0,e:0,x:0});tridentFX.reset();tridentAudio.clear();tridentHUDMode='';tridentFocusSoundAt=tridentHitSoundAt=-Infinity;if($('trident-hud'))$('trident-hud').hidden=true;tideFX.reset();tideAudio.clear();nearAudioUntil=0;disarmLocks.reset();disarmFX.reset();disarmAudio.clear();disarmAimId=null;$('crosshair')?.classList.remove('urchin-q','urchin-q-locked');lancePulseAudio.clear();lancePressureAudio.clear();rootEntryAudio.clear();rootSensorFX.reset();clearVeilPlacement();grassFrame=null;grassPrevious=null;onnaraReveal.reset();capHitReveal.reset();capHitReveal.group.visible=false;capGrenadeFX.reset();capGrenadeMode='heal';preparedSkillFX.reset();renkoSkillFX.reset();flashStatusFX.reset();capBankPreviewFX.reset();capPreviewUntil=-Infinity;capPreviewPath=null;skillSpectacle.reset();skillFeedback.reset();starHold.reset();onnaraSkillFX.reset();urchinSkillFX.reset();capSkillFX.reset();japanSkillFX.reset();nobiSkillFX.reset();carSkillFX.reset();catReturnSeen.clear();catSkillFX.reset();duckAim=null;duckSkillFX.reset();botHearing.reset();ordinarySkills.reset();ordinaryFX.reset();nopeDecoys.reset();nopeDecoyFX.reset();nopePops.length=0;nopeSeenPopSequence=0;mendSkillFX.reset();iagnuSkillFX.reset();grassSkillFX.reset();emberSkillFX.reset();frostSkillFX.reset();duelistSkillFX.reset();for(const actor of [player,...bots]){actor.grassJump=null;actor.renkoPending=null;actor.renkoDrive=null;actor.renkoJetHeld=false;actor.renkoUltimate=null;if(actor.kit)actor.kit.renkoActive=false;actor.onnaraJumpPending=null;actor.onnaraHopPending=null;actor.onnaraHoldCastPending=null;actor.onnaraHoldCast=null;actor.robotTarget=null;actor.robotThinkAt=0;actor.robotReactionUntil=0;actor.nextNobiToolAt=0;actor.nextCatClockAt=0;actor.nextRenkoUltAt=0;actor.nextRenkoDriveAt=0;actor.nextMendHealAt=0;actor.decoySeen?.clear();actor.duckPadAt=-Infinity;actor.duckPadUntil=0;actor.duckPadRound=0;actor.duckPadTeam=null;actor.duckFlapEvent=null;actor.duckFlapAt=-Infinity;if(!(['play','pause'].includes(mode)&&match?.phase==='post'&&!actor.alive&&actor.carMotion?.round===match.round&&actor.carMotion?.endsAt>elapsed)){actor.carMotion=null;actor.carImpulseUntil=0;actor.carFallUntil=0;actor.carRecoveryUntil=0;}cancelServiceReload(actor);actor.lastHeard=null;actor.netStepClock=0;}stoppedServiceEvents.clear();stoppedTurfEvents.clear();stoppedFrostEvents.clear();ordinaryAudio.clear();ordinaryMarkerAudio.clear();const overlay=$('skill-blind-overlay');if(overlay){overlay.hidden=true;overlay.style.opacity='0';}const nearOverlay=$('skill-nearsight-overlay');if(nearOverlay){nearOverlay.hidden=true;nearOverlay.style.opacity='0';}}
 function resetTeamAbilities(){teamAbilities.reset();characterFX.reset();resetZoneAbilities();resetOrdinarySkills();}
 // The grass cube is a movement solid; it adds no targeting or network state.
 let grassFrame=null,grassPrevious=null;
@@ -3267,6 +3267,7 @@ function updateBots(dt){
   const cfg=levels.hard;
   if(!isGuest())navigation.updateTraffic?.(elapsed);
   const actors=[player,...bots];
+  const robotUnits=robotArmy.units();
   const distance=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
   const spike=match?.spike;
   const tactics=updateBots.tactics||=createBotTactics({sites:map.sites,navigation,collision:map.collision,lanes:map.lanes,attackSpawn:map.teamSpawns.attack[0],defendSpawn:map.teamSpawns.defend[0]});
@@ -3687,6 +3688,19 @@ function updateBots(dt){
         if(known&&distance(bot,known)<=20&&!zoneAbilities.events(elapsed).some(event=>event.team===bot.team&&event.type===bot.kit.character&&distance(event,known)<event.radius))activateAbility(bot,'x',{zonePoint:known});
       }
     }
+    // Robots are separate from player intel and ability targets. Only a current
+    // body sighting may justify a shot; never chase their hidden live position.
+    let robotTarget=null;
+    const robotVisible=u=>u.hp>0&&u.team!==bot.team&&distance(bot,u)<=32&&inVisionCone(bot,u,{yaw:bot.group.rotation.y})&&rootPointVisible(bot,{x:u.x,y:u.y+ROBOT_TYPES[u.type].height*.5-.08,z:u.z});
+    if(!enemy&&!decoyTarget&&!trafficEscape&&!interactPlant&&!interactDefuse&&!role?.urgent&&!retake?.urgent&&!bot.serviceReload&&spec.mag>0){
+      if(bot.robotTarget&&!robotUnits.includes(bot.robotTarget)||bot.robotTarget&&!robotVisible(bot.robotTarget))bot.robotTarget=null;
+      if(elapsed>=(bot.robotThinkAt||0)){
+        const next=robotUnits.filter(robotVisible).sort((a,b)=>distance(bot,a)-distance(bot,b))[0]||null;
+        if(next&&next!==bot.robotTarget)bot.robotReactionUntil=elapsed+cfg.reaction;
+        bot.robotTarget=next;bot.robotThinkAt=elapsed+.2;
+      }
+      robotTarget=bot.robotTarget;
+    }else bot.robotTarget=null;
     if(interactPlant||interactDefuse)cancelServiceReload(bot);
     if(trafficEscape){
       bot.moving=advance(bot,trafficEscape,'bus-escape');
@@ -3768,6 +3782,21 @@ function updateBots(dt){
           }
         }
       }
+    }else if(robotTarget){
+      const aligned=face(bot,robotTarget,8);
+      if(!renkoUnarmed(bot)&&aligned&&elapsed>=bot.robotReactionUntil&&elapsed>=(bot.skillThrowUntil||0)&&bot.fire<=0&&!(bot.aiReload>0)){
+        if(bot.aiAmmo<=0){if(ordinarySkills.urchinJammed(bot.id,elapsed))bot.fire=.2;else{bot.aiReload=spec.reload||1.7;bot.fire=bot.aiReload;}}
+        else{
+          const from=new THREE.Vector3(bot.x,(bot.y||0)+1.7,bot.z),to=new THREE.Vector3(robotTarget.x,robotTarget.y+ROBOT_TYPES[robotTarget.type].height*.5,robotTarget.z);
+          if(Math.random()>cfg.aim*.9){to.x+=(Math.random()-.5)*1.8;to.y+=(Math.random()-.5)*.8;}
+          if(!ordinarySkills.capMagazine(bot.id,elapsed))bot.aiAmmo--;crownShot(bot);bot.flash=.065;bot.muzzle.visible=true;
+          if(spec.arsenal&&elapsed-(bot.lastArsenalShot??-10)>.3)bot.shotSequence=0;bot.lastArsenalShot=elapsed;bot.shotSequence=(bot.shotSequence||0)+1;
+          if(spec.auto){bot.burst=(bot.burst||0)+1;bot.fire=bot.burst<3?spec.interval+.035:cfg.interval*.46+Math.random()*.22;if(bot.burst>=3)bot.burst=0;}
+          else bot.fire=Math.max(spec.interval,.19+cfg.interval*.25)+Math.random()*.12;
+          bot.fire*=(ordinarySkills.nobiInterval?.(bot.id,elapsed,bot,ordinaryReachable)||1)*(ordinarySkills.urchinInterval?.(bot.id,elapsed)||1);
+          fireArsenal(bot,from,to.sub(from).normalize(),spec,false);sound('enemy',{weapon:weaponId,entity:bot});
+        }
+      }
     }else if(decoyTarget&&!bot.serviceReload&&elapsed>=(bot.skillThrowUntil||0)&&visibleBetween(bot,decoyTarget)){
       bot.goal={x:decoyTarget.x,z:decoyTarget.z};bot.pathTime=0;
       const aligned=face(bot,decoyTarget,8);
@@ -3795,7 +3824,7 @@ function updateBots(dt){
     if(bot.kit?.character==='duck'&&!enemy&&!decoyTarget&&goal&&distance(bot,goal)>2&&distance(bot,goal)<=18&&bot.moving&&actorGrounded(bot)&&!interactPlant&&!interactDefuse&&!(bot.aiReload>0)&&ordinarySkills.blindUntil(bot.id,elapsed)<=elapsed&&bot.kit.dash>0&&!duckFlight(bot)&&elapsed>=(bot.nextHushAt||0)){
       const hush=activateAbility(bot,'e');bot.nextHushAt=elapsed+(hush?1:.5);
     }
-    if(!enemy&&!bot.moving&&!bot.planting&&!bot.defusing){
+    if(!enemy&&!robotTarget&&!bot.moving&&!bot.planting&&!bot.defusing){
       const remembered=bot.lastSeen&&elapsed-bot.lastSeen.seenAt<2.8?bot.lastSeen:null;
       const shared=tactics.contacts(bot.team,elapsed).filter(c=>distance(bot,c)<32).sort((a,b)=>b.seenAt-a.seenAt)[0];
       if(bot.retakeWatch||remembered||shared||tagContact||heard||role?.watch)face(bot,bot.retakeWatch||remembered||shared||tagContact||heard||role.watch,3.5);

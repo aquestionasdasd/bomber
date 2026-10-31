@@ -27,7 +27,7 @@ export function createRobotArmy(){
    }if(!found)return null;points.push(found);
   }return points;
  }
- function addUnit(type,g,p,at,life=null){const t=T[type],u={id:++serial,gid:g.id,owner:g.owner,team:g.team,type,...p,spawn:pose(p),yaw:g.yaw,hp:t.hp,maxHp:t.hp,armor:0,state:'Deploy',startedAt:at,endsAt:at+(life??t.life),thinkAt:at,fireAt:at,pathAt:0,path:[],memory:null,target:null,sets:0,burst:0,link:0,mount:0,boostUntil:0,boost:1,command:null,armorGiven:false,hitIds:new Set()};units.set(u.id,u);return u;}
+ function addUnit(type,g,p,at,life=null){const t=T[type],hp=g.key==='x'&&!t.factory?Math.min(t.hp,R.xUnitHp):t.hp,u={id:++serial,gid:g.id,owner:g.owner,team:g.team,type,...p,spawn:pose(p),yaw:g.yaw,hp,maxHp:hp,armor:0,state:'Deploy',startedAt:at,endsAt:at+(life??t.life),thinkAt:at,fireAt:at,pathAt:0,path:[],memory:null,target:null,sets:0,burst:0,link:0,mount:0,boostUntil:0,boost:1,command:null,armorGiven:false,hitIds:new Set()};units.set(u.id,u);return u;}
  function roster(g,w,at){const pts=plan(g.owner,g.team,g.roster,g.point,w);if(!pts)return false;g.pending=false;g.startedAt=at;g.endsAt=at+Math.max(...g.roster.map(k=>T[k].life));g.roster.forEach((t,i)=>{const u=addUnit(t,g,pts[i],at,g.key==='e'?10:g.key==='q'?8:null);u.role=i;g.unitIds.push(u.id);});pulse('deploy',g.point);return true;}
  function destroy(u,killed,w){if(!units.has(u.id))return;const g=groups.get(u.gid);units.delete(u.id);u.state=killed?'Destroyed':'Expired';
   for(const v of units.values()){if(v.link===u.id){v.link=0;v.command=null;}if(v.mount===u.id){v.mount=0;v.y=u.y;v.pathAt=0;}}
