@@ -35,8 +35,8 @@ export function createCareerCoins({ storage = () => globalThis.localStorage, onC
     notify();
     return state.balance;
   }
-  function begin({ eligible = false, guest = false } = {}) {
-    active = eligible ? { id: makeId(), baseline: guest ? null : 0, seen: 0, won: false, paidKills: 0, paidWin: false } : null;
+  function begin({ eligible = false, guest = false, soloSwift = false } = {}) {
+    active = eligible ? { id: makeId(), baseline: guest ? null : 0, seen: 0, won: false, paidKills: 0, paidWin: false, winReward: CAREER_COIN_REWARDS.win * (soloSwift === true && !guest ? 5 : 1) } : null;
   }
   function progress({ kills, won = false, finished = false } = {}) {
     if (!active || !integer(kills) || kills > 100000) return 0;
@@ -53,7 +53,7 @@ export function createCareerCoins({ storage = () => globalThis.localStorage, onC
     if (!dirty) state = read() || state;
     let receipt = state.runs.find(r => r.id === active.id);
     if (!receipt) { receipt = { id: active.id, kills: active.paidKills, won: active.paidWin }; state.runs.push(receipt); state.runs = state.runs.slice(-RECEIPTS); }
-    const amount = Math.max(0, active.seen - receipt.kills) * CAREER_COIN_REWARDS.kill + (active.won && !receipt.won ? CAREER_COIN_REWARDS.win : 0);
+    const amount = Math.max(0, active.seen - receipt.kills) * CAREER_COIN_REWARDS.kill + (active.won && !receipt.won ? active.winReward : 0);
     receipt.kills = Math.max(receipt.kills, active.seen); receipt.won ||= active.won;
     active.paidKills = receipt.kills; active.paidWin = receipt.won;
     if (!amount && !dirty) return 0;
