@@ -72,7 +72,7 @@ import { createCharacterFX } from './character-fx.js';
 import { createZoneAbilities } from './zone-abilities.js';
 import { createZoneFX } from './zone-fx.js';
 import { isInsideSite, getSitePlantPosition } from './site-areas.js';
-import { createBotTactics, inVisionCone, createBotHearing } from './bot-tactics.js';
+import { createBotTactics, draftBotCharacters, inVisionCone, createBotHearing } from './bot-tactics.js';
 import { createShotgunTactics, SHOTGUN_TACTICS } from './bot-shotgun.js';
 import { createObjectiveModel } from './objective-model.js';
 import { createDroppedEquipment } from './dropped-equipment.js';
@@ -1246,14 +1246,14 @@ function spawnRound(reset=false) {
   player.dash=1;player.scan=1;scanTime=0;roundWait=0;shotSequence=0;lastShot=-10;
   stepClock=0;
   targetSite=null;
-  updateBots.tactics||=createBotTactics({sites:map.sites,navigation,collision:map.collision,lanes:map.lanes,attackSpawn:map.teamSpawns.attack[0],defendSpawn:map.teamSpawns.defend[0]});
+  updateBots.tactics||=createBotTactics({sites:map.sites,navigation,collision:map.collision,lanes:map.lanes,attackSpawn:map.teamSpawns.attack[0],defendSpawn:map.teamSpawns.defend[0],seed:updateBots.matchSeed||0});
   updateBots.tactics.reset(match.round);
   for(const record of roster){
     if(record.id==='player')continue;
     if(reset){record.credits=match.overtime?5000:800;record.primary=null;record.secondary='classic';record.armor=0;}
     if(!record.survived){record.primary=null;record.secondary='classic';record.armor=0;}
     if(!record.memberId||record.netFallback)autoBuyBot(record);
-    record.kit||=new DuelistKit({character:record.memberId?'duelist':characterIds[(Number(record.id.split('-')[1])+(record.team==='red'?4:0))%characterIds.length]});
+    record.kit||=new DuelistKit({character:record.memberId?'duelist':record.botCharacter||characterIds[Number(record.id.split('-')[1])%characterIds.length]});
     record.kit.resetRound({reset});
     if(record.memberId)record.netPurchases={};
     const attack=record.team===match.attackerTeam;
@@ -1449,6 +1449,8 @@ function startGame() {
     netParticipants.clear();
     for(const [team,members] of [['blue',blue],['red',red]])members.forEach((member,index)=>{const id=team==='blue'?(index===0?'player':`blue-${index}`):`red-${index}`;netParticipants.set(member.id,id);const record=roster.find(r=>r.id===id);if(record){record.memberId=member.id;record.name=member.name;}});
   }
+  updateBots.matchSeed=Math.floor(Math.random()*4294967296);
+  if(!isGuest())for(const [id,character]of draftBotCharacters(roster,characterIds,{seed:updateBots.matchSeed,exclude:[player.kit.character]}))roster.find(r=>r.id===id).botCharacter=character;
   mode='play';inputActive=true;clearCombatInput();damageFlash=0;
   for(const id of ['menu','result','pause-menu','map-overlay','shop-overlay','scoreboard','interaction','range-result'])setVisible(id,false);setVisible('hud',true);
   $('killfeed').replaceChildren();gun.visible=true;
@@ -3284,7 +3286,7 @@ function updateBots(dt){
   const robotUnits=robotArmy.units();
   const distance=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
   const spike=match?.spike;
-  const tactics=updateBots.tactics||=createBotTactics({sites:map.sites,navigation,collision:map.collision,lanes:map.lanes,attackSpawn:map.teamSpawns.attack[0],defendSpawn:map.teamSpawns.defend[0]});
+  const tactics=updateBots.tactics||=createBotTactics({sites:map.sites,navigation,collision:map.collision,lanes:map.lanes,attackSpawn:map.teamSpawns.attack[0],defendSpawn:map.teamSpawns.defend[0],seed:updateBots.matchSeed||0});
   if(updateBots.shotgunNavigation!==navigation){updateBots.shotgunNavigation=navigation;updateBots.shotguns=createShotgunTactics({navigation,collision:map.collision});}
   let plan=null;
   // Share only sightings. A remembered enemy position never updates through a wall or smoke.
@@ -3415,7 +3417,7 @@ function updateBots(dt){
         if(spike.carrier===bot.id){
           const point=getSitePlantPosition(site,bot.x,bot.z,{preferredId:role?.plantPositionId||bot.plantPositionId,collision:map.collision});
           if(point){
-            bot.plantPositionId=point.id;goal=point;
+            bot.plantPositionId=point.id;if(!role?.approach)goal=point;
             if(distance(bot,point)<.65&&isInsideSite(site,bot.x,bot.z,{margin:.1}))plantSite=site;
           }
         }
