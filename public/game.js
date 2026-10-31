@@ -780,7 +780,7 @@ function firearmFeedback(source,killed){
 }
 function combatFeedback(source,type){
   if(isGuest()||!source)return;
-  if(source===player){if(isKillSoundCue(type))killBanner.note(elapsed,match.round);sound(type,{localOnly:true});}
+  if(source===player){if(isKillSoundCue(type))killBanner.note(elapsed,match.round,Number(type.slice(5)));sound(type,{localOnly:true});}
   else if(onlinePlaying&&online?.host&&source.remoteId){
     netCues.push({seq:++netCueSequence,round:match.round,type,weapon:source.netWeapon||'classic',id:source.id,x:source.x,y:source.y||0,z:source.z,time:elapsed});
     if(netCues.length>64)netCues.splice(0,netCues.length-64);
@@ -798,7 +798,7 @@ function applyNetCues(packet,fresh,ownId){
     if(cue.type==='gun-hit'||isKillSoundCue(cue.type)){
       // Keep the final elimination audible in its post-round snapshot too.
       // The shared sequence is consumed even while muted or still loading.
-      if(cue.id===ownId&&['live','post'].includes(packet.rules.phase)&&packet.time-cue.time<=.65&&Number.isFinite(cue.time)&&Number.isFinite(cue.y)&&Object.hasOwn(WEAPONS,cue.weapon)&&(isKillSoundCue(cue.type)||['primary','secondary'].includes(WEAPONS[cue.weapon].slot))){if(isKillSoundCue(cue.type))killBanner.note(elapsed,match.round);sound(cue.type,{localOnly:true});}
+      if(cue.id===ownId&&['live','post'].includes(packet.rules.phase)&&packet.time-cue.time<=.65&&Number.isFinite(cue.time)&&Number.isFinite(cue.y)&&Object.hasOwn(WEAPONS,cue.weapon)&&(isKillSoundCue(cue.type)||['primary','secondary'].includes(WEAPONS[cue.weapon].slot))){if(isKillSoundCue(cue.type))killBanner.note(elapsed,match.round,Number(cue.type.slice(5)));sound(cue.type,{localOnly:true});}
       continue;
     }
     if(['skill-hit','skill-heal'].includes(cue.type)){if(!Object.hasOwn(SKILL_LOOKS,cue.weapon)||!Number.isFinite(cue.y)||Math.max(Math.abs(cue.x),Math.abs(cue.y),Math.abs(cue.z))>1000||packet.time-cue.time>.65||packet.rules.phase!=='live')continue;const kind=cue.type==='skill-heal'?'heal':'hit';skillSpectacle.impact(cue.weapon,cue,cue.time,{kind});if(cue.id===ownId)skillFeedback.note(kind,'receipt:'+cue.round+':'+cue.seq,cue.weapon,cue.time);continue;}
@@ -1464,7 +1464,7 @@ function startGame() {
   updateTravelButtons();requestLock();updateHUD();
 }
 function pauseGame(showMap=false) {
-  killBanner.reset();victoryMusic.stop();
+  killBanner.hide();victoryMusic.stop();
   if(!['play','shop','map','score'].includes(mode)) return;
   flushMouseInputTrace();
   pausedFrom='play';mode=showMap?'map':'pause';clearCombatInput();
