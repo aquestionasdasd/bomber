@@ -7,12 +7,13 @@ const {pathToFileURL}=require('node:url');
 async function main(){
   const started=performance.now();
   const load=file=>import(pathToFileURL(path.join(__dirname,'public',file)).href);
-  const [{createBotTactics,inVisionCone,createBotHearing},{createNavigation},{createCollisionIndex},{MatchRules,WEAPONS},THREE,areas,{DuelistKit,NOPE_SKILLS,MEND_SKILLS,IAGNU_SKILLS,VEIL_SKILLS,EMBER_SKILLS,FROST_SKILLS},{selectMendTarget}]=await Promise.all([
+  const [{createBotTactics,inVisionCone,createBotHearing},{createNavigation},{createCollisionIndex},{MatchRules,WEAPONS},THREE,areas,{DuelistKit,DUELIST_SKILLS,NOBI_SKILLS,NOPE_SKILLS,MEND_SKILLS,IAGNU_SKILLS,VEIL_SKILLS,EMBER_SKILLS,FROST_SKILLS,RENKO_SKILLS},{selectMendTarget,createCharacterSkills,CHARACTER_SKILLS,skillProjectilePosition}]=await Promise.all([
     load('bot-tactics.js'),load('navigation.js'),load('collision.js'),load('rules.js'),load('vendor/three.module.js'),load('site-areas.js'),load('abilities.js'),load('character-skills.js')]);
   const sites=[{id:'A',x:-22,z:-12,radius:7,plantPositions:[{id:'A-cover',x:-24,z:-11,style:'cover'},{id:'A-open',x:-20,z:-14,style:'open'}]},
     {id:'B',x:22,z:-12,radius:7,plantPositions:[{id:'B-cover',x:24,z:-11,style:'cover'},{id:'B-open',x:20,z:-14,style:'open'}]}];
   const makeMap=(colliders=[])=>({sites,colliders,collision:createCollisionIndex(colliders),bounds:{minX:-42,maxX:42,minZ:-42,maxZ:42},
     teamSpawns:{attack:[{x:0,z:30}],defend:[{x:0,z:-30}]},lanes:[]});
+  const {ROOT_SENSOR}=await load('root-sensor.js');
   const makeTactics=map=>createBotTactics({sites:map.sites,navigation:createNavigation(map),collision:map.collision});
   const actor=(id,team,x,z,index=0)=>({id,team,x,z,y:0,vy:0,index,hp:100,alive:true,path:[],pathTime:0,group:new THREE.Group(),muzzle:{visible:false},visual:{update(){}},fire:100});
   const matchState={attackerTeam:'blue',defenderTeam:'red',remaining:100,now:0};
@@ -83,17 +84,28 @@ async function main(){
 
   // Exercise the actual game update, not an alternate copy of the combat/objective decisions.
   const source=fs.readFileSync(path.join(__dirname,'public/game.js'),'utf8');
+  const {createStarHold}=await load('onnara-rules.js');
+  const {renkoFlightVelocity}=await load('renko-motion.js');
+  const throwDependencies=await load('skill-throw.js');
+  const capDependencies=await load('cap-grenades.js');
+  const {URCHIN_DISARM}=await load('urchin-disarm.js');
+  const {createRobotArmy}=await load('ember-robots.js');
+  const grassDependencies=await load('grass-platforms.js'),grassSource=source.slice(source.indexOf('let grassFrame='),source.indexOf('function actorGrounded('));
+  const airAimSource=source.slice(source.indexOf('function starHoldClear('),source.indexOf('function applyStarHold('));
   const updateSource=source.slice(source.indexOf('function updateBots(dt)'),source.indexOf('function separateBots(dt)'));
   const serviceSource=source.slice(source.indexOf('function actorWeaponId('),source.indexOf('function ordinaryActorView('));
   const verticalSource=source.slice(source.indexOf('function updateActorVertical('),source.indexOf('function updatePlay('));
+  const renkoVerticalSource=source.slice(source.indexOf('function renkoEvent('),source.indexOf('function renkoDartTarget('))+'\n'+source.slice(source.indexOf('function updateRenkoVertical('),source.indexOf('function carMotionActive('));
+  const rootsSource=source.slice(source.indexOf('function getRootsTarget('),source.indexOf('function getZoneTarget('));
+  const targetSource=[['function getZoneFloor(', 'function ordinaryGroundHeight('],['function getZoneTarget(', 'function getZonePreview('],['function thrownSkillRange(', 'function activateAbility('],['function canStand(', 'function rampFloor(']].map(([a,b])=>source.slice(source.indexOf(a),source.indexOf(b))).join('\n');
   assert.ok(updateSource.length>5000);
   function integration({map=makeMap(),player=actor('player','blue',0,0),bots=[],match=new MatchRules(),random=.99,ordinarySkills={interceptShield:()=>null,quiet:()=>false,sealUntil:()=>0,blindUntil:()=>0,events:()=>[],markers:()=>[]}}={}){
-    match.startLive();let bulletHits=0,shots=0;const casts=[],traces=[];ordinarySkills={capMagazine:()=>false,urchinJammed:()=>false,urchinTrident:()=>false,interceptShield:()=>null,quiet:()=>false,sealUntil:()=>0,cancelService(){},carGyro:()=>false,speedScale:()=>1,...ordinarySkills};
+    match.startLive();let bulletHits=0,shots=0;const casts=[],traces=[];ordinarySkills={rootTracks:()=>[],onnaraEvent:()=>null,capMagazine:()=>false,urchinJammed:()=>false,urchinTrident:()=>false,interceptShield:()=>null,quiet:()=>false,sealUntil:()=>0,cancelService(){},carGyro:()=>false,speedScale:()=>1,wouldRoot:createCharacterSkills().wouldRoot,wouldSeed:createCharacterSkills().wouldSeed,wouldTag:createCharacterSkills().wouldTag,wouldStitch:createCharacterSkills().wouldStitch,...ordinarySkills};
     const math=Object.create(Math);math.random=typeof random==='function'?random:()=>random;
-    const sandbox={busSeat:()=>null,busSurfaceVisible:()=>true,applyStarHold:()=>false,crownShot:()=>{},activateCapAbility:()=>null,activateJapanAbility:()=>null,nobiBulletDamage:(_s,_t,d)=>d,THREE,WEAPONS,NOPE_SKILLS,IAGNU_SKILLS,VEIL_SKILLS,EMBER_SKILLS,FROST_SKILLS,...areas,createBotTactics,inVisionCone,createBotHearing,map,navigation:createNavigation(map),player,bots,match,elapsed:0,inventory:{active:'classic'},reloading:0,
-      levels:{normal:{interval:1.25,aim:.68,speed:2.1}},difficulty:'normal',Math:math,clamp:(v,a,b)=>Math.max(a,Math.min(b,v)),
+    const sandbox={URCHIN_DISARM,robotArmy:createRobotArmy(),activateRobotAbility:()=>null,...throwDependencies,...capDependencies,...grassDependencies,renkoFlightVelocity,starHold:createStarHold(),busSeat:()=>null,busSurfaceVisible:()=>true,applyStarHold:()=>false,crownShot:()=>{},activateCapAbility:()=>null,activateJapanAbility:()=>null,nobiBulletDamage:(_s,_t,d)=>d,THREE,WEAPONS,skillProjectilePosition,activeArenaBounds:()=>map.bounds,DUELIST_SKILLS,NOBI_SKILLS,MEND_SKILLS,CHARACTER_SKILLS,ROOT_SENSOR,NOPE_SKILLS,IAGNU_SKILLS,VEIL_SKILLS,EMBER_SKILLS,FROST_SKILLS,RENKO_SKILLS,...areas,createBotTactics,inVisionCone,createBotHearing,map,navigation:createNavigation(map),player,bots,match,elapsed:0,inventory:{active:'classic'},reloading:0,
+      levels:Function(source.match(/const levels = (.*);/)[0]+'return levels;')(),difficulty:'hard',Math:math,clamp:(v,a,b)=>Math.max(a,Math.min(b,v)),
       isGuest:()=>false,botHearing:createBotHearing(),ordinarySkills,zoneAbilities:{speedMultiplier:()=>1},actorSpeedScale:()=>1,frostSlideSpeed:()=>0,agentEquipment:()=>({}),selectMendTarget,activePollenFields:()=>[],
-      ordinaryActorView:value=>({...value,grounded:sandbox.actorGrounded(value)}),ordinaryGroundHeight:()=>0,rampFloor:()=>null,
+      ordinaryActorView:value=>({...value,grounded:sandbox.actorGrounded(value)}),ordinaryGroundHeight:()=>0,rampFloor:()=>null,netInputs:new Map(),
       ordinaryReachable:(event,value)=>map.collision.rayClear(event.x,(event.y||0)+.18,event.z,value.x,(value.y||0)+.18,value.z),
       actorGrounded:actor=>actor.alive&&Math.abs(actor.y||0)<1e-8&&Math.abs(actor.vy||0)<1e-8,
       activeOrdinarySmokeFields:()=>ordinarySkills.events(sandbox.elapsed).filter(event=>event.type==='veil-dust'&&sandbox.elapsed>=event.triggerAt),
@@ -101,10 +113,10 @@ async function main(){
       mendReachable:(a,b)=>a===b||map.collision.rayClear(a.x,(a.y||0)+1.45,a.z,b.x,(b.y||0)+1.45,b.z),
       activateAbility(actor,key,options){const effect=actor.kit.activate(key,sandbox.elapsed);if(!effect)return;casts.push({actorId:actor.id,key,effect,options});if(effect.type==='mend-heal'){const selected=selectMendTarget(actor,[player,...bots],sandbox.mendReachable),target=[player,...bots].find(value=>value.id===selected?.id);if(target)target.hp=Math.min(100,target.hp+effect.healing);}if(effect.type==='ember-service')sandbox.beginServiceReload(actor,{id:'bot-service-'+casts.length,weaponId:sandbox.actorWeaponId(actor),endsAt:sandbox.elapsed+EMBER_SKILLS.serviceDuration});return effect;},
       damageEntity(target,damage){bulletHits++;target.hp-=damage;if(target.hp<=0){target.alive=false;match.dropSpike(target.id,target.x,target.z);}},
-      visibleBetween:(a,b)=>map.collision.rayClear(a.x,(a.y||0)+1.45,a.z,b.x,(b.y||0)+1.45,b.z),
+      rootPointVisible:(a,b)=>map.collision.rayClear(a.x,(a.y||0)+1.45,a.z,b.x,(b.y||0)+.08,b.z),visibleBetween:(a,b)=>map.collision.rayClear(a.x,(a.y||0)+1.45,a.z,b.x,(b.y||0)+1.45,b.z),
       moveEntity(entity,dx,dz,r){const x=entity.x+dx,z=entity.z+dz;if(!map.collision.blocked(x,entity.z,r,0))entity.x=x;if(!map.collision.blocked(entity.x,z,r,0))entity.z=z;},
       urchinTridentShot:()=>[],direction:new THREE.Vector3(),raycaster:{set(){},intersectObject:()=>[],far:190},environment:new THREE.Group()};
-    vm.createContext(sandbox);vm.runInContext(`${source.slice(source.indexOf('function carMotionActive('),source.indexOf('function beginCarMotion('))}\n${source.slice(source.indexOf('function duckFlight('),source.indexOf('function duckFlap('))}\n${source.slice(source.indexOf('function actorBodyHeight('),source.indexOf('function canStand('))}\n${serviceSource}\n${verticalSource}\n${updateSource}`,sandbox);
+    vm.createContext(sandbox);vm.runInContext(`${grassSource}\n${source.slice(source.indexOf('function carMotionActive('),source.indexOf('function beginCarMotion('))}\n${renkoVerticalSource}\n${source.slice(source.indexOf('function duckFlight('),source.indexOf('function duckFlap('))}\n${source.slice(source.indexOf('function actorBodyHeight('),source.indexOf('function canStand('))}\n${serviceSource}\n${verticalSource}\n${rootsSource}\n${targetSource}\n${airAimSource}\n${updateSource}`,sandbox);
     return {sandbox,casts,traces,step(count=1){for(let i=0;i<count;i++){sandbox.elapsed+=.05;vm.runInContext('updateBots(.05)',sandbox);}},get shots(){return shots;},get hits(){return bulletHits;}};
   }
   const sightMap=makeMap(),watcher=actor('red-0','red',0,10),target=actor('player','blue',0,25);watcher.group.rotation.y=0;
@@ -132,15 +144,15 @@ async function main(){
   console.log('PASS: real updateBots reaction delay, hidden-target loss, no memory shots, and visible-threat urgent retake');
 
   const distracted=actor('red-decoy','red',0,0),hiddenPlayer={...actor('player','blue',0,30),alive:false};
-  const decoys=[{id:'skill-nope-decoy-1',type:'nope-decoy',team:'blue',x:5,y:0,z:0},{id:'skill-nope-decoy-2',type:'nope-decoy',team:'blue',x:-5,y:0,z:0}];
-  const decoyGame=integration({player:hiddenPlayer,bots:[distracted],ordinarySkills:{interceptShield:()=>null,quiet:()=>false,sealUntil:()=>0,blindUntil:()=>0,events:now=>now<6?decoys:[],markers:()=>[]}});
+  const decoys=[{id:'skill-nope-decoy-1',type:'nope-decoy',team:'blue',x:3,y:0,z:5},{id:'skill-nope-decoy-2',type:'nope-decoy',team:'blue',x:-3,y:0,z:5}];
+  const decoyGame=integration({player:hiddenPlayer,bots:[distracted],random:.3,ordinarySkills:{interceptShield:()=>null,quiet:()=>false,sealUntil:()=>0,blindUntil:()=>0,events:now=>now<6?decoys:[],markers:()=>[]}});
   decoyGame.step();const firstDeadline=distracted.decoySeen.get(decoys[0].id);
-  assert.equal(firstDeadline,1.55);assert.equal(distracted.goal.x,5,'The first visible enemy face may draw an investigation');
+  assert.equal(firstDeadline,1.55);assert.equal(distracted.goal.x,3,'The first visible enemy face may draw an investigation');
   decoyGame.sandbox.elapsed=firstDeadline+.001;decoyGame.step();const secondDeadline=distracted.decoySeen.get(decoys[1].id);
-  assert.ok(secondDeadline>firstDeadline);assert.equal(distracted.goal.x,-5,'A distinct unseen face may draw one later investigation');
+  assert.ok(secondDeadline>firstDeadline);assert.equal(distracted.goal.x,-3,'A distinct unseen face may draw one later investigation');
   decoyGame.sandbox.elapsed=secondDeadline+.001;decoyGame.step();
   assert.equal(distracted.decoySeen.get(decoys[0].id),firstDeadline,'Returning to the first ID must not grant another1.5-second distraction');
-  assert.equal(distracted.decoySeen.get(decoys[1].id),secondDeadline);assert.ok(Math.abs(distracted.goal.x-5)>.01&&Math.abs(distracted.goal.x+5)>.01,'After both windows, the bot must return to its objective');
+  assert.equal(distracted.decoySeen.get(decoys[1].id),secondDeadline);assert.ok(Math.abs(distracted.goal.x-3)>.01&&Math.abs(distracted.goal.x+3)>.01,'After both windows, the bot must return to its objective');
   assert.equal(distracted.target,null);assert.equal(decoyGame.shots,0,'A decoy must never create a real actor sighting or hit');
   assert.equal(vm.runInContext('updateBots.tactics.contacts("red",elapsed).length',decoyGame.sandbox),0);
   decoyGame.sandbox.elapsed=6;decoyGame.step();assert.equal(distracted.decoySeen.size,0,'Expired IDs must leave the per-bot bounded memory');
@@ -163,7 +175,7 @@ async function main(){
   assert.equal(pollenGame.casts[0]?.effect.type,'mend-pollen');assert.equal(pollenMedic.kit.updraft,0,'A wounded BOT without seeds or a ready heal may use one defensive pollen cover');
   console.log('PASS: real MEND BOT safe ordinary heal before ultimate,18s cooldown/wall rejection, finite seed attack and defensive pollen choice');
 
-  for(const [key,type]of [['c','veil-dust'],['q','veil-roots'],['e','veil-turf']]){
+  for(const [key,type]of [['c','veil-dust'],['q','veil-sensor'],['e','veil-turf']]){
     const grass=actor(`red-grass-${key}`,'red',0,0),visible=actor('player','blue',0,key==='q'?6:12);
     grass.kit=new DuelistKit({character:'veil'});grass.kit.smoke=key==='c'?1:0;grass.kit.updraft=key==='q'?1:0;grass.kit.dash=key==='e'?1:0;grass.hp=key==='c'?50:100;
     if(key==='e')visible.z=-35;
@@ -181,17 +193,8 @@ async function main(){
   const airGame=integration({player:actor('player','blue',0,-35),bots:[airborneGrass]});airGame.step();assert.equal(airGame.casts.length,0,'An airborne BOT cannot activate a ground-only turf escape');
   console.log('PASS: real grass BOT wounded cover, known-enemy roots, grounded turf cooldown, no airborne activation or hidden-position steering');
 
-  const worker=actor('red-worker','red',0,0);worker.record={primary:'vandal',secondary:'classic'};worker.kit=new DuelistKit({character:'ember'});Object.assign(worker,{aiWeapon:'vandal',aiAmmo:3,aiReserve:5,aiReload:0});
-  const serviceGame=integration({player:noEnemy,bots:[worker]});serviceGame.step();
-  assert.equal(serviceGame.casts[0]?.effect.type,'ember-service','A safe low-magazine worker must choose its own maintenance, not a dash');assert.equal(worker.serviceReload.weaponId,'vandal');assert.equal(worker.kit.nextSignatureAt,EMBER_SKILLS.signatureCooldown+.05);assert.equal(worker.aiAmmo,3);
-  serviceGame.step(Math.round(EMBER_SKILLS.serviceDuration/.05)-1);assert.equal(worker.aiAmmo,3,'A BOT service may not complete before the service deadline');serviceGame.step();assert.equal(worker.aiAmmo,8);assert.equal(worker.aiReserve,0,'BOT maintenance must use only its finite reserve');assert.equal(worker.serviceReload,null);
-  const castsAfterService=serviceGame.casts.length;serviceGame.step(10);assert.equal(serviceGame.casts.length,castsAfterService,'An empty reserve/cooling service cannot be used repeatedly');
-  const urgentWorker=actor('red-worker','red',0,0);urgentWorker.record={primary:'vandal'};urgentWorker.kit=new DuelistKit({character:'ember'});Object.assign(urgentWorker,{aiWeapon:'vandal',aiAmmo:3,aiReserve:5,aiReload:0});
-  const urgentMatch=new MatchRules();urgentMatch.spike={...urgentMatch.spike,status:'planted',carrier:null,x:0,z:0,site:'A',timer:8};
-  const urgentService=integration({player:noEnemy,bots:[urgentWorker],match:urgentMatch});urgentService.step();assert.equal(urgentService.casts.length,0,'A deadline and actual defuse must take precedence over maintenance');assert.ok(urgentMatch.spike.defuseProgress>0);
-  for(const hiddenX of [-25,25]){const worker=actor('red-worker','red',0,0);worker.kit=new DuelistKit({character:'ember'});worker.kit.smoke=2;worker.kit.updraft=1;worker.kit.dash=0;const game=integration({player:actor('player','blue',hiddenX,-12),bots:[worker]});game.step();assert.equal(game.casts.length,0,'Unseen enemy positions cannot drive the solder or shade choices');}
-  console.log('PASS: real EMBER BOT low-magazine cover service, finite reserve0.8s/cooldown, urgent defuse priority and no unseen-position solder/shade steering');
-
+  // Ember's replaced service policy is covered by tests-ember-robots-game.cjs
+  // against the complete saved game, including deployment and damage.
   const buySource=source.slice(source.indexOf('function autoBuyBot('),source.indexOf('function setVisible(')),buyContext={DuelistKit};
   vm.createContext(buyContext);vm.runInContext(`${buySource}\nvar frostBuyer={kit:new DuelistKit({character:'frost'}),primary:'vandal',secondary:'ghost',armor:50,credits:1000,team:'red'};autoBuyBot(frostBuyer)`,buyContext);
   assert.equal(buyContext.frostBuyer.kit.smoke,2);assert.equal(buyContext.frostBuyer.kit.updraft,1);assert.equal(buyContext.frostBuyer.credits,700,'Two100-credit rings and one100-credit mist must be bought from real finite credits');assert.equal(buyContext.frostBuyer.primary,'vandal');assert.equal(buyContext.frostBuyer.armor,50);
@@ -227,7 +230,7 @@ async function main(){
 
   for(const [random,hitHeight]of [[0,1.62],[.2,1.15]]){
     const elevatedShooter=actor('red-elevated','red',0,0),elevatedTarget=actor('blue-elevated','blue',0,10);
-    Object.assign(elevatedShooter,{y:2,vy:0,target:elevatedTarget,think:1,reactionUntil:0,fire:0,aiWeapon:'classic',aiAmmo:12,aiReload:0});elevatedShooter.group.rotation.y=0;Object.assign(elevatedTarget,{y:3,vy:0,rangeTarget:true});
+    Object.assign(elevatedShooter,{y:2,vy:0,target:elevatedTarget,aimSample:{id:elevatedTarget.id,x:0,y:3,z:10,at:0},think:1,reactionUntil:0,fire:0,aiWeapon:'classic',aiAmmo:12,aiReload:0});elevatedShooter.group.rotation.y=0;Object.assign(elevatedTarget,{y:3,vy:0,rangeTarget:true});
     const game=integration({map:makeMap([{minX:-1,maxX:1,minZ:-1,maxZ:1,height:2},{minX:-1,maxX:1,minZ:9,maxZ:11,height:3}]),player:noEnemy,bots:[elevatedShooter,elevatedTarget],random});game.step();
     assert.equal(game.traces.length,1,'A visible raised actor must really fire before checking tracer coordinates');assert.ok(Math.abs(game.traces[0].from.y-(elevatedShooter.y+1.2))<1e-9,'AI muzzle origins must include shooter height');assert.ok(Math.abs(game.traces[0].to.y-(3+hitHeight))<1e-9,'Both NPC and player targets must include their own raised feet in head/body rays');assert.equal(game.hits,1);
   }

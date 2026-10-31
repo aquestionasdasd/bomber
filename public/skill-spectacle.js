@@ -1,9 +1,9 @@
 import { skillProjectilePosition } from './character-skills.js';
 import { CHARACTER_DEFS, getCharacterSkill } from './abilities.js';
 
-// Fifteen silhouettes, not fifteen recolors. These are presentation only.
+// Character-specific silhouettes. These are presentation only.
 export const SKILL_LOOKS=Object.freeze({
- duelist:{color:'#9df1ff',shape:'comet'},nope:{color:'#ff63c6',shape:'crossed-face'},mend:{color:'#8dffc2',shape:'petal'},echo:{color:'#ffe59c',shape:'bracket'},veil:{color:'#a8ed64',shape:'leaf'},ember:{color:'#ffae50',shape:'bolt'},frost:{color:'#b3edff',shape:'crystal'},duck:{color:'#ffe36b',shape:'feather'},cat:{color:'#ecddff',shape:'hourglass'},car:{color:'#92efff',shape:'chevron'},nobi:{color:'#ffe268',shape:'bell'},japan:{color:'#ff7996',shape:'banner'},cap:{color:'#ff976e',shape:'lens'},urchin:{color:'#71e6e4',shape:'spike'},onnara:{color:'#ffdb59',shape:'crown'}
+ renko:{color:'#91c5ef',shape:'jet-wings'},duelist:{color:'#9df1ff',shape:'comet'},nope:{color:'#ff63c6',shape:'crossed-face'},mend:{color:'#8dffc2',shape:'petal'},echo:{color:'#ffe59c',shape:'bracket'},veil:{color:'#a8ed64',shape:'leaf'},ember:{color:'#ffae50',shape:'bolt'},frost:{color:'#b3edff',shape:'crystal'},duck:{color:'#ffe36b',shape:'feather'},cat:{color:'#ecddff',shape:'hourglass'},car:{color:'#92efff',shape:'chevron'},nobi:{color:'#ffe268',shape:'bell'},japan:{color:'#ff7996',shape:'banner'},cap:{color:'#ff976e',shape:'lens'},urchin:{color:'#71e6e4',shape:'spike'},onnara:{color:'#ffdb59',shape:'crown'}
 });
 const aliases={recon:'echo',heal:'mend',smoke:'duelist',updraft:'duelist',dash:'duelist',knives:'duelist',nope:'nope',mend:'mend',veil:'veil',ember:'ember',frost:'frost'};
 export function skillCharacter(type){const id=String(type||'').split('-')[0];return SKILL_LOOKS[id]?id:aliases[id]||null;}
@@ -25,6 +25,7 @@ export function createSkillSpectacle(T){
  function polygon(points){const s=new T.Shape();points.forEach(([x,y],i)=>i?s.lineTo(x,y):s.moveTo(x,y));s.closePath();return new T.ShapeGeometry(s);}
  const radial=(arms,outer,inner)=>Array.from({length:arms*2},(_,i)=>{const a=i*Math.PI/arms;return[Math.sin(a)*(i%2?inner:outer),Math.cos(a)*(i%2?inner:outer)];});
  const outlines={
+ 'jet-wings':[[-.8,.15],[-.6,.65],[-.24,.25],[0,.8],[.24,.25],[.6,.65],[.8,.15],[.3,-.3],[.15,-.7],[0,-.35],[-.15,-.7],[-.3,-.3]],
  comet:[[-.9,-.45],[-.15,.14],[0,.7],[.2,.15],[.8,0],[.2,-.16],[0,-.5],[-.15,-.15]],
  'crossed-face':[[-.65,.6],[-.2,.6],[0,.22],[.2,.6],[.65,.6],[.2,0],[.65,-.6],[.2,-.6],[0,-.22],[-.2,-.6],[-.65,-.6],[-.2,0]],
  petal:radial(5,.68,.28),bracket:[[-.65,.6],[-.2,.6],[-.2,.4],[-.43,.4],[-.43,-.4],[-.2,-.4],[-.2,-.6],[-.65,-.6]],

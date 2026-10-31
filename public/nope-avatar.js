@@ -1,4 +1,5 @@
 import { createNopeBottleModel } from './nope-props.js';
+import { createWeaponModel } from './agent-model.js';
 
 const caches=new WeakMap();
 function acquireAssets(THREE){
@@ -107,8 +108,17 @@ export function acquireNopeDecoyAsset(THREE){
       const motion=/^(thigh|shin|shoe)/.test(template.frame)?'leg'+template.frame.slice(-1):'body',key=template.material+'|'+motion;
       if(!chunks.has(key))chunks.set(key,[]);chunks.get(key).push(geometry);
     }
-    // Receiver, stock, barrel/muzzle, magazine and both grips form one rifle batch.
-    const rifle=[];for(const [x,y,z,w,h,d]of [[0,1.31,.39,.13,.15,.47],[0,1.31,.02,.12,.15,.31],[0,1.33,.79,.055,.055,.35],[0,1.33,.98,.085,.085,.07],[0,1.15,.40,.085,.24,.11],[0,1.19,.22,.07,.19,.08],[0,1.42,.38,.045,.045,.27]]){const g=new THREE.BoxGeometry(w,h,d).toNonIndexed();g.translate(x,y,z);const count=g.attributes.position.count;g.setAttribute('color',new THREE.BufferAttribute(new Float32Array(count*3).fill(1),3));rifle.push(g);}chunks.set('ink|body', [...(chunks.get('ink|body')||[]),...rifle]);
+    // Bake the same Vandal silhouette used by live actors into one pooled
+    // batch. Its steel/receiver/stock colors survive without90 weapon rigs.
+    const weapon=createWeaponModel(THREE,{id:'vandal',detailed:false}),rifle=[];
+    weapon.group.position.set(-.10,1.354,.40);weapon.group.rotation.y=Math.PI;weapon.parent.updateMatrixWorld(true);
+    weapon.group.traverse(mesh=>{if(!mesh.isMesh)return;
+      const g=mesh.geometry.index?mesh.geometry.toNonIndexed():mesh.geometry.clone();g.applyMatrix4(mesh.matrixWorld);
+      const count=g.attributes.position.count,colors=new Float32Array(count*3),color=mesh.material.color;
+      for(let i=0;i<count;i++)colors.set([color.r,color.g,color.b],i*3);
+      g.setAttribute('color',new THREE.BufferAttribute(colors,3));rifle.push(g);
+    });weapon.dispose();chunks.set('rifle|body',rifle);
+    const rifleMaterial=new THREE.MeshStandardMaterial({color:0xffffff,vertexColors:true,roughness:.5,metalness:.28});rifleMaterial.name='NOPE decoy / shared Vandal';
     const parts=[],bounds=new THREE.Box3();
     for(const [key,items]of chunks){
       const [finish,motion]=key.split('|');
@@ -121,13 +131,13 @@ export function acquireNopeDecoyAsset(THREE){
       geometry.name=`NOPE decoy static geometry / ${finish}`;geometry.computeBoundingBox();geometry.computeBoundingSphere();
       bounds.union(geometry.boundingBox);geometries.add(geometry);for(const item of items)item.dispose();
       if(finish==='team')for(const team of ['blue','red'])parts.push(Object.freeze({finish,motion,team,geometry,material:source.cache.materials.get(`team ${team}`)}));
-      else parts.push(Object.freeze({finish,motion,team:null,geometry,material:source.cache.materials.get(finish)}));
+      else parts.push(Object.freeze({finish,motion,team:null,geometry,material:finish==='rifle'?rifleMaterial:source.cache.materials.get(finish)}));
     }
-    cache={references:0,source,parts:Object.freeze(parts),geometries,bounds};decoyCaches.set(THREE,cache);
+    cache={references:0,source,parts:Object.freeze(parts),geometries,bounds,rifleMaterial};decoyCaches.set(THREE,cache);
   }
   cache.references++;let released=false;
   return {parts:cache.parts,bounds:cache.bounds,dispose(){
     if(released)return;released=true;
-    if(--cache.references===0){for(const geometry of cache.geometries)geometry.dispose();cache.source.release();decoyCaches.delete(THREE);}
+    if(--cache.references===0){for(const geometry of cache.geometries)geometry.dispose();cache.rifleMaterial.dispose();cache.source.release();decoyCaches.delete(THREE);}
   }};
 }

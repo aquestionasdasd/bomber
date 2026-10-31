@@ -1,4 +1,4 @@
-import { CHARACTER_DEFS, DUELIST, normalizeCharacter, getCharacterSkill, getCharacterUltimate, getSkillState } from './abilities.js';
+import { CHARACTER_DEFS, signatureKillsRequired, normalizeCharacter, getCharacterSkill, getCharacterUltimate, getSkillState } from './abilities.js';
 
 const KEYS = ['c', 'q', 'e'];
 const MOBILE = { c: 'mobile-smoke', q: 'mobile-dash', e: 'mobile-scan' };
@@ -15,6 +15,8 @@ export function createCharacterSkillUI({ document: doc = globalThis.document } =
 
   function updateSelection(character) {
     const id = normalizeCharacter(character), definition = CHARACTER_DEFS[id];
+    const robotGuide = get('ember-robot-guide');
+    if (robotGuide) robotGuide.hidden = id !== 'ember';
     text('agent-description', `${definition.role} · ${definition.description}`);
     text('online-skill-character', definition.label);
     const skills = KEYS.map(key => getCharacterSkill(id, key));
@@ -43,7 +45,7 @@ export function createCharacterSkillUI({ document: doc = globalThis.document } =
       if (key === 'e') {
         count = state.charging ? `${Math.max(0, state.remaining).toFixed(1)}s`
           : state.remaining > 0 ? `${Math.ceil(state.remaining)}s`
-            : state.ready ? 'READY' : character === 'duelist' ? `${kit.dashKills || 0}/${DUELIST.signatureKills}` : `${state.count}/${state.max}`;
+            : state.ready ? 'READY' : signatureKillsRequired(character) ? `${kit.dashKills || 0}/${signatureKillsRequired(character)}${character === 'renko' ? 'キル' : ''}` : `${state.count}/${state.max}`;
       }
       text(`ability-${key}-name`, definition.shortName);
       text(`ability-${key}-count`, count);
@@ -61,7 +63,7 @@ export function createCharacterSkillUI({ document: doc = globalThis.document } =
     }
   }
 
-  function updateShop({ kit, credits = 0, phase, alive = true } = {}) {
+  function updateShop({ kit, credits = 0, phase, alive = true, refunds = {}, allowUnknownSales = false } = {}) {
     if (!kit) return;
     const character = normalizeCharacter(kit.character);
     for (const key of ['c', 'q']) {
@@ -70,18 +72,25 @@ export function createCharacterSkillUI({ document: doc = globalThis.document } =
       text(`${prefix}-name`, definition.name);
       text(`${prefix}-key`, `${key.toUpperCase()} / ${definition.shortName}`);
       text(`${prefix}-description`, definition.description);
-      text(`${prefix}-count`, `所持 ${count}/${definition.max} · ${count?'左クリックで1回分売却（当R購入分）':'左クリックで1回分購入'}`);
+      const refundable=Math.min(count,refunds[key]||0),canBuy=count<definition.max&&credits>=definition.price;
+      text(`${prefix}-count`, `${'●'.repeat(Math.min(count,definition.max))}${'○'.repeat(Math.max(0,definition.max-count))}  所持 ${count}/${definition.max}${refundable?` · 売却可 ${refundable}`:''}`);
       text(`${prefix}-price`, `SC ${definition.price.toLocaleString()}`);
       icon(`${prefix}-glyph`, definition);
       attr(prefix, 'data-skill-id', definition.id);
-      attr(prefix, 'aria-label', `${key.toUpperCase()} ${definition.name}、所持${count}/${definition.max}、${count?'1回分を売却（このラウンドの購入分のみ）':'1回分を購入'} SC ${definition.price}`);
-      const add=get(`${prefix}-add`);
-      if(add){add.disabled=!alive||phase!=='buy'||count>=definition.max||credits<definition.price;add.hidden=definition.max<=1;add.textContent=`＋1回分購入 · SC ${definition.price}`;}
+      attr(prefix, 'aria-label', `${key.toUpperCase()} ${definition.name}、所持${count}/${definition.max}、左クリックで1回分購入 SC ${definition.price}、右クリックで当ラウンド購入分を売却`);
+      const sell=get(`${prefix}-sell`);
+      if(sell){sell.disabled=!alive||phase!=='buy'||count<1||(!refundable&&!allowUnknownSales);sell.textContent='1回分売却';}
       if (card) {
-        card.disabled = !alive || phase !== 'buy' || (!count && credits < definition.price);
+        card.title=definition.description;
+        card.disabled = !alive || phase !== 'buy';
         card.classList?.toggle('owned', count >= definition.max);
+        card.classList?.toggle('unaffordable',!canBuy&&count<definition.max);
+        card.dataset.state=count>=definition.max?'所持数 MAX':canBuy?'左クリックで1回分購入':'コイン不足';
       }
     }
+    const e=getCharacterSkill(character,'e'),x=getCharacterUltimate(character);
+    text('shop-free-skill',`E · ${e.name}（購入不要）`);
+    text('shop-ultimate',`X · ${x.name}（7ポイント）`);
   }
 
   return { updateSelection, updateHUD, updateShop };

@@ -1,0 +1,39 @@
+const fs=require('node:fs'),path=require('node:path'),Module=require('node:module');
+const fixture=fs.readFileSync(path.join(__dirname,'tests-renko-game.cjs'),'utf8'),boundary=fixture.indexOf(' const h=harness();');if(boundary<0)throw Error('Harness boundary missing');
+const fault=process.argv.find(x=>x.startsWith('--fault='))?.slice(8);
+const only=process.argv.find(x=>x.startsWith('--only='))?.slice(7);
+if(fault){const changes={gun:["&&!holding&&!(local&&preparedSkillFX.throwing(elapsed))",""],release:["preparedSkillFX.release(effect.type,elapsed,player.id,match.round)","void 0"],switch:["duckAim=null;preparedSkillFX.reset();cancelServiceReload(player);inventory.active=id","cancelServiceReload(player);inventory.active=id"]};const[a,b]=changes[fault]||[];if(!a)throw Error('Bad fault');const read=fs.readFileSync;fs.readFileSync=function(file,...args){let s=read.call(this,file,...args);if(String(file).replaceAll('\\','/').endsWith('/public/game.js')&&typeof s==='string'){if(!s.includes(a))throw Error('Fault anchor missing');s=s.replace(a,b);}return s;};}
+const suite=String.raw`
+ const h=harness();
+ function setup(character='nobi'){h.reset();h.sandbox.character=character;h.run("player.kit=new DuelistKit({character});player.kit.smoke=2;player.kit.updraft=1;player.kit.dash=1;player.kit.ultPoints=7;match.phase='live';makeBot({x:70,z:-60},0,'red',{id:'enemy',team:'red',kit:new DuelistKit({character:'nope'})});bots[0].rangeTarget=true;bots[0].remoteId='passive'");}
+ function render(){h.run('renderOrdinarySkills()');}
+ check('initial menu without a match renders safely and clears prepared props after returning',()=>{
+  assert.equal(h.run('match'),null);render();assert.equal(h.run('preparedSkillFX.hand.visible'),false);
+  setup();h.run("useAbility('c')");render();assert.equal(h.run('preparedSkillFX.hand.visible'),true);
+  h.run('backMenu();match=null');render();assert.equal(h.run('preparedSkillFX.hand.visible'),false);assert.equal(h.run('preparedSkillFX.group.children.length'),0);
+ });
+ check('actual aim input holds all9 skill props with gun hidden and no inventory spend',()=>{
+  for(const [character,keys]of Object.entries({nobi:['c','q','e','x'],onnara:['q'],urchin:['e'],duck:['c','q'],japan:['c']}))for(const key of keys){setup(character);h.sandbox.key=key;const before=copy(h.run('player.kit.snapshot()'));h.run('useAbility(key)');render();assert.equal(h.run('preparedSkillFX.hand.visible'),true,character+key);assert.equal(h.run('gun.visible'),false,character+key);assert.deepEqual(copy(h.run('player.kit.snapshot()')),before);assert.equal(h.run('ordinarySkills.events(elapsed).length'),0);}
+ });
+ check('actual Nobi confirm releases same held model into authoritative arc, only once and without extra spend',()=>{
+  for(const key of['c','q','e','x']){setup();h.sandbox.key=key;h.run('useAbility(key)');render();h.run('var heldType=preparedSkillFX.hand.children.at(-1).userData.skillType;duckAim=null;confirmDuckSkill(key);renderOrdinarySkills()');assert.equal(h.run('preparedSkillFX.hand.visible'),false);assert.equal(h.run('preparedSkillFX.throwing(elapsed)'),true);assert.equal(h.run('preparedSkillFX.group.children.length'),1);assert.equal(h.run('preparedSkillFX.group.children[0].userData.skillType===heldType'),true);assert.equal(h.run('ordinarySkills.events(elapsed).length'),1);const stock=copy(h.run('player.kit.snapshot()'));render();assert.deepEqual(copy(h.run('player.kit.snapshot()')),stock);h.run('elapsed+=.3;renderOrdinarySkills()');assert.equal(h.run('preparedSkillFX.group.children.length'),1);assert.equal(h.run('nobiSkillFX.group.children[0].children[0].visible'),false);h.run('elapsed+=.4;renderOrdinarySkills()');assert.equal(h.run('preparedSkillFX.group.children.length'),0);assert.equal(h.run('nobiSkillFX.group.children[0].children[0].visible'),true);}
+ });
+ check('other five aimed items launch the held model through real target validation and confirmed events',()=>{
+  for(const [character,key]of[['onnara','q'],['urchin','e'],['duck','c'],['duck','q'],['japan','c']]){setup(character);h.sandbox.key=key;h.run("player.pitch=-.3;useAbility(key)");render();const held=h.run('preparedSkillFX.hand.children.at(-1).userData.skillType');h.run('duckAim=null;confirmDuckSkill(key)');const e=copy(h.run('ordinarySkills.events(elapsed)[0]'));assert.ok(e,character+key);assert.equal(e.type,held);h.sandbox.delay=e.type==='urchin-gloom'?.3:.1;h.run('elapsed+=delay;renderOrdinarySkills()');assert.equal(h.run('preparedSkillFX.group.children.length'),1,character+key);assert.equal(h.run('preparedSkillFX.group.children[0].userData.skillType'),held);assert.equal(h.run('preparedSkillFX.hand.visible'),false);}
+ });
+ check('cancel, weapon switch, blur, pause, death, post and reset return to appropriate equipment',()=>{
+  for(const code of["duckAim=null","equip('classic')","clearCombatInput()","pauseGame()","player.alive=false","match.phase='post'","resetOrdinarySkills()"]){setup();h.run("useAbility('c')");render();h.run(code);render();assert.equal(h.run('preparedSkillFX.hand.visible'),false,code);if(code==="equip('classic')"||code==='duckAim=null')assert.equal(h.run('gun.visible'),true,code);}
+ });
+ check('failed cast/20event rejection does not launch a phantom item; genuine existing events remain',()=>{
+  setup();h.run("player.kit.smoke=0;useAbility('c')");render();h.run("duckAim=null;confirmDuckSkill('c')");render();assert.equal(h.run('preparedSkillFX.throwing(elapsed)'),false);assert.equal(h.run('preparedSkillFX.group.children.length'),0);
+  setup();h.run("for(let i=0;i<20;i++)ordinarySkills.cast('nobi-bell',{...ordinaryActorView(player),id:'s'+i},{x:0,y:0,z:-10},elapsed,match.round);useAbility('c')");render();const before=h.run('player.kit.smoke');h.run("duckAim=null;confirmDuckSkill('c')");render();assert.equal(h.run('player.kit.smoke'),before);assert.equal(h.run('preparedSkillFX.throwing(elapsed)'),false);assert.equal(h.run('ordinarySkills.events(elapsed).length'),20);
+ });
+ check('independent guest predicts only local release; confirmed JSON renders current flight without replay/HP mutation',()=>{
+  setup();h.run("onlinePlaying=true;online={host:true,room:{code:'ABCDEFGH'},session:{memberId:'host'},send:p=>captured=p};var captured;netClock=0;tickOnline(.1)");const packet=copy(h.run('captured'));const guest=harness();guest.reset();guest.sandbox.packet=packet;guest.run("onlinePlaying=true;online={host:false,room:{code:'ABCDEFGH'},session:{memberId:'guest',hostId:'host'},send(){}};netParticipants.set('guest','player');receiveNetPacket('host',packet)");guest.run("player.kit=new DuelistKit({character:'nobi'});player.kit.smoke=2;match.phase='live';useAbility('c');renderOrdinarySkills()");assert.equal(guest.run('preparedSkillFX.hand.visible'),true);guest.run("duckAim=null;confirmDuckSkill('c');renderOrdinarySkills()");assert.equal(guest.run('ordinarySkills.events(elapsed).length'),0);assert.equal(guest.run('preparedSkillFX.throwing(elapsed)'),true);assert.equal(guest.run('netActions.length>0'),true);
+  h.run("useAbility('c');duckAim=null;confirmDuckSkill('c');elapsed+=.3");const confirmed=copy(h.run('ordinarySkills.snapshot()'));guest.sandbox.confirmed=confirmed;guest.run("ordinarySkills.restore(confirmed,elapsed+.3,match.round);elapsed+=.3;renderOrdinarySkills()");assert.equal(guest.run('preparedSkillFX.group.children.length'),1);assert.equal(guest.run('player.hp'),100);
+ });
+ console.log('PASS: '+groups+' prepared skill savedgame groups; silent');
+}
+main().catch(e=>{console.error(e);process.exitCode=1;});
+`;
+const compiled=new Module(path.join(__dirname,'prepared-skill-harness.cjs'),module);compiled.filename=path.join(__dirname,'prepared-skill-harness.cjs');compiled.paths=module.paths;compiled._compile(fixture.slice(0,boundary).replace('fn(); groups++;',`if(${JSON.stringify(only||'')}&&!label.startsWith(${JSON.stringify(only||'')}))return;fn(); groups++;`)+suite,compiled.filename);

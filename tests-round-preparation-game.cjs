@@ -144,7 +144,7 @@ async function main() {
  check('expanded real-map barriers reach all three fronts; visible edges and authoritative local/remote bounds agree',()=>{
   const real=harness({realMap:true});real.reset();for(const id of['hashimoto','hirakata']){
    real.sandbox.id=id;real.run("selectArena(id);match.phase='buy';exploring=false;syncBuyBarrier();var a=map.buyAreas.attack,d=map.buyAreas.defend;");
-   for(const x of[-65,0,65]){real.sandbox.x=x;assert.ok(real.run('buyAreaContains(a,x,20,.34)'));assert.ok(real.run('buyAreaContains(d,x,-5,.34)'));assert.equal(real.run('buyAreaContains(a,x,0,.34)'),false);assert.equal(real.run('buyAreaContains(d,x,0,.34)'),false);}
+   for(const x of[-65,0,65]){real.sandbox.x=x;assert.ok(real.run('buyAreaContains(a,x,50,.34)'));assert.ok(real.run('buyAreaContains(d,x,-50,.34)'));assert.equal(real.run('buyAreaContains(a,x,20,.34)'),false);assert.equal(real.run('buyAreaContains(d,x,-5,.34)'),false);}
    assert.equal(real.run('buyBarrier.geometry.getAttribute("position").count'),24);assert.equal(real.run('buyBarrier.position.y'),0);assert.ok(real.run('map.teamSpawns.attack.every(p=>buyAreaContains(a,p.x,p.z,.34))&&map.teamSpawns.defend.every(p=>buyAreaContains(d,p.x,p.z,.34))'));
   }
   setup();h.run("map.buyAreas.attack={minX:-82,maxX:82,minZ:18,maxZ:82};match.phase='buy';player.z=18.34;moveEntity(player,0,-2)");assert.ok(h.run('player.z>=18.34-1e-8'));h.run("match.phase='live';moveEntity(player,0,-2)");assert.ok(h.run('player.z<18'));

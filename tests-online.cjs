@@ -58,13 +58,13 @@ async function main() {
     return result.value;
   }
   async function ready(member, team) {
-    const result = await api(`/${member.code}/ready`, { method: 'POST', member, body: { ready: true, ...(team ? { team } : {}) } });
+    const result = await api(`/${member.code}/ready`, { method: 'POST', member, body: { ready: true, epoch:JSON.parse(db.prepare('SELECT settings FROM online_rooms WHERE code=?').get(member.code).settings).matchEpoch||0, ...(team ? { team } : {}) } });
     assert.equal(result.status, 200, JSON.stringify(result.value));
     return result.value;
   }
   async function start(host, guest) {
     await ready(host); await ready(guest);
-    const result = await api(`/${host.code}/start`, { method: 'POST', member: host, body: { format: 'swift' } });
+    const result = await api(`/${host.code}/start`, { method: 'POST', member: host, body: { format: 'swift', epoch:JSON.parse(db.prepare('SELECT settings FROM online_rooms WHERE code=?').get(host.code).settings).matchEpoch||0 } });
     assert.equal(result.status, 200, JSON.stringify(result.value)); return result.value;
   }
   async function send(member, to, kind, data) {
@@ -142,6 +142,61 @@ async function main() {
       assert.equal((await api(`/${host.code}`,{member:host})).value.status,'lobby');
       const started=await api(`/${host.code}/start`,{method:'POST',member:host,body:{format:'swift',mapId:'hirakata'}});assert.equal(started.status,200);assert.equal(started.value.settings.mapId,'hirakata');assert.equal((await api(`/${host.code}`,{member:guest})).value.settings.mapId,'hirakata');
     });
+    await test('same ten-player party rematches without replacing credentials, teams, code or settings',async()=>{
+      const host=await create('PARTY HOST'),members=[host];for(let i=0;i<9;i++)members.push(await join(host,i<4?'blue':'red','FRIEND '+i));
+      for(const m of members)await ready(m);
+      const before=(await api(`/${host.code}`,{member:host})).value;
+      const hashes=db.prepare('SELECT id,token_hash,team,name FROM online_members WHERE room_code=? ORDER BY id').all(host.code);
+      assert.equal((await api(`/${host.code}/start`,{method:'POST',member:host,body:{format:'standard',mapId:'trc'}})).status,200);
+      const again=(member,epoch)=>api(`/${host.code}/rematch`,{method:'POST',member,body:{epoch}});
+      assert.equal((await again(members[1],0)).status,403);assert.equal((await again({...host,token:'0'.repeat(64)},0)).status,401);
+      assert.equal((await again(host,-1)).status,400);assert.equal((await again(host,1)).status,409);
+      const [a,b]=await Promise.all([again(host,0),again(host,0)]);assert.equal(a.status,200);assert.equal(b.status,200);
+      const lobby=a.value;assert.equal(lobby.status,'lobby');assert.equal(lobby.code,before.code);assert.equal(lobby.hostId,before.hostId);assert.equal(lobby.settings.matchEpoch,1);assert.equal(lobby.settings.mapId,'trc');assert.equal(lobby.settings.format,'standard');
+      assert.equal(lobby.members.length,10);assert.equal(lobby.members.filter(m=>m.ready).length,1);assert.equal(lobby.members.find(m=>m.id===host.memberId).ready,true);
+      assert.deepEqual(db.prepare('SELECT id,token_hash,team,name FROM online_members WHERE room_code=? ORDER BY id').all(host.code),hashes);
+      await ready(members[1]);assert.equal((await again(host,0)).value.members.find(m=>m.id===members[1].memberId).ready,true,'Duplicate rematch must not cancel newly readied member');
+      assert.equal((await api(`/${host.code}/start`,{method:'POST',member:host,body:{format:'swift',epoch:1}})).status,409);
+      assert.equal((await api(`/${host.code}/ready`,{method:'POST',member:members[1],body:{ready:false,epoch:0}})).status,409);
+      assert.equal((await api(`/${host.code}/settings`,{method:'POST',member:host,body:{format:'swift',mapId:'hashimoto',epoch:0}})).status,409);
+      for(const m of members)await ready(m);
+      const next=await api(`/${host.code}/start`,{method:'POST',member:host,body:{format:'swift',mapId:'hirakata',epoch:1}});assert.equal(next.status,200);assert.equal(next.value.settings.matchEpoch,1);
+      assert.equal((await again(host,0)).status,409,'Late previous-match request cannot end the next match');
+      assert.equal((await again(host,1)).status,200);assert.equal((await api(`/${host.code}`,{member:members[9]})).value.settings.matchEpoch,2);
+      assert.equal((await api(`/${host.code}/leave`,{method:'POST',member:host,body:{}})).status,200);assert.equal((await again(host,2)).status,401);
+    });
+    await test('match epochs isolate old HTTP and direct packets, stale room responses and pending relay retries',async()=>{
+      const host=await create(),guest=await join(host);await start(host,guest);
+      assert.equal((await send(host,'team:red','game',{type:'snapshot',seq:99})).status,201);
+      const reset=await api(`/${host.code}/rematch`,{method:'POST',member:host,body:{epoch:0}});assert.equal(reset.status,200);
+      assert.equal((await getMessages(guest)).value.messages.length,0,'Old packets must not reappear in lobby');
+      await start(host,guest);
+      assert.equal((await send(host,'team:red','game',{type:'snapshot',seq:999})).status,409);
+      assert.equal((await send(guest,'host','game',{type:'input',epoch:0,seq:999})).status,409);
+      assert.equal((await send(host,'team:red','game',{type:'snapshot',epoch:1,seq:1})).status,201);
+      const packets=(await getMessages(guest)).value.messages;assert.equal(packets.length,1);assert.equal(packets[0].data.seq,1);
+      const {RoomClient}=await import(pathToFileURL(path.join(__dirname,'public/online.js')).href);
+      const seen=[],updates=[],old={...reset.value,status:'playing',settings:{...reset.value.settings,matchEpoch:0}},client=Object.assign(Object.create(RoomClient.prototype),{room:old,session:host,closed:false,pendingTeamStates:new Map(),onRoom:r=>updates.push(r),onData:(from,data)=>seen.push(data)});
+      client.ensureRelay();const state={slot:'red',packet:{type:'snapshot'},identity:client.relayIdentity,pauseEpoch:0};client.relayLatest.set('red',state);client.pendingTeamStates.set('red',state.packet);
+      client.acceptRoom(reset.value);assert.equal(client.room.status,'lobby');assert.equal(client.relayCurrent(state),false);assert.equal(client.pendingTeamStates.size,0);
+      client.acceptRoom(old);assert.equal(client.room.status,'lobby','Late old playing response cannot restart completed world');
+      const next={...reset.value,status:'playing'};client.acceptRoom(next);client.acceptRoom(reset.value);assert.equal(client.room.status,'playing','Late same-epoch lobby response cannot end next match');
+      const direct=[];client.host=true;client.peers=new Map([[guest.memberId,{channel:{readyState:'open',bufferedAmount:0,send:s=>direct.push(JSON.parse(s))}}]]);client.scheduleRelay=()=>{};client.send({type:'snapshot',seq:1},{team:'red'});assert.equal(direct[0].epoch,1);
+      client.receive(host.memberId,{room:host.code,epoch:0,seq:999});client.receive(host.memberId,{room:host.code,epoch:1,seq:1});assert.equal(seen.length,1);assert.equal(seen[0].seq,1);
+      client.closed=true;client.receive(host.memberId,{room:host.code,epoch:1,seq:2});assert.equal(seen.length,1);
+    });
+    await test('failed rematch transaction retains the party, and lobby host reload resumes without disbanding',async()=>{
+      const host=await create(),guest=await join(host);await start(host,guest);
+      const original=env.DB.batch;env.DB.batch=async()=>{throw Error('storage offline');};
+      const log=console.error;console.error=()=>{};let failure;try{failure=await api(`/${host.code}/rematch`,{method:'POST',member:host,body:{epoch:0}});}finally{env.DB.batch=original;console.error=log;}
+      assert.equal(failure.status,503);assert.equal((await api(`/${host.code}`,{member:guest})).value.status,'playing');
+      assert.equal((await api(`/${host.code}/rematch`,{method:'POST',member:host,body:{epoch:0}})).status,200);
+      const {RoomClient}=await import(pathToFileURL(path.join(__dirname,'public/online.js')).href),oldFetch=global.fetch,oldStorage=global.sessionStorage,values=new Map();
+      global.sessionStorage={getItem:k=>values.get(k)||null,setItem:(k,v)=>values.set(k,v),removeItem:k=>values.delete(k)};
+      global.fetch=(url,opts)=>handleRooms(new Request('https://hashimoto.test'+url,opts),env);
+      try{RoomClient.saveSession(host);const restored=await RoomClient.resumeSession();assert.equal(restored.session.memberId,host.memberId);assert.equal(restored.session.status,'lobby');assert.equal(restored.session.settings.matchEpoch,1);assert.equal((await api(`/${host.code}`,{member:guest})).value.status,'lobby');}
+      finally{global.fetch=oldFetch;global.sessionStorage=oldStorage;}
+    });
     await test('room creation issues private hashed credentials and protects every member read', async () => {
       const host = await create('  ホスト  ');
       assert.match(host.code, /^[A-HJ-NP-Z2-9]{8}$/);
@@ -197,8 +252,10 @@ async function main() {
       assert.equal((await send(guest, 'all', 'game', { type: 'state', hp: 999 })).status, 403);
       assert.equal((await send(guest, peer.memberId, 'game', { type: 'shot' })).status, 403);
       assert.equal((await send(guest, 'host', 'game', { session: 'r1', seq: 1, type: 'input', fire: true })).status, 201);
+      const ridePacket={type:'input',seq:2,round:1,input:{x:2,y:1.86,z:.31,ride:['player',.2,0]},actions:[]};assert.equal((await send(guest,'host','game',ridePacket)).status,201);
+      assert.ok((await getMessages(host)).value.messages.some(m=>JSON.stringify(m.data)===JSON.stringify(ridePacket)),'relative grass support input survives SQLite HTTP relay');
       const hostInbox = await getMessages(host);
-      assert.equal(hostInbox.value.messages.length, 1); assert.equal(hostInbox.value.messages[0].data.seq, 1);
+      assert.equal(hostInbox.value.messages.length, 2); assert.equal(hostInbox.value.messages[0].data.seq, 1);
       assert.equal((await getMessages(peer)).value.messages.length, 0);
       assert.equal((await send(host, 'all', 'game', { session: 'r1', seq: 7, type: 'state', score: [1, 0] })).status, 201);
       const state = await getMessages(guest);
@@ -206,6 +263,33 @@ async function main() {
       assert.deepEqual(state.value.messages[0].data.score, [1, 0]);
       assert.equal((await getMessages(guest, state.value.cursor)).value.messages.length, 0);
       assert.equal((await send(host, host.memberId, 'game', { type: 'state' })).status, 400);
+    });
+
+    await test('five-knife burst remains one bounded guest action through authenticated HTTP and direct channel', async () => {
+      const host=await create(),guest=await join(host),peer=await join(host,'red','PEER');await ready(peer);await start(host,guest);
+      const payload={type:'input',seq:1,round:1,input:{x:0,y:0,z:0,yaw:0,pitch:0},actions:[{type:'fire',seq:1,round:1,at:10,yaw:0,pitch:0,ultimate:true,burst:true}]};
+      assert.equal((await send(guest,'host','game',payload)).status,201);const inbox=(await getMessages(host)).value;assert.equal(inbox.messages.length,1);assert.deepEqual(inbox.messages[0].data,payload);assert.equal((await getMessages(peer)).value.messages.length,0);
+      const {RoomClient}=await import(pathToFileURL(path.join(__dirname,'public/online.js')).href),delivered=[];
+      const client=Object.assign(Object.create(RoomClient.prototype),{host:false,closed:false,room:{status:'playing'},session:{code:host.code,memberId:guest.memberId,hostId:host.memberId},connectionId:'blade-test',peers:new Map([[host.memberId,{channel:{readyState:'open',bufferedAmount:0,send:value=>delivered.push(JSON.parse(value))}}]]),pendingState:null,pendingTeamStates:new Map(),lastRelay:clock,relayBusy:false});
+      client.send(payload);assert.equal(delivered.length,1);assert.equal(delivered[0].actions.length,1);assert.deepEqual(delivered[0].actions,payload.actions);assert.equal(delivered[0].room,host.code);assert.equal(delivered[0].connection,'blade-test');
+    });
+
+    await test('Renko Q stop remains one bounded guest action through authenticated HTTP and direct channel', async () => {
+      const host=await create(),guest=await join(host),peer=await join(host,'red','PEER');await ready(peer);await start(host,guest);
+      const payload={type:'input',seq:1,round:1,input:{x:0,y:0,z:0,yaw:0,pitch:0},actions:[{type:'ability',seq:1,round:1,at:10,key:'q',renkoStop:true}]};
+      assert.equal((await send(guest,'host','game',payload)).status,201);const inbox=(await getMessages(host)).value;assert.equal(inbox.messages.length,1);assert.deepEqual(inbox.messages[0].data,payload);assert.equal((await getMessages(peer)).value.messages.length,0);
+      const {RoomClient}=await import(pathToFileURL(path.join(__dirname,'public/online.js')).href),delivered=[];
+      const client=Object.assign(Object.create(RoomClient.prototype),{host:false,closed:false,room:{status:'playing'},session:{code:host.code,memberId:guest.memberId,hostId:host.memberId},connectionId:'renko-stop-test',peers:new Map([[host.memberId,{channel:{readyState:'open',bufferedAmount:0,send:value=>delivered.push(JSON.parse(value))}}]]),pendingState:null,pendingTeamStates:new Map(),lastRelay:clock,relayBusy:false});
+      client.send(payload);assert.equal(delivered.length,1);assert.equal(delivered[0].actions.length,1);assert.deepEqual(delivered[0].actions,payload.actions);assert.equal(delivered[0].room,host.code);assert.equal(delivered[0].connection,'renko-stop-test');
+    });
+
+    await test('VEIL C/X selected floor coordinates survive authenticated HTTP and direct delivery without adding snapshot fields', async () => {
+      const host=await create(),guest=await join(host);await start(host,guest);
+      const payload={type:'input',seq:1,round:1,input:{x:0,y:0,z:0,yaw:0,pitch:0},actions:[{type:'ability',seq:1,round:1,at:10,key:'c',smokePoint:[34,-3.2,-20]},{type:'ability',seq:2,round:1,at:10.2,key:'x',smokePoint:[-22,3.2,15]}]};
+      assert.equal((await send(guest,'host','game',payload)).status,201);assert.deepEqual((await getMessages(host)).value.messages[0].data,payload);
+      const {RoomClient}=await import(pathToFileURL(path.join(__dirname,'public/online.js')).href),delivered=[];
+      const client=Object.assign(Object.create(RoomClient.prototype),{host:false,closed:false,room:{status:'playing'},session:{code:host.code,memberId:guest.memberId,hostId:host.memberId},connectionId:'veil-map-test',peers:new Map([[host.memberId,{channel:{readyState:'open',bufferedAmount:0,send:value=>delivered.push(JSON.parse(value))}}]]),pendingState:null,pendingTeamStates:new Map(),lastRelay:clock,relayBusy:false});
+      client.send(payload);assert.deepEqual(delivered[0].actions,payload.actions);assert.ok(Buffer.byteLength(JSON.stringify(payload))<65536);
     });
 
     await test('team snapshots remain private to authenticated membership and preserve relay limits', async () => {
@@ -333,13 +417,13 @@ async function main() {
       teamAbilities.update(actors, now, 1);
       for (let i = 0; i < 20; i++) { const actor = actors[i % 10]; zoneAbilities.cast(i % 2 ? 'ember' : 'frost', actor, { x: actor.x, y: 0, z: actor.z }, now, 1); }
       for (let i = 0; i < 20; i++) ordinarySkills.cast(i % 2 ? 'nope-bottle' : 'nope-flash', player,
-        { x: .123456789012345, y: 1.7, z: -5.23456789012345 }, now - .5, 1);
+        { x: .123456789012345, y: 1.7, z: -5.23456789012345 }, now - 1.05, 1);
       const blindRecipients = Array.from({ length: 20 }, (_, i) => ({ ...player, id: `ordinary-recipient-${String(i).padStart(2, '0')}`, team: 'red', yaw: 0 }));
       ordinarySkills.update(blindRecipients, now, 1, { reachable: () => true });
       const heldBlinds = ordinarySkills.snapshot().blinds.map(blind => ({ ...blind, resisted: true, endsAt: blind.startedAt + NOPE_SKILLS.flashDuration * EMBER_SKILLS.shadeFlashScale }));
       ordinarySkills.reset();
       const tagOwner = actors[5];
-      for (let i = 0; i < 20; i++) assert.ok(ordinarySkills.cast('echo-tag', tagOwner, { x: tagOwner.x, y: .12, z: tagOwner.z }, now - 1.05, 1));
+      for (let i = 0; i < 20; i++) assert.ok(ordinarySkills.cast('echo-tag', tagOwner, { x: tagOwner.x, y: .12, z: tagOwner.z }, now - 2, 1));
       ordinarySkills.update([tagOwner, { ...player, x: tagOwner.x, z: tagOwner.z }], now, 1, { reachable: () => true });
       assert.equal(ordinarySkills.snapshot().markers.length, 20);
       // Keep all twenty blindness records while replacing the bounded visual
@@ -371,7 +455,9 @@ async function main() {
       assert.equal(nopeDecoys.start(player,Array.from({length:30},(_,i)=>({x:-999.99+i*.01,y:-999.99,z:999.99-i*.01,yaw:3.1415,walkLength:36})),now,1),true);
       const nopeState=nopeDecoys.snapshot();nopeState.id='nope-wave-1-999999999999999';assert.equal(nopeDecoys.restore(nopeState,now,1),true);
       const serializeNopePops=()=>Array.from({length:8},(_,i)=>[Number.MAX_SAFE_INTEGER-7+i,-999.1234567890123,-999.1234567890123,-999.1234567890123,now]);
-      const sent = [], sandbox = { map:{id:"hirakata",traffic:{service:{snapshot:()=>[]}}}, fitTrafficSnapshot:(await import(pathToFileURL(path.join(__dirname,"public/traffic-state.js")).href)).fitTrafficSnapshot, player, bots, roster, match, elapsed: now, teamAbilities, zoneAbilities, ordinarySkills, nopeDecoys, serializeNopePops, onlinePlaying: true,
+      const robotArmy=(await load('ember-robots.js')).createRobotArmy();
+      const {packRobotEvents}=await load('ember-robot-wire.js');
+      const sent = [], sandbox = { robotArmy,packRobotEvents, map:{id:"hirakata",traffic:{service:{snapshot:()=>[]}}}, fitTrafficSnapshot:(await import(pathToFileURL(path.join(__dirname,"public/traffic-state.js")).href)).fitTrafficSnapshot, player, bots, roster, match, elapsed: now, teamAbilities, zoneAbilities, ordinarySkills, nopeDecoys, serializeNopePops, onlinePlaying: true,
         online: { host: true, send: (packet, options) => sent.push({ packet, team: options?.team }) }, netClock: 0, netSequence: 0, netHostPaused: false,
         inventory: { active: 'phantom', primary: 'phantom', secondary: 'ghost' }, reloading: 1.2345678901234567, shotSequence: 0, lastShot: now,
         serializeNetCues: () => cues, serializeSmokes: () => smokes, serializeDrops: () => drops,
@@ -386,7 +472,8 @@ async function main() {
       assert.deepEqual(sent.map(entry => entry.team), ['blue', 'red'], 'The actual host serializer must make two private team packets');
       assert.equal(sent[0].packet.seq, sent[1].packet.seq, 'A team split is one logical host frame');
       assert.equal(sent[0].packet.ordinarySkills.markers.length, 0); assert.equal(sent[0].packet.teamAbilities.pings.length, 0);
-      const snapshot = JSON.parse(JSON.stringify({ ...sent[1].packet, room: host.code, connection: '10000000-0000-4000-8000-000000000000' }));
+      db.prepare("UPDATE online_rooms SET settings=json_set(settings, '$.matchEpoch', 9999) WHERE code=?").run(host.code);
+      const snapshot = JSON.parse(JSON.stringify({ ...sent[1].packet, epoch:9999, room: host.code, connection: '10000000-0000-4000-8000-000000000000' }));
       assert.deepEqual([snapshot.actors.length, snapshot.roster.length, snapshot.cues.length, snapshot.smokes.length, snapshot.drops.length,
         snapshot.teamAbilities.events.length, snapshot.teamAbilities.pings.length, snapshot.zoneAbilities.events.length,
         snapshot.ordinarySkills.events.length, snapshot.ordinarySkills.blinds.length, snapshot.ordinarySkills.markers.length], [10, 10, 64, 20, 32, 20, 50, 20, 20, 20, 20]);
@@ -410,9 +497,19 @@ async function main() {
       const nopeReplica=createNopeDecoys();assert.equal(nopeReplica.restore(snapshot.nopeDecoys,now,1),true);assert.equal(nopeReplica.events(now).length,30);
       assert.ok(bytes > 40 * 1024 && bytes <= 64 * 1024, `The complete conservative snapshot must exceed the former limit and fit the new cap, got ${bytes}B`);
       assert.equal((await send(host, 'team:red', 'game', snapshot)).status, 201);
+      // Three full30-bit masks are larger than an unshot wave, but bodies are
+      // derived from the same30 routes even when all90 have been created.
+      const maximumWave=JSON.parse(JSON.stringify(snapshot));
+      maximumWave.nopeDecoys.shotMask=[0x3fffffff,0x3fffffff,0x3fffffff];
+      maximumWave.takeover.endsAt=maximumWave.takeover.startedAt+22;
+      const fitMaximumWave=(await import(pathToFileURL(path.join(__dirname,'public/traffic-state.js')).href)).fitTrafficSnapshot;
+      const maximumPacket=fitMaximumWave(maximumWave);assert.ok(maximumPacket);
+      assert.deepEqual(maximumPacket.actors,maximumWave.actors);assert.deepEqual(maximumPacket.ordinarySkills,maximumWave.ordinarySkills);
+      assert.deepEqual(maximumPacket.nopeDecoys,maximumWave.nopeDecoys);
+      assert.ok(Buffer.byteLength(JSON.stringify(maximumPacket))<=65536);
       const delivered = (await getMessages(guest)).value.messages;
       assert.equal(delivered.length, 1); assert.deepEqual(delivered[0].data, snapshot, 'HTTP fallback must preserve every state/effect/cue/marker/drop without truncation');
-      for(const type of ['duck-pad','duck-seal','duck-shield','cat-pluck','car-bumper','nobi-tag','nobi-brake','japan-levy','japan-border','cap-lock','cap-clean','urchin-lance','urchin-jam','urchin-disarm']){
+      for(const type of ['nobi-bell','nobi-whisker','nobi-toolbox','nobi-collar','duck-pad','duck-seal','duck-shield','cat-pluck','car-bumper','nobi-tag','nobi-brake','japan-levy','japan-border','cap-lock','cap-clean','urchin-lance','urchin-jam','urchin-disarm']){
         clock+=200; // Model the existing relay cadence while testing more roster payloads.
         const worst=JSON.parse(JSON.stringify(snapshot)),pool=createCharacterSkills();
         for(let i=0;i<20;i++)assert.ok(pool.cast(type,player,{x:player.x,y:0,z:player.z-3,targetId:'s'.repeat(64),yaw:1.2345678901234567},now,1));
@@ -447,9 +544,10 @@ async function main() {
       urchinPacket.ordinarySkills.events=urchinPool.snapshot().events;assert.ok(createCharacterSkills().restore(urchinPacket.ordinarySkills,now,1));assert.equal((await send(host,'team:red','game',urchinPacket)).status,201);
       for(const type of ['onnara-tax','onnara-orb','onnara-hover','onnara-chain']){
         clock+=200;const worst=JSON.parse(JSON.stringify(snapshot)),pool=createCharacterSkills();
-        for(let i=0;i<20;i++){const source={...player,id:'o'.repeat(62)+String(i).padStart(2,'0'),y:1.2345678901234567,grounded:false},target={x:source.x,y:source.y,z:source.z,...(type==='onnara-tax'?{targetId:'t'.repeat(62)+String(i).padStart(2,'0')}:{yaw:1.2345678901234567})};assert.ok(pool.cast(type,source,target,now,1));if(type==='onnara-chain')pool.recordConstellation(source.id,{x:123.456,y:7.891,z:-123.456},{x:124.456,y:7.891,z:-123.456},now);}
+        for(let i=0;i<20;i++){const source={...player,id:'o'.repeat(62)+String(i).padStart(2,'0'),y:1.2345678901234567,grounded:false},target={x:source.x,y:source.y,z:source.z,...(type==='onnara-tax'?{targetId:'t'.repeat(62)+String(i).padStart(2,'0')}:{yaw:1.2345678901234567})};const cast=pool.cast(type,source,target,now,1);assert.ok(cast);if(type==='onnara-hover')assert.ok(pool.beginOnnaraHop(cast.id,source,now,999999999999999));if(type==='onnara-chain')pool.recordConstellation(source.id,{x:123.456,y:7.891,z:-123.456},{x:124.456,y:7.891,z:-123.456},now);}
         worst.ordinarySkills.events=pool.snapshot().events.map((e,i)=>({...e,id:`skill-${type}-${999999999999980+i}`}));
         if(type==='onnara-tax'){const effectsPacket={...worst,cues:worst.cues.map(c=>({...c,type:'skill-heal',weapon:'duelist'}))};const fitSkill=(await import(pathToFileURL(path.join(__dirname,'public/traffic-state.js')).href)).fitTrafficSnapshot;const skillPacket=fitSkill(effectsPacket);assert.ok(skillPacket);assert.deepEqual(skillPacket.actors,effectsPacket.actors);assert.deepEqual(skillPacket.ordinarySkills,effectsPacket.ordinarySkills);assert.deepEqual(skillPacket.cues,effectsPacket.cues.slice(-skillPacket.cues.length));assert.ok(Buffer.byteLength(JSON.stringify(skillPacket))<=65536);assert.equal((await send(host,'team:red','game',skillPacket)).status,201);console.log(`SKILL IMPACT live64cue capacity ${Buffer.byteLength(JSON.stringify(skillPacket))}B /65536B`);worst.rules.phase='post';worst.rules.phaseTime=5;worst.rules.lastRound={team:'blue',reason:'elimination',won:true,reward:3000,round:1,side:'attack',fullCombo:0};const fit=(await import(pathToFileURL(path.join(__dirname,'public/traffic-state.js')).href)).fitTrafficSnapshot;const bounded=fit(worst);assert.ok(bounded);assert.ok(bounded.cues.length<worst.cues.length);assert.deepEqual(bounded.rules,worst.rules);assert.deepEqual(bounded.actors,worst.actors);assert.deepEqual(bounded.ordinarySkills,worst.ordinarySkills);assert.equal(worst.cues.length,64);worst.cues=bounded.cues;}
+        if(type==='onnara-hover'){const fit=(await import(pathToFileURL(path.join(__dirname,'public/traffic-state.js')).href)).fitTrafficSnapshot,bounded=fit(worst);assert.ok(bounded);assert.deepEqual(bounded.actors,worst.actors);assert.deepEqual(bounded.ordinarySkills,worst.ordinarySkills);worst.cues=bounded.cues;}
         assert.ok(createCharacterSkills().restore(worst.ordinarySkills,now,1));const bytes=Buffer.byteLength(JSON.stringify(worst),'utf8');assert.ok(bytes<=65536,`${type} full snapshot ${bytes}B`);assert.equal((await send(host,'team:red','game',worst)).status,201);console.log(`ONNARA SNAPSHOT CAPACITY: ${type} ${bytes}B /65536B`);
       }
       clock+=200;
@@ -473,18 +571,37 @@ async function main() {
       for(const b of gloomy.ordinarySkills.blinds)delete b.resisted;
       assert.ok(createCharacterSkills().restore(gloomy.ordinarySkills,now,1));const gloomFit=fitTrafficSnapshot(gloomy);assert.ok(gloomFit);assert.deepEqual(gloomFit.ordinarySkills,gloomy.ordinarySkills);assert.deepEqual(gloomFit.actors,gloomy.actors);assert.ok(Buffer.byteLength(JSON.stringify(gloomFit))<=65536);clock+=200;assert.equal((await send(host,'team:red','game',gloomFit)).status,201);console.log(`GLOOM20 +NEARSIGHT20 capacity ${Buffer.byteLength(JSON.stringify(gloomFit))}B /65536B; authority retained`);
       const limited=fitTrafficSnapshot(full);assert.ok(limited);assert.ok(limited.cues.length<full.cues.length);assert.deepEqual(limited.actors,full.actors);assert.deepEqual(limited.ordinarySkills,full.ordinarySkills);assert.deepEqual(limited.rules,full.rules);assert.ok(Buffer.byteLength(JSON.stringify(limited))<=65536);clock+=200;assert.equal((await send(host,'team:red','game',limited)).status,201);console.log(`HIRAKATA simultaneous10 launches full wire ${Buffer.byteLength(JSON.stringify(limited))}B /65536B; only old cosmetic cues reduced`);
-      const trcFull=JSON.parse(JSON.stringify(full));trcFull.mapId='trc';delete trcFull.busTransit;delete trcFull.busDamage;trcFull.trcDoors=[['D1',180,false],['D2',179,true],['D3',0,true]];
+      const trcFull=JSON.parse(JSON.stringify(full));trcFull.mapId='trc';delete trcFull.busTransit;delete trcFull.busDamage;trcFull.trcDoors=[['D1',180,false],['D2',179,true],['D3',0,true],['D4',180,false],['D5',0,true]];
+      for(const [i,drop]of trcFull.drops.entries())drop.y=i%2?-3.2:3.2;trcFull.rules.spike.y=-3.2;
       for(const actor of trcFull.actors)Object.assign(actor,{trcLadder:'L1',crouch:1,hp:1000,armor:500});
       const trcFit=fitTrafficSnapshot(trcFull);assert.ok(trcFit);for(const field of ['trcDoors','actors','rules','roster','ordinarySkills','teamAbilities','zoneAbilities','drops'])assert.deepEqual(trcFit[field],trcFull[field]);
       const trcBytes=Buffer.byteLength(JSON.stringify(trcFit));assert.ok(trcBytes<=65536);clock+=200;assert.equal((await send(host,'team:red','game',trcFit)).status,201);console.log(`TRC10 climbers/doors/boostedactors bounded wire ${trcBytes}B /65536B; authority retained`);
       const driven={...full,busTransit:[[0,0,0,now+25,29.123,-35.789,-1.571,17,[0,1,2]],[1,0,3,now+25,1.234,32.456,1.571,17,[3,4,5]],[2,0,6,now+25,31.456,-36.123,1.571,17,[6,7]],[3,0,8,now+25,3.456,33.123,1.571,17,[8,9]]]};
       for(const actor of driven.actors)Object.assign(actor,{hp:1000,armor:500});
       const busFit=fitTrafficSnapshot(driven);assert.ok(busFit);assert.deepEqual(busFit.busTransit,driven.busTransit);assert.deepEqual(busFit.actors,driven.actors);assert.deepEqual(busFit.ordinarySkills,driven.ordinarySkills);assert.ok(Buffer.byteLength(JSON.stringify(busFit))<=65536);clock+=200;assert.equal((await send(host,'team:red','game',busFit)).status,201);console.log(`BUS4 /10 riders / full skills capacity ${Buffer.byteLength(JSON.stringify(busFit))}B /65536B`);
+      const retired={...driven,busTransit:[0,1,2,3].map(i=>[i,0,-1,0,null,null,null,0,[]])};const retiredFit=fitTrafficSnapshot(retired);assert.ok(retiredFit);assert.deepEqual(retiredFit.busTransit,retired.busTransit);assert.deepEqual(retiredFit.actors,retired.actors);assert.deepEqual(retiredFit.rules,retired.rules);clock+=200;assert.equal((await send(host,'team:red','game',retiredFit)).status,201);console.log(`BUS4 RETIRED /10 boosted actors ${Buffer.byteLength(JSON.stringify(retiredFit))}B /65536B`);
       const queued={...driven,busDamage:'ff'.repeat(10)+'03',busTransit:driven.busTransit.map((v,i)=>[i,100,-1,0,v[4],v[5],v[6],0,v[8],now-12.345])};
       const queuedFit=fitTrafficSnapshot(queued);assert.ok(queuedFit);assert.deepEqual(queuedFit.busDamage,queued.busDamage);assert.deepEqual(queuedFit.busTransit,queued.busTransit);assert.deepEqual(queuedFit.actors,queued.actors);assert.deepEqual(queuedFit.ordinarySkills,queued.ordinarySkills);clock+=200;assert.equal((await send(host,'team:red','game',queuedFit)).status,201);console.log(`BUS4 QUEUED /82 destroyed props /10 boosted riders ${Buffer.byteLength(JSON.stringify(queuedFit))}B /65536B; authority retained`);
       const allBays={...queued,busDamage:'ff'.repeat(32)};const allBaysFit=fitTrafficSnapshot(allBays);assert.ok(allBaysFit);assert.equal(allBaysFit.busDamage,allBays.busDamage);assert.deepEqual(allBaysFit.actors,allBays.actors);assert.deepEqual(allBaysFit.busTransit,allBays.busTransit);assert.deepEqual(allBaysFit.ordinarySkills,allBays.ordinarySkills);clock+=200;assert.equal((await send(host,'team:red','game',allBaysFit)).status,201);console.log(`BUS4 queued /max256 demolition bits /10 boosted actors ${Buffer.byteLength(JSON.stringify(allBaysFit))}B /65536B`);
       const impactFull={...allBays,cues:Array.from({length:64},(_,i)=>({seq:99900+i,round:1,type:'bus-break',weapon:'vandal',id:'bus-break:north-1',x:29.123456,y:1.35,z:-33.123456,time:now}))};
       const impactFit=fitTrafficSnapshot(impactFull);assert.ok(impactFit);assert.deepEqual(impactFit.actors,impactFull.actors);assert.deepEqual(impactFit.ordinarySkills,impactFull.ordinarySkills);assert.deepEqual(impactFit.busTransit,impactFull.busTransit);assert.equal(impactFit.busDamage,impactFull.busDamage);assert.ok(impactFit.cues.length>0);assert.deepEqual(impactFit.cues,impactFull.cues.slice(-impactFit.cues.length));assert.ok(Buffer.byteLength(JSON.stringify(impactFit))<=65536);clock+=200;assert.equal((await send(host,'team:red','game',impactFit)).status,201);console.log(`BUS BREAK64 cues /4 queued /all bays /10 actors ${Buffer.byteLength(JSON.stringify(impactFit))}B /65536B; authoritative fields intact`);
+      const combatFull={...allBays,cues:Array.from({length:64},(_,i)=>({seq:100000+i,round:1,type:i%2?'kill-5':'gun-hit',weapon:'vandal',id:actors[i%10].id,x:29.123456,y:1.35,z:-33.123456,time:now}))};
+      const combatFit=fitTrafficSnapshot(combatFull);assert.ok(combatFit);assert.deepEqual(combatFit.actors,combatFull.actors);assert.deepEqual(combatFit.ordinarySkills,combatFull.ordinarySkills);assert.deepEqual(combatFit.rules,combatFull.rules);assert.deepEqual(combatFit.busTransit,combatFull.busTransit);assert.equal(combatFit.busDamage,combatFull.busDamage);assert.ok(combatFit.cues.length>0);assert.deepEqual(combatFit.cues,combatFull.cues.slice(-combatFit.cues.length));assert.ok(Buffer.byteLength(JSON.stringify(combatFit))<=65536);clock+=200;assert.equal((await send(host,'team:red','game',combatFit)).status,201);console.log(`GUN confirmation64 cues/4queued/all bays/10actors ${Buffer.byteLength(JSON.stringify(combatFit))}B /65536B; authoritative fields intact`);
+
+
+      // Renko X uses one optional kit boolean. Check ten active X, twenty darts and ten accepted pushes
+      // with all previous maximum state against the real SQLite relay.
+      const renkoPool=createCharacterSkills();for(let i=0;i<20;i++)assert.ok(renkoPool.cast('renko-dart',{id:'renko'+i,team:i%2?'red':'blue',x:-22.123,y:9.123,z:33.123,hp:100,alive:true},{x:-22.123,y:10.823,z:-6.877},now,1));
+      const renkoFull={...allBays,ordinarySkills:{...allBays.ordinarySkills,events:renkoPool.snapshot().events},actors:allBays.actors.map(a=>({...a,kit:{...a.kit,character:'renko',renkoActive:true},carMove:['skill-renko-dart-999999999999999',4,now+.9,24,0,6]}))};
+      assert.ok(createCharacterSkills().restore(renkoFull.ordinarySkills,now,1));const renkoFit=fitTrafficSnapshot(renkoFull);assert.ok(renkoFit);assert.deepEqual(renkoFit.actors,renkoFull.actors);assert.deepEqual(renkoFit.ordinarySkills,renkoFull.ordinarySkills);assert.ok(Buffer.byteLength(JSON.stringify(renkoFit))<=65536);clock+=200;assert.equal((await send(host,'team:red','game',renkoFit)).status,201);console.log(`RENKO X10/20 darts/10 pushes/4queued/all bays ${Buffer.byteLength(JSON.stringify(renkoFit))}B /65536B; authority retained`);
+      const farPool=createCharacterSkills();for(let i=0;i<20;i++)assert.ok(farPool.cast('renko-dart',{id:'renko'+i,team:i%2?'red':'blue',x:71.123456789,y:9.123456789,z:71.123456789,hp:100,alive:true},{x:-81.987654321,y:10.823456789,z:-81.987654321},now,1));
+      const farFull={...renkoFull,ordinarySkills:{...renkoFull.ordinarySkills,events:farPool.snapshot().events.map((e,i)=>({...e,id:`skill-renko-dart-${999999999999980+i}`}))}};
+      assert.ok(createCharacterSkills().restore(farFull.ordinarySkills,now,1));const farFit=fitTrafficSnapshot(farFull);assert.ok(farFit);assert.deepEqual(farFit.actors,farFull.actors);assert.deepEqual(farFit.ordinarySkills,farFull.ordinarySkills);assert.ok(Buffer.byteLength(JSON.stringify(farFit))<=65536);clock+=200;assert.equal((await send(host,'team:red','game',farFit)).status,201);console.log(`RENKO20 long-flight/max IDs/10 pushes ${Buffer.byteLength(JSON.stringify(farFit))}B /65536B; authority retained`);
+      for(const type of['renko-drive','renko-jet']){const pool=createCharacterSkills();for(let i=0;i<20;i++)assert.ok(pool.cast(type,{id:'renko'+i,team:i%2?'red':'blue',x:-22.123456789,y:9.123456789,z:33.123456789,hp:100,alive:true},{x:-22.123456789,y:9.123456789,z:33.123456789},now,1));const state={...renkoFull,ordinarySkills:{...renkoFull.ordinarySkills,events:pool.snapshot().events.map((e,i)=>({...e,id:`skill-${type}-${999999999999980+i}`}))}};assert.ok(createCharacterSkills().restore(state.ordinarySkills,now,1));const bounded=fitTrafficSnapshot(state);assert.ok(bounded);assert.deepEqual(bounded.actors,state.actors);assert.deepEqual(bounded.ordinarySkills,state.ordinarySkills);assert.ok(Buffer.byteLength(JSON.stringify(bounded))<=65536);clock+=200;assert.equal((await send(host,'team:red','game',bounded)).status,201);console.log(`RENKO20 ${type}/max ID/10 pushes ${Buffer.byteLength(JSON.stringify(bounded))}B /65536B`);}
+
+      const cameraPool=createCharacterSkills();for(let i=0;i<20;i++){const owner={id:'camera'+Math.floor(i/2),team:Math.floor(i/2)%2?'red':'blue',x:-22.123,y:9.123,z:33.123,hp:100,alive:true};assert.ok(cameraPool.cast('onnara-orb',owner,{x:owner.x,y:10.653,z:owner.z-.6,yaw:-2.345678901234567,cameraVelocity:[12/Math.sqrt(3),12/Math.sqrt(3),12/Math.sqrt(3)]},now,1));}
+      const cameraFull={...renkoFull,ordinarySkills:{...renkoFull.ordinarySkills,events:cameraPool.snapshot().events.map((e,i)=>({...e,id:`skill-onnara-orb-${999999999999980+i}`,x:-81.123,y:19.123,z:81.123}))}};
+      assert.ok(createCharacterSkills().restore(cameraFull.ordinarySkills,now,1));const cameraFit=fitTrafficSnapshot(cameraFull);assert.ok(cameraFit);assert.deepEqual(cameraFit.ordinarySkills,cameraFull.ordinarySkills);assert.deepEqual(cameraFit.actors,cameraFull.actors);clock+=200;assert.equal((await send(host,'team:red','game',cameraFit)).status,201);console.log(`ONNARA20 moving cameras/17fields/maxID/10actors/full bus state ${Buffer.byteLength(JSON.stringify(cameraFit))}B /65536B; authority retained`);
 
       // Ten crouched actors must still fit with the full bus/effect state.
       for(const actor of actors)actor.crouch=.987654321;

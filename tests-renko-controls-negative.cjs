@@ -1,0 +1,2 @@
+const {spawnSync}=require('node:child_process'),assert=require('node:assert/strict');
+for(const fault of['precision','release','heading','radius']){const r=spawnSync(process.execPath,['tests-renko-controls.cjs','--fault='+fault],{cwd:__dirname,encoding:'utf8',timeout:120000});assert.equal(r.error,undefined);assert.notEqual(r.status,0,fault);assert.match(r.stderr,/AssertionError/,fault+' must fail a behavioral assertion');console.log('PASS memory fault: '+fault);}

@@ -1,3 +1,4 @@
+import { GRASS_BLOCK_BODY } from './grass-platforms.js';
 // Original pixel-painted sod and dirt, wrapped around an actual solid cube.
 // The existing tactical rig remains the only combat/hit surface.
 const caches=new WeakMap();
@@ -59,7 +60,7 @@ function acquireAssets(THREE){
     // One metre of uninterrupted sod and soil forms the character itself.
     // Its front stays behind the existing grip points, leaving both hands and
     // most of the held rifle in clear air, even in the interaction pose.
-    box('body',[0,1.32,-.31],[1.04,1.08,1.02],'grass top / grass fringe / pebbled dirt cube');
+    box('body',[GRASS_BLOCK_BODY.x,GRASS_BLOCK_BODY.y,GRASS_BLOCK_BODY.z],[GRASS_BLOCK_BODY.width,GRASS_BLOCK_BODY.height,GRASS_BLOCK_BODY.depth],'grass top / grass fringe / pebbled dirt cube');
     // A few millimetres of real sod overhang cast a fine natural edge; their
     // stepped lower ends follow the pixel grass instead of adding a border.
     for(let side=0;side<4;side++)for(let i=0;i<8;i++){
@@ -94,7 +95,7 @@ export function createGrassBlockAvatar(THREE,{rig,upper,head,rightArm,leftArm,le
   const sources={body:upper,armR:rightArm.upperArm,armL:leftArm.upperArm,foreR:rightArm.forearm,foreL:leftArm.forearm,handR:rightArm.palm,handL:leftArm.palm,thighR:rightLeg.thigh,thighL:leftLeg.thigh,shinR:rightLeg.shin,shinL:leftLeg.shin,shoeR:rightLeg.boot,shoeL:leftLeg.boot};
   for(const template of cache.templates){if(!frames.has(template.frame)){const frame=new THREE.Group();frame.name=`Grass block avatar frame / ${template.frame}`;frame.matrixAutoUpdate=false;group.add(frame);frames.set(template.frame,frame);}const material=cache.materials.get(template.material==='team'?(team==='blue'?'team blue':'team red'):template.material),mesh=new THREE.Mesh(template.geometry,material);mesh.name=`Grass block avatar / ${template.label}`;mesh.userData.character='veil';mesh.userData.solid=false;mesh.raycast=()=>{};mesh.castShadow=true;mesh.receiveShadow=true;frames.get(template.frame).add(mesh);}
   let disposed=false;
-  function update(){if(disposed)return;for(const [name,frame]of frames){const source=sources[name];source.updateMatrix();frame.matrix.copy(source.matrix);frame.matrixWorldNeedsUpdate=true;}}
+  function update({crouch=0,stable=true}={}){if(disposed)return;for(const [name,frame]of frames){const source=sources[name];source.updateMatrix();frame.matrix.copy(source.matrix);if(name==='body'&&stable)frame.matrix.makeTranslation(source.position.x,-Math.max(0,Math.min(1,crouch))*.55,source.position.z);frame.matrixWorldNeedsUpdate=true;}}
   function setVisible(value){group.visible=Boolean(value);}
   function dispose(){if(disposed)return;disposed=true;group.removeFromParent();release();}
   update();return {group,roots:frames,update,setVisible,dispose};

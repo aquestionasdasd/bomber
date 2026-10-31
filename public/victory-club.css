@@ -1,0 +1,12 @@
+/* Colored spotlights frame the dancer; one overlay, no second renderer. */
+.victory-club{position:fixed;inset:0;z-index:3;overflow:hidden;contain:strict;pointer-events:none;mix-blend-mode:screen;--club-pulse:0;--club-sweep:0deg;--club-counter:0deg;--club-hue:0deg}
+.victory-club[hidden]{display:none}
+.club-wash{position:absolute;inset:0;background:radial-gradient(ellipse at 0 65%,#fb24d7b0,transparent 55%),radial-gradient(ellipse at 100% 50%,#16bdfbb0,transparent 55%),radial-gradient(ellipse at 50% 100%,#9b3cfc90,transparent 50%);opacity:calc(.24 + var(--club-pulse)*.20);filter:hue-rotate(var(--club-hue))}
+.club-beam{position:absolute;top:-10%;left:-8%;width:42%;height:135%;transform-origin:50% 0;clip-path:polygon(48% 0,52% 0,100% 100%,0 100%);background:linear-gradient(180deg,currentColor,transparent 96%);color:#ff2abb;opacity:calc(.16 + var(--club-pulse)*.22);transform:rotate(calc(-22deg + var(--club-sweep)));filter:hue-rotate(var(--club-hue));will-change:transform,opacity}
+.club-beam:nth-of-type(2){left:8%;width:29%;color:#8b5bff;transform:rotate(calc(22deg + var(--club-counter)))}
+.club-beam:nth-of-type(3){left:62%;color:#14cfff;transform:rotate(calc(22deg - var(--club-sweep)))}
+.club-beam:nth-of-type(4){left:65%;width:29%;color:#ffd147;transform:rotate(calc(-22deg - var(--club-counter)))}
+.club-beam:nth-of-type(5){top:auto;bottom:-12%;left:0;width:30%;height:95%;transform-origin:50% 100%;color:#17ffd4;transform:rotate(calc(25deg + var(--club-counter)))}
+.club-beam:nth-of-type(6){top:auto;bottom:-12%;left:70%;width:30%;height:95%;transform-origin:50% 100%;color:#ff4faf;transform:rotate(calc(-25deg - var(--club-counter)))}
+.victory-club[data-reduced="true"] .club-beam{display:none}
+@media(prefers-reduced-motion:reduce){.victory-club .club-beam{display:none}.victory-club .club-wash{opacity:.25;filter:none}}

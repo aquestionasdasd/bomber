@@ -2,9 +2,10 @@
 
 効果音：効果音ラボ / OtoLogic / On-Jin ～音人～
 スキル・通知・TRCの操作音に、この3サイトの編集済み音源を使用します。
-所有者の指定により、銃声・足音・着地は従来のKenney素材と再生処理を維持。
+所有者の最新指定により、銃撃/ナイフは共同編集版の効果音ラボ録音へ差し替え。
+足音・着地は従来のKenney素材と再生処理を維持。
 車両命中・壁破壊はユーザー提供MP3を使用します。
-銃声・足音・着地の既存fallback以外は、読取失敗時に無音となります。
+足音・着地の既存fallback以外は、読取失敗時に無音となります。
 
 OtoLogic — https://otologic.jp/
 Copyright OtoLogic. Licensed under Creative Commons Attribution 4.0:
@@ -158,3 +159,91 @@ User supplied bus wall destruction (cycle102)
 Original attachment: 岩が真っ二つに割れる.mp3 -> bus-wall-break-user.mp3 (unchanged bytes).
 Included at the user's explicit request for bus demolition in this game.
 Separate from Kenney CC0 packs; no CC0 license is claimed.
+
+Combat confirmation use (cycle109)
+- gun-hit: existing lab-punch-light1.ogg, Sound Effect Lab recording; terms and SHA remain in soundeffect-lab-manifest.json.
+- gun-kill: the same impact plus existing jingle-PIZZI07.ogg, Kenney Music Jingles, CC0; original license and SHA remain bundled.
+No new recording downloads, synthesized layers, gunshot/footstep changes or user-impact MP3 edits.
+
+Weapon recording integration (cycle115)
+Owner requested the collaborator gunfire replacement. All 10 firearms and knife
+now use the exact PR54/PR49 recorded recipes (rate, gain and clip length).
+Sources: lab-handgun-firing1.ogg / lab-machinegun-firing1.ogg /
+lab-machinegun-firing2.ogg / lab-knife-slash-1.ogg from Sound Effect Lab.
+Original source URLs, edits and SHA remain in soundeffect-lab-manifest.json.
+Self/enemy share the same weapon recording; distance/pan/occlusion remain.
+No playback/listening performed. Original footstep/landing graph and 8 asset
+bytes remain; earlier original-gunfire preservation notes above are history.
+
+Bus hijack horn (cycle124)
+bus-horn.wav: original project-authored two-tone electric horn waveform.
+Generated deterministically by scripts/generate-bus-horn.cjs; 185/233 Hz
+fundamentals and harmonics, PCM16 mono 44100 Hz, 0.72 seconds.
+No external samples or third-party recording licenses. Generated and checked
+offline only; no playback/listening performed. All existing recordings remain.
+
+User supplied victory BGM (cycle126)
+sandstorm.wav -> victory-sandstorm.wav (unchanged bytes).
+Bundled at the owner's explicit request; remains available in the victory BGM selector.
+Separate from the CC0 packs and Sound Effect Lab; no third-party license or
+artist attribution is inferred. Inspected as PCM offline; no audition.
+
+Owner-created kill sequence (cycle129)
+killsound.wav -> kill-sequence-user.wav (unchanged PCM24 stereo WAV bytes).
+160 BPM; kills 1-5 start at beats 1/3/5/7/9 (0/.75/1.5/2.25/3 seconds).
+First four clips stop before the next note; fifth retains its recorded tail.
+Bundled at the creator/owner's explicit request. Not claimed as CC0.
+Offline PCM inspection and mock playback scheduling only; no listening.
+
+Gun-hit confirmation clarity (cycle147)
+Existing lab-punch-light1.ogg (Sound Effect Lab) starts at 0.145 seconds to
+include its main impact; onjin-latch.ogg (On-Jin) supplies a simultaneous
+short click. Total cue is 90ms. Existing source URLs, terms and SHA remain
+in soundeffect-lab-manifest.json and extra-sources-manifest.json.
+No new recordings, synthesized sound, or modifications to asset bytes.
+Owner-created five-stage kill sequence and all other cue recipes unchanged.
+Offline PCM/reference model and mock scheduling only; no listening.
+
+Owner supplied victory BGM (cycle162)
+Break the dancefloor!!: btdf.wav -> victory-break-the-dancefloor.wav.
+Original owner-supplied PCM24 stereo/44.1kHz WAV bytes, unchanged; ~14.403 seconds.
+Bundled at the owner's explicit request. No third-party artist or CC0 license inferred.
+Offline PCM inspection and mocked transport/selection tests only; no listening.
+
+Owner supplied weapon recordings (cycle186)
+Classic v2: gunsound_classic_v2.wav; Ghost: gunsound_ghost.wav;
+Vandal: gunsound_vandal.wav; Phantom v2: gunsound_phantom_v2.wav.
+Bundled unchanged at the owner's explicit request, matching filenames to weapons.
+No CC0, third-party author or redistribution license is inferred.
+PCM16 stereo44.1kHz; native pitch, complete recording for self/enemy fire.
+Per-file byte counts, SHA256 and numeric PCM inspection are in manifest.json.
+These four cues supersede the collaborator recipes above; the other weapons,
+knife, original footstep/landing recordings and all other audio remain.
+Offline PCM inspection and inert WebAudio mocks only; no playback/listening.
+
+Owner-supplied weapon recordings (cycle221)
+Spectre: gunsound_spectre.wav; Scout: gunsound_scout.wav; Atlas: gunsound_atlas.wav.
+Classic v2: gunsound_classic_v2.wav (original gunsound_classic v2.wav).
+Phantom v2: gunsound_phantom_v2.wav (original gunsound_phantom v2.wav).
+All five supplied WAV files are bundled byte-for-byte, played once at rate1
+from the beginning through the complete recording by both local/enemy shots.
+Existing weapon gains, distance/occlusion/pan, mono peak safety and48-voice bound
+remain in place. The old Classic/Phantom files are replaced with versioned URLs
+to avoid replaying previously cached recordings. Ghost/Vandal and all other
+weapons, steps, impacts, UI/skill effects and victory music remain unchanged.
+Owner-provided; no CC0 or third-party license claim. No listening test performed.
+
+Owner-supplied default victory BGM (cycle222)
+BD3DO 勝利BGM.mp3 -> victory-bd3do.mp3, original MP3 bytes unchanged.
+MPEG1 Layer3 stereo44.1kHz/192kbps;384 frames (~10.031s including encoder frames).
+Default after this update; sandstorm and Break the dancefloor!! remain selectable.
+Owner-provided; no CC0 or third-party artist/license claim.
+Offline frame inspection and inert media mocks only; no decoding/listening.
+
+Owner-supplied Forge recording (cycle225)
+Forge: gunsound_forge.wav. Bundled byte-for-byte; local/enemy gunshots play
+once from the beginning through the complete recording at rate1. Existing
+Forge gain .31, mono peak safety, distance/occlusion/pan,48-voice bound and
+silent load/mute/failure behavior are preserved. Other audio is unchanged.
+The old collaborator source remains bundled as existing licensed material.
+Owner-provided; no CC0 or third-party license claim. No listening test performed.

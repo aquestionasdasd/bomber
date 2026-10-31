@@ -1,14 +1,15 @@
 /** A sixty-second, one-target-at-a-time aim drill. No match economy or spike state. */
 export class RangeSession {
-  constructor({duration=60}={}){
-    this.duration=duration;this.time=0;this.shots=0;this.hits=0;this.headHits=0;this.kills=0;this.headKills=0;this.score=0;this.lastTarget=-1;
+  constructor({duration=60,waiting=false}={}){
+    this.started=!waiting;this.duration=duration;this.time=0;this.shots=0;this.hits=0;this.headHits=0;this.kills=0;this.headKills=0;this.score=0;this.lastTarget=-1;
   }
   get remaining(){return Math.max(0,this.duration-this.time);}
   get complete(){return this.remaining<=1e-8;}
-  tick(dt){if(Number.isFinite(dt)&&dt>0)this.time=Math.min(this.duration,this.time+dt);return this.complete;}
-  recordShot(){if(!this.complete)this.shots++;}
+  start(){if(this.started||this.complete)return false;this.started=true;return true;}
+  tick(dt){if(this.started&&Number.isFinite(dt)&&dt>0)this.time=Math.min(this.duration,this.time+dt);return this.complete;}
+  recordShot(){if(this.started&&!this.complete)this.shots++;}
   recordHit({head=false,eliminated=false}={}){
-    if(this.complete)return;
+    if(!this.started||this.complete)return;
     this.hits++;if(head)this.headHits++;
     if(eliminated){this.kills++;if(head)this.headKills++;this.score+=head?150:100;}
   }

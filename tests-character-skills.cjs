@@ -399,14 +399,14 @@ async function main() {
     const maximum = tags.snapshot(); assert.ok(Buffer.byteLength(JSON.stringify(maximum)) < 12000); assert.equal(createCharacterSkills().restore(json(maximum), 2.1, 1), true);
     tags.reset(); const nextTag = tags.cast('echo-tag', owner, target(0, -5, .12), 0, 2); assert.ok(nextTag.id.endsWith('-41'));
   });
-  test('VEIL casts all three skills only with explicit live grounding and exact fixed self or bounded roots targets', () => {
+  test('VEIL casts all three skills only with explicit live grounding and map dust / exact self turf / bounded roots targets', () => {
     const skills = createCharacterSkills(), owner = actor('grass', 'blue', 3, 4, { y: 3.2, grounded: true });
     const destinations = { 'veil-dust': target(3, 4, 4.45), 'veil-roots': target(3, -3, 3.2), 'veil-turf': target(3, 4, 3.2) };
     for (const type of Object.keys(destinations)) {
       for (const grounded of [undefined, false, 0, 1, 'true', null]) assert.equal(skills.cast(type, { ...owner, grounded }, destinations[type], 2, 1), null);
       assert.equal(skills.cast(type, { ...owner, alive: false, hp: 0 }, destinations[type], 2, 1), null);
     }
-    for (const [type, bad] of [['veil-dust', target(3.01, 4, 4.45)], ['veil-dust', target(3, 4, 4.46)],
+    for (const [type, bad] of [['veil-dust', target(1001, 4, 4.45)], ['veil-dust', target(3, 4, NaN)],
       ['veil-turf', target(3, 4, 3.21)], ['veil-roots', target(3, 3.501, 3.2)], ['veil-roots', target(3, -6.001, 3.2)]]) assert.equal(skills.cast(type, owner, bad, 2, 1), null);
     const dust = skills.cast({ type: 'veil-dust', radius: 999 }, owner, destinations['veil-dust'], 2, 1);
     assert.ok(dust.id.endsWith('-1')); assert.equal(dust.fromY, 3.2); assert.equal(dust.flight, 0); assert.equal(dust.radius, 3.5); near(dust.triggerAt, 2.2); near(dust.endsAt, 9.2);
@@ -497,7 +497,7 @@ async function main() {
     for (const index of [0, 1, 2]) for (const [key, value] of [['flight', .1], ['radius', 99], ['triggerAt', 5], ['endsAt', 999], ['fromY', NaN], ['round', 2], ['targetId', 'secret'], ['width', 100], ['speedScale', 100], ['grounded', true]]) {
       const bad = json(packet); bad.events[index][key] = value; invalids.push(bad);
     }
-    for (const [index, key, value] of [[0, 'y', 1.26], [0, 'x', .01], [1, 'z', -.499], [1, 'z', -10.001], [2, 'y', .01], [2, 'x', .01]]) { const bad = json(packet); bad.events[index][key] = value; invalids.push(bad); }
+    for (const [index, key, value] of [[0, 'y', 1001], [0, 'x', NaN], [1, 'z', -.499], [1, 'z', -10.001], [2, 'y', .01], [2, 'x', .01]]) { const bad = json(packet); bad.events[index][key] = value; invalids.push(bad); }
     const duplicate = json(packet); duplicate.events.push({ ...duplicate.events[2], id: 'skill-veil-turf-4' }); invalids.push(duplicate);
     for (const bad of invalids) { const before = guest.snapshot(); assert.equal(guest.restore(bad, .25, 1), false); assert.deepEqual(guest.snapshot(), before); }
     guest.events(9); assert.equal(guest.restore(packet, .3, 1), true); assert.equal(guest.events(9).length, 0, 'A leading render clock cannot revive expired fields');
@@ -512,7 +512,7 @@ async function main() {
     for (const [key, destination] of [['c', target(0, 0, 1.25)], ['q', target(0, -7)], ['e', target(0, 0)]]) {
       const kit = new DuelistKit({ character: 'veil' }); kit.buy('c', () => true); kit.buy('q', () => true); const before = kit.snapshot(), effect = kit.activate(key, 0);
       assert.equal(skills.cast(effect, owner, destination, 0, 1), null); kit.restore(before); assert.deepEqual(kit.snapshot(), before); assert.deepEqual(skills.snapshot(), retained);
-      const empty = createCharacterSkills(); assert.equal(empty.cast(effect, { ...owner, grounded: false }, destination, 0, 1), null); kit.restore(before); assert.deepEqual(kit.snapshot(), before);
+      const empty = createCharacterSkills(), airborne=empty.cast(effect, { ...owner, grounded: false }, destination, 0, 1); if(key==='q')assert.equal(airborne?.type,'veil-root-seed');else assert.equal(airborne,null); kit.restore(before); assert.deepEqual(kit.snapshot(), before);
     }
     skills.events(12); const next = skills.cast('veil-turf', owner, target(0, 0), 12, 1); assert.ok(next.id.endsWith('-21'));
     assert.equal(createCharacterSkills().restore(retained, 0, 1), true); assert.ok(Buffer.byteLength(JSON.stringify(retained)) < 9000);
@@ -838,7 +838,7 @@ async function main() {
     const source = actualSource.replace(before, after).replace(/from '(\.\/[a-z-]+\.js)'/g, (_, file) => `from ${JSON.stringify(pathToFileURL(path.join(__dirname, 'public', file)).href)}`);
     return import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'));
   }
-  const arcMutant = await memoryEngine("event.type === 'duelist-comet' ? 0 :", "event.type === 'duelist-comet' ? .8 :");
+  const arcMutant = await memoryEngine("event.type === 'duelist-comet' || event.type === 'renko-dart' ? 0 :", "event.type === 'duelist-comet' ? .8 : event.type === 'renko-dart' ? 0 :");
   const rangeMutant = await memoryEngine('Math.hypot(target.x - actor.x, target.y - sourceEyeY, target.z - actor.z)', 'Math.hypot(target.x - actor.x, target.z - actor.z)');
   const restoreMutant = await memoryEngine('}, value, value.fromY)', '}, value)');
   test('WIND memory-only negative controls detect an accidental arc, horizontal-only range and doubled eye origin during restore', () => {

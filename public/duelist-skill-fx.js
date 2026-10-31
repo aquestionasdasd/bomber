@@ -1,3 +1,4 @@
+import { validThrowFlight } from './skill-throw.js';
 import { DUELIST_SKILLS } from './abilities.js';
 import { skillProjectilePosition } from './character-skills.js';
 
@@ -11,8 +12,8 @@ function validEvent(event,now){
     ||!identifier(event.sourceId)||!['red','blue'].includes(event.team)||!Number.isSafeInteger(event.round)||event.round<1
     ||![event.x,event.y,event.z,event.fromX,event.fromY,event.fromZ].every(coordinate)||![event.startedAt,event.triggerAt,event.endsAt].every(value=>Number.isFinite(value)&&value>=0))return false;
   const comet=event.type==='duelist-comet',flight=comet?DUELIST_SKILLS.cometFlight:0,tail=comet?DUELIST_SKILLS.cometDuration:DUELIST_SKILLS.liftVisualDuration;
-  return event.flight===flight&&event.radius===(comet?DUELIST_SKILLS.cometRadius:0)
-    &&Math.abs(event.triggerAt-event.startedAt-flight)<1e-7&&Math.abs(event.endsAt-event.triggerAt-tail)<1e-7
+  return (comet?validThrowFlight(event):event.flight===flight)&&event.radius===(comet?DUELIST_SKILLS.cometRadius:0)
+    &&Math.abs(event.triggerAt-event.startedAt-(comet?event.flight:flight))<1e-7&&Math.abs(event.endsAt-event.triggerAt-tail)<1e-7
     &&Math.hypot(event.x-event.fromX,event.y-event.fromY,event.z-event.fromZ)<=(comet?DUELIST_SKILLS.cometRange+1e-7:1e-7)
     &&now>=event.startedAt&&now<event.endsAt;
 }

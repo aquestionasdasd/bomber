@@ -8,15 +8,15 @@ const suite=String.raw`
   local.run("difficulty='hard';match.phase='live';match.roundTime=100;Object.assign(player,{team:'red',x:65,y:0,z:65,hp:100,alive:true});makeBot({x:-28,z:-25},0,'blue',{id:'worker',team:'blue',primary:'vandal',secondary:'classic',armor:50,kit:new DuelistKit({character:'nobi'})});var worker=bots[0];worker.kit.smoke=0;worker.kit.updraft=0;worker.kit.ultPoints=0;Object.assign(worker,{aiWeapon:'vandal',aiAmmo:25,aiReserve:75,aiReload:0,fire:999,think:1,target:null,nextSkillAt:999});var urgent=false;var role='plant';var defuserId=null;var goal={x:worker.x,z:worker.z};if(kind==='defuse'){worker.team=match.defenderTeam;worker.record.team=worker.team;player.team=match.attackerTeam;match.spike.status='planted';match.spike.carrier=null;match.spike.x=worker.x;match.spike.z=worker.z;match.spike.timer=45;role='defuse';defuserId=worker.id;}else{worker.team=match.attackerTeam;worker.record.team=worker.team;player.team=match.defenderTeam;match.spike.status='carried';match.spike.carrier=worker.id;}updateBots.tactics={reset(){},observe(){},contacts(){return[]},investigation(){return null},update(){return {siteId:'A',defuserId,roles:new Map([[worker.id,{goal,role,siteId:'A',urgent}]])}}};Math.random=()=>.2;");
  }
  function step(dt=.1){local.sandbox.stepDT=dt;local.run('elapsed+=stepDT;worker.kit.tick(elapsed);updateOrdinarySkills();updateBots(stepDT)');}
- const tools=()=>local.run("ordinarySkills.events(elapsed).filter(e=>e.type==='nobi-tool'&&e.sourceId===worker.id).length");
- check('first actual plant arms E despite generic timer and applies1.5x from first frame',()=>{
-  setup();step();assert.equal(tools(),1);assert.equal(local.run('worker.kit.dash'),0);near(local.run('match.spike.plantProgress'),.15,'first plant');assert.ok(local.run('worker.planting'));
-  for(let i=0;i<26;i++)step();assert.equal(local.run('match.spike.status'),'planted');assert.equal(tools(),1);
+ const tools=()=>local.run("ordinarySkills.events(elapsed).filter(e=>e.type==='nobi-toolbox'&&e.sourceId===worker.id).length");
+ check('first actual plant arms E despite generic timer and applies1.5x only after landing',()=>{
+  setup();step();assert.equal(tools(),1);assert.equal(local.run('worker.kit.dash'),0);near(local.run('match.spike.plantProgress'),.1,'first plant in flight');assert.ok(local.run('worker.planting'));
+  for(let i=0;i<30;i++)step();assert.equal(local.run('match.spike.status'),'planted');assert.equal(tools(),1);
   setup();local.run('worker.kit.dash=0');for(let i=0;i<27;i++)step();assert.equal(local.run('match.spike.status'),'carried');near(local.run('match.spike.plantProgress'),2.7,'ordinary work unchanged');
  });
- check('assigned first off work uses E and finishes in4.7s instead of7',()=>{
-  setup('defuse');step();near(local.run('match.spike.defuseProgress'),.15,'first off');assert.equal(tools(),1);
-  for(let i=0;i<45;i++)step();assert.equal(local.run('match.spike.status'),'planted');step();assert.equal(local.run('match.spike.status'),'defused');
+ check('assigned first off work uses E and finishes within5.1s after flight instead of7',()=>{
+  setup('defuse');step();near(local.run('match.spike.defuseProgress'),.1,'first off in flight');assert.equal(tools(),1);
+  for(let i=0;i<45;i++)step();assert.equal(local.run('match.spike.status'),'planted');for(let i=0;i<5;i++)step();assert.equal(local.run('match.spike.status'),'defused');
   setup('defuse');local.run('worker.kit.dash=0');for(let i=0;i<47;i++)step();assert.equal(local.run('match.spike.status'),'planted');near(local.run('match.spike.defuseProgress'),4.7,'normal off');
  });
  check('approach, other carrier, other defuser and guard roles do not waste tool',()=>{
@@ -42,8 +42,8 @@ const suite=String.raw`
   setup();local.run("worker.remoteId='guest'");step();assert.equal(tools(),0);assert.equal(local.run('worker.kit.dash'),1);
  });
  check('real deadline can be won by E, without changing bomb clock or multi-owner rule',()=>{
-  setup('defuse');local.run('match.spike.timer=5');for(let i=0;i<47;i++){step();local.run('if(match.phase===\'live\')match.tick(.1,{playerAlive:false,attackers:1,defenders:1})');}assert.equal(local.run('match.spike.status'),'defused');assert.equal(local.run('match.lastRound.reason'),'defuse');
-  setup('defuse');local.run('worker.kit.dash=0;match.spike.timer=5');for(let i=0;i<50;i++){step();local.run('if(match.phase===\'live\')match.tick(.1,{playerAlive:false,attackers:1,defenders:1})');}assert.notEqual(local.run('match.spike.status'),'defused');
+  setup('defuse');local.run('match.spike.timer=5.2');for(let i=0;i<51;i++){step();local.run('if(match.phase===\'live\')match.tick(.1,{playerAlive:false,attackers:1,defenders:1})');}assert.equal(local.run('match.spike.status'),'defused');assert.equal(local.run('match.lastRound.reason'),'defuse');
+  setup('defuse');local.run('worker.kit.dash=0;match.spike.timer=5.2');for(let i=0;i<50;i++){step();local.run('if(match.phase===\'live\')match.tick(.1,{playerAlive:false,attackers:1,defenders:1})');}assert.notEqual(local.run('match.spike.status'),'defused');
  });
  console.log('PASS '+groups+' actual BOT work timing groups; silent');
 }

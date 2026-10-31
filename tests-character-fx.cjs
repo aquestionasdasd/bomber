@@ -24,7 +24,7 @@ async function main(){
   assert.equal(geometry.size,3);assert.equal(materials.size,3);assert.equal(textures.size,0);
   for(const item of [...geometry,...materials])observe(item);
   const mend=fx.group.getObjectByName('Character cue / MEND recovery rings'),recon=fx.group.getObjectByName('Character cue / ECHO scan rings'),motes=fx.group.getObjectByName('Character cue / MEND recovery flecks');
-  const make=(id,type,startedAt=10)=>({id,type,team:'blue',x:4,y:0,z:9,startedAt,endsAt:startedAt+(type==='mend'?1.5:6),radius:type==='mend'?18:30});
+  const make=(id,type,startedAt=10)=>({id,type,team:'blue',x:4,y:0,z:9,startedAt,endsAt:startedAt+(type==='mend'?1.5:6),radius:type==='mend'?18:300});
   const snapshot=()=>fx.group.children.map(mesh=>({count:mesh.count,visible:mesh.visible,matrix:Array.from(mesh.instanceMatrix.array.subarray(0,mesh.count*16)),opacity:Array.from(mesh.geometry.getAttribute('fxOpacity').array.subarray(0,mesh.count))}));
   const matrix=new THREE.Matrix4(),position=new THREE.Vector3(),scale=new THREE.Vector3(),quaternion=new THREE.Quaternion();
   const radiusOf=(mesh,index=0)=>{mesh.getMatrixAt(index,matrix);matrix.decompose(position,quaternion,scale);return scale.x;};
@@ -36,8 +36,8 @@ async function main(){
   fx.update([recovery],11.499);assert.equal(fx.group.visible,true);fx.update([recovery],11.5);assert.equal(fx.group.visible,false,'MEND expires after exactly 1.5 seconds');
   for(const time of [10,12,14]){
     fx.update([scan],time);assert.deepEqual(counts(),[0,1,0]);assert.ok(Math.abs(radiusOf(recon)-.35)<1e-6,`A new scan begins at ${time-10} seconds`);
-    fx.update([scan],time+1);assert.ok(Math.abs(radiusOf(recon)-15.175)<1e-4,'Each pulse travels out over its own 2 second interval');
-    fx.update([scan],time+1.999);assert.ok(radiusOf(recon)<30&&radiusOf(recon)>29.9);
+    fx.update([scan],time+1);assert.ok(Math.abs(radiusOf(recon)-150.175)<1e-4,'Each pulse travels out over its own 2 second interval');
+    fx.update([scan],time+1.999);assert.ok(radiusOf(recon)<300&&radiusOf(recon)>299.8);
   }
   fx.update([scan],16);assert.equal(fx.group.visible,false);fx.update([scan],30);assert.equal(fx.group.visible,false,'Late rejoin cannot restart completed effects');
   fx.update([recovery,scan],10.6);const expected=snapshot();
@@ -57,13 +57,13 @@ async function main(){
   }
   assert.equal(maximumDraws,3);assert.equal(maximumTriangles,5440);
   fx.update([scan,recovery],10.8,{reducedMotion:true});assert.deepEqual(counts(),[2,1,0],'Reduced motion omits moving flecks');
-  assert.equal(radiusOf(recon),30);const stillRadius=radiusOf(mend);fx.update([scan,recovery],11,{reducedMotion:true});assert.equal(radiusOf(mend),stillRadius,'Reduced-motion healing cues do not expand');
+  assert.equal(radiusOf(recon),300);const stillRadius=radiusOf(mend);fx.update([scan,recovery],11,{reducedMotion:true});assert.equal(radiusOf(mend),stillRadius,'Reduced-motion healing cues do not expand');
   assert.ok(stillRadius<=2.6);
   fx.update([scan,recovery],10.8);fx.group.updateMatrixWorld(true);
   for(const mesh of fx.group.children)for(let index=0;index<mesh.count;index++){
     mesh.getMatrixAt(index,matrix);matrix.decompose(position,quaternion,scale);
     assert.ok(position.y>=.035&&position.y<.051,'Every cue and fleck stays on the ground rather than crossing the eye line');
-    assert.ok(scale.x<=30&&scale.y<=30);
+    assert.ok(scale.x<=300&&scale.y<=300);
     const alpha=mesh.geometry.getAttribute('fxOpacity').array[index];assert.ok(alpha>=0&&alpha<=1);
   }
   const invalid=[null,{},make('bad','unknown'),{...scan,x:NaN},{...scan,endsAt:9},{...scan,radius:-1},{...scan,id:''},{...scan,y:Infinity}];
