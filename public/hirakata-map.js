@@ -95,8 +95,9 @@ export function createHirakataMap(T,scene){
   // Ends remain physically and visually open.
   rail(x-3,s*24,.09,10);rail(x+3,s*24,.09,10);
   const minZ=s>0?29:-45,maxZ=s>0?45:-29,n=28;
-  for(let i=0;i<n;i++){const f=(i+.5)/n,z=minZ+(maxZ-minZ)*f,h=s>0?5.02*(1-i/n):5.02*((i+1)/n);solid(x,h/2,z,5.8,h,(maxZ-minZ)/n,'concrete','stairs');}
-  ramps.push({minX:x-2.9,maxX:x+2.9,minZ,maxZ,axis:'z',direction:s>0?-1:1,base:0,height:5.02});
+  const ramp={minX:x-2.9,maxX:x+2.9,minZ,maxZ,axis:'z',direction:s>0?-1:1,base:0,height:5.02};
+  for(let i=0;i<n;i++){const f=(i+.5)/n,z=minZ+(maxZ-minZ)*f,h=s>0?5.02*(1-i/n):5.02*((i+1)/n);solid(x,h/2,z,5.8,h,(maxZ-minZ)/n,'concrete','stairs').movementRamp=ramp;}
+  ramps.push(ramp);
   // Visible rail height follows the stair slope; per-step colliders share it.
   for(let i=0;i<28;i++){const f=(i+.5)/28,z=minZ+16*f,y=5.02*(s>0?1-f:f);for(const dx of[-3,3]){part(x+dx,y+1.1,z,.08,.08,16/28,'white');part(x+dx,y+.55,z,.045,1.1,.045,'white');colliders.push({minX:x+dx-.04,maxX:x+dx+.04,minZ:z-8/28,maxZ:z+8/28,base:y,height:y+1.14,kind:'railing'});}}
  }

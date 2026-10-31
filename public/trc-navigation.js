@@ -1,4 +1,4 @@
-import {createCollisionIndex} from './collision.js';
+import {createCollisionIndex,rampHeight} from './collision.js';
 import {TRC_LADDERS} from './trc-layout.js';
 
 // A layered graph: ground, tread tops, gallery floors and crouched ducts can
@@ -23,7 +23,18 @@ export function createTrcNavigation(map){
  function traceSegment(ax,az,bx,bz,ay,by){
   const length=Math.hypot(bx-ax,bz-az),n=Math.max(1,Math.ceil(length/.13));let y=ay;
   if(!isWalkable(ax,az,ay))return false;
-  for(let i=1;i<=n;i++){const f=i/n,x=ax+(bx-ax)*f,z=az+(bz-az)*f,next=support(x,z,y);if(next===null||Math.abs(next-y)>.19)return false;y=next;}
+  let px=ax,pz=az;
+  for(let i=1;i<=n;i++){
+   const f=i/n,x=ax+(bx-ax)*f,z=az+(bz-az)*f,next=support(x,z,y);if(next===null)return false;
+   // Actor movement first follows the slope, then steps onto a real landing.
+   // Preserve the normal ledge limit everywhere outside that shared ramp.
+   if(Math.abs(next-y)>.19&&!(map.ramps||[]).some(r=>{
+    if([px,x].some(v=>v<r.minX||v>r.maxX)||[pz,z].some(v=>v<r.minZ||v>r.maxZ))return false;
+    const before=rampHeight(r,px,pz),after=rampHeight(r,x,z);
+    return Math.abs(y-before)<=.22&&Math.abs(next-after)<=.22&&Math.abs(next-y)<=.22+Math.abs(after-before)+1e-5;
+   }))return false;
+   y=next;px=x;pz=z;
+  }
   return Math.abs(y-by)<.19;
  }
  for(let z=bounds.minZ+.5;z<bounds.maxZ;z+=step)for(let x=bounds.minX+.5;x<bounds.maxX;x+=step){const ids=[];for(const y of map.walkHeights(x,z)){if(!isWalkable(x,z,y))continue;const id=nodes.length;nodes.push({x,z,y,crouch:!!map.ductAt(x,z,y),id});edges.push([]);ids.push(id);}if(ids.length)cells.set(key(x,z),ids);}

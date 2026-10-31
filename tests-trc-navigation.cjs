@@ -2,11 +2,12 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('n
 const {pathToFileURL}=require('node:url');
 async function main(){
  const load=f=>import(pathToFileURL(path.join(__dirname,'public',f)).href);
- const THREE=await load('vendor/three.module.js'),{createTrcMap}=await load('trc-map.js'),{TRC_LADDERS}=await load('trc-layout.js'),{createCollisionIndex}=await load('collision.js');
+ const THREE=await load('vendor/three.module.js'),{createTrcMap}=await load('trc-map.js'),{TRC_LADDERS}=await load('trc-layout.js'),{createCollisionIndex,rampHeight}=await load('collision.js');
  global.document={createElement:()=>({width:256,height:256,getContext:()=>new Proxy({measureText:t=>({width:t.length*8}),createLinearGradient:()=>({addColorStop(){}})},{get:(t,k)=>t[k]||(()=>{})})})};
  const source=fs.readFileSync(path.join(__dirname,'public/trc-navigation.js'),'utf8');
  // Introspection exists only in this memory copy; the shipped module stays private.
- const factory=new Function('createCollisionIndex','TRC_LADDERS',source.replace(/^import .*;\r?\n/gm,'').replace('export function','function').replace('return {path,nearest,isWalkable,clearSegment,layered:true,nodeCount:nodes.length};','return {path,nearest,isWalkable,clearSegment,layered:true,nodeCount:nodes.length,probe:{nodes,edges,connector,cache,segments}};')+';return createTrcNavigation;');
+ const fixtureFactory=new Function('createCollisionIndex','TRC_LADDERS','rampHeight',source.replace(/^import .*;\r?\n/gm,'').replace('export function','function').replace('return {path,nearest,isWalkable,clearSegment,layered:true,nodeCount:nodes.length};','return {path,nearest,isWalkable,clearSegment,layered:true,nodeCount:nodes.length,probe:{nodes,edges,connector,cache,segments}};')+';return createTrcNavigation;');
+ const factory=(collision,ladders)=>fixtureFactory(collision,ladders,rampHeight);
  const create=factory(createCollisionIndex,TRC_LADDERS),scene=new THREE.Group(),map=createTrcMap(THREE,scene),nav=create(map);
  let groups=0;function check(name,fn){fn();groups++;console.log('PASS: '+name);}
  const starts=Object.values(map.teamSpawns).flat(),goals=[...map.sites.flatMap(s=>s.plantPositions),...map.landmarks.filter(p=>p.y)];

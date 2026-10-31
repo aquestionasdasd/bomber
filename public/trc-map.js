@@ -1,4 +1,4 @@
-import {createCollisionIndex} from './collision.js';
+import {createCollisionIndex,rampHeight} from './collision.js';
 import {createTrcTraversal} from './trc-traversal.js';
 import {createTrcSurfaces} from './trc-surfaces.js';
 import {createTrcLighting} from './trc-lighting.js';
@@ -123,7 +123,7 @@ export function createTrcMap(T,scene){
   for(let i=0;i<count;i++){
    const rect=r.axis==='x'?{minX:r.minX+w*i/count,maxX:r.minX+w*(i+1)/count,minZ:r.minZ,maxZ:r.maxZ}:{minX:r.minX,maxX:r.maxX,minZ:r.minZ+d*i/count,maxZ:r.minZ+d*(i+1)/count};
    const h=r.base+r.height*(r.direction<0?count-i:i+1)/count;
-   solid(rect,r.base-.24,h,'steel','stairs');
+   solid(rect,r.base-.24,h,'steel','stairs').movementRamp=r;
    const z=rect.minZ,Z=Math.min(rect.maxZ,z+.06);quad([rect.minX,h,z],[rect.minX,h,Z],[rect.maxX,h,Z],[rect.maxX,h,z],'aluminium');
   }
   mapShapes.push({polygon:rectPolygon(r),color:'#8a9c9c',kind:'stairs'});
@@ -291,7 +291,12 @@ export function createTrcMap(T,scene){
    if(world.userData.bomberCollapsed)return [0];
    const out=[];if(TRC_FLOOR.some(r=>contains(r,x,z))&&!basementStairs.some(r=>contains(r,x,z)))out.push(0);
    if(TRC_BASEMENT_ROOMS.some(r=>contains(r,x,z)))out.push(-3.2);
-   if(TRC_STAIRS.some(r=>contains(r,x,z,.4))){let h=-Infinity;for(const c of map.collision.query(x,z,.4))if(c.kind==='stairs'&&map.collision.overlaps(c,x,z,.4))h=Math.max(h,c.height);if(Number.isFinite(h))out.push(h);}
+   for(const r of map.ramps)if(contains(r,x,z)){
+    const h=rampHeight(r,x,z);out.push(h);
+    // The actor's radius meets the landing before its centre reaches the end.
+    // Offer that real ankle-height support to the same layered route search.
+    for(const c of map.collision.query(x,z,.4))if(!c.disabled&&!c.movementRamp&&c.height>h&&c.height<=h+.22&&map.collision.overlaps(c,x,z,.4))out.push(c.height);
+   }
    for(const d of TRC_DECKS)if(contains(d,x,z)&&!trcDeckCut(x,z,d.y))out.push(d.y);
    return [...new Set(out)];
   }
