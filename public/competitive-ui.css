@@ -134,3 +134,7 @@ strong,b,kbd{font-variant-numeric:tabular-nums}.scene-grain{display:none}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important}.health-hit,.health-heal,.weapon-changed{animation:none}.damage-direction.visible{animation:damage-direction-static 650ms step-end both}.ability,.health-track>i,.primary-button,.secondary-button{transition:none}}
 
 @keyframes damage-direction-static{0%{opacity:.95}100%{opacity:0}}
+
+/* Retain the existing READY status text for accessibility and HUD consumers. */
+#ability-e-count.stock-ready{color:transparent!important;text-shadow:none;position:relative}
+#ability-e-count.stock-ready:after{content:"1";position:absolute;inset:0;color:var(--ui-white);text-shadow:0 1px 3px #000a}
