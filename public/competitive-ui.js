@@ -36,7 +36,7 @@ export function createCompetitiveUI({document:doc=globalThis.document}={}){
     else if(state.uiMode==='practice'){text('round-label','マップ練習');text('phase-label','ルート確認');}
     hud.classList.toggle('timer-urgent',state.phase==='live'&&state.seconds<=10&&state.uiMode==='match');
     get('ability-x')?.style.setProperty('--charge',String(Math.min(1,Math.max(0,state.ultPoints/7))));
-    if(get('ability-e-count')?.textContent==='READY')text('ability-e-count','1');
+    get('ability-e-count')?.classList.toggle('stock-ready',get('ability-e-count')?.textContent==='READY');
     for(const key of ['c','q','e','x'])get(`ability-${key}`)?.classList.toggle('selected',state.aimKey===key);
     if(state.character!==detailCharacter){
       detailCharacter=state.character;
