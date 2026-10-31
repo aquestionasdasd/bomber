@@ -79,7 +79,8 @@ import { createBuildingCollapse } from './building-collapse.js';
 import { createStationTakeover } from './station-takeover.js';
 import { createKeyboardProtection } from './keyboard-protection.js';
 import { bindFullscreenNotice } from './fullscreen-notice.js';
-import { getCharacterSkill } from './abilities.js';
+import { getCharacterSkill, getCharacterUltimate } from './abilities.js';
+import { createCompetitiveUI } from './competitive-ui.js';
 import { CHARACTER_SKILLS, createCharacterSkills, skillProjectilePosition, selectMendTarget } from './character-skills.js';
 import { createCharacterSkillUI } from './character-skill-ui.js';
 import { createNopeSkillFX } from './nope-skill-fx.js';
@@ -278,6 +279,7 @@ function updateVictoryCamera(dt=0) {
   return active;
 }
 const skillUI=createCharacterSkillUI({document});
+const competitiveUI=createCompetitiveUI({document});
 const keyboardProtection=createKeyboardProtection({document,navigator,onStatus:state=>{
   const messages={idle:'しゃがみは V 長押し。Ctrl＋Wなどはブラウザーによって停止できません。',enabling:'全画面とキー保護を準備しています…',protected:'ゲームキー保護中。Escで一時停止。全画面が戻らない場合はEscを長押し。',fullscreen:'全画面モード。キー保護の対応はブラウザー次第です。しゃがみは V を使えます。',unavailable:'この環境では全画面のキー保護を使えません。しゃがみは V を使ってください。'};
   if($('keyboard-protection-status'))$('keyboard-protection-status').textContent=messages[state]||messages.idle;
@@ -1113,7 +1115,7 @@ function damageEntity(entity,amount,killer,{firearm=false,returned=false,chain=t
   roundDamage.record(match.round,entity.id,killer?.id,Math.max(0,healthBefore-entity.hp)+Math.max(0,armorBefore-entity.armor));
   if(firearm&&killer&&entity.team!==killer.team&&Math.max(0,healthBefore-entity.hp)+Math.max(0,armorBefore-entity.armor)>0&&(!quietHit||entity.hp<=0))firearmFeedback(killer,entity.hp<=0);
   if(skill&&killer&&Math.max(0,healthBefore-entity.hp)+Math.max(0,armorBefore-entity.armor)>0)skillImpact(entity,killer,skill);
-  if(entity===player)damageFlash=.45;
+  if(entity===player){damageFlash=.45;competitiveUI.damage({source:killer,player});}
   if(returnScale){const actual=Math.max(0,healthBefore-entity.hp)+Math.max(0,armorBefore-entity.armor);if(actual>0)damageEntity(killer,actual*returnScale,entity,{returned:true,skill:'japan'});}
   if(firearm&&chain&&!returned&&killer?.alive&&ordinarySkills.onnaraEvent?.('onnara-chain',killer.id,elapsed)){const actual=Math.max(0,healthBefore-entity.hp)+Math.max(0,armorBefore-entity.armor);const next=actual>0?constellationTarget(entity,killer,[player,...bots],visibleBetween):null;if(next){const from=new THREE.Vector3(entity.x,(entity.y||0)+1.2,entity.z),to=new THREE.Vector3(next.x,(next.y||0)+1.2,next.z);ordinarySkills.recordConstellation(killer.id,from,to,elapsed);damageEntity(next,actual*ONNARA_SKILLS.chainScale,killer,{chain:false,skill:'onnara'});}}
   if(entity.hp>0)return;
@@ -3139,7 +3141,7 @@ function updateHUD(){
   $('spike-state').textContent=s.status==='planted'?`${s.site} · 起爆まで ${Math.ceil(s.timer)}s`:s.status==='dropped'?'BOMBER DROPPED / 回収可能':s.status==='defused'?'BOMBER POWERED OFF':s.status==='detonated'?'BOMBER DETONATED':s.carrier===player.id?'BOMBER · YOU':`BOMBER · ${ownSide()==='attack'?'味方が所持':'敵が所持'}`;
   $('health').style.color=player.hp<35?'#ff5a67':'';
   $('ammo').style.color=firearm&&player.ammo<8?'#ff5a67':'';
-  $('reload-state').textContent=player.serviceReload?'クイックソルダー…':reloading>0?'RELOADING…':firearm&&player.ammo===0?(player.reserve>0?'R  リロード':'弾薬切れ · 武器を持ち替え'):'';
+  $('reload-state').textContent=player.serviceReload?'クイックソルダー…':reloading>0?'リロード中':firearm&&player.ammo===0?(player.reserve>0?'R  リロード':'弾薬切れ · 武器を持ち替え'):'';
   $('reload-state').hidden=!player.alive||!firearm||!(reloading>0||player.serviceReload||player.ammo===0);
   const cycle=sniperCycleRemaining(),cycleHUD=$('sniper-cycle');
   cycleHUD.hidden=!(cycle&&mode==='play'&&match.phase==='live'&&player.alive&&firearm&&player.ammo>0&&!reloading&&!player.serviceReload&&!interactionHeld&&!busSeat()&&!carMotionActive(player));
@@ -3217,6 +3219,7 @@ function updateHUD(){
     $('team-score').textContent=p.site;$('enemy-score').textContent=plant?'4s':'7s';
     for(const key of ['c','q','e','x']){if($(`ability-${key}-count`))$(`ability-${key}-count`).textContent='—';$(`ability-${key}`)?.classList.add('cooldown');}
   }
+  competitiveUI.update({uiMode:objectivePractice?'objective':rangeSession?'range':exploring?'practice':'match',phase:match.phase,alive:player.alive,round:match.round,hp:player.hp,weaponId:inventory.active,mag:firearm?armedWeapon.mag:0,ammo:player.ammo,reloading:reloading>0||!!player.serviceReload,overtime:match.overtime,seconds:timeLeft,side:ownSide(),planted,spikeStatus:s.status,carrier:s.carrier===player.id,ultPoints:k.ultPoints,aimKey:duckAim,character:k.character,skills:[...['c','q','e'].map(key=>({key,...getCharacterSkill(k.character,key)})),getCharacterUltimate(k.character)]});
 }
 function drawMinimap(target,large=false){
   if(!target)return;const ctx=target.getContext('2d'),w=target.width,h=target.height,pad=large?40:14;
