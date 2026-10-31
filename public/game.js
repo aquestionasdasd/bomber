@@ -1,3 +1,4 @@
+import {rampHeight,movementTop} from './collision.js';
 import {packRobotEvents,unpackRobotEvents} from './ember-robot-wire.js';
 import {createRobotArmy} from './ember-robots.js';
 import {createRobotFX} from './ember-robots-fx.js';
@@ -404,7 +405,7 @@ function actorGrounded(actor){
   if(!actor?.alive||!Number.isFinite(actor.y)||Number.isFinite(actor.vy)&&Math.abs(actor.vy)>1e-5)return false;
   let floor=map.floorBaseAt?.(actor.x,actor.z)??0;const ramp=rampFloor(actor.x,actor.z);
   if(ramp!==null&&ramp<=actor.y+.001)floor=ramp;
-  for(const c of map.collision.query(actor.x,actor.z,.34))if(!c.disabled&&c.height<=actor.y+.001&&c.height>floor&&map.collision.overlaps(c,actor.x,actor.z,.34))floor=c.height;
+  for(const c of map.collision.query(actor.x,actor.z,.34)){const top=movementTop(c,actor.x,actor.z);if(!c.disabled&&top<=actor.y+.001&&top>floor&&map.collision.overlaps(c,actor.x,actor.z,.34))floor=top;}
   const head=grassSupport(actor);if(head)floor=Math.max(floor,head.top);
   return Math.abs(actor.y-floor)<=.035;
 }
@@ -1722,10 +1723,7 @@ function rampFloor(x,z,feet=Infinity) {
     // An upper staircase cannot stop movement on a separate floor underneath.
     if((ramp.base||0)>feet+.22)continue;
     if(x<ramp.minX||x>ramp.maxX||z<ramp.minZ||z>ramp.maxZ)continue;
-    const along=ramp.axis==='x'?x:z,min=ramp.axis==='x'?ramp.minX:ramp.minZ,max=ramp.axis==='x'?ramp.maxX:ramp.maxZ;
-    const fraction=clamp((along-min)/Math.max(.001,max-min),0,1);
-    const f=ramp.direction===-1?1-fraction:fraction;
-    const height=(ramp.base||0)+ramp.height*(ramp.steps?Math.min(ramp.steps,Math.ceil(Math.max(0,f-1e-7)*ramp.steps))/ramp.steps:f);
+    const height=rampHeight(ramp,x,z);
     floor=Math.max(floor??-Infinity,height);
   }
   return floor;
@@ -1743,16 +1741,28 @@ function moveEntity(entity,dx,dz,r=.34,separatingOwner=null) {
       let feet=entity.y||0;
       const ramp=controlled?rampFloor(x,z,feet):null;
       const followsFloor=entity===player||map.traversal?!entity.vy:!!entity.remoteId;
-      // Grounded feet may step up; an airborne actor must clear the slope rather
-      // than enter just below it and miss the downward landing intersection.
-      if(ramp!==null&&ramp>feet+(followsFloor?.22:.00001))return;
+      // A movement substep may follow the slope it is already touching, even
+      // during a dash, launch or jet. Entering its side from below still blocks.
+      const previousRamp=controlled?rampFloor(entity.x,entity.z,feet):null;
+      const touchesRamp=Math.abs((previousRamp??getZoneFloor(entity.x,entity.z,feet+.001))-feet)<=.035;
+      if(ramp!==null&&ramp>feet){
+        if(ramp-feet>.22||!followsFloor&&!touchesRamp)return;
+        feet=ramp;
+      }
       if(followsFloor){
-        if(ramp!==null&&Math.abs(ramp-feet)<=.22)feet=ramp;
+        // A landing overlaps the first part of the slope by the actor radius.
+        // Keep descending from that support instead of turning the join into
+        // a fall once the next substep is just below the usual step allowance.
+        if(ramp!==null&&(Math.abs(ramp-feet)<=.22||ramp<feet&&previousRamp!==null&&Math.abs(previousRamp-feet)<=.22))feet=ramp;
+      }
+      if(followsFloor||touchesRamp){
+        // Include the small join to a landing when a skill touches the slope.
         // Only ankle-height ledges can be stepped onto; crates still require jumping.
-        for(const c of map.collision.query(x,z,r))if(!c.disabled&&c.height>feet&&c.height<=entity.y+.22&&map.collision.overlaps(c,x,z,r))feet=c.height;
+        const stepCeiling=feet+.22;
+        for(const c of map.collision.query(x,z,r)){const top=movementTop(c,x,z);if(!c.disabled&&top>feet&&top<=stepCeiling&&map.collision.overlaps(c,x,z,r))feet=top;}
       }
       const height=actorBodyHeight(entity),mapClear=canStand(x,z,r,feet,height);
-      if(mapClear&&grassHeadClear(entity,x,z,r,feet,height,separatingOwner)){entity.x=x;entity.z=z;if(followsFloor)entity.y=feet;}
+      if(mapClear&&grassHeadClear(entity,x,z,r,feet,height,separatingOwner)){entity.x=x;entity.z=z;entity.y=feet;}
       else if(mapClear&&grassHeadClear(entity,entity.x,entity.z,r,feet,height)){
         // Finish against the real cube face rather than stopping a whole
         // movement substep away, so a held direction can reach jump contact.
@@ -1977,7 +1987,7 @@ function activeOrdinarySmokeFields(){return match?.phase==='live'?ordinarySkills
 function smokeBlocks(a,b){const start=new THREE.Vector3(a.x,(a.y||0)+1.45,a.z),end=new THREE.Vector3(b.x,(b.y||0)+1.45,b.z),delta=end.clone().sub(start),length=delta.lengthSq();return [...smokes,...activeOrdinarySmokeFields()].some(s=>{const center=new THREE.Vector3(s.x,s.y,s.z),t=length?clamp(center.clone().sub(start).dot(delta)/length,0,1):0;return start.clone().addScaledVector(delta,t).distanceToSquared(center)<s.radius*s.radius;});}
 function getZoneFloor(x,z,ceiling){
   let floor=map.floorBaseAt?.(x,z)??0;const ramp=rampFloor(x,z);if(ramp!==null&&ramp<=ceiling)floor=Math.max(floor,ramp);
-  for(const collider of map.collision.query(x,z,0))if(!collider.disabled&&collider.height<=ceiling&&collider.height>floor&&map.collision.overlaps(collider,x,z,0))floor=collider.height;
+  for(const collider of map.collision.query(x,z,0)){const top=movementTop(collider,x,z);if(!collider.disabled&&top<=ceiling&&top>floor&&map.collision.overlaps(collider,x,z,0))floor=top;}
   return floor;
 }
 function ordinaryGroundHeight(x,z,referenceY){
@@ -2523,7 +2533,7 @@ function updateRenkoVertical(actor,dt,radius){
  const velocity=renkoFlightVelocity(e,elapsed,{pitch:actor===player?player.pitch:actor.netPitch||0});
  const steps=Math.max(1,Math.ceil(dt*120)),step=dt/steps;actor.vy=velocity;
  for(let i=0;i<steps;i++){let next=actor.y+velocity*step;const height=actorBodyHeight(actor);let floor=map.floorBaseAt?.(actor.x,actor.z)??0,ceiling=Math.min(11,e.y+RENKO_SKILLS.flightHeight);const ramp=rampFloor(actor.x,actor.z,actor.y);if(ramp!==null&&ramp<=actor.y+.04)floor=ramp;
-  for(const c of map.collision.query(actor.x,actor.z,radius)){if(c.disabled||!map.collision.overlaps(c,actor.x,actor.z,radius))continue;const underside=c.base||0;if(actor.y+height<=underside+.00001&&next+height>=underside)ceiling=Math.min(ceiling,underside-height);if(c.height<=actor.y+.00001)floor=Math.max(floor,c.height);}
+  for(const c of map.collision.query(actor.x,actor.z,radius)){if(c.disabled||!map.collision.overlaps(c,actor.x,actor.z,radius))continue;const underside=c.base||0,top=movementTop(c,actor.x,actor.z);if(actor.y+height<=underside+.00001&&next+height>=underside)ceiling=Math.min(ceiling,underside-height);if(top<=actor.y+.00001)floor=Math.max(floor,top);}
   actor.y=Math.max(floor,Math.min(ceiling,next));if(actor.y!==next)actor.vy=0;
  }return true;
 }
@@ -3923,8 +3933,9 @@ function updateActorVertical(actor,dt,radius=.34){
         if(ramp!==null&&previousFeet>=ramp-.00001&&nextFeet<=ramp)support=ramp;
         for(const c of map.collision.query(actor.x,actor.z,radius)){
           if(c.disabled)continue;
-          if(c.height<=support||previousFeet<c.height-.00001||nextFeet>c.height)continue;
-          if(map.collision.overlaps(c,actor.x,actor.z,radius))support=c.height;
+          const top=movementTop(c,actor.x,actor.z);
+          if(top<=support||previousFeet<top-.00001||nextFeet>top)continue;
+          if(map.collision.overlaps(c,actor.x,actor.z,radius))support=top;
         }
       }
       const hold=ordinarySkills.onnaraEvent('onnara-hover',actor.id,elapsed),hopping=hold&&starHold.moving(hold.id);

@@ -1,5 +1,15 @@
 // Shared horizontal collision for real building footprints and simple arena cover.
 const EPS = 1e-5;
+// Stair meshes and sight/bullet boxes keep their authored treads. Actor movement
+// uses a continuous floor, shared by support and horizontal collision queries.
+export function rampHeight(ramp, x, z) {
+  const along = ramp.axis === 'x' ? x : z, min = ramp.axis === 'x' ? ramp.minX : ramp.minZ, max = ramp.axis === 'x' ? ramp.maxX : ramp.maxZ;
+  const t = Math.max(0, Math.min(1, (along - min) / Math.max(.001, max - min)));
+  return (ramp.base || 0) + ramp.height * (ramp.direction === -1 ? 1 - t : t);
+}
+export function movementTop(collider, x, z) {
+  return collider.movementRamp ? rampHeight(collider.movementRamp, x, z) : collider.height;
+}
 function pointSegmentDistanceSquared(px, pz, ax, az, bx, bz) {
   const dx = bx - ax, dz = bz - az, length = dx * dx + dz * dz;
   const t = length ? Math.max(0, Math.min(1, ((px - ax) * dx + (pz - az) * dz) / length)) : 0;
@@ -88,7 +98,7 @@ export function createCollisionIndex(colliders, cellSize = 20) {
   const blocksAtHeight = (c, feet, height) => !c.disabled && c.height > feet + EPS && (c.base || 0) < feet + height - EPS;
   function blocked(x, z, r = .34, feet = 0, height = 1.7) {
     if (![x, z, r, feet, height].every(Number.isFinite) || r < 0 || height <= 0) return true;
-    return query(x, z, r).some(c => blocksAtHeight(c, feet, height) && overlaps(c, x, z, r));
+    return query(x, z, r).some(c => !c.disabled && movementTop(c, x, z) > feet + EPS && (c.base || 0) < feet + height - EPS && overlaps(c, x, z, r));
   }
   function segmentCandidates(ax, az, bx, bz, r) {
     if (Math.abs(bx - ax) < cellSize && Math.abs(bz - az) < cellSize) {
