@@ -2871,6 +2871,56 @@ function robotTarget(actor,key,aim,point=null){
 let robotPreviewCache=null;
 function emberPreview(key){const mode=emberModes[key],point=robotTarget(player,key,{yaw:player.yaw,pitch:player.pitch});const p=point||{x:player.x,y:player.y,z:player.z},cache=robotPreviewCache;let valid=false;if(point){if(cache&&cache.key===key&&cache.mode===mode&&elapsed-cache.at<.1&&Math.hypot(cache.x-p.x,cache.y-p.y,cache.z-p.z)<.1)valid=cache.valid;else{valid=robotArmy.canDeploy(player,key,mode,p,robotWorld());robotPreviewCache={key,mode,at:elapsed,...p,valid};}}return{key,mode,point:p,yaw:player.yaw,valid:valid&&robotStock(player,key)>0};}
 function robotStock(actor,key){return key==='c'?actor.kit.smoke:key==='q'?actor.kit.updraft:key==='e'?actor.kit.dash:actor.kit.ultPoints>=7?1:0;}
+function emberBotSkill(bot,{enemy,known,goal,holding=false,urgent=false}){
+ // Knowledge comes only from updateBots' current perception or a frozen recent
+ // sighting. Own robots are equipment, not an extra enemy-position oracle.
+ if(!known||elapsed<bot.reactionUntil)return;
+ const dist=Math.hypot(known.x-bot.x,known.z-bot.z),yaw=Math.atan2(bot.x-known.x,bot.z-known.z);
+ const delta=Math.atan2(Math.sin(yaw-(bot.group.rotation.y+Math.PI)),Math.cos(yaw-(bot.group.rotation.y+Math.PI)));
+ if(dist<1||dist>36||Math.abs(delta)>.15)return;
+ const aim={yaw,pitch:0},point={x:known.x,y:known.y??bot.y??0,z:known.z},w=robotWorld();
+ const own=robotArmy.units().filter(u=>u.owner===bot.id),groups=robotArmy.groups().filter(g=>g.owner===bot.id);
+ const distance=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
+ const cast=(key,mode,p,command=false)=>activateRobotAbility(bot,key,{aim,robotMode:mode,zonePoint:p,robotCommand:command});
+ // A command is valuable only while its actual surviving unit can perform it.
+ // Check the same clamped endpoint as the cast; retain a one-use order if blocked.
+ const commandPoint=getZoneTarget(bot,point,aim,ROBOT_RULES.commandRange);
+ for(const key of ['e','q','x']){
+  const g=robotArmy.commandable(bot.id,key);if(!g)continue;
+  const list=own.filter(u=>u.gid===g.id),left=g.endsAt-elapsed;
+  if(key==='e'&&enemy&&left>2&&distance(commandPoint,point)<.5){
+   const u=list.find(u=>u.type==='supervisor'||u.type==='dismantler');if(!u)continue;
+   const laser=u.type==='supervisor',range=laser?ROBOT_COMMANDS.laserRange:ROBOT_COMMANDS.dashRange;
+   const end=w.stop({x:u.x,y:u.y+(laser?1:0),z:u.z},commandPoint,range);
+   if(distance(u,point)<=range-.4&&distance(end,point)<.5&&Math.abs((enemy.y||0)-u.y)<1.6&&w.see(u,enemy)){
+    const effect=cast(key,g.mode,point,true);if(effect)return effect;
+   }
+  }else if(key==='q'&&enemy&&left>2){
+   const useful=g.mode?list.some(u=>u.type==='turret'&&distance(u,point)<ROBOT_TYPES.turret.detect&&w.see(u,enemy)):
+    (bot.hp<65||urgent)&&list.filter(u=>u.type==='shield').length===2;
+   if(useful){const effect=cast(key,g.mode,point,true);if(effect)return effect;}
+  }else if(key==='x'&&left>4){
+   const factory=list.find(u=>ROBOT_TYPES[u.type].factory);
+   const useful=factory&&(g.mode?g.materials>0&&g.total<ROBOT_COMMANDS.productionTotal&&list.length-1<ROBOT_COMMANDS.factoryActive&&robotArmy.capacity(bot.id,bot.team,1):distance(factory,point)>4);
+   if(useful){const effect=cast(key,g.mode,point,true);if(effect)return effect;}
+  }
+ }
+ const active=key=>groups.some(g=>g.key===key&&(g.pending||own.some(u=>u.gid===g.id&&u.endsAt>elapsed+1.5)));
+ // Place ranged units close enough to see the contact; shields stay between the
+ // owner and contact. A fixed downward angle previously shortened every order.
+ const forward=reach=>{const d=Math.min(reach,Math.max(2,dist-3));return{x:bot.x-Math.sin(yaw)*d,y:bot.y||0,z:bot.z-Math.cos(yaw)*d};};
+ const choices=[['x',holding?1:0,forward(holding?4:9)],['e',dist<=7&&Math.abs(point.y-(bot.y||0))<1?1:0,forward(10)],
+  ['q',bot.hp<65||bot.aiReload>0||urgent?0:1,forward(bot.hp<65||urgent?3:10)],['c',dist>7||bot.hp<60?1:0,point]];
+ for(const [key,mode,p]of choices){
+  if(robotStock(bot,key)<=0||active(key))continue;
+  const landing=robotTarget(bot,key,aim,p);if(!landing)continue;
+  // Do not spend on another floor or on a formation that cannot see the known
+  // approach. This checks geometry only; it never searches for hidden actors.
+  if(Math.abs(landing.y-point.y)>1.6||distance(landing,point)>(key==='c'?10:key==='e'?ROBOT_TYPES.supervisor.detect-2:key==='q'&&mode?ROBOT_TYPES.turret.detect-2:24))continue;
+  if(!w.clear({x:landing.x,y:landing.y+1,z:landing.z},{x:point.x,y:point.y+1,z:point.z}))continue;
+  const effect=cast(key,mode,p);if(effect)return effect;
+ }
+}
 function activateRobotAbility(actor,key,{predict=false,aim=null,robotMode=0,robotCommand=false,zonePoint=null}={}){
  key=String(key).toLowerCase();if(netHostPaused||!actor?.alive||match?.phase!=='live'||carMotionActive(actor)||busSeat(actor)||ordinarySkills.sealUntil(actor.id,elapsed)>elapsed||actor.planting||actor.defusing||actor.serviceReload||!ROBOT_SKILLS[key]||![0,1].includes(robotMode)||ordinarySkills.blindUntil(actor.id,elapsed)>elapsed&&actor!==player)return;
  const w=robotWorld(),point=robotCommand?getZoneTarget(actor,zonePoint,aim,ROBOT_RULES.commandRange):robotTarget(actor,key,aim,zonePoint);
@@ -3505,10 +3555,10 @@ function updateBots(dt){
       bot.nextSkillAt=elapsed+(cast?2.5:.5);
     }
     if(bot.kit?.character==='ember'&&!interactPlant&&!interactDefuse&&ordinarySkills.blindUntil(bot.id,elapsed)<=elapsed&&elapsed>=(bot.nextSkillAt||0)){
-      const known=enemy||(bot.lastSeen&&elapsed-bot.lastSeen.seenAt<1?bot.lastSeen:null);let cast=null;
-      if(known){const aim={yaw:Math.atan2(bot.x-known.x,bot.z-known.z),pitch:-.3};
-        for(const key of['e','q','c']){if(cast)break;const command=!!robotArmy.commandable(bot.id,key);cast=activateRobotAbility(bot,key,{aim,robotMode:key==='q'&&bot.hp<55?0:key==='c'&&bot.hp<60?1:0,robotCommand:command});}
-      }bot.nextSkillAt=elapsed+(cast?2:.5);
+      const known=enemy||(bot.lastSeen&&elapsed-bot.lastSeen.seenAt<1?bot.lastSeen:null);
+      const holding=spike.status==='planted'?attacking:!attacking&&distance(bot,site)<16;
+      const cast=emberBotSkill(bot,{enemy,known,goal,holding,urgent:!!role?.urgent});
+      bot.nextSkillAt=elapsed+(cast?2:.5);
     }
     if(bot.kit?.character==='onnara'&&!interactPlant&&!interactDefuse&&elapsed>=(bot.nextSkillAt||0)){
       if(enemy&&visibleBetween(bot,enemy)){const aim={yaw:Math.atan2(bot.x-enemy.x,bot.z-enemy.z),pitch:Math.atan2((enemy.y||0)+1.3-((bot.y||0)+1.7),Math.max(.001,enemyDistance))};
@@ -3628,7 +3678,7 @@ function updateBots(dt){
         (attacking&&spike.status==='carried'&&distance(bot,site)<12||spike.status==='planted'&&distance(bot,spike)<14)){
         activateAbility(bot,'x');enemy=null;enemyDistance=Infinity;
       }
-      else if(['ember','frost'].includes(bot.kit.character)){
+      else if(bot.kit.character==='frost'){
         const known=enemy||(bot.lastSeen&&elapsed-bot.lastSeen.seenAt<3?bot.lastSeen:null);
         if(known&&distance(bot,known)<=20&&!zoneAbilities.events(elapsed).some(event=>event.team===bot.team&&event.type===bot.kit.character&&distance(event,known)<event.radius))activateAbility(bot,'x',{zonePoint:known});
       }
