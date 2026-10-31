@@ -1432,17 +1432,21 @@ function startGame() {
   audioInit();difficulty='hard';
   round=1;totalKills=0;shots=0;hits=0;elapsed=0;lastShot=-10;
   player.recoil=0;scanTime=0;kick=0;hitFlash=0;reloading=0;redLossStreak=0;
-  const selectedFormat=$('match-format')?.value||'standard';
+  const selectedFormat=onlinePlaying?online.room.settings.format:($('match-format')?.value||'standard');
+  const soloSwift=!onlinePlaying&&selectedFormat==='solo-swift';
   rangeControl.hide();rangeSession=selectedFormat==='range'?new RangeSession({waiting:true}):null;rangeRespawn=0;
   objectivePractice=['plant','defuse'].includes(selectedFormat)?{kind:selectedFormat,site:'A',completed:false,elapsed:0,duration:0}:null;
   exploring=selectedFormat==='explore'||!!rangeSession||!!objectivePractice;
-  careerCoins.begin({eligible:!exploring,guest:isGuest()});
+  careerCoins.begin({eligible:!exploring,guest:isGuest(),soloSwift});
   navigation=createNavigation({...map,bounds:activeArenaBounds()});updateBots.tactics=null;nopeDecoyTownCandidates=null;updateMapLabels();
-  match=new MatchRules({format:exploring?'standard':selectedFormat,startingSide:objectivePractice?(selectedFormat==='plant'?'attack':'defend'):$('starting-side')?.value||'attack'});
-  if($('economy-note'))$('economy-note').textContent=match.format==='swift'?'SWIFT · ROUND GRANTS SC 2,400 / 4,250  +  ELIMINATION SC 200':'WIN SC 3,000  +  ELIMINATION SC 200';
+  match=new MatchRules({format:exploring?'standard':soloSwift?'swift':selectedFormat,startingSide:objectivePractice?(selectedFormat==='plant'?'attack':'defend'):$('starting-side')?.value||'attack'});
+  // Local roster/reward mode only; online snapshots keep the existing swift format.
+  match.soloSwift=soloSwift;
+  if($('economy-note'))$('economy-note').textContent='WIN SC 3,000  +  ELIMINATION SC 200';
   inventory={primary:null,secondary:'classic',active:'classic'};player.armor=0;player.alive=true;
   roster=[{id:'player',team:'blue',name:'YOU',k:0,d:0,a:0,credits:800},...Array.from({length:9},(_,i)=>({id:i<4?`blue-${i+1}`:`red-${i-4}`,team:i<4?'blue':'red',name:'',k:0,d:0,a:0,credits:800,primary:null,secondary:'classic',armor:0,survived:false}))];
   if(exploring)roster=roster.slice(0,1);
+  else if(soloSwift)roster=roster.filter(r=>r.id==='player'||r.team==='red');
   if(onlinePlaying){
     const blue=online.room.members.filter(m=>m.team==='blue'),red=online.room.members.filter(m=>m.team==='red');
     const hostIndex=blue.findIndex(m=>m.id===online.room.hostId);if(hostIndex>0)[blue[0],blue[hostIndex]]=[blue[hostIndex],blue[0]];
@@ -1537,7 +1541,7 @@ function finish(won) {
   $('result-title').textContent=won?'開米':'閉米';
   $('result-title').classList.add('japanese-result');
   $('result-title').classList.toggle('defeat',!won);
-  $('result-description').textContent=`${match.score.blue} — ${match.score.red} · ${match.format==='swift'?'スイフト':'スタンダード'} · ${map.name||'橋本駅'}の試合が終了しました。`;
+  $('result-description').textContent=`${match.score.blue} — ${match.score.red} · ${match.soloSwift?'1v5 スイフト':match.format==='swift'?'スイフト':'スタンダード'} · ${map.name||'橋本駅'}の試合が終了しました。${match.soloSwift&&match.winner===player.team?' 勝利報酬 500 489coin（通常の5倍）':''}`;
   $('result-kills').textContent=totalKills;
   $('result-accuracy').textContent=`${shots?Math.round(hits/shots*100):0}%`;
   $('result-time').textContent=formatTime(elapsed);
@@ -4897,16 +4901,18 @@ for(const key of ['c','q'])$(`shop-skill-${key}-sell`)?.addEventListener('click'
 document.querySelectorAll('[data-sell]').forEach(button=>button.addEventListener('click',()=>sell(button.dataset.sell)));
 $('sound').addEventListener('click',()=>{soundEnabled=!soundEnabled;$('sound').textContent=soundEnabled?'SOUND ON':'SOUND OFF';$('sound').setAttribute('aria-pressed',String(soundEnabled));syncVictoryMusic();if(soundEnabled){audioInit();sound('scan');}});
 function updateFormatSummary(){
-  const format=$('match-format')?.value,objective=['plant','defuse'].includes(format),practice=objective||['explore','range'].includes(format);
+  const format=$('match-format')?.value,soloSwift=format==='solo-swift',objective=['plant','defuse'].includes(format),practice=objective||['explore','range'].includes(format);
   if($('starting-side')){$('starting-side').disabled=objective;if(objective)$('starting-side').value=format==='plant'?'attack':'defend';}
-  if($('mission-tag'))$('mission-tag').textContent=practice?'SOLO PRACTICE':'SOLO + BOTS';
+  if($('mission-tag'))$('mission-tag').textContent=practice?'SOLO PRACTICE':soloSwift?'YOU vs 5 CPUs':'SOLO + BOTS';
+  if($('mission-format-label'))$('mission-format-label').textContent=soloSwift?'BOMBER / 1V5':'BOMBER / 5V5';
+  if($('menu-description'))$('menu-description').textContent=soloSwift?'味方CPUなし。自分1人で敵CPU5体に挑戦。勝利で500 489coin。':'駅舎のコンコースから、駅前広場へ。2つのサイトを巡る、5対5の攻防。';
   if($('start-title')?.firstChild)$('start-title').firstChild.nodeValue=practice?'練習を始める ':'出撃する ';
   if($('start-subtitle'))$('start-subtitle').textContent=(practice?'PRACTICE IN ':'DEPLOY TO ')+(map.shortName||'HASHIMOTO');
   const summary=$('format-summary');if(!summary)return;
   summary.replaceChildren();summary.parentElement?.classList.toggle('explore-summary',practice);
   const strong=document.createElement('b'),small=document.createElement('i');
-  strong.textContent=format==='plant'?'設置練習':format==='defuse'?'電源オフ練習':format==='range'?'60秒 / AIM':format==='explore'?'マップ練習':format==='swift'?'5先取':'13先取';
-  small.textContent=format==='plant'?'4キーを4秒 · A/Bで反復':format==='defuse'?'4キーを7秒 · 進捗50%を保存':format==='range'?'命中・ヘッド率 · 自己ベスト':format==='explore'?'時間制限なし · ルートと射撃を確認':format==='swift'?'4Rで攻守交代':'12Rで攻守交代';summary.append(strong,small);
+  strong.textContent=format==='plant'?'設置練習':format==='defuse'?'電源オフ練習':format==='range'?'60秒 / AIM':format==='explore'?'マップ練習':soloSwift?'1v5 / 5先取':format==='swift'?'5先取':'13先取';
+  small.textContent=format==='plant'?'4キーを4秒 · A/Bで反復':format==='defuse'?'4キーを7秒 · 進捗50%を保存':format==='range'?'命中・ヘッド率 · 自己ベスト':format==='explore'?'時間制限なし · ルートと射撃を確認':soloSwift?'4Rで攻守交代 · 勝利500 489coin（5倍）':format==='swift'?'4Rで攻守交代':'12Rで攻守交代';summary.append(strong,small);
 }
 $('match-format')?.addEventListener('change',updateFormatSummary);updateFormatSummary();
 $('fullscreen').addEventListener('click',async()=>{try{if(document.fullscreenElement){keyboardProtection.release();await document.exitFullscreen();}else{const state=await keyboardProtection.enable();if(state==='unavailable')showMessage('全画面のキー保護を使えません','しゃがみは V 長押しで操作できます',3);}}catch{showMessage('FULLSCREEN','このブラウザでは全画面に切り替えられません',2);}});
