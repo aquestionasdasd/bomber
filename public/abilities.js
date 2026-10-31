@@ -1,3 +1,4 @@
+import {ROBOT_RULES,ROBOT_SKILLS} from './ember-robots-config.js';
 import { URCHIN_TIDE } from './urchin-tide.js';
 import { URCHIN_DISARM } from './urchin-disarm.js';
 import { URCHIN_LANCE } from './urchin-rift.js';
@@ -22,8 +23,8 @@ export const CHARACTER_DEFS = Object.freeze({
     description: `C：一度だけ侵入を知らせる金文字 / Q：反射閃光 / E：短い移動補助。X：半径${TEAM_ABILITIES.reconRadius}m内を3回索敵、検知地点を短時間表示（7pt）。`, color: '#d3c785', ultIcon: 'M18 3a12 12 0 1 0 12 12M18 8a7 7 0 1 0 7 7M18 15 29 4M23 4h6v6M18 14v2' }),
   veil: Object.freeze({ id: 'veil', label: '草ブロック', role: '制圧', ultName: 'ブラックアウトドーム', ultShortName: 'ドーム', ultimatePoints: 7,
     description: 'C：煙幕3個。マップで最大3地点を選び右クリックで一括設置 / Q：半径5mのルートセンサー。侵入音・根で索敵、移動と跳躍を妨害 / E：接地中の芝走り。X：マップで1地点を選び設置。半径9m・12秒（7pt）。C・Xは高い床を優先し、地面から6m超の屋根は避ける。高さは変更可。', color: '#b0abd8', ultIcon: 'M4 24a14 14 0 0 1 28 0M3 24h30M9 24v-8m18 8v-8M18 6V3' }),
-  ember: Object.freeze({ id: 'ember', label: 'はんだごて握り太郎', role: '攻撃', ultName: 'フレアストライク', ultShortName: '爆撃', ultimatePoints: 7,
-    description: 'C：小さく弾けるはんだ玉 / Q：新しい閃光を軽減する遮光眼鏡 / E：予備弾で素早く整備。X：半径6m・80ダメージ×3回の爆撃（通常装甲・7pt）。', color: '#eaa36f', ultIcon: 'M18 2v5m0 16v5M2 15h5m22 0h5M8 5l4 4m12 12 4 4M28 5l-4 4M12 21l-4 4M18 8l3 5 5 2-5 2-3 5-3-5-5-2 5-2Z' }),
+  ember: Object.freeze({ id: 'ember', label: 'はんだごて握り太郎', role: '召喚・支援', ultName: 'ロボ工場', ultShortName: 'ロボ工場', ultimatePoints: 7,
+    description: 'C：自爆／捕獲部隊 / Q：盾／砲台 / E：監督／解体ロボ。X：突撃／生産工場（7pt）。構えて右で切替、左で出撃。Q・E・Xは出撃後に再入力で命令。', color: '#eaa36f', ultIcon: 'M4 28V12l8 5v-7l9 6V7h10v21ZM6 28h27M25 7V3h4v4M9 23h4m5 0h4m5 0h3' }),
   frost: Object.freeze({ id: 'frost', label: '尾野', role: '守備', ultName: 'クライオフィールド', ultShortName: '足止め', ultimatePoints: 7,
     description: 'C：円環の霜のステッチ / Q：遠くのドールミスト / E：低い姿勢で滑り込み、減速にも耐える。X：最大20m先に半径7mの減速場を10秒展開（7pt）。', color: '#96dce5', ultIcon: 'M18 2v26M6 8l24 14M6 22 30 8M14 5l4 4 4-4M14 25l4-4 4 4M6 13l6-1-1-6M30 17l-6 1 1 6M6 17l6 1-1 6M30 13l-6-1 1-6' }),
   duck: Object.freeze({ id:'duck', label:'🦆', role:'跳躍・防護', ultName:'不屈の卵', ultShortName:'卵', ultimatePoints:7,
@@ -107,11 +108,7 @@ const veilSkills = {
   q: { name: 'ルートセンサー', shortName: 'ルートセンサー', description: 'Qで構え、左クリックで最大20m先へ投擲。着地で半径5m・7秒の根を展開。敵の移動速度を40%低下、通常ジャンプ高度を半減。侵入音は味方全員へ。根が足元を追い、脱出後は最後の地点に1.5秒残る。根は見通せる場所だけ見え、敵の輪郭・拘束・ダメージはなし。射撃・スキルは使用可能。右クリックで取消。', max: 1, price: DUELIST.updraftPrice, type: 'veil-sensor', icon: 'M18 4v24M18 11l-7-5m7 10 9-6M18 21l-9-7m9 12 10-6M11 6V3m16 7V6M9 14H5m23 6h4M7 29h22' },
   e: { name: '芝走り', shortName: '芝走り', description: `接地中の自身の歩く速さを${VEIL_SKILLS.turfDuration}秒間${VEIL_SKILLS.turfSpeedScale}倍にする。離地と死亡で終了し、${VEIL_SKILLS.signatureCooldown}秒で再使用できる。`, max: 1, price: 0, type: 'veil-turf', icon: 'M3 25h30M7 25l-2-7 7 7 1-13 5 13 6-10-1 10 8-6-3 6M7 7h10m-7 5h8' },
 };
-const emberSkills = {
-  c: { name: 'はんだ玉', shortName: 'はんだ玉', description: `最大${EMBER_SKILLS.solderRange}mへ投げ、着地${EMBER_SKILLS.solderArmDelay}秒後に一度だけ弾ける。半径${EMBER_SKILLS.solderRadius}mの敵へ最大${EMBER_SKILLS.solderDamage}ダメージ。壁と距離で防げる。`, max: 2, price: DUELIST.smokePrice, type: 'ember-solder', icon: 'M18 3c0 6-7 8-7 14a7 7 0 0 0 14 0c0-6-7-8-7-14ZM4 23l4-2m20 0 4 2M11 29l2-3m10 3-2-3' },
-  q: { name: '遮光チェック', shortName: '遮光眼鏡', description: `${EMBER_SKILLS.shadeDuration}秒間、この後に受ける閃光の持続時間を${EMBER_SKILLS.shadeFlashScale*100}%へ軽減する。既に受けた閃光や煙幕には効かない。`, max: 1, price: DUELIST.updraftPrice, type: 'ember-shade', icon: 'M4 10h28v12H4ZM4 15H1m31 0h3M7 13h8v6H7Zm14 0h8v6h-8ZM15 15h6M18 2v4m-9-2 2 3m16-3-2 3' },
-  e: { name: 'クイックソルダー', shortName: '銃の整備', description: `現在の銃を既存の予備弾から${EMBER_SKILLS.serviceDuration}秒でリロード。切替・死亡・設置・電源オフで中止し、${EMBER_SKILLS.signatureCooldown}秒で再使用。満弾や予備弾なしでは使わない。`, max: 1, price: 0, type: 'ember-service', icon: 'm5 27 13-13 4 4L9 31ZM18 14l8-8 4 4-8 8M25 5l4-4 6 6-4 4M6 7h9m-3-3 3 3-3 3M3 16h6' },
-};
+const emberSkills=Object.fromEntries(['c','q','e'].map(key=>{const d=ROBOT_SKILLS[key];return[key,{name:d.name,shortName:d.name,description:`${d.modes.join('／')}。右クリックで切替、左で出撃。Esc・武器切替で取消。${key==='c'?'18mへ工具箱を投げ4機展開。':key==='q'?'12m以内へ設置。再Qで連結／集中射撃。':'監督と護衛／解体と子機。再Eでレーザー／突進。24秒で再使用。'}`,max:d.max,price:d.price,type:'ember-robot-'+key,icon:key==='c'?'M6 12h24v15H6ZM13 12V7h10v5M11 19h4m6 0h4M10 27v4m16-4v4':key==='q'?'M5 7h26v16l-13 8L5 23ZM18 7v24M10 12h5m6 0h5':'M10 10h16v15H10ZM13 4h10v6M5 14v10m26-10v10M13 25v7m10-7v7'}];}));
 const frostSkills = {
   c: { name: '霜のステッチ', shortName: '霜の環', description: `最大${FROST_SKILLS.stitchRange}mへ投げ、着地${FROST_SKILLS.stitchArmDelay}秒後から${FROST_SKILLS.stitchDuration}秒、半径${FROST_SKILLS.stitchInnerRadius}〜${FROST_SKILLS.stitchRadius}mの円環だけで接地した敵の歩く速さを${FROST_SKILLS.stitchSpeedScale*100}%にする。中央は通常速度。`, max: 2, price: DUELIST.smokePrice, type: 'frost-stitch', icon: 'M18 3a12 12 0 1 0 0 24 12 12 0 0 0 0-24ZM18 9a6 6 0 1 0 0 12 6 6 0 0 0 0-12ZM18 1v4m0 20v4M3 15h4m22 0h4M7 4l3 3m16 16 3 3M29 4l-3 3M10 23l-3 3' },
   q: { name: 'ドールミスト', shortName: '人形の霧', description: `最大${FROST_SKILLS.mistRange}mへ投げ、着地から${FROST_SKILLS.mistDuration}秒、半径${FROST_SKILLS.mistRadius}mの淡い霧で敵味方双方の視界を遮る。`, max: 1, price: DUELIST.updraftPrice, type: 'frost-mist', icon: 'M7 24a7 7 0 0 1 1-14 10 10 0 0 1 18 1 7 7 0 0 1 1 14H7M9 28h18M13 14l5 5 5-5m-5-5v14' },
@@ -149,7 +146,7 @@ const onnaraSkills={
 };
 const renkoSkills={c:{name:'インパルス弾',shortName:'吹き飛ばし',description:'Cですぐ照準方向へ発射。飛距離制限なし・80m毎秒、直径1.82mの弾が最初の敵を吹き飛ばす。空所にも発射でき、壁・床・天井を貫通し、最初の敵かマップ端で停止。命中から1秒スタンし、移動・射撃・スキル・設置/解除を止める。壁で吹き飛びが止まっても1秒まで継続。追尾/ダメージなし。',max:2,price:200,type:'renko-dart',icon:'M3 18h23M18 9l10 9-10 9M8 11h6M8 25h6'},q:{name:'オーバードライブ',shortName:'高速走行',description:'6秒14.4m毎秒で走行し、ジャンプの初速が1.3倍。走行中にVで1秒の慣性滑走。滑走は曲がりにくく、ジャンプで終了。Vを離して走れば再度滑れる。もう一度Qで走行・滑走を解除。発動中は素手で銃・ナイフ不可、Cは発射できる。終了時に武器を持ち直す。',max:1,price:100,type:'renko-drive',icon:'M4 26h16l10-15M7 18h10M10 10h10'},e:{name:'ジェットパック',shortName:'長押し飛行',description:'E長押し中、最大1秒まで16m毎秒で照準方向へ自動飛行。マウスで上下左右に操縦し、Eを離すと終了。飛行中は素手で銃・ナイフ不可、Cは発射できる。終了時は武器を持ち直す。壁/天井で停止、終了後は落下。使用後に敵2キルで再使用。時間では回復しない。',max:1,price:0,type:'renko-jet',icon:'M12 23V8l6-5 6 5v15M12 25l-4 7M24 25l4 7M18 24v9'}};
 const skillsFor = character => character==='renko'?renkoSkills : character==='onnara'?onnaraSkills : character==='urchin'?urchinSkills : character==='cap'?capSkills : character==='japan'?japanSkills : character==='nobi'?nobiSkills : character==='car'?carSkills : character === 'cat' ? catSkills : character === 'duck' ? duckSkills : character === 'nope' ? nopeSkills : character === 'mend' ? mendSkills : character === 'echo' ? iagnuSkills : character === 'veil' ? veilSkills : character === 'ember' ? emberSkills : character === 'frost' ? frostSkills : baseSkills;
-export const signatureCooldown = character => character==='renko'?RENKO_SKILLS.signatureCooldown : character==='onnara'?ONNARA_SKILLS.signatureCooldown : character==='urchin'?URCHIN_SKILLS.signatureCooldown : character==='cap'?CAP_SKILLS.signatureCooldown : character==='japan'?JAPAN_SKILLS.signatureCooldown : character==='nobi'?NOBI_SKILLS.signatureCooldown : character==='car'?CAR_SKILLS.signatureCooldown : character === 'cat' ? CAT_SKILLS.signatureCooldown : character === 'duck' ? DUCK_SKILLS.signatureCooldown : character === 'nope' ? NOPE_SKILLS.signatureCooldown : character === 'mend' ? MEND_SKILLS.signatureCooldown : character === 'echo' ? IAGNU_SKILLS.signatureCooldown : character === 'veil' ? VEIL_SKILLS.signatureCooldown : character === 'ember' ? EMBER_SKILLS.signatureCooldown : character === 'frost' ? FROST_SKILLS.signatureCooldown : 0;
+export const signatureCooldown = character => character==='renko'?RENKO_SKILLS.signatureCooldown : character==='onnara'?ONNARA_SKILLS.signatureCooldown : character==='urchin'?URCHIN_SKILLS.signatureCooldown : character==='cap'?CAP_SKILLS.signatureCooldown : character==='japan'?JAPAN_SKILLS.signatureCooldown : character==='nobi'?NOBI_SKILLS.signatureCooldown : character==='car'?CAR_SKILLS.signatureCooldown : character === 'cat' ? CAT_SKILLS.signatureCooldown : character === 'duck' ? DUCK_SKILLS.signatureCooldown : character === 'nope' ? NOPE_SKILLS.signatureCooldown : character === 'mend' ? MEND_SKILLS.signatureCooldown : character === 'echo' ? IAGNU_SKILLS.signatureCooldown : character === 'veil' ? VEIL_SKILLS.signatureCooldown : character === 'ember' ? ROBOT_RULES.signatureCooldown : character === 'frost' ? FROST_SKILLS.signatureCooldown : 0;
 const characterSkills = Object.freeze(Object.fromEntries(Object.keys(CHARACTER_DEFS).map(character => [character,
   Object.freeze(Object.fromEntries(['c', 'q', 'e'].map(key => [key, Object.freeze({ id: `${character}-${skillsFor(character)[key].type.replace(/^(duelist|nope|mend|echo|veil|ember|frost|duck|cat|car|nobi|japan|cap|urchin|onnara|renko)-/, '')}`, key, ...skillsFor(character)[key], ...(character === 'duelist' && key === 'e' ? { description: `${baseSkills.e.description} ${DUELIST.signatureKills}撃破で再使用。` } : {}) })]))),
 ])));
@@ -210,7 +207,7 @@ export class DuelistKit {
         if (this.character === 'mend') return { type: 'mend-seeds', flight: MEND_SKILLS.seedsFlight, duration: MEND_SKILLS.seedsDuration, radius: MEND_SKILLS.seedsRadius, speedScale: MEND_SKILLS.seedsSpeedScale };
         if (this.character === 'echo') return { type: 'echo-tag', flight: IAGNU_SKILLS.tagFlight, armDelay: IAGNU_SKILLS.tagArmDelay, duration: IAGNU_SKILLS.tagDuration, radius: IAGNU_SKILLS.tagRadius, range: IAGNU_SKILLS.tagRange, revealDuration: IAGNU_SKILLS.tagRevealDuration };
         if (this.character === 'veil') return { type: 'veil-dust', armDelay: VEIL_SKILLS.dustArmDelay, duration: VEIL_SKILLS.dustDuration, radius: VEIL_SKILLS.dustRadius };
-        if (this.character === 'ember') return { type: 'ember-solder', flight: EMBER_SKILLS.solderFlight, armDelay: EMBER_SKILLS.solderArmDelay, radius: EMBER_SKILLS.solderRadius, range: EMBER_SKILLS.solderRange, maxDamage: EMBER_SKILLS.solderDamage };
+        if (this.character === 'ember') return {type:'ember-robot-c'};
         if (this.character === 'frost') return { type: 'frost-stitch', flight: FROST_SKILLS.stitchFlight, armDelay: FROST_SKILLS.stitchArmDelay, duration: FROST_SKILLS.stitchDuration, radius: FROST_SKILLS.stitchRadius, innerRadius: FROST_SKILLS.stitchInnerRadius, range: FROST_SKILLS.stitchRange, speedScale: FROST_SKILLS.stitchSpeedScale };
         return this.character === 'nope' ? { type: 'nope-bottle', fuse: NOPE_SKILLS.bottleFuse, flight: NOPE_SKILLS.bottleFlight, radius: NOPE_SKILLS.bottleRadius, maxDamage: NOPE_SKILLS.bottleDamage } : { type: 'duelist-comet', flight: DUELIST_SKILLS.cometFlight, duration: DUELIST_SKILLS.cometDuration, radius: DUELIST_SKILLS.cometRadius, range: DUELIST_SKILLS.cometRange };
       case 'q':
@@ -228,7 +225,7 @@ export class DuelistKit {
         if (this.character === 'mend') return { type: 'mend-pollen', flight: MEND_SKILLS.pollenFlight, duration: MEND_SKILLS.pollenDuration, radius: MEND_SKILLS.pollenRadius };
         if (this.character === 'echo') return { type: 'echo-glint', flight: IAGNU_SKILLS.glintFlight, radius: IAGNU_SKILLS.glintRadius, duration: IAGNU_SKILLS.glintDuration };
         if (this.character === 'veil') return { type: 'veil-sensor', range: VEIL_SKILLS.rootsThrowRange, radius:ROOT_SENSOR.radius, duration:ROOT_SENSOR.duration, speedScale:ROOT_SENSOR.speedScale };
-        if (this.character === 'ember') return { type: 'ember-shade', duration: EMBER_SKILLS.shadeDuration, flashScale: EMBER_SKILLS.shadeFlashScale };
+        if (this.character === 'ember') return {type:'ember-robot-q'};
         if (this.character === 'frost') return { type: 'frost-mist', flight: FROST_SKILLS.mistFlight, duration: FROST_SKILLS.mistDuration, radius: FROST_SKILLS.mistRadius, range: FROST_SKILLS.mistRange };
         return this.character === 'nope' ? { type: 'nope-flash', flight: NOPE_SKILLS.flashFlight, radius: NOPE_SKILLS.flashRadius, duration: NOPE_SKILLS.flashDuration } : { type: 'duelist-lift', velocity: DUELIST.updraftVelocity, duration: DUELIST_SKILLS.liftVisualDuration };
       case 'e':
@@ -250,7 +247,7 @@ export class DuelistKit {
           if (this.character === 'duck') return {type:'duck-hush'};
           if (this.character === 'echo') return { type: 'echo-kerning', duration: IAGNU_SKILLS.kerningDuration, speedScale: IAGNU_SKILLS.kerningSpeedScale, cooldown: IAGNU_SKILLS.signatureCooldown };
           if (this.character === 'veil') return { type: 'veil-turf', duration: VEIL_SKILLS.turfDuration, speedScale: VEIL_SKILLS.turfSpeedScale, cooldown: VEIL_SKILLS.signatureCooldown };
-          if (this.character === 'ember') return { type: 'ember-service', duration: EMBER_SKILLS.serviceDuration, cooldown: EMBER_SKILLS.signatureCooldown };
+          if (this.character === 'ember') return {type:'ember-robot-e'};
           if (this.character === 'frost') return { type: 'frost-unravel', duration: FROST_SKILLS.unravelDuration, slowFraction: FROST_SKILLS.unravelSlowFraction, cooldown: FROST_SKILLS.signatureCooldown };
           return this.character === 'mend' ? { type: 'mend-heal', healing: MEND_SKILLS.healAmount, radius: MEND_SKILLS.healRange, cooldown: MEND_SKILLS.signatureCooldown } : { type: 'nope-decoy', duration: NOPE_SKILLS.decoyDuration, cooldown: NOPE_SKILLS.signatureCooldown };
         }
@@ -278,7 +275,7 @@ export class DuelistKit {
         if (this.character === 'mend') { this.ultPoints -= DUELIST.ultimatePoints; return { type: 'mend', radius: 18, healing: 75 }; }
         if (this.character === 'echo') { this.ultPoints -= DUELIST.ultimatePoints; return { type: 'recon', radius: TEAM_ABILITIES.reconRadius, duration: 6, pulses: 3, interval: 2, revealDuration: 1.25 }; }
         if (this.character === 'veil') { this.ultPoints -= DUELIST.ultimatePoints; return { type: 'veil', radius: 9, duration: 12 }; }
-        if (this.character === 'ember') { this.ultPoints -= DUELIST.ultimatePoints; return { type: 'ember', radius: 6, duration: 4.8, pulses: [1.2, 2.4, 3.6], damage: 80 }; }
+        if (this.character === 'ember') {this.ultPoints-=DUELIST.ultimatePoints;return {type:'ember-robot-x'};}
         if (this.character === 'frost') { this.ultPoints -= DUELIST.ultimatePoints; return { type: 'frost', radius: 7, duration: 10, warmup: .8, slowMultiplier: .55 }; }
         this.ultPoints -= DUELIST.ultimatePoints; this.knives = DUELIST.knives; this.knivesActive = true;
         return { type: 'knives', count: this.knives };

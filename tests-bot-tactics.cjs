@@ -88,6 +88,8 @@ async function main(){
   const {renkoFlightVelocity}=await load('renko-motion.js');
   const throwDependencies=await load('skill-throw.js');
   const capDependencies=await load('cap-grenades.js');
+  const {URCHIN_DISARM}=await load('urchin-disarm.js');
+  const {createRobotArmy}=await load('ember-robots.js');
   const grassDependencies=await load('grass-platforms.js'),grassSource=source.slice(source.indexOf('let grassFrame='),source.indexOf('function actorGrounded('));
   const airAimSource=source.slice(source.indexOf('function starHoldClear('),source.indexOf('function applyStarHold('));
   const updateSource=source.slice(source.indexOf('function updateBots(dt)'),source.indexOf('function separateBots(dt)'));
@@ -100,7 +102,7 @@ async function main(){
   function integration({map=makeMap(),player=actor('player','blue',0,0),bots=[],match=new MatchRules(),random=.99,ordinarySkills={interceptShield:()=>null,quiet:()=>false,sealUntil:()=>0,blindUntil:()=>0,events:()=>[],markers:()=>[]}}={}){
     match.startLive();let bulletHits=0,shots=0;const casts=[],traces=[];ordinarySkills={rootTracks:()=>[],onnaraEvent:()=>null,capMagazine:()=>false,urchinJammed:()=>false,urchinTrident:()=>false,interceptShield:()=>null,quiet:()=>false,sealUntil:()=>0,cancelService(){},carGyro:()=>false,speedScale:()=>1,wouldRoot:createCharacterSkills().wouldRoot,wouldSeed:createCharacterSkills().wouldSeed,wouldTag:createCharacterSkills().wouldTag,wouldStitch:createCharacterSkills().wouldStitch,...ordinarySkills};
     const math=Object.create(Math);math.random=typeof random==='function'?random:()=>random;
-    const sandbox={...throwDependencies,...capDependencies,...grassDependencies,renkoFlightVelocity,starHold:createStarHold(),busSeat:()=>null,busSurfaceVisible:()=>true,applyStarHold:()=>false,crownShot:()=>{},activateCapAbility:()=>null,activateJapanAbility:()=>null,nobiBulletDamage:(_s,_t,d)=>d,THREE,WEAPONS,skillProjectilePosition,activeArenaBounds:()=>map.bounds,DUELIST_SKILLS,NOBI_SKILLS,MEND_SKILLS,CHARACTER_SKILLS,ROOT_SENSOR,NOPE_SKILLS,IAGNU_SKILLS,VEIL_SKILLS,EMBER_SKILLS,FROST_SKILLS,RENKO_SKILLS,...areas,createBotTactics,inVisionCone,createBotHearing,map,navigation:createNavigation(map),player,bots,match,elapsed:0,inventory:{active:'classic'},reloading:0,
+    const sandbox={URCHIN_DISARM,robotArmy:createRobotArmy(),activateRobotAbility:()=>null,...throwDependencies,...capDependencies,...grassDependencies,renkoFlightVelocity,starHold:createStarHold(),busSeat:()=>null,busSurfaceVisible:()=>true,applyStarHold:()=>false,crownShot:()=>{},activateCapAbility:()=>null,activateJapanAbility:()=>null,nobiBulletDamage:(_s,_t,d)=>d,THREE,WEAPONS,skillProjectilePosition,activeArenaBounds:()=>map.bounds,DUELIST_SKILLS,NOBI_SKILLS,MEND_SKILLS,CHARACTER_SKILLS,ROOT_SENSOR,NOPE_SKILLS,IAGNU_SKILLS,VEIL_SKILLS,EMBER_SKILLS,FROST_SKILLS,RENKO_SKILLS,...areas,createBotTactics,inVisionCone,createBotHearing,map,navigation:createNavigation(map),player,bots,match,elapsed:0,inventory:{active:'classic'},reloading:0,
       levels:Function(source.match(/const levels = (.*);/)[0]+'return levels;')(),difficulty:'hard',Math:math,clamp:(v,a,b)=>Math.max(a,Math.min(b,v)),
       isGuest:()=>false,botHearing:createBotHearing(),ordinarySkills,zoneAbilities:{speedMultiplier:()=>1},actorSpeedScale:()=>1,frostSlideSpeed:()=>0,agentEquipment:()=>({}),selectMendTarget,activePollenFields:()=>[],
       ordinaryActorView:value=>({...value,grounded:sandbox.actorGrounded(value)}),ordinaryGroundHeight:()=>0,rampFloor:()=>null,netInputs:new Map(),
@@ -191,17 +193,8 @@ async function main(){
   const airGame=integration({player:actor('player','blue',0,-35),bots:[airborneGrass]});airGame.step();assert.equal(airGame.casts.length,0,'An airborne BOT cannot activate a ground-only turf escape');
   console.log('PASS: real grass BOT wounded cover, known-enemy roots, grounded turf cooldown, no airborne activation or hidden-position steering');
 
-  const worker=actor('red-worker','red',0,0);worker.record={primary:'vandal',secondary:'classic'};worker.kit=new DuelistKit({character:'ember'});Object.assign(worker,{aiWeapon:'vandal',aiAmmo:3,aiReserve:5,aiReload:0});
-  const serviceGame=integration({player:noEnemy,bots:[worker]});serviceGame.step();
-  assert.equal(serviceGame.casts[0]?.effect.type,'ember-service','A safe low-magazine worker must choose its own maintenance, not a dash');assert.equal(worker.serviceReload.weaponId,'vandal');assert.equal(worker.kit.nextSignatureAt,EMBER_SKILLS.signatureCooldown+.05);assert.equal(worker.aiAmmo,3);
-  serviceGame.step(Math.round(EMBER_SKILLS.serviceDuration/.05)-1);assert.equal(worker.aiAmmo,3,'A BOT service may not complete before the service deadline');serviceGame.step();assert.equal(worker.aiAmmo,8);assert.equal(worker.aiReserve,0,'BOT maintenance must use only its finite reserve');assert.equal(worker.serviceReload,null);
-  const castsAfterService=serviceGame.casts.length;serviceGame.step(10);assert.equal(serviceGame.casts.length,castsAfterService,'An empty reserve/cooling service cannot be used repeatedly');
-  const urgentWorker=actor('red-worker','red',0,0);urgentWorker.record={primary:'vandal'};urgentWorker.kit=new DuelistKit({character:'ember'});Object.assign(urgentWorker,{aiWeapon:'vandal',aiAmmo:3,aiReserve:5,aiReload:0});
-  const urgentMatch=new MatchRules();urgentMatch.spike={...urgentMatch.spike,status:'planted',carrier:null,x:0,z:0,site:'A',timer:8};
-  const urgentService=integration({player:noEnemy,bots:[urgentWorker],match:urgentMatch});urgentService.step();assert.equal(urgentService.casts.length,0,'A deadline and actual defuse must take precedence over maintenance');assert.ok(urgentMatch.spike.defuseProgress>0);
-  for(const hiddenX of [-25,25]){const worker=actor('red-worker','red',0,0);worker.kit=new DuelistKit({character:'ember'});worker.kit.smoke=2;worker.kit.updraft=1;worker.kit.dash=0;const game=integration({player:actor('player','blue',hiddenX,-12),bots:[worker]});game.step();assert.equal(game.casts.length,0,'Unseen enemy positions cannot drive the solder or shade choices');}
-  console.log('PASS: real EMBER BOT low-magazine cover service, finite reserve0.8s/cooldown, urgent defuse priority and no unseen-position solder/shade steering');
-
+  // Ember's replaced service policy is covered by tests-ember-robots-game.cjs
+  // against the complete saved game, including deployment and damage.
   const buySource=source.slice(source.indexOf('function autoBuyBot('),source.indexOf('function setVisible(')),buyContext={DuelistKit};
   vm.createContext(buyContext);vm.runInContext(`${buySource}\nvar frostBuyer={kit:new DuelistKit({character:'frost'}),primary:'vandal',secondary:'ghost',armor:50,credits:1000,team:'red'};autoBuyBot(frostBuyer)`,buyContext);
   assert.equal(buyContext.frostBuyer.kit.smoke,2);assert.equal(buyContext.frostBuyer.kit.updraft,1);assert.equal(buyContext.frostBuyer.credits,700,'Two100-credit rings and one100-credit mist must be bought from real finite credits');assert.equal(buyContext.frostBuyer.primary,'vandal');assert.equal(buyContext.frostBuyer.armor,50);
