@@ -58,7 +58,35 @@
         <label class="difficulty-row" for="map-select"><span>マップ<span class="label-en">BATTLEFIELD</span></span><select id="map-select"><option value="hashimoto">橋本駅</option><option value="hirakata">枚方市駅 / 南北ロータリー</option><option value="trc">TRC 同人音楽即売会 / 屋外侵入</option></select></label><div class="match-options"><label for="match-format"><span>試合形式</span><select id="match-format"><option value="standard" selected>STANDARD / 13ラウンド先取</option><option value="swift">SWIFT / 5ラウンド先取</option><option value="explore">マップ練習（時間制限なし）</option><option value="range">射撃訓練 / 60秒</option><option value="plant">設置練習</option><option value="defuse">電源オフ練習</option></select></label><label for="starting-side"><span>開始サイド</span><select id="starting-side"><option value="attack" selected>ATTACK / 攻撃</option><option value="defend">DEFEND / 防衛</option></select></label></div>
         <div class="difficulty-row"><span>敵BOT<span class="label-en">OPPOSITION</span></span><strong>精鋭</strong></div>
       </div>
-      <label class="agent-select" for="agent-select"><span>CHARACTER / キャラクター</span><select id="agent-select" aria-describedby="agent-description"><option value="duelist">ちぬつてのとのへめほ / X：投げナイフ5本</option><option value="nope">NOPE / X：ロゴ化＋デコイ30体（12秒）</option><option value="mend">丱凵してね / X：最大75HP回復</option><option value="echo">IAGNU / X：半径300m・3回索敵</option><option value="veil">草ブロック / X：半径9m・視界遮断12秒</option><option value="ember">はんだごて握り太郎 / X：爆撃30×3回</option><option value="frost">尾野 / X：減速フィールド10秒</option><option value="duck">🦆 / 跳躍・防護</option><option value="cat">猫の画像 / 回収・時制</option><option value="car">トミカ / 排除・補給</option><option value="nobi">のび / 弱点・工作</option><option value="japan">しばくでジャパン / 国境・総動員</option><option value="cap">キャップは？ / クラスター投擲</option><option value="urchin">青ウニ / 棘・弾道</option><option value="onnara">おんなら / 星冠・裁定</option><option value="renko">蓮子 / 高速走行・滑走・4秒ジェット</option></select><small id="agent-description">C：空中に短い流れ星の幕 / Q：アンテナリフトで上昇 / E：2段階のダッシュ。X：ナイフ5本・撃破で補充（7pt）。</small></label>
+      <label class="agent-select" for="agent-select"><span>CHARACTER / キャラクター</span><select id="agent-select" aria-describedby="agent-description"><option value="duelist">ちぬつてのとのへめほ / X：投げナイフ5本</option><option value="nope">NOPE / X：ロゴ化＋デコイ30体（12秒）</option><option value="mend">丱凵してね / X：最大75HP回復</option><option value="echo">IAGNU / X：半径300m・3回索敵</option><option value="veil">草ブロック / X：半径9m・視界遮断12秒</option><option value="ember">はんだごて握り太郎 / X：ロボ工場・8編成</option><option value="frost">尾野 / X：減速フィールド10秒</option><option value="duck">🦆 / 跳躍・防護</option><option value="cat">猫の画像 / 回収・時制</option><option value="car">トミカ / 排除・補給</option><option value="nobi">のび / 弱点・工作</option><option value="japan">しばくでジャパン / 国境・総動員</option><option value="cap">キャップは？ / クラスター投擲</option><option value="urchin">青ウニ / 棘・弾道</option><option value="onnara">おんなら / 星冠・裁定</option><option value="renko">蓮子 / 高速走行・滑走・4秒ジェット</option></select><small id="agent-description">C：空中に短い流れ星の幕 / Q：アンテナリフトで上昇 / E：2段階のダッシュ。X：ナイフ5本・撃破で補充（7pt）。</small></label>
+      <details id="ember-robot-guide" class="ember-robot-guide" hidden>
+        <summary>ロボの操作・全8編成の説明</summary>
+        <div class="ember-robot-guide-body">
+          <p>はんだごて握り太郎は、4スキル×2モードの計8編成を使えます。</p>
+          <p><strong>操作：キーで構え → 右クリックでモード切替 → 左クリックで出撃。</strong><br>Escか武器切替でキャンセル。稼働中のQ・E・Xは、同じキーでもう一度だけ特殊命令を出せます。</p>
+          <p><strong>C「ロボ投下」：100コイン・2個</strong></p>
+          <ul>
+            <li><strong>自爆ロボ</strong>：4機が分散して敵へ接近し、自爆。1機35ダメージ、同じ投下から同じ敵への合計は最大70。</li>
+            <li><strong>捕獲ロボ</strong>：カニ2機が敵を最大2秒、40％減速。飛行ロボ2機が射撃して追撃します。</li>
+          </ul>
+          <p><strong>Q「ロボ設置」：100コイン・1個</strong></p>
+          <ul>
+            <li><strong>盾ロボ</strong>：HP200の盾2機と修理機1機。味方の弾も遮ります。再Qで盾を連結し、前進して敵を押します。</li>
+            <li><strong>砲台ロボ</strong>：砲台2機と電線ロボ2機。砲台は3連射、電線は横切った敵を減速。再Qで指定地点を優先監視し、砲台同士が近ければ合体します。</li>
+          </ul>
+          <p><strong>E「主力ロボ」：無料・再使用24秒</strong></p>
+          <ul>
+            <li><strong>監督ロボ</strong>：主力1機＋護衛2機が射撃。再Eで、指定方向へ最大60ダメージのレーザーを撃ちます。</li>
+            <li><strong>解体ロボ</strong>：本体1機＋切断ドローン2機の近接部隊。壁や天井も移動し、再Eで突進。本体が撃破されると小型機へ分裂します。</li>
+          </ul>
+          <p><strong>X「ロボ工場」：7ポイント</strong></p>
+          <ul>
+            <li><strong>突撃工場</strong>：戦闘ロボ12機を出撃させ、最大4機補充。再Xで指定地点へ全軍を進めます。工場は12秒稼働。</li>
+            <li><strong>生産工場</strong>：盾・砲台・修理の6機から開始し、追加生産。味方ロボの残骸を資材にし、再Xで最大4機を緊急生産します。工場は15秒稼働。</li>
+          </ul>
+          <p>修理機は<strong>ロボ専用</strong>で、人間は回復しません。ロボは壁・煙で見えない敵を追跡し続けず、ボンバーの設置・解除も行いません。</p>
+        </div>
+      </details>
       <details class="mobile-selected-skills"><summary>選択中の C / Q / E を確認 <span>＋</span></summary><div class="character-skills">
         <div class="skill-detail"><kbd>C</kbd><div><strong id="mobile-character-skill-c-name">煙幕</strong><p id="mobile-character-skill-c-description">視線を遮る煙を展開</p><small id="mobile-character-skill-c-meta">最大2回 · SC 200/回</small></div></div>
         <div class="skill-detail"><kbd>Q</kbd><div><strong id="mobile-character-skill-q-name">上昇</strong><p id="mobile-character-skill-q-description">上空へ跳び上がる</p><small id="mobile-character-skill-q-meta">最大1回 · SC 150/回</small></div></div>
@@ -98,8 +126,7 @@
         <p class="practice-manual">丱凵してねのX「リカバリーウェーブ」は、視線の通る18m内の生存味方と自身を最大75HP、上限100まで回復。蘇生・アーマー回復はなく、負傷者がいなければポイントを消費しません。</p>
         <p class="practice-manual">IAGNUのC「セリフタグ」は金色の警戒文字（2回まで、1回100しばくでコイン）。着地0.5秒後から12秒、半径4.5m内の視線が通る敵1人の地点を一度だけ2.5秒知らせます。Q「スペキュラー」は反射を見た相手を最大2秒まぶしくします（100コイン、味方・自身にも有効）。E「カーニング」は4秒間、歩く速さを1.35倍にし、18秒で再使用。Xは半径300m内を3回索敵し、その時の地点をミニマップへ1.25秒表示します。</p>
         <p class="practice-manual">草ブロックのC「土煙」はマップで最大3地点を選び、右クリックで一括設置する7秒の煙幕です（3個所持）。Q「ルートセンサー」は構えて左クリックで投擲。着地から半径5m・7秒、敵の移動速度を40%低下、通常ジャンプ高度を半減します（100コイン）。侵入音は味方全員へ届き、見通せる根だけが敵の足元を追います。壁・別階は越えず、煙の中でも検知し、脱出後は最後の地点を1.5秒示します。敵の輪郭・拘束・ダメージはなく、射撃やスキルを妨げません。E「芝走り」は接地中に3秒、歩く速さ1.5倍、15秒で再使用。Xはマップの選択地点に半径9m・12秒の大煙幕を設置します。</p>
-        <p class="practice-manual">はんだごて握り太郎のC「はんだ玉」は最大18mへ投げ、0.45秒の飛行と0.2秒の予告後、半径3.2mの敵へ最大75ダメージ（2回まで、1回100しばくでコイン）。Q「遮光チェック」は8秒間、新しく受ける閃光の時間を15%にします（100コイン）。既に受けた閃光は短縮しません。E「クイックソルダー」は現在の銃を予備弾から0.8秒で装填（無料、18秒で再使用）。満弾・予備弾なし・通常リロード中は使えず、持ち替え・設置・電源オフ・死亡で中止します。</p>
-        <p class="practice-manual">はんだごて握り太郎のX「フレアストライク」は、地面に照準を向け、予告リングで指定位置を確認して発動。最大20m先・半径6mへ1.2・2.4・3.6秒後に各30ダメージの爆撃を行います。敵だけが対象で、地上の警告から退避できます。</p>
+        <p class="practice-manual">はんだごて握り太郎は8編成のロボを召喚・指揮します。キャラクターで選択すると、選択欄のすぐ下の「ロボの操作・全8編成の説明」から、各部隊の役割・費用・追加命令を確認できます。</p>
         <p class="practice-manual">尾野のC「霜のステッチ」は最大16m先へ、内0.9m・外3.8mの円環を8秒展開し、接地した敵の歩く速さを45%にします（2回まで、1回100しばくでコイン）。Q「ドールミスト」は最大18m先へ半径3.5m・9秒の霧（100コイン）。E「ほどけるリボン」は接地中5秒間、減速分を85%軽減し、18秒で再使用。通常の移動速度は増えず、離地・死亡で終了します。</p>
         <p class="practice-manual">尾野のX「クライオフィールド」は、地面に照準を向け、予告リングで指定位置を確認して発動。最大20m先に半径7mの減速場を10秒展開し、0.8秒後から敵の移動速度を55%にします。重複しても減速は強まりません。</p>
         <p class="practice-manual">スタート看板を撃つと60秒のBOT撃ち開始。弾・スキルは無限。撃破数・命中率・ヘッド率を磨こう。</p>
@@ -211,7 +238,7 @@
           <section class="online-preparation" aria-label="試合の準備">
             <label class="online-field" for="online-team"><span>チーム</span><select id="online-team"><option value="blue">BLUE / ブルー</option><option value="red">RED / レッド</option></select></label>
             <label class="online-field" for="online-format"><span>試合形式<small>部屋を作った人が選択</small></span><select id="online-format"><option value="swift" selected>SWIFT / 5ラウンド先取</option><option value="standard">STANDARD / 13ラウンド先取</option></select></label><label class="online-field">マップ<select id="online-map"><option value="hashimoto">橋本駅</option><option value="hirakata">枚方市駅 / 南北ロータリー</option><option value="trc">TRC 同人音楽即売会 / 屋外侵入</option></select></label>
-            <label class="online-field" for="online-agent"><span>キャラクター</span><select id="online-agent"><option value="duelist">ちぬつてのとのへめほ / 投げナイフ5本</option><option value="nope">NOPE / ロゴ化＋デコイ30体（12秒）</option><option value="mend">丱凵してね / 最大75HP回復</option><option value="echo">IAGNU / 半径300m・3回索敵</option><option value="veil">草ブロック / 半径9m・視界遮断12秒</option><option value="ember">はんだごて握り太郎 / 爆撃30×3回</option><option value="frost">尾野 / 減速フィールド10秒</option><option value="duck">🦆 / 封印・羽盾・消音・不屈の卵</option><option value="cat">猫の画像 / 回収・時制</option><option value="car">トミカ / 排除・補給</option><option value="nobi">のび / 弱点・工作</option><option value="japan">しばくでジャパン / 国境・総動員</option><option value="cap">キャップは？ / クラスター投擲</option><option value="urchin">青ウニ / 棘・弾道</option><option value="onnara">おんなら / 星冠・裁定</option><option value="renko">蓮子 / 高速走行・滑走・4秒ジェット</option></select></label>
+            <label class="online-field" for="online-agent"><span>キャラクター</span><select id="online-agent"><option value="duelist">ちぬつてのとのへめほ / 投げナイフ5本</option><option value="nope">NOPE / ロゴ化＋デコイ30体（12秒）</option><option value="mend">丱凵してね / 最大75HP回復</option><option value="echo">IAGNU / 半径300m・3回索敵</option><option value="veil">草ブロック / 半径9m・視界遮断12秒</option><option value="ember">はんだごて握り太郎 / ロボ工場・8編成</option><option value="frost">尾野 / 減速フィールド10秒</option><option value="duck">🦆 / 封印・羽盾・消音・不屈の卵</option><option value="cat">猫の画像 / 回収・時制</option><option value="car">トミカ / 排除・補給</option><option value="nobi">のび / 弱点・工作</option><option value="japan">しばくでジャパン / 国境・総動員</option><option value="cap">キャップは？ / クラスター投擲</option><option value="urchin">青ウニ / 棘・弾道</option><option value="onnara">おんなら / 星冠・裁定</option><option value="renko">蓮子 / 高速走行・滑走・4秒ジェット</option></select></label>
             <aside class="online-character-preview" aria-label="選択中のキャラクターのモデル"><div id="online-character-preview-stage" class="character-preview-stage"></div><div class="character-preview-caption"><h3 id="online-character-preview-name">ちぬつてのとのへめほ</h3><p id="online-character-preview-role">突入 / ブレードストーム</p><span id="online-character-preview-note">選択でモデルを確認</span></div></aside>
             <button id="online-ready" class="secondary-button online-ready-button" type="button">準備完了</button>
             <button id="online-start" class="primary-button online-start-button" type="button"><span>試合を開始<small>START MATCH</small></span><span class="arrow">→</span></button>

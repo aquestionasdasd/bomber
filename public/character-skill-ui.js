@@ -15,6 +15,8 @@ export function createCharacterSkillUI({ document: doc = globalThis.document } =
 
   function updateSelection(character) {
     const id = normalizeCharacter(character), definition = CHARACTER_DEFS[id];
+    const robotGuide = get('ember-robot-guide');
+    if (robotGuide) robotGuide.hidden = id !== 'ember';
     text('agent-description', `${definition.role} · ${definition.description}`);
     text('online-skill-character', definition.label);
     const skills = KEYS.map(key => getCharacterSkill(id, key));

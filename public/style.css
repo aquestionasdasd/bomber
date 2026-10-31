@@ -55,6 +55,14 @@
 .practice-modes .range-button .explore-icon{color:var(--red)}
 .practice-modes .range-button:hover{border-color:#ff515e99;background:#ff515e0d}
 .practice-manual{margin-top:14px;color:#8fa8b1;font-size:8px;line-height:1.9;letter-spacing:.3px}
+.ember-robot-guide{margin:12px 0;border:1px solid #9fdfce45;background:#0b202960}
+.ember-robot-guide>summary{padding:12px;color:#c9e9dd;font-size:12px;line-height:1.5;cursor:pointer}
+.ember-robot-guide>summary:focus-visible{outline:2px solid var(--mint);outline-offset:3px}
+.ember-robot-guide-body{max-height:min(56vh,34rem);overflow-y:auto;overscroll-behavior:contain;padding:0 14px 12px;color:#b8cccf;font-size:12px;line-height:1.85;letter-spacing:0;overflow-wrap:anywhere}
+.ember-robot-guide-body p{margin:12px 0 7px}
+.ember-robot-guide-body ul{margin:0;padding-left:20px}
+.ember-robot-guide-body li+li{margin-top:8px}
+.ember-robot-guide-body strong{color:#e4ece5}
 @media(max-height:680px) and (min-width:801px){.practice-modes{margin-top:7px;gap:7px}.practice-modes .explore-button{min-height:47px;padding:8px 10px;gap:8px}.practice-modes .explore-icon{font-size:20px}}
 @media(max-width:480px){.practice-modes{grid-template-columns:minmax(0,1fr);gap:7px;margin-top:10px}.practice-modes .explore-button{min-height:53px;padding:10px 15px;gap:12px}.practice-modes .explore-button>span:nth-child(2){font-size:11px}.practice-modes .explore-button small{font-size:6px}.practice-modes .explore-icon{font-size:23px}.practice-modes .explore-arrow{font-size:20px}}
 
