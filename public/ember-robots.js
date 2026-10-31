@@ -40,7 +40,7 @@ export function createRobotArmy(){
  function damage(u,amount,team,w){if(!u||!units.has(u.id)||!Number.isFinite(amount)||amount<=0||u.team===team&&u.type!=='shield')return false;const absorbed=Math.min(u.armor,amount);u.armor-=absorbed;u.hp=Math.max(0,u.hp-(amount-absorbed));if(!u.hp)destroy(u,true,w);return true;}
  function reserve(u,target){const k=`${u.owner}/${target.id}`;let a=reservations.get(k);if(!a){a=[];reservations.set(k,a);}if(a.includes(u.id))return true;if(a.length>=R.attackers)return false;a.push(u.id);return true;}
  function visible(u,a,w){const t=T[u.type];if(!a.alive||a.team===u.team||dist(u,a)>(t.detect||t.range||0)||Math.abs((a.y||0)-u.y)>5)return false;const angle=Math.atan2(u.x-a.x,u.z-a.z),delta=Math.atan2(Math.sin(angle-u.yaw),Math.cos(angle-u.yaw));return Math.abs(delta)<=R.fov/2&&w.see(u,a);}
- function share(u,p,range){for(const v of near(u,range))if(v.owner===u.owner&&v.id!==u.id)v.memory={...p};}
+ function share(u,p,range){for(const v of near(u,range))if(v.team===u.team&&v.id!==u.id)v.memory={...p};}
  function destination(u,g,owner){if(u.command?.point)return u.command.point;if(u.memory&&u.memory.until>now){const p={...u.memory},angle=g.yaw+Math.PI+(u.role%4)*Math.PI/2;p.x+=Math.sin(angle)*1.1;p.z+=Math.cos(angle)*1.1;return p;}
   if(g.order){const side=(u.role%3-1)*1.1,back=u.type==='shield'?-1.3:u.type==='repair'?2:0;return{x:g.order.x+Math.cos(g.yaw)*side+Math.sin(g.yaw)*back,y:g.order.y,z:g.order.z-Math.sin(g.yaw)*side+Math.cos(g.yaw)*back};}
   if(['shield','wire','turret'].includes(u.type)){const reach=u.type==='wire'?2.5:u.type==='turret'?1.2:3;return{x:u.spawn.x-Math.sin(g.yaw)*reach,y:u.spawn.y,z:u.spawn.z-Math.cos(g.yaw)*reach};}
@@ -99,12 +99,12 @@ export function createRobotArmy(){
   for(const u of [...units.values()]){const g=groups.get(u.gid),owner=w.actors.get(u.owner);if(!g||!owner||owner.team!==u.team||now>=u.endsAt){destroy(u,false,w);continue;}u.ownerPose=owner;
    if(u.attached){const a=w.actors.get(u.attached);if(!a?.alive||now>=u.attachEnd){destroy(u,false,w);continue;}u.x=a.x;u.y=a.y||0;u.z=a.z;slow(a,R.captureScale,u.attachEnd);continue;}
    if(T[u.type].factory){u.state='Support';if(g.order&&u.type==='assault')move(u,g.order,dt,w);if(now>=g.produceAt){if(spawnFactory(g,u,w))g.produceAt=now+(g.mode?C.productionInterval:C.resupplyInterval);else g.produceAt=now+.25;}continue;}
-   if(u.mount){const carrier=units.get(u.mount);if(carrier){u.x=carrier.x;u.y=carrier.y+1.7;u.z=carrier.z;u.yaw=carrier.yaw;}else u.mount=0;}
+   if(u.mount){const carrier=units.get(u.mount);if(carrier&&w.stand({x:carrier.x,y:carrier.y+1.7,z:carrier.z},T[u.type].radius,T[u.type].height)){u.x=carrier.x;u.y=carrier.y+1.7;u.z=carrier.z;u.yaw=carrier.yaw;}else{u.mount=0;const floor=w.ground(u.x,u.z,u.y);if(floor!==null&&w.stand({x:u.x,y:floor,z:u.z},T[u.type].radius,T[u.type].height))u.y=floor;}}
    if(commandTick(u,dt,w,actors))continue;
    if(now>=u.thinkAt){u.thinkAt=now+R.think;u.state='Search';let choices=actors.filter(a=>visible(u,a,w));const focus=g.focus;choices.sort((a,b)=>(focus?(dist(a,focus)<=C.focusRadius?0:1)-(dist(b,focus)<=C.focusRadius?0:1):0)||dist(u,a)-dist(u,b));
     if(u.memory?.captured)choices.sort((a,b)=>(a.id===u.memory.target?-1:0)-(b.id===u.memory.target?-1:0));
     const a=choices[0];u.target=a?.id||null;if(a){u.memory={...pose(a),target:a.id,until:now+R.memory};if(['supervisor','flyer','guard'].includes(u.type))share(u,u.memory,u.type==='supervisor'?12:15);}
-    if(u.type==='turret'&&!u.mount&&!u.fused){const shield=near(u,2).find(v=>v.type==='shield'&&v.owner===u.owner&&![...units.values()].some(b=>b.mount===v.id));if(shield)u.mount=shield.id;}
+    if(u.type==='turret'&&!u.mount&&!u.fused){const shield=near(u,2).find(v=>v.type==='shield'&&v.team===u.team&&Math.abs(v.y-u.y)<2&&w.clear({x:u.x,y:u.y+.4,z:u.z},{x:v.x,y:v.y+.4,z:v.z})&&w.stand({x:v.x,y:v.y+1.7,z:v.z},T.turret.radius,T.turret.height)&&![...units.values()].some(b=>b.mount===v.id));if(shield)u.mount=shield.id;}
    }
    if(u.type==='repair'){support(u,dt,w);const hurt=near(u,6).find(v=>v.team===u.team&&v.hp<v.maxHp);move(u,hurt||destination(u,g,owner),dt,w);continue;}
    if(u.link&&u.type==='shield'&&!units.has(u.link))u.link=0;
