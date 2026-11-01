@@ -1,5 +1,5 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),Module=require('node:module'),{pathToFileURL}=require('node:url');
-async function main({mutate=s=>s,only=()=>true,measure=false,baseline=false,moving=false}={}){
+async function main({mutate=s=>s,only=()=>true,measure=false,baseline=false,moving=false,preparing=false}={}){
  const root=__dirname,read=p=>fs.readFileSync(path.join(root,p),'utf8');
  const code=mutate(read('public/bot-team-planner.js')).replace("'./abilities.js'",JSON.stringify(pathToFileURL(path.join(root,'public/abilities.js')).href));
  const {createBotTeamPlanner,BOT_SKILL_CAPABILITIES,BOT_TEAM_SETUPS}=await import('data:text/javascript;base64,'+Buffer.from(code).toString('base64'));
@@ -21,6 +21,7 @@ async function main({mutate=s=>s,only=()=>true,measure=false,baseline=false,movi
  test('no unseen coordinates, enemy stocks, team leakage or caller-owned mutable position enters plans',()=>{
   const p=createBotTeamPlanner(),a=args();a.contacts.blue=[];a.contacts.red=[{id:'secret',x:0,z:18,seenAt:10}];assert.equal(p.update(a).size,0);
   a.now=10.3;a.contacts.blue=args().contacts.blue;a.contacts.blue[0].seenAt=10.3;p.update(a);a.contacts.blue[0].x=999;assert.equal(p.snapshot().plans[0].point.x,0);
+  a.contacts.blue[0].x=0; // Isolate stale intel from the separate copied-position check.
   a.now=11.4;p.update(a);assert.equal(p.snapshot().plans.length,0,'stale contact cancels uncast setup');
  });
  test('death, urgent work, reload, blindness, low health, vertical mismatch and human seats cancel coordination',()=>{
@@ -43,6 +44,14 @@ async function main({mutate=s=>s,only=()=>true,measure=false,baseline=false,movi
    assert.equal(p.update({...a,now:11.2,effectState:()=>lost}).size,0,'lost active effect releases every order');
    assert.equal(p.snapshot().history.at(-1).outcome,'effect-lost');
    assert.equal(p.update({...a,now:11.3}).size,0,'normal cooldown still applies');
+  }
+ });
+ test('fresh preparation sightings retarget an uncast setup while missing stale and other contacts cancel it',()=>{
+  for(const mode of['fresh','stale','other','missing']){
+   const p=createBotTeamPlanner(),a=args();p.update(a);const contact={...a.contacts.blue[0],x:8,seenAt:mode==='stale'?8:10.1};if(mode==='other')contact.id='other-target';
+   const orders=p.update({...a,now:10.1,contacts:{blue:mode==='missing'?[]:[contact],red:[]}});
+   if(mode==='fresh'){assert.equal(orders.get('caster')?.point.x,8,'uncast setup follows the newly observed point');assert.equal(p.snapshot().plans[0].phase,'prepare');assert.equal(p.snapshot().plans[0].until,11.1,'retargeting never extends preparation');contact.x=999;assert.equal(p.snapshot().plans[0].point.x,8,'preparation copies observations');}
+   else {assert.equal(orders.size,0,mode);assert.equal(p.snapshot().history.at(-1).outcome,'setup-unavailable',mode);}
   }
  });
  test('new allied sightings update accepted effect checks without moving the locked cast or leaking hidden poses',()=>{
@@ -83,6 +92,20 @@ async function main({mutate=s=>s,only=()=>true,measure=false,baseline=false,movi
   }
   function step(seconds,hz=60){Object.assign(h.sandbox,{duration:seconds,hz});h.run(`for(let t=0;t<duration-1e-8;t+=1/hz){var previousYaw=bots.map(b=>b.group.rotation.y);updatePlay(Math.min(1/hz,duration-t));teamSamples.push({at:elapsed,z:entry.z,mode:updateBots.tactics.skillState().plans[0]?.phase||null,effect:ordinarySkills.nobiVulnerability(player.id,elapsed,player,ordinaryReachable),speed:actorSpeedScale(player),maxTurn:Math.max(...bots.map((b,i)=>Math.abs(b.group.rotation.y-previousYaw[i]))),hp:player.hp,damage:teamDamage});}`);}
   const value=code=>JSON.parse(JSON.stringify(h.run(code)));
+  if(preparing){
+   const controls=[];
+   for(const hz of[20,60,144]){
+    setup({character:'mend'});step(1/hz,hz);
+    const before=value('({at:elapsed,phase:updateBots.tactics.skillState().plans[0]?.phase,point:updateBots.tactics.skillState().plans[0]?.point,casts:teamCasts.length,stock:setter.kit.smoke})');
+    assert.equal(before.phase,'prepare');assert.equal(before.casts,0,'movement happens before the cast');
+    h.run('player.x=8');step(2.5,hz);
+    const after=value('({at:elapsed,seen:setter.lastSeen,casts:teamCasts,stock:setter.kit.smoke,speed:actorSpeedScale(player),z:entry.z,field:ordinarySkills.events(elapsed).find(e=>e.sourceId===setter.id),exploit:teamSamples.some(s=>s.mode==="exploit"),maxTurn:Math.max(...teamSamples.map(s=>s.maxTurn))})');
+    assert.equal(after.seen.x,8,'retargeted pose is legitimately seen');assert.equal(after.casts.length,1);assert.equal(after.stock,0);assert.ok(after.maxTurn<=Math.PI*.8/hz+1e-7,'normal total turn budget');
+    if(!measure){assert.equal(after.speed,.5,'actual seeds reach the target that moved before casting at'+hz);assert.equal(after.exploit,true,'real effect enables followup at'+hz);assert.ok(after.field.x>4,'cast itself uses the updated observed point');}
+    controls.push({hz,before,after});
+   }
+   console.log('PREPARING_TARGET_CONTROLS '+JSON.stringify(controls));return{groups:1,controls,frame:'actual updatePlay once/frame',fixture:'two allied bots;target stepped sideways8m during preparation before any cast;HP/armor restored after actual hits',limitations:['controlled pose change;not ordinary5v5 match results','no browser/device/listening confirmation']};
+  }
   if(moving){
    const controls=[];
    for(const hz of[20,60,144]){

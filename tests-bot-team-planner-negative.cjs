@@ -1,6 +1,7 @@
 const assert=require('node:assert/strict'),run=require('./tests-bot-team-planner.cjs');
 (async()=>{
  const faults=[
+  ['freeze uncast aim at old observation',s=>s.replace('if(latest)state.point=position(latest);',"if(latest&&state.phase!=='prepare')state.point=position(latest);"),'fresh preparation'],
   ['ignore newly observed target movement',s=>s.replace('if(latest)state.point=position(latest);',''),'new allied sightings'],
   ['skip real effect confirmation',s=>s.replace('if(actual.ready){','if(true){'),'setup, authoritative'],
   ['ignore urgent objective',s=>s.replace('&&!a.urgent',''),'death, urgent'],
