@@ -11,13 +11,29 @@ async function main() {
   const json = value => JSON.parse(JSON.stringify(value));
   const near = (actual, expected, message) => assert.ok(Math.abs(actual - expected) < 1e-8, message || `${actual} != ${expected}`);
   const allReach = { reachable: () => true };
+  // This focused mode runs the original ten NOPE groups. The default still
+  // runs every remaining character group, including unresolved legacy fixtures.
+  const nopeOnly = process.argv.includes('--nope');
+  function canonicalNope(event) {
+    assert.ok(event);
+    const flash = event.type === 'nope-flash', gravity = flash ? 12 : 4, t = event.flight;
+    assert.ok(t >= .08 && t <= (flash ? 1 : 8));
+    // Independently check launch kinematics, rather than using throwDuration
+    // or throwPosition as the expected-value oracle.
+    const vx = (event.x - event.fromX) / t, vz = (event.z - event.fromZ) / t;
+    const vy = (event.y - event.fromY) / t + gravity * t / 2;
+    near(Math.hypot(vx, vy, vz), 12);
+    near(event.triggerAt - event.startedAt, flash ? 1 : Math.max(1, t));
+    near(event.endsAt - event.triggerAt, flash ? .4 : .6);
+    assert.equal(event.radius, flash ? 30 : 8);
+  }
   let passed = 0;
   function test(name, fn) { fn(); passed++; console.log(`PASS: ${name}`); }
 
   test('casts use canonical bounded data, unique IDs, strict actors, and separate six-meter decoy range', () => {
     const skills = createCharacterSkills(), owner = actor();
     const bottle = skills.cast({ type: 'nope-bottle', radius: 900 }, owner, target(0, -20), 5, 1);
-    assert.ok(bottle); assert.equal(bottle.radius, 8); assert.equal(bottle.flight, .55); assert.equal(bottle.triggerAt, 6); near(bottle.endsAt, 6.6);
+    canonicalNope(bottle); assert.equal(bottle.radius, 8); assert.ok(bottle.flight > 1.7 && bottle.flight < 1.71); near(bottle.triggerAt, 5 + bottle.flight); near(bottle.endsAt, bottle.triggerAt + .6);
     assert.equal(bottle.fromY, 1.7); assert.equal(bottle.round, 1); assert.equal(bottle.sourceId, owner.id);
     assert.equal(skills.cast('nope-bottle', owner, target(0, -40.001), 5, 1), null);
     assert.equal(skills.cast('nope-decoy', owner, target(0, -6.001), 5, 1), null);
@@ -35,14 +51,19 @@ async function main() {
   });
 
   test('the shared analytic projectile curve reaches a fixed endpoint independently of frame cadence', () => {
-    for (const [type, flight, arc] of [['nope-bottle', .55, 1.4], ['nope-flash', .45, .8]]) {
+    for (const [type, gravity] of [['nope-bottle', 4], ['nope-flash', 12]]) {
       const skills = createCharacterSkills(), owner = actor(), event = skills.cast(type, owner, target(4, -8, 1), 2, 1);
+      canonicalNope(event); const flight = event.flight;
       assert.deepEqual(skillProjectilePosition(event, 1), { x: 0, y: 1.7, z: 0 });
-      const middle = skillProjectilePosition(event, 2 + flight / 2); near(middle.x, 2); near(middle.z, -4); near(middle.y, (1.7 + 1) / 2 + arc);
+      const middle = skillProjectilePosition(event, 2 + flight / 2); near(middle.x, 2); near(middle.z, -4); near(middle.y, (1.7 + 1) / 2 + gravity * flight ** 2 / 8);
       const arrival = skillProjectilePosition(event, 2 + flight); near(arrival.x, 4); near(arrival.y, 1); near(arrival.z, -8);
       assert.deepEqual(skillProjectilePosition(event, 50), { x: 4, y: 1, z: -8 });
       for (const hz of [20, 60, 144]) {
-        for (let n = 0; n < hz; n++) skillProjectilePosition(event, 2 + n / hz);
+        for (let n = 0; n <= Math.ceil(flight * hz); n++) {
+          const time = Math.min(flight, n / hz), pose = skillProjectilePosition(event, 2 + time), u = time / flight;
+          near(pose.x, 4 * u); near(pose.z, -8 * u);
+          near(pose.y, 1.7 + (1 - 1.7) * u + gravity * time * (flight - time) / 2);
+        }
         assert.deepEqual(skillProjectilePosition(event, 2 + flight / 2), middle);
       }
       owner.x = 30; owner.z = 50; assert.deepEqual(skillProjectilePosition(event, 50), { x: 4, y: 1, z: -8 });
@@ -77,13 +98,14 @@ async function main() {
     const observers = [owner, actor('enemy', 'red'), actor('friend', 'blue'), actor('away', 'red', 0, 0, { yaw: Math.PI }),
       actor('blocked', 'red'), actor('edge', 'red', 0, 25), actor('too-far', 'red', 0, 25.001),
       actor('dead', 'red', 0, 0, { alive: false, hp: 0 }), actor('side', 'red', 0, 0, { yaw: Math.PI / 2 })];
-    assert.deepEqual(skills.update(observers, .449, 1, allReach), []);
-    const hits = skills.update(observers, .45, 1, { reachable: (_, other) => other.id !== 'blocked' });
+    canonicalNope(flash);
+    assert.deepEqual(skills.update(observers, .999999, 1, allReach), []);
+    const hits = skills.update(observers, 1, 1, { reachable: (_, other) => other.id !== 'blocked' });
     assert.deepEqual(hits.map(hit => hit.targetId), ['caster', 'enemy', 'friend', 'edge']);
-    for (const hit of hits) { assert.equal(hit.type, 'blind'); assert.equal(hit.duration, 2.4); assert.equal(hit.sourceId, 'caster'); assert.equal(skills.blindUntil(hit.targetId, .45), 2.85); }
-    assert.deepEqual(skills.update(observers, .46, 1, allReach), []);
-    assert.equal(skills.events(flash.endsAt).length, 0); assert.equal(skills.blindUntil('enemy', 1), 2.85, 'Blind state survives the short visual burst');
-    assert.equal(skills.blindUntil('enemy', 2.85), 0);
+    for (const hit of hits) { assert.equal(hit.type, 'blind'); assert.equal(hit.duration, 2.4); assert.equal(hit.sourceId, 'caster'); assert.equal(skills.blindUntil(hit.targetId, 1), 3.4); }
+    assert.deepEqual(skills.update(observers, 1.01, 1, allReach), []);
+    assert.equal(skills.events(flash.endsAt).length, 0); assert.equal(skills.blindUntil('enemy', 1.4), 3.4, 'Blind state survives the short visual burst');
+    assert.equal(skills.blindUntil('enemy', 3.4), 0);
     assert.equal(observers[1].hp, 100);
   });
 
@@ -92,49 +114,49 @@ async function main() {
     const bot = actor('bot', 'red', 0, 0, { yaw: undefined, group: { rotation: { y: Math.PI } }, crouch: 1 });
     const remote = actor('remote', 'red', 0, 0, { yaw: undefined, netYaw: 0, crouch: 1 });
     const skyward = actor('skyward', 'red', 0, 0, { pitch: 1.35 });
-    assert.deepEqual(skills.update([bot, remote, skyward], .45, 1, allReach).map(hit => hit.targetId), ['bot', 'remote']);
+    assert.deepEqual(skills.update([bot, remote, skyward], 1, 1, allReach).map(hit => hit.targetId), ['bot', 'remote']);
     const again = createCharacterSkills(); again.cast('nope-flash', owner, target(0, -5, 1.7), 0, 1);
-    assert.deepEqual(again.update([remote], .45, 1), [], 'No LOS callback fails closed');
+    assert.deepEqual(again.update([remote], 1, 1), [], 'No LOS callback fails closed');
   });
 
   test('overlapping flash keeps the later expiry; decoy is stationary and cannot create gameplay hits', () => {
     const skills = createCharacterSkills(), owner = actor(), enemy = actor('enemy', 'red');
-    skills.cast('nope-flash', owner, target(0, -5, 1.7), 0, 1); skills.update([enemy], .45, 1, allReach);
-    skills.cast('nope-flash', owner, target(0, -5, 1.7), .5, 1); skills.update([enemy], .95, 1, allReach);
-    near(skills.blindUntil('enemy', 1), 3.35);
-    const decoy = skills.cast('nope-decoy', owner, target(0, -5), 1, 1); owner.x = 10;
+    skills.cast('nope-flash', owner, target(0, -5, 1.7), 0, 1); skills.update([enemy], 1, 1, allReach);
+    skills.cast('nope-flash', owner, target(0, -5, 1.7), 1, 1); skills.update([enemy], 2, 1, allReach);
+    near(skills.blindUntil('enemy', 2), 4.4);
+    const decoy = skills.cast('nope-decoy', owner, target(0, -5), 2, 1); owner.x = 10;
     assert.deepEqual(skillProjectilePosition(decoy, 4), { x: 0, y: 0, z: -5 });
-    assert.deepEqual(skills.update([enemy], 4, 1, allReach), []); assert.equal(skills.events(12.999999).length, 1);
-    assert.equal(skills.events(13).length, 0); assert.equal(skills.blindUntil('enemy', 13), 0);
+    assert.deepEqual(skills.update([enemy], 4, 1, allReach), []); assert.equal(skills.events(13.999999).length, 1);
+    assert.equal(skills.events(14).length, 0); assert.equal(skills.blindUntil('enemy', 14), 0);
   });
 
   test('JSON guests render current events and blindness without ever sampling damage, including repeated snapshots', () => {
     const host = createCharacterSkills(), guest = createCharacterSkills(), owner = actor(), enemy = actor('enemy', 'red', 0, -5);
-    host.cast('nope-bottle', owner, target(), 0, 1); host.cast('nope-flash', owner, target(0, -5, 1.7), 0, 1);
-    host.update([owner], .45, 1, allReach);
-    const packet = json(host.snapshot()); assert.equal(guest.restore(packet, .45, 1), true);
-    assert.deepEqual(guest.events(.6), host.events(.6)); assert.equal(guest.blindUntil('caster', .6), 2.85);
-    assert.equal(guest.restore(packet, .45, 1), true);
-    assert.deepEqual(guest.update([enemy], 1.5, 1, allReach), []);
-    assert.equal(host.update([enemy], 1.5, 1, allReach)[0].type, 'damage');
-    assert.equal(guest.restore(json(host.snapshot()), 1.5, 1), true); assert.deepEqual(guest.update([enemy], 1.51, 1, allReach), []);
-    assert.equal(guest.restore(packet, .45, 1), false, 'An older host clock cannot revive an expired effect');
+    host.cast('nope-flash', owner, target(0, -5, 1.7), 0, 1); host.cast('nope-bottle', owner, target(), .6, 1);
+    host.update([owner], 1, 1, allReach);
+    const packet = json(host.snapshot()); assert.equal(guest.restore(packet, 1, 1), true);
+    assert.deepEqual(guest.events(1.1), host.events(1.1)); assert.equal(guest.blindUntil('caster', 1.1), 3.4);
+    assert.equal(guest.restore(packet, 1, 1), true);
+    assert.deepEqual(guest.update([enemy], 1.8, 1, allReach), []);
+    assert.equal(host.update([enemy], 1.8, 1, allReach)[0].type, 'damage');
+    assert.equal(guest.restore(json(host.snapshot()), 1.8, 1), true); assert.deepEqual(guest.update([enemy], 1.81, 1, allReach), []);
+    assert.equal(guest.restore(packet, 1, 1), false, 'An older host clock cannot revive an expired effect');
   });
 
   test('strict snapshots reject forged geometry, timers, IDs, limits and duplicate records atomically', () => {
-    const host = createCharacterSkills(); host.cast('nope-flash', actor(), target(0, -5, 1.7), 0, 1); host.update([actor()], .45, 1, allReach);
-    const good = json(host.snapshot()), guest = createCharacterSkills(); assert.equal(guest.restore(good, .45, 1), true);
+    const host = createCharacterSkills(); host.cast('nope-flash', actor(), target(0, -5, 1.7), 0, 1); host.update([actor()], 1, 1, allReach);
+    const good = json(host.snapshot()), guest = createCharacterSkills(); assert.equal(guest.restore(good, 1, 1), true);
     const cases = [null, [], {}, { events: [], blinds: null }, { events: Array(21).fill(good.events[0]), blinds: [] }, { events: [], blinds: Array(21).fill(good.blinds[0]) }];
-    for (const [key, value] of [['radius', 10], ['flight', .4], ['x', NaN], ['y', '1.7'], ['z', 50], ['fromY', Infinity], ['triggerAt', .5],
+    for (const [key, value] of [['radius', 10], ['flight', 1.001], ['flight', .001], ['x', NaN], ['y', '1.7'], ['z', 50], ['fromY', Infinity], ['triggerAt', .5],
       ['endsAt', 30], ['round', 2], ['startedAt', 1], ['id', 'skill-nope-flash-0'], ['sourceId', ''], ['team', 'other'], ['type', 'constructor']]) {
       const mutated = json(good); mutated.events[0][key] = value; cases.push(mutated);
     }
-    for (const [key, value] of [['endsAt', 50], ['round', 2], ['targetId', ''], ['startedAt', 1], ['eventId', 'skill-nope-bottle-1']]) {
+    for (const [key, value] of [['endsAt', 50], ['round', 2], ['targetId', ''], ['startedAt', .5], ['eventId', 'skill-nope-bottle-1']]) {
       const mutated = json(good); mutated.blinds[0][key] = value; cases.push(mutated);
     }
     cases.push({ events: [good.events[0], good.events[0]], blinds: [] }); cases.push({ events: [], blinds: [good.blinds[0], good.blinds[0]] });
-    for (const invalid of cases) { const before = guest.snapshot(); assert.equal(guest.restore(invalid, .45, 1), false); assert.deepEqual(guest.snapshot(), before); }
-    good.events[0].x = 900; good.blinds[0].targetId = 'injected'; assert.notEqual(guest.snapshot().events[0].x, 900); assert.equal(guest.blindUntil('injected', .45), 0);
+    for (const [index, invalid] of cases.entries()) { const before = guest.snapshot(); assert.equal(guest.restore(invalid, 1, 1), false, `NOPE malformed snapshot ${index}`); assert.deepEqual(guest.snapshot(), before); }
+    good.events[0].x = 900; good.blinds[0].targetId = 'injected'; assert.notEqual(guest.snapshot().events[0].x, 900); assert.equal(guest.blindUntil('injected', 1), 0);
   });
 
   test('host-clock ordering is independent of a leading render clock, while expired markers never revive', () => {
@@ -145,9 +167,9 @@ async function main() {
     assert.equal(guest.restore(json(host.snapshot()), .25, 1), false);
     assert.equal(guest.restore({ events: [], blinds: [] }, 0, 2), true); assert.equal(guest.restore(json(host.snapshot()), 13, 1), false);
     assert.equal(guest.events(0).length, 0);
-    host.reset(); const newer = host.cast('nope-flash', actor(), target(0, -5, 1.7), 0, 3); host.update([actor()], .45, 3, allReach);
-    assert.equal(guest.restore(json(host.snapshot()), .45, 3), true); assert.equal(guest.blindUntil('caster', 3), 0);
-    assert.equal(guest.restore(json(host.snapshot()), .5, 3), true); assert.equal(guest.blindUntil('caster', 3), 0);
+    host.reset(); const newer = host.cast('nope-flash', actor(), target(0, -5, 1.7), 0, 3); host.update([actor()], 1, 3, allReach);
+    assert.equal(guest.restore(json(host.snapshot()), 1, 3), true); assert.equal(guest.blindUntil('caster', 3.4), 0);
+    assert.equal(guest.restore(json(host.snapshot()), 1.1, 3), true); assert.equal(guest.blindUntil('caster', 3.4), 0);
     assert.ok(newer.id.endsWith('-2'), 'Reset preserves the host sequence to prevent rejoin ID reuse');
   });
 
@@ -160,12 +182,17 @@ async function main() {
     assert.deepEqual(skills.update([], 0, 2, allReach), []); assert.equal(skills.events(0).length, 0); assert.equal(skills.cast('nope-decoy', owner, target(), 0, 1), null);
     skills.cast('nope-flash', owner, target(0, -5, 1.7), 0, 2);
     const enemies = Array.from({ length: 30 }, (_, n) => actor(`enemy-${n}`, 'red'));
-    assert.equal(skills.update(enemies, .45, 2, allReach).length, 30); assert.equal(skills.snapshot().blinds.length, CHARACTER_SKILLS.maxBlinds);
-    assert.equal(skills.blindUntil('enemy-0', .45), 0); assert.equal(skills.blindUntil('enemy-29', .45), 2.85);
+    assert.equal(skills.update(enemies, 1, 2, allReach).length, 30); assert.equal(skills.snapshot().blinds.length, CHARACTER_SKILLS.maxBlinds);
+    assert.equal(skills.blindUntil('enemy-0', 1), 0); assert.equal(skills.blindUntil('enemy-29', 1), 3.4);
     skills.reset(); assert.deepEqual(skills.snapshot(), { events: [], blinds: [], markers: [] }); assert.equal(skills.blindUntil('enemy-29', 0), 0);
     const next = skills.cast('nope-bottle', owner, target(), 0, 1); assert.ok(next.id.endsWith('-22'));
     assert.deepEqual(skills.update([actor('new-enemy', 'red', 0, -5)], 1.5, 1, allReach).map(hit => hit.amount), [90]);
   });
+  if (nopeOnly) {
+    assert.equal(passed, 10);
+    console.log(`NOPE character contract tests passed: ${passed} groups; remaining character groups not run.`);
+    return;
+  }
   test('MEND selects the lowest injured living ally deterministically within eighteen 3D meters and visible cover', () => {
     const owner = actor(), allies = [actor('b', 'blue', 1, 0, { hp: 20 }), actor('a', 'blue', 2, 0, { hp: 20 }),
       actor('enemy', 'red', 0, 0, { hp: 1 }), actor('dead', 'blue', 0, 0, { hp: 0, alive: false }),
