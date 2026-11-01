@@ -61,6 +61,10 @@ export function createBotTeamPlanner(){
      if(actual.ready){state.phase='exploit';state.until=Math.min(now+BOT_TEAM_RULES.exploitTime,actual.endsAt);}
     }
     if(state.phase==='exploit'&&now>=state.until){finish(team,state,now,'completed');continue;}
+    if(state.phase==='exploit'){
+     const actual=effectState(state);
+     if(!actual||!actual.alive||!actual.ready||now>=actual.endsAt){finish(team,state,now,'effect-lost');continue;}
+    }
    }else{
     if(now<(state?.nextAt||0)||spike.status==='dropped')continue;
     teams.set(team,{nextAt:now+BOT_TEAM_RULES.decisionInterval});
