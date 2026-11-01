@@ -17,6 +17,19 @@ async function main() {
   const throughMend = process.argv.includes('--through-mend');
   const throughIagnu = process.argv.includes('--through-iagnu');
   const throughVeil = process.argv.includes('--through-veil');
+  const throughEmber = process.argv.includes('--through-ember');
+  function canonicalSolder(event) {
+    assert.ok(event); assert.equal(event.type, 'ember-solder');
+    const t=event.flight; assert.ok(t>=.08&&t<=8);
+    const vx=(event.x-event.fromX)/t,vz=(event.z-event.fromZ)/t,vy=(event.y-event.fromY)/t+4*t/2;
+    near(Math.hypot(vx,vy,vz),12); near(event.triggerAt-event.startedAt,t+.2);
+    near(event.endsAt-event.triggerAt,.35); assert.equal(event.radius,3.2);
+    for(const hz of[20,60,144])for(let frame=0;frame/hz<t;frame++){
+      const dt=frame/hz,p=skillProjectilePosition(event,event.startedAt+dt);
+      near(p.x,event.fromX+vx*dt);near(p.z,event.fromZ+vz*dt);near(p.y,event.fromY+vy*dt-4*dt*dt/2);
+    }
+    const landed=skillProjectilePosition(event,event.triggerAt);near(landed.x,event.x);near(landed.y,event.y);near(landed.z,event.z);
+  }
   function canonicalNope(event) {
     assert.ok(event);
     const flash = event.type === 'nope-flash', gravity = flash ? 12 : 4, t = event.flight;
@@ -610,7 +623,7 @@ async function main() {
   test('EMBER uses canonical bounded solder data and self-only shade and weapon-fixed service without touching any ammo', () => {
     const owner = actor('worker', 'blue', 2, 3, { y: 3.2, weaponId: 'vandal', ammo: 4, reserve: 8 }), skills = createCharacterSkills();
     const solder = skills.cast({ type: 'ember-solder', radius: 999, flight: 0 }, owner, target(2, -15, 3.32), 2, 1);
-    assert.ok(solder); near(solder.fromY, 4.9); assert.equal(solder.flight, .45); near(solder.triggerAt, 2.65); near(solder.endsAt, 3); assert.equal(solder.radius, 3.2);
+    canonicalSolder(solder); near(solder.fromY, 4.9);
     assert.equal(skills.cast('ember-solder', owner, target(2, -15.001, 3.32), 2, 1), null);
     const shade = skills.cast('ember-shade', owner, target(2, 3, 3.2), 2, 1);
     assert.equal(shade.fromY, 3.2); assert.equal(shade.flight, 0); assert.equal(shade.triggerAt, 2); assert.equal(shade.endsAt, 10); assert.equal(shade.radius, 0);
@@ -635,30 +648,36 @@ async function main() {
   test('EMBER solder follows the common arc, warns after arrival, then damages each exposed enemy once with exact floor-height falloff', () => {
     for (const hz of [20, 60, 144]) {
       const engine = createCharacterSkills(), owner = actor('worker'), event = engine.cast('ember-solder', owner, target(0, -5, .12), 0, 1);
-      const middle = skillProjectilePosition(event, .225); near(middle.x, 0); near(middle.z, -2.5); near(middle.y, (1.7 + .12) / 2 + .8);
-      near(skillProjectilePosition(event, .45).y, .12);
+      canonicalSolder(event);
+      const middle = skillProjectilePosition(event, event.flight/2); near(middle.x, 0); near(middle.z, -2.5); near(middle.y, (1.7 + .12) / 2 + 4*event.flight**2/8);
+      near(skillProjectilePosition(event, event.flight).y, .12);
       const enemies = [actor('center', 'red', 0, -5), actor('half', 'red', 1.6, -5), actor('edge', 'red', 3.2, -5),
         actor('up', 'red', 0, -5, { y: 2.5 }), actor('down', 'red', 0, -5, { y: -2.5 }), actor('high', 'red', 0, -5, { y: 2.501 }),
         actor('low', 'red', 0, -5, { y: -2.501 }), actor('blocked', 'red', 0, -5), actor('ally', 'blue', 0, -5),
         actor('dead', 'red', 0, -5, { hp: 0, alive: false })];
       const options = { reachable: (_, other) => other.id !== 'blocked' };
-      for (let frame = 0; frame / hz < .65; frame++) assert.deepEqual(engine.update([...enemies, { ...owner, hp: 0, alive: false }], frame / hz, 1, options), []);
-      const effects = engine.update([...enemies, enemies[0]], .65, 1, options);
+      for (let frame = 0; frame / hz < event.triggerAt-1e-8; frame++) assert.deepEqual(engine.update([...enemies, { ...owner, hp: 0, alive: false }], frame / hz, 1, options), []);
+      assert.deepEqual(engine.update(enemies,event.triggerAt-1e-6,1,options),[]);
+      const effects = engine.update([...enemies, enemies[0]], event.triggerAt, 1, options);
       assert.deepEqual(effects.map(hit => hit.targetId), ['center', 'half', 'up', 'down']);
       for (let index = 0; index < effects.length; index++) { assert.equal(effects[index].type, 'damage'); near(effects[index].amount, index === 1 ? 37.5 : 75); }
-      assert.deepEqual(engine.update(enemies, .7, 1, options), []); assert.equal(enemies[0].hp, 100); assert.equal(engine.events(1).length, 0);
+      assert.deepEqual(engine.update(enemies, event.triggerAt+.01, 1, options), []); assert.equal(enemies[0].hp, 100); assert.equal(engine.events(event.endsAt).length, 0);
     }
     for (const reachable of [undefined, () => false, () => 1, () => { throw Error('wall'); }]) {
-      const engine = createCharacterSkills(); engine.cast('ember-solder', actor(), target(0, -5, .12), 0, 1);
-      assert.deepEqual(engine.update([actor('enemy', 'red', 0, -5)], .65, 1, { reachable }), []);
+      const engine = createCharacterSkills(), event=engine.cast('ember-solder', actor(), target(0, -5, .12), 0, 1);
+      assert.deepEqual(engine.update([actor('enemy', 'red', 0, -5)], event.triggerAt, 1, { reachable }), []);
     }
-    const late = createCharacterSkills(); late.cast('ember-solder', actor(), target(), 0, 1); assert.deepEqual(late.update([actor('enemy', 'red', 0, -5)], 1, 1, allReach), []);
+    const late = createCharacterSkills(), event=late.cast('ember-solder', actor(), target(0,-5,.12), 0, 1); assert.deepEqual(late.update([actor('enemy', 'red', 0, -5)], event.endsAt, 1, allReach), []);
   });
   test('EMBER shade shortens only newly sampled NOPE and IAGNU flashes once, independently of event insertion order or observer team', () => {
-    for (const [type, trigger, duration] of [['nope-flash', .45, .36], ['echo-glint', .5, .3]]) for (const reverse of [false, true]) {
+    for (const [type, duration] of [['nope-flash', .36], ['echo-glint', .3]]) for (const reverse of [false, true]) {
       const engine = createCharacterSkills(), owner = actor('thrower'), worker = actor('worker', 'red'), normal = actor('normal', 'red', 1, 0);
-      const shade = () => engine.cast('ember-shade', worker, target(0, 0), 0, 1), flash = () => engine.cast(type, owner, target(0, -5, 1.7), 0, 1);
+      let flashEvent;
+      const shade = () => engine.cast('ember-shade', worker, target(0, 0), 0, 1), flash = () => { flashEvent=engine.cast(type, owner, target(0, -5, 1.7), 0, 1); };
       if (reverse) { flash(); shade(); } else { shade(); flash(); }
+      if(type==='nope-flash')canonicalNope(flashEvent);else canonicalIagnu(flashEvent);
+      const trigger=flashEvent.triggerAt;
+      assert.deepEqual(engine.update([worker,normal,owner],trigger-1e-6,1,allReach),[]);
       const effects = engine.update([worker, normal, owner], trigger, 1, allReach);
       near(effects.find(effect => effect.targetId === 'worker').duration, duration); near(effects.find(effect => effect.targetId === 'normal').duration, type === 'nope-flash' ? 2.4 : 2);
       const blind = engine.snapshot().blinds.find(value => value.targetId === 'worker'); assert.equal(blind.resisted, true); near(blind.endsAt - blind.startedAt, duration);
@@ -667,19 +686,22 @@ async function main() {
     }
     for (const options of [{ reachable: () => false }, { reachable: () => { throw Error('cover'); } }]) {
       const engine = createCharacterSkills(), worker = actor('worker'); engine.cast('ember-shade', worker, target(0, 0), 0, 1);
-      engine.cast('nope-flash', actor('other'), target(0, -5, 1.7), 0, 1); assert.deepEqual(engine.update([worker], .45, 1, options), []);
+      const event=engine.cast('nope-flash', actor('other'), target(0, -5, 1.7), 0, 1); assert.deepEqual(engine.update([worker], event.triggerAt, 1, options), []);
     }
     const away = actor('away', 'red', 0, 0, { yaw: Math.PI }), engine = createCharacterSkills(); engine.cast('ember-shade', away, target(0, 0), 0, 1);
-    engine.cast('nope-flash', actor(), target(0, -5, 1.7), 0, 1); assert.deepEqual(engine.update([away], .45, 1, allReach), []);
+    const event=engine.cast('nope-flash', actor(), target(0, -5, 1.7), 0, 1); assert.deepEqual(engine.update([away], event.triggerAt, 1, allReach), []);
   });
   test('EMBER shade cannot cure a prior flash, reduce one twice, refresh itself, or shorten a longer overlapping blindness', () => {
     const engine = createCharacterSkills(), worker = actor('worker', 'red'), thrower = actor('thrower');
-    engine.cast('nope-flash', thrower, target(0, -5, 1.7), 0, 1); engine.update([worker], .45, 1, allReach); near(engine.blindUntil('worker', .45), 2.85);
-    engine.cast('ember-shade', worker, target(0, 0), .5, 1); near(engine.blindUntil('worker', .5), 2.85);
-    engine.cast('nope-flash', thrower, target(0, -5, 1.7), .5, 1); const effects = engine.update([worker], .95, 1, allReach);
-    near(effects[0].duration, .36); near(engine.blindUntil('worker', .95), 2.85); assert.equal(Object.hasOwn(engine.snapshot().blinds[0], 'resisted'), false);
-    assert.equal(engine.cast('ember-shade', worker, target(0, 0), 1, 1), null);
-    engine.cast('nope-flash', thrower, target(0, -5, 1.7), 8.05, 1); const expired = engine.update([worker], 8.5, 1, allReach);
+    const first=engine.cast('nope-flash', thrower, target(0, -5, 1.7), 0, 1);canonicalNope(first);
+    engine.update([worker], first.triggerAt, 1, allReach); near(engine.blindUntil('worker', first.triggerAt), 3.4);
+    const shade=engine.cast('ember-shade', worker, target(0, 0), 1.05, 1); near(engine.blindUntil('worker', 1.05), 3.4);
+    const second=engine.cast('nope-flash', thrower, target(0, -5, 1.7), 1.05, 1);canonicalNope(second);
+    const effects = engine.update([worker], second.triggerAt, 1, allReach);
+    near(effects[0].duration, .36); near(engine.blindUntil('worker', second.triggerAt), 3.4); assert.equal(Object.hasOwn(engine.snapshot().blinds[0], 'resisted'), false);
+    assert.equal(engine.cast('ember-shade', worker, target(0, 0), second.triggerAt+.01, 1), null);
+    const last=engine.cast('nope-flash', thrower, target(0, -5, 1.7), 8.05, 1);canonicalNope(last);near(last.triggerAt,shade.endsAt);
+    const expired = engine.update([worker], last.triggerAt, 1, allReach);
     near(expired[0].duration, 2.4); assert.equal(Object.hasOwn(engine.snapshot().blinds[0], 'resisted'), false, 'The exact eight-second boundary no longer protects a new flash');
   });
   test('EMBER personal effects end permanently on missing, dead or wrong-team sources and service additionally ends on any weapon mismatch', () => {
@@ -705,42 +727,51 @@ async function main() {
   });
   test('EMBER JSON restores only current canonical visuals and resisted blindness, rejects forged extra fields and weapon data atomically, and never acquires hit ownership', () => {
     const host = createCharacterSkills(), worker = actor('worker', 'blue', 0, 0, { weaponId: 'vandal' }), enemy = actor('enemy', 'red', 0, -5);
-    host.cast('ember-solder', worker, target(0, -5, .12), 0, 1); host.cast('ember-shade', worker, target(0, 0), 0, 1);
-    host.cast('ember-service', worker, { ...target(0, 0), weaponId: 'vandal' }, 0, 1); host.cast('nope-flash', actor('thrower', 'red'), target(0, -5, 1.7), 0, 1);
-    host.update([worker], .45, 1, allReach); const packet = json(host.snapshot()), guest = createCharacterSkills();
-    assert.equal(packet.blinds[0].resisted, true); assert.equal(guest.restore(packet, .45, 1), true); assert.deepEqual(guest.snapshot(), packet);
-    assert.deepEqual(guest.update([worker, enemy], .65, 1, allReach), []); assert.equal(host.update([worker, enemy], .65, 1, allReach).find(value => value.type === 'damage').amount, 75);
+    // Stagger the casts so the real one-second flash fuse is sampled while
+    // the .8-second service visual and the still-armed solder both exist.
+    const flash=host.cast('nope-flash', actor('thrower', 'red'), target(0, -5, 1.7), 0, 1);canonicalNope(flash);
+    const solder=host.cast('ember-solder', worker, target(0, -5, .12), .5, 1);canonicalSolder(solder);
+    host.cast('ember-shade', worker, target(0, 0), .5, 1);host.cast('ember-service', worker, { ...target(0, 0), weaponId: 'vandal' }, .5, 1);
+    host.update([worker], flash.triggerAt, 1, allReach); const packet = json(host.snapshot()), guest = createCharacterSkills();
+    const indices=['ember-solder','ember-shade','ember-service'].map(type=>packet.events.findIndex(event=>event.type===type));assert.ok(indices.every(index=>index>=0));
+    assert.equal(packet.blinds[0].resisted, true); assert.equal(guest.restore(packet, flash.triggerAt, 1), true); assert.deepEqual(guest.snapshot(), packet);
+    assert.deepEqual(guest.update([worker, enemy], solder.triggerAt, 1, allReach), []); assert.equal(host.update([worker, enemy], solder.triggerAt, 1, allReach).find(value => value.type === 'damage').amount, 75);
     const invalids = [];
-    for (const index of [0, 1, 2]) for (const [key, value] of [['flight', 9], ['radius', 9], ['triggerAt', 9], ['endsAt', 9], ['targetId', 'secret'], ['duration', 99], ['speedScale', 99]]) {
+    for (const index of indices) for (const [key, value] of [['flight', 9], ['radius', 9], ['triggerAt', 9], ['endsAt', 9], ['targetId', 'secret'], ['duration', 99], ['speedScale', 99]]) {
       const bad = json(packet); bad.events[index][key] = value; invalids.push(bad);
     }
     for (const [index, key, value] of [[0, 'z', -18.001], [1, 'x', .001], [2, 'y', .001], [0, 'weaponId', 'vandal'], [1, 'weaponId', 'vandal'], [2, 'weaponId', 'knife'], [2, 'ammo', 999]]) {
-      const bad = json(packet); bad.events[index][key] = value; invalids.push(bad);
+      const bad = json(packet); bad.events[indices[index]][key] = value; invalids.push(bad);
     }
-    for (const index of [1, 2]) { const bad = json(packet); bad.events.push({ ...bad.events[index], id: `skill-${bad.events[index].type}-99` }); invalids.push(bad); }
-    for (const weaponId of [null, '', 'VANDAL', 'spike', 'constructor', 7]) { const bad = json(packet); bad.events[2].weaponId = weaponId; invalids.push(bad); }
-    const missingWeapon = json(packet); delete missingWeapon.events[2].weaponId; invalids.push(missingWeapon);
+    for (const index of [indices[1],indices[2]]) { const bad = json(packet); bad.events.push({ ...bad.events[index], id: `skill-${bad.events[index].type}-99` }); invalids.push(bad); }
+    for (const weaponId of [null, '', 'VANDAL', 'spike', 'constructor', 7]) { const bad = json(packet); bad.events[indices[2]].weaponId = weaponId; invalids.push(bad); }
+    const missingWeapon = json(packet); delete missingWeapon.events[indices[2]].weaponId; invalids.push(missingWeapon);
     for (const [key, value] of [['resisted', false], ['resisted', 'true'], ['resisted', 1], ['flashScale', .45], ['factor', .45], ['duration', .675], ['extra', true], ['endsAt', 2.85]]) {
       const bad = json(packet); bad.blinds[0][key] = value; invalids.push(bad);
     }
     const noFlag = json(packet); delete noFlag.blinds[0].resisted; invalids.push(noFlag);
-    for (const invalid of invalids) { const before = guest.snapshot(); assert.equal(guest.restore(invalid, .65, 1), false); assert.deepEqual(guest.snapshot(), before); }
-    assert.equal(guest.restore(packet, .65, 1), true); assert.deepEqual(guest.update([worker, enemy], .7, 1, allReach), []);
-    guest.events(9); assert.equal(guest.restore(packet, .7, 1), true); assert.equal(guest.events(9).length, 0); assert.equal(guest.blindUntil(worker.id, 9), 0);
-    assert.equal(guest.restore(packet, .69, 1), false); assert.equal(guest.restore({ events: [], blinds: [], markers: [] }, 0, 2), true); assert.equal(guest.restore(packet, .7, 1), false);
+    for (const invalid of invalids) { const before = guest.snapshot(); assert.equal(guest.restore(invalid, solder.triggerAt, 1), false); assert.deepEqual(guest.snapshot(), before); }
+    assert.equal(guest.restore(packet, solder.triggerAt, 1), true); assert.deepEqual(guest.update([worker, enemy], solder.triggerAt+.01, 1, allReach), []);
+    guest.events(10); assert.equal(guest.restore(packet, solder.triggerAt+.01, 1), true); assert.equal(guest.events(10).length, 0); assert.equal(guest.blindUntil(worker.id, 10), 0);
+    assert.equal(guest.restore(packet, solder.triggerAt, 1), false); assert.equal(guest.restore({ events: [], blinds: [], markers: [] }, 0, 2), true); assert.equal(guest.restore(packet, solder.triggerAt+.01, 1), false);
   });
   test('EMBER twenty-event rejection preserves existing effects, stock and cooldown on rollback and never advances a rejected sequence', () => {
     const engine = createCharacterSkills(), worker = actor('worker', 'blue', 0, 0, { weaponId: 'vandal' });
     for (let index = 0; index < 20; index++) engine.cast('nope-decoy', worker, target(0, -5), 0, 1);
     const retained = json(engine.snapshot());
-    for (const [key, destination] of [['c', target(0, -5, .12)], ['q', target(0, 0)], ['e', { ...target(0, 0), weaponId: 'vandal' }]]) {
+    for (const [key,legacyType,destination] of [['c','ember-solder',target(0,-5,.12)],['q','ember-shade',target(0,0)],['e','ember-service',{...target(0,0),weaponId:'vandal'}]]) {
       const kit = new DuelistKit({ character: 'ember' }); kit.buy('c', () => true); kit.buy('q', () => true); const before = kit.snapshot(), effect = kit.activate(key, 0);
+      // Current robot skills are not ordinary legacy events. Check the legacy
+      // capacity independently, rather than passing on an unsupported type.
+      assert.equal(effect.type,'ember-robot-'+key);assert.ok(createCharacterSkills().cast(legacyType,worker,destination,0,1));
+      assert.equal(engine.cast(legacyType,worker,destination,0,1),null);
       assert.equal(engine.cast(effect, worker, destination, 0, 1), null); kit.restore(before); assert.deepEqual(kit.snapshot(), before); assert.deepEqual(engine.snapshot(), retained);
     }
     engine.events(12); const event = engine.cast('ember-service', worker, { ...target(0, 0), weaponId: 'vandal' }, 12, 1); assert.ok(event.id.endsWith('-21'));
     const before = engine.snapshot(); for (const now of [NaN, Infinity, -1, '12', 11]) assert.equal(engine.cast('ember-shade', worker, target(0, 0), now, 1), null);
     assert.deepEqual(engine.snapshot(), before); engine.reset(); assert.equal(engine.cancelService(worker.id), false); assert.deepEqual(engine.snapshot(), { events: [], blinds: [], markers: [] });
   });
+  if (throughEmber) { console.log(`Character contract prefix passed: ${passed} groups (prior33 + 8 legacy EMBER; full suite remains the default).`); return; }
   test('FROST uses canonical ranges, eye-sourced throws, a grounded self-only signature and fixed timers without extra wire fields', () => {
     const engine = createCharacterSkills(), owner = actor('doll', 'blue', 2, 3, { y: 3.2, grounded: true });
     const stitch = engine.cast({ type: 'frost-stitch', radius: 999, innerRadius: 0, speedScale: 0 }, owner, target(2, -13, 3.32), 2, 1);
