@@ -1,5 +1,5 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),Module=require('node:module'),{pathToFileURL}=require('node:url');
-async function main({mutate=s=>s,only=()=>true,measure=false,baseline=false,moving=false,preparing=false,gloom=false,longThrow=false,frostGround=false,mutateGame=s=>s}={}){
+async function main({mutate=s=>s,only=()=>true,measure=false,baseline=false,moving=false,preparing=false,gloom=false,longThrow=false,frostGround=false,engagement=false,mutateGame=s=>s}={}){
  const root=__dirname,read=p=>fs.readFileSync(path.join(root,p),'utf8');
  const code=mutate(read('public/bot-team-planner.js')).replace("'./abilities.js'",JSON.stringify(pathToFileURL(path.join(root,'public/abilities.js')).href));
  const {createBotTeamPlanner,BOT_SKILL_CAPABILITIES,BOT_TEAM_SETUPS}=await import('data:text/javascript;base64,'+Buffer.from(code).toString('base64'));
@@ -79,6 +79,19 @@ async function main({mutate=s=>s,only=()=>true,measure=false,baseline=false,movi
    assert.equal(accepted.triggerAt,10.8,'accepted attack timing stays fixed');
   }
  });
+ test('follower engagement preserves self defense and chooses an unoccupied alternative',()=>{
+  for(const phase of['prepare','flight','exploit']){
+   const p=createBotTeamPlanner(),a=args();p.update(a);const state=p.snapshot().plans[0];
+   if(phase!=='prepare')p.accepted(state.id,event(state),10.1);
+   if(phase==='exploit')p.update({...a,now:10.9,effectState:()=>({alive:true,ready:true,endsAt:16.8})});
+   const now=phase==='prepare'?10.1:phase==='flight'?10.2:11;
+   a.allies[1].engagedTargetId='another-visible';
+   assert.equal(p.update({...a,now,effectState:()=>({alive:true,ready:true,endsAt:16.8})}).size,0,'a different visible engagement must release orders');assert.equal(p.snapshot().plans.length,0);
+  }
+  const p=createBotTeamPlanner(),a=args();a.allies[1].engagedTargetId='another-visible';a.allies.push({...actor('free-entry','duelist'),x:4,engagedTargetId:'target'});
+  const order=p.update(a);assert.equal(order.has('entry'),false);assert.equal(p.snapshot().plans[0].follower,'free-entry');
+  const q=createBotTeamPlanner();a.allies.pop();assert.equal(q.update(a).size,0,'do not reserve a follower already fighting elsewhere');
+ });
  test('entry, postplant and retake objectives are distinct and dropped bomb / reset release all orders',()=>{
   for(const [spike,attack,expected]of[[{status:'carried'},'blue','entry'],[{status:'planted',x:0,z:18},'blue','postplant'],[{status:'planted',x:0,z:18},'red','retake']]){
    const p=createBotTeamPlanner(),a={...args(),spike,attackerTeam:attack};p.update(a);assert.equal(p.snapshot().plans[0].objective,expected);assert.equal(p.update({...a,now:10.1,spike:{status:'dropped'}}).size,0);p.reset();assert.deepEqual(p.snapshot(),{plans:[],history:[]});
@@ -105,6 +118,24 @@ async function main({mutate=s=>s,only=()=>true,measure=false,baseline=false,movi
   }
   function step(seconds,hz=60){Object.assign(h.sandbox,{duration:seconds,hz});h.run(`for(let t=0;t<duration-1e-8;t+=1/hz){var previousYaw=bots.map(b=>b.group.rotation.y);updatePlay(Math.min(1/hz,duration-t));teamSamples.push({at:elapsed,z:entry.z,mode:updateBots.tactics.skillState().plans[0]?.phase||null,effect:ordinarySkills.nobiVulnerability(player.id,elapsed,player,ordinaryReachable),speed:actorSpeedScale(player),maxTurn:Math.max(...bots.map((b,i)=>Math.abs(b.group.rotation.y-previousYaw[i]))),hp:player.hp,damage:teamDamage});}`);}
   const value=code=>JSON.parse(JSON.stringify(h.run(code)));
+  function engagementControls(){
+   const controls=[];
+   for(const hz of[20,60,144])for(const scenario of['same','new-flight','new-exploit','hidden-new']){
+    setup();step(scenario==='new-flight'?.4:2,hz);
+    const before=value('({at:elapsed,phase:updateBots.tactics.skillState().plans[0]?.phase,target:entry.target?.id,z:entry.z})');
+    if(scenario!=='same'){
+     h.run("makeBot({x:8,z:10},2,'red',{id:'new-threat',team:'red',secondary:'classic',armor:50});var threat=bots[2];Object.assign(threat,{rangeTarget:true,alive:true,hp:100,aiAmmo:12});entry.think=0;");
+     if(scenario==='hidden-new')h.wall({x:4,z:5,width:3});
+    }
+    step(1/hz,hz);
+    const after=value('({at:elapsed,phase:updateBots.tactics.skillState().plans[0]?.phase||null,target:entry.target?.id||null,seen:entry.lastSeen?.id||null,casterTarget:setter.target?.id,casts:teamCasts.length,stock:setter.kit.smoke,outcome:updateBots.tactics.skillState().history.at(-1)?.outcome,z:entry.z,maxTurn:teamSamples.at(-1).maxTurn,field:ordinarySkills.events(elapsed).find(e=>e.sourceId===setter.id)})');
+    const changed=scenario.startsWith('new-');assert.equal(after.target,changed?'new-threat':'player','actual perception must select only visible threats');assert.equal(after.seen,after.target);assert.equal(after.casterTarget,'player');assert.equal(after.casts,1);assert.equal(after.stock,0);assert.ok(after.field);assert.ok(after.maxTurn<=Math.PI*.8/hz+1e-7);
+    if(!measure){assert.equal(after.phase,changed?null:'exploit','different visible engagement must release actual coordination');if(changed)assert.equal(after.outcome,'interrupted');}
+    controls.push({hz,scenario,before,after});
+   }
+   return{controls,frame:'actual updatePlay once/frame;normal current target selection after a visible or occluded new enemy enters',fixture:'fixed escort roles,target18m,new enemy8/10,HP/armor restored after real hits',limitations:['controlled comparison;not ordinary5v5 win-rate,damage or personal objective improvement','no browser/device/listening confirmation']};
+  }
+  if(engagement)return engagementControls();
   function frostGroundControls(){
    const controls=[];
    for(const hz of[20,60,144])for(const scenario of['grounded','pre-land-jump','active-jump','hidden']){
@@ -240,6 +271,7 @@ async function main({mutate=s=>s,only=()=>true,measure=false,baseline=false,movi
    activeLossControls.push({hz,removedAt:at,releasedAt:h.run('elapsed'),frames:1,previousZ,normalDecisionZ:h.run('entry.z'),beforeEffect:1.35,afterEffect:h.run('ordinarySkills.nobiVulnerability(player.id,elapsed,player,ordinaryReachable)'),casts:h.run('teamCasts.length'),remainingStock:h.run('setter.kit.smoke')});
   }groups++;console.log('PASS: actual active field loss releases followup next frame at20/60/144Hz');console.log('ACTIVE_LOSS_CONTROLS '+JSON.stringify(activeLossControls));
   longThrowControls();groups++;console.log('PASS: actual accepted long and short Nobi throws wait for real effects with finite cancellation at20/60/144Hz');
+  engagementControls();groups++;console.log('PASS: actual follower engagement releases coordination for a different visible enemy across12 controls');
   frostGroundControls();groups++;console.log('PASS: actual Frost followup checks visible grounding,ordinary jumps and hidden targets across12 controls');
   gloomControls();groups++;console.log('PASS: travelling gloom followup requires this wave hit and current legal sighting across18 actual controls');
   setup();h.run('ordinarySkills.sealUntil=()=>100');step(1.4);assert.equal(h.run('teamCasts.length'),0);assert.equal(h.run('updateBots.tactics.skillState().plans.length'),0);groups++;console.log('PASS: seal prevents actual planner casts');
