@@ -16,6 +16,7 @@ async function main() {
   const nopeOnly = process.argv.includes('--nope');
   const throughMend = process.argv.includes('--through-mend');
   const throughIagnu = process.argv.includes('--through-iagnu');
+  const throughVeil = process.argv.includes('--through-veil');
   function canonicalNope(event) {
     assert.ok(event);
     const flash = event.type === 'nope-flash', gravity = flash ? 12 : 4, t = event.flight;
@@ -487,7 +488,7 @@ async function main() {
     for (const [type, bad] of [['veil-dust', target(1001, 4, 4.45)], ['veil-dust', target(3, 4, NaN)],
       ['veil-turf', target(3, 4, 3.21)], ['veil-roots', target(3, 3.501, 3.2)], ['veil-roots', target(3, -6.001, 3.2)]]) assert.equal(skills.cast(type, owner, bad, 2, 1), null);
     const dust = skills.cast({ type: 'veil-dust', radius: 999 }, owner, destinations['veil-dust'], 2, 1);
-    assert.ok(dust.id.endsWith('-1')); assert.equal(dust.fromY, 3.2); assert.equal(dust.flight, 0); assert.equal(dust.radius, 3.5); near(dust.triggerAt, 2.2); near(dust.endsAt, 9.2);
+    assert.ok(dust.id.endsWith('-1')); assert.equal(dust.fromY, 3.2); assert.equal(dust.flight, 0); assert.equal(dust.radius, 3.5); near(dust.triggerAt, 2.2); near(dust.endsAt, 15.2);
     const roots = skills.cast('veil-roots', owner, destinations['veil-roots'], 2, 1); assert.equal(roots.radius, 1.6); assert.equal(roots.triggerAt, 2.25); assert.equal(roots.endsAt, 10.25); assert.equal(roots.fromY, 3.2);
     const turf = skills.cast('veil-turf', owner, destinations['veil-turf'], 2, 1); assert.equal(turf.triggerAt, 2); assert.equal(turf.endsAt, 5); assert.equal(turf.radius, 0);
     assert.equal(skills.cast('veil-turf', owner, destinations['veil-turf'], 2, 1), null);
@@ -561,7 +562,10 @@ async function main() {
       for (let frame = 0; frame < hz / 2; frame++) { const t = frame / hz; skills.update([owner], t, 1); assert.equal(skills.movementScale(owner, t), 1.5); }
       skills.update([{ ...owner, grounded: false }], .5, 1); skills.update([owner], .6, 1); assert.equal(skills.movementScale(owner, .6), 1);
       skills.update([], 1, 1); assert.deepEqual(skills.events(1).map(event => event.type), ['veil-dust', 'veil-roots']);
-      assert.equal(skills.events(7.2).length, 1); assert.equal(skills.events(8.25).length, 0);
+      assert.deepEqual(skills.events(7.2).map(event => event.type), ['veil-dust', 'veil-roots']);
+      assert.deepEqual(skills.events(8.25).map(event => event.type), ['veil-dust']);
+      assert.deepEqual(skills.events(13.199999).map(event => event.type), ['veil-dust']);
+      assert.equal(skills.events(13.2).length, 0);
     }
   });
   test('VEIL canonical JSON restores visuals and current passive scales without ownership, and rejects forged ranges, self points, times or stock metadata atomically', () => {
@@ -578,9 +582,9 @@ async function main() {
     for (const [index, key, value] of [[0, 'y', 1001], [0, 'x', NaN], [1, 'z', -.499], [1, 'z', -10.001], [2, 'y', .01], [2, 'x', .01]]) { const bad = json(packet); bad.events[index][key] = value; invalids.push(bad); }
     const duplicate = json(packet); duplicate.events.push({ ...duplicate.events[2], id: 'skill-veil-turf-4' }); invalids.push(duplicate);
     for (const bad of invalids) { const before = guest.snapshot(); assert.equal(guest.restore(bad, .25, 1), false); assert.deepEqual(guest.snapshot(), before); }
-    guest.events(9); assert.equal(guest.restore(packet, .3, 1), true); assert.equal(guest.events(9).length, 0, 'A leading render clock cannot revive expired fields');
+    guest.events(14); assert.equal(guest.restore(packet, .3, 1), true); assert.equal(guest.events(14).length, 0, 'A leading render clock cannot revive expired fields');
     assert.equal(guest.restore(packet, .29, 1), false); assert.equal(guest.restore({ events: [], blinds: [], markers: [] }, 0, 2), true);
-    assert.equal(guest.restore(packet, 9, 1), false); assert.deepEqual(guest.snapshot(), { events: [], blinds: [], markers: [] });
+    assert.equal(guest.restore(packet, 14, 1), false); assert.deepEqual(guest.snapshot(), { events: [], blinds: [], markers: [] });
     const detached = host.events(0); detached[0].y = 99; assert.equal(host.events(0)[0].y, 1.25);
   });
   test('VEIL twenty-event cap keeps all existing effects and IDs, and C Q E stock or cooldown can each roll back on any failed cast', () => {
@@ -590,11 +594,19 @@ async function main() {
     for (const [key, destination] of [['c', target(0, 0, 1.25)], ['q', target(0, -7)], ['e', target(0, 0)]]) {
       const kit = new DuelistKit({ character: 'veil' }); kit.buy('c', () => true); kit.buy('q', () => true); const before = kit.snapshot(), effect = kit.activate(key, 0);
       assert.equal(skills.cast(effect, owner, destination, 0, 1), null); kit.restore(before); assert.deepEqual(kit.snapshot(), before); assert.deepEqual(skills.snapshot(), retained);
-      const empty = createCharacterSkills(), airborne=empty.cast(effect, { ...owner, grounded: false }, destination, 0, 1); if(key==='q')assert.equal(airborne?.type,'veil-root-seed');else assert.equal(airborne,null); kit.restore(before); assert.deepEqual(kit.snapshot(), before);
+      const empty = createCharacterSkills(), airborne=empty.cast(effect, { ...owner, grounded: false }, destination, 0, 1);
+      if(key==='q'){
+        assert.equal(airborne?.type,'veil-sensor'); assert.equal(airborne.radius,5);
+        assert.ok(airborne.flight>=.08&&airborne.flight<=8);
+        const t=airborne.flight,vx=(airborne.x-airborne.fromX)/t,vz=(airborne.z-airborne.fromZ)/t,vy=(airborne.y-airborne.fromY)/t+4*t/2;
+        near(Math.hypot(vx,vy,vz),12); near(airborne.triggerAt,t); near(airborne.endsAt,t+8.5);
+      }else assert.equal(airborne,null);
+      kit.restore(before); assert.deepEqual(kit.snapshot(), before);
     }
     skills.events(12); const next = skills.cast('veil-turf', owner, target(0, 0), 12, 1); assert.ok(next.id.endsWith('-21'));
     assert.equal(createCharacterSkills().restore(retained, 0, 1), true); assert.ok(Buffer.byteLength(JSON.stringify(retained)) < 9000);
   });
+  if (throughVeil) { console.log(`Character contract prefix passed: ${passed} groups (prior25 + 8 VEIL; full suite remains the default).`); return; }
   test('EMBER uses canonical bounded solder data and self-only shade and weapon-fixed service without touching any ammo', () => {
     const owner = actor('worker', 'blue', 2, 3, { y: 3.2, weaponId: 'vandal', ammo: 4, reserve: 8 }), skills = createCharacterSkills();
     const solder = skills.cast({ type: 'ember-solder', radius: 999, flight: 0 }, owner, target(2, -15, 3.32), 2, 1);
