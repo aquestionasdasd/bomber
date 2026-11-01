@@ -4,7 +4,11 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),Module=require('node:module'),{createHash}=require('node:crypto');
 const root=path.resolve(__dirname,'..');
 const sha=value=>createHash('sha256').update(value).digest('hex');
+const interruptionGuard="if(!caster||!follow||!available(caster)||(state.phase==='prepare'&&!focusedOn(caster,state.targetId))||!follower(follow)||!focusedOn(follow,state.targetId)||objective!==state.objective||spike.status==='dropped'||\n      distance(follow,state.point)>BOT_TEAM_RULES.followRange||Math.abs((follow.y||0)-state.point.y)>.8)";
 async function loadHarness(){
+ const planner=fs.readFileSync(path.join(root,'public/bot-team-planner.js'),'utf8').replaceAll('\r\n','\n');
+ assert.equal(planner.split(interruptionGuard).length,2,'Review the actual interruption guard before classifying it');
+ const {BOT_TEAM_RULES}=await import(require('node:url').pathToFileURL(path.join(root,'public/bot-team-planner.js')).href);
  const template=fs.readFileSync(path.join(root,'tests-nope-decoy-game.cjs'),'utf8'),cut=template.indexOf('  const local = harness();');
  assert.ok(cut>0,'Review the saved-game fixture boundary before measuring');
  const gameRead="fs.readFileSync(path.join(__dirname, 'public/game.js'), 'utf8')",advance="bot.moving=advance(bot,point,'team-follow');";
@@ -13,7 +17,7 @@ async function loadHarness(){
  assert.notEqual(prefix,template.slice(0,cut),'Pursuit observer was not installed');
  const m=new Module(path.join(root,'team-survey-harness.cjs'),module);m.filename=path.join(root,'team-survey-harness.cjs');m.paths=Module._nodeModulePaths(root);
  m._compile(prefix+'\nreturn {harness};\n}\nmodule.exports=main;',m.filename);
- return m.exports();
+ const loaded=await m.exports();return {...loaded,harness:options=>{const h=loaded.harness(options);h.sandbox.surveyRules=BOT_TEAM_RULES;return h;}};
 }
 const instrumentation=`
  var survey=null,surveyStep=0,surveyDepth=0,surveyCarFrames=0;
@@ -32,14 +36,41 @@ const instrumentation=`
  };
  activateAbility=surveyWrapCast(activateAbility);activateJapanAbility=surveyWrapCast(activateJapanAbility);activateRobotAbility=surveyWrapCast(activateRobotAbility);
  const surveyCarMotion=updateCarMotions;updateCarMotions=function(dt){if(survey&&surveyStep)surveyCarFrames++;return surveyCarMotion(dt);};
+ // Classify only the actual copied planner inputs. No enemy actor lookup and
+ // no second effect query; simultaneous blockers are retained, not guessed away.
+ function surveyPlanCheck(state,input){
+  const own=input.allies.filter(a=>a.team===state.team),caster=own.find(a=>a.id===state.caster),follow=own.find(a=>a.id===state.follower),reasons=[];
+  const available=(a,role)=>{if(!a){reasons.push(role+'-missing');return;}for(const[key,bad]of[['dead',!a.alive],['human',!!a.human],['impaired',!!a.impaired],['busy',!!a.busy],['urgent',!!a.urgent],['low-health',a.hp<surveyRules.minHealth]])if(bad)reasons.push(role+'-'+key);};
+  available(caster,'caster');available(follow,'follower');
+  if(caster&&state.phase==='prepare'&&caster.engagedTargetId&&caster.engagedTargetId!==state.targetId)reasons.push('caster-other-engagement');
+  if(follow){
+   if(!(follow.ammo>0))reasons.push('follower-no-ammo');if(follow.scoped)reasons.push('follower-scoped');if(['plant','defuse','recover'].includes(follow.role))reasons.push('follower-objective-role');
+   if(follow.engagedTargetId&&follow.engagedTargetId!==state.targetId)reasons.push('follower-other-engagement');
+  }
+  const objective=input.spike.status==='planted'?(state.team===input.attackerTeam?'postplant':'retake'):'entry';
+  if(objective!==state.objective)reasons.push('objective-changed');if(input.spike.status==='dropped')reasons.push('spike-dropped');
+  const latest=(input.contacts[state.team]||[]).find(c=>c.id===state.targetId&&input.now>=c.seenAt&&input.now-c.seenAt<=surveyRules.intelAge),point=latest||state.point;
+  const range=follow?Math.hypot(follow.x-point.x,follow.z-point.z):null,height=follow?Math.abs((follow.y||0)-(point.y||0)):null;
+  if(follow&&range>surveyRules.followRange)reasons.push('follower-out-of-range');if(follow&&height>.8)reasons.push('follower-other-floor');
+  const summary=a=>a?{id:a.id,alive:a.alive,hp:a.hp,impaired:!!a.impaired,busy:!!a.busy,urgent:!!a.urgent,role:a.role,ammo:a.ammo,scoped:!!a.scoped,engagedTargetId:a.engagedTargetId||null}:null;
+  return {at:input.now,phase:state.phase,reasons,caster:summary(caster),follower:summary(follow),range,height,freshContact:!!latest,prepareExpired:input.now>state.until};
+ }
  function measureTactics(disabled){
   const t=updateBots.tactics,actual=t.skillPlan,accept=t.skillAccepted;
   t.skillAccepted=function(...args){const result=accept(...args);if(survey&&result){survey.accepted++;const p=survey.plans[args[0]];if(p){p.accepted=true;p.eventId=args[1].id;}}return result;};
   t.skillPlan=disabled?undefined:function(input){
+   const copied={...input,contacts:{blue:t.contacts('blue',input.now),red:t.contacts('red',input.now)}},before=t.skillState().plans,checks=new Map(before.map(p=>[p.id,surveyPlanCheck(p,copied)]));
    const effect=input.effectState,original={...input,effectState:state=>{const result=effect(state),record=survey?.plans[state.id];
+    if(record)record.lastEffect={at:input.now,alive:!!result?.alive,ready:!!result?.ready,endsAt:result?.endsAt??null};
     if(result?.alive&&result.ready&&record&&!record.ready){record.ready=true;record.readyAt=elapsed;survey.effectReady++;}return result;
    }},orders=actual(original);
    for(const p of t.skillState().plans)survey.plans[p.id]||={id:p.id,type:p.action.type,objective:p.objective,at:elapsed,caster:p.caster,follower:p.follower,targetId:p.targetId,ready:false,accepted:false,followTravel:0,followGunDamage:0};
+   const after=t.skillState();for(const p of before){const record=survey.plans[p.id];if(!record)continue;const check=checks.get(p.id);record.lastCheck=check;
+    const terminal=after.history.find(e=>e.id===p.id);if(terminal){
+     if((terminal.outcome==='interrupted')!==(check.reasons.length>0))throw Error('Interruption classification drifted from the actual planner');
+     record.terminal={outcome:terminal.outcome,at:terminal.at,check};
+    }
+   }
    survey.currentOrders=[...orders];return orders;
   };
  }
@@ -94,7 +125,7 @@ async function runSurvey(options={},onRow=()=>{}){
    updateBots.tactics=createBotTactics({sites:map.sites,navigation,collision:map.collision,lanes:map.lanes,attackSpawn:map.teamSpawns.attack[0],defendSpawn:map.teamSpawns.defend[0],seed:surveyCase.seed});
    measureTactics(surveyCase.disabled);measureObjectives();match.spike.carrier=match.attackerTeam+'-0';match.startLive();match.drainEvents();
    for(let frame=0;frame<Math.ceil(surveyCase.seconds*surveyCase.hz)&&match.phase==='live';frame++)surveyFrame(1/surveyCase.hz);
-   survey.history=updateBots.tactics.skillState().history;survey.result={phase:match.phase,winner:match.lastRound?.team||null,reason:match.lastRound?.reason||'unfinished',seconds:elapsed,alive:{blue:aliveCount('blue'),red:aliveCount('red')}};
+   const finalState=updateBots.tactics.skillState();survey.history=finalState.history;survey.pending=finalState.plans.map(p=>({id:p.id,phase:p.phase,until:p.until}));survey.result={phase:match.phase,winner:match.lastRound?.team||null,reason:match.lastRound?.reason||'unfinished',seconds:elapsed,alive:{blue:aliveCount('blue'),red:aliveCount('red')}};
    delete survey.currentOrders;
   }`);
   const row={mapId,side,seed,disabled,...JSON.parse(h.run('JSON.stringify(survey)'))};rows.push(row);onRow(row);

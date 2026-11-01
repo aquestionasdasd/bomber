@@ -62,6 +62,45 @@ async function main({mutate=s=>s}={}){
   assert.equal(h.run('survey.effectReady'),1);assert.equal(h.run('survey.plans[1].ready'),true);assert.equal(h.run('survey.followGunDamage'),0);assert.equal(h.run('survey.followTravel'),0);
   setup();h.run('measureTactics(true)');assert.equal(h.run('updateBots.tactics.skillPlan'),undefined);assert.equal(h.run('Object.keys(survey.plans).length'),0);
  });
+ test('interruption reasons retain every actual ally blocker and exact safe boundaries',()=>{
+  setup();h.run(`var diagnosticState={team:'blue',caster:'setter',follower:'entry',targetId:'target',point:{x:0,y:0,z:18},phase:'prepare',objective:'entry',until:elapsed+1};
+   var diagnosticInput={now:elapsed,spike:{status:'carried'},attackerTeam:'blue',allies:[{id:'setter',team:'blue',alive:true,hp:100,ammo:25},{id:'entry',team:'blue',alive:true,hp:100,ammo:25,x:0,y:0,z:0}],contacts:{blue:[{id:'target',x:0,y:0,z:18,seenAt:elapsed}],red:[]}};
+   var diagnosticBase=JSON.stringify(diagnosticInput);`);
+  const reasons=()=>JSON.parse(h.run('JSON.stringify(surveyPlanCheck(diagnosticState,diagnosticInput).reasons)'));
+  assert.deepEqual(reasons(),[]);
+  for(const role of ['caster','follower'])for(const [field,value,reason]of [['alive',false,'dead'],['human',true,'human'],['impaired',true,'impaired'],['busy',true,'busy'],['urgent',true,'urgent'],['hp',54.99,'low-health']]){
+   h.sandbox.diagPatch={index:role==='caster'?0:1,field,value};h.run('diagnosticInput=JSON.parse(diagnosticBase);diagnosticInput.allies[diagPatch.index][diagPatch.field]=diagPatch.value');assert.deepEqual(reasons(),[role+'-'+reason]);
+  }
+  for(const [code,expected]of [
+   ['diagnosticInput.allies.shift()',['caster-missing']],['diagnosticInput.allies.pop()',['follower-missing']],
+   ["diagnosticInput.allies[0].engagedTargetId='other'",['caster-other-engagement']],
+   ["diagnosticInput.allies[1].engagedTargetId='other'",['follower-other-engagement']],
+   ['diagnosticInput.allies[1].ammo=0',['follower-no-ammo']],['diagnosticInput.allies[1].scoped=true',['follower-scoped']],
+   ["diagnosticInput.allies[1].role='defuse'",['follower-objective-role']],
+   ["diagnosticInput.spike.status='planted'",['objective-changed']],["diagnosticInput.spike.status='dropped'",['spike-dropped']],
+   ['diagnosticInput.allies[1].z=-6.01',['follower-out-of-range']],['diagnosticInput.allies[1].y=.81',['follower-other-floor']]
+  ]){h.run('diagnosticInput=JSON.parse(diagnosticBase);'+code);assert.deepEqual(reasons(),expected);}
+  h.run('diagnosticInput=JSON.parse(diagnosticBase);Object.assign(diagnosticInput.allies[1],{hp:55,z:-6,y:.8});');assert.deepEqual(reasons(),[]);
+  h.run('diagnosticInput.allies[1].alive=false;diagnosticInput.allies[1].hp=0;diagnosticInput.allies[1].busy=true');assert.deepEqual(reasons(),['follower-dead','follower-busy','follower-low-health']);
+ });
+ test('diagnostic contact and caster focus follow the existing phase and finite sight rules',()=>{
+  h.run("diagnosticInput=JSON.parse(diagnosticBase);diagnosticInput.allies[0].engagedTargetId='other';diagnosticState.phase='flight'");assert.equal(h.run('surveyPlanCheck(diagnosticState,diagnosticInput).reasons.length'),0);
+  h.run("diagnosticState.phase='prepare';diagnosticInput.allies[0].engagedTargetId='target';diagnosticInput.contacts.blue[0].z=24");assert.equal(h.run('surveyPlanCheck(diagnosticState,diagnosticInput).range'),24);
+  h.run('diagnosticInput.contacts.blue[0].seenAt=elapsed-surveyRules.intelAge-.001');assert.equal(h.run('surveyPlanCheck(diagnosticState,diagnosticInput).range'),18);assert.equal(h.run('surveyPlanCheck(diagnosticState,diagnosticInput).freshContact'),false);
+  h.run('diagnosticInput.contacts.blue[0].seenAt=elapsed+.001');assert.equal(h.run('surveyPlanCheck(diagnosticState,diagnosticInput).range'),18);
+  h.run("diagnosticInput.contacts.blue[0].seenAt=elapsed;diagnosticInput.contacts.blue[0].id='unseen-other'");assert.equal(h.run('surveyPlanCheck(diagnosticState,diagnosticInput).range'),18);
+ });
+ test('actual terminal history must agree with reasons without extra effect queries',()=>{
+  setup();h.run(`measureTactics(false);var queryCalls=0;var input={now:elapsed,spike:{status:'carried'},attackerTeam:'blue',allies:[{id:'setter',team:'blue',character:'nobi',alive:true,hp:100,x:0,y:0,z:0,ammo:25,ready:true,stock:{c:1},role:'escort'},{id:'entry',team:'blue',character:'duelist',alive:true,hp:100,x:3,y:0,z:0,ammo:25,ready:true,stock:{},role:'escort'}],canSetup:()=>true,effectState:()=>{queryCalls++;return {alive:true,ready:false,endsAt:elapsed+5};}};
+   updateBots.tactics.observe('blue','setter',{id:'target',team:'red',x:0,y:0,z:18},elapsed);updateBots.tactics.skillPlan(input);var state=updateBots.tactics.skillState().plans[0];updateBots.tactics.skillAccepted(state.id,{id:'event',sourceId:'setter',team:'blue',type:'nobi-bell',triggerAt:elapsed+.5,endsAt:elapsed+5},elapsed);
+   updateBots.tactics.skillPlan(input);`);
+  assert.equal(h.run('queryCalls'),1);assert.equal(h.run('survey.plans[1].lastEffect.ready'),false);assert.equal(h.run('survey.plans[1].terminal'),undefined);
+  h.run('input.allies[1].hp=54;updateBots.tactics.skillPlan(input)');assert.equal(h.run('queryCalls'),1,'interrupted branch never calls the effect query');
+  assert.deepEqual(JSON.parse(h.run('JSON.stringify(survey.plans[1].terminal.check.reasons)')),['follower-low-health']);assert.equal(h.run('survey.plans[1].terminal.outcome'),'interrupted');
+  // Keep a deliberately inconsistent diagnostic separate from the product.
+  h.run('updateBots.tactics.reset(1);survey.plans={};input.allies[1].hp=100;updateBots.tactics.observe("blue","setter",{id:"target",team:"red",x:0,y:0,z:18},elapsed);updateBots.tactics.skillPlan(input);var realCheck=surveyPlanCheck;surveyPlanCheck=(...args)=>({...realCheck(...args),reasons:[]});input.allies[1].hp=54');
+  assert.throws(()=>h.run('updateBots.tactics.skillPlan(input)'),/classification drifted/);h.run('surveyPlanCheck=realCheck');
+ });
  console.log('Team survey instrumentation PASS: '+groups+' groups; audio output0');return groups;
 }
 module.exports={main};if(require.main===module)main().catch(e=>{console.error(e);process.exitCode=1;});
