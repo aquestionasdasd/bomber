@@ -3322,6 +3322,58 @@ function updateBots(dt){
     plan=tactics.update({actors,attackerTeam:match.attackerTeam,defenderTeam:match.defenderTeam,spike,now:elapsed,remaining:match.roundTime});
     targetSite=plan.siteId;
   }
+  // Deliberation receives allied equipment and frozen team observations only.
+  // Existing authority, perception and actual field queries own execution.
+  const teamFieldCovers=(event,point)=>{
+    const pose={...point,id:'planned-contact',team:event.team==='blue'?'red':'blue',alive:true,hp:100,grounded:true};
+    const queries={reachable:ordinaryReachable,groundHeight:ordinaryGroundHeight};
+    if(event.type==='veil-sensor')return ordinarySkills.wouldRoot(pose,event,queries);
+    if(event.type==='mend-seeds')return ordinarySkills.wouldSeed(pose,event,queries);
+    if(event.type==='frost-stitch')return ordinarySkills.wouldStitch(pose,event,queries);
+    if(event.type==='nobi-bell'||event.type==='nobi-whisker')return ordinarySkills.wouldNobi(pose,event,queries);
+    if(event.type==='urchin-gloom'){
+      const dx=event.x-event.fromX,dz=event.z-event.fromZ,length=Math.hypot(dx,dz)||1;
+      const along=((point.x-event.fromX)*dx+(point.z-event.fromZ)*dz)/length;
+      return along>=0&&along<=length&&Math.abs((point.x-event.fromX)*dz-(point.z-event.fromZ)*dx)/length<=URCHIN_SKILLS.gloomRadius&&Math.abs((point.y||0)-(event.fromY-1.7))<.8;
+    }
+    // Flash follow-up needs a current legitimate sighting and the real status;
+    // it never learns a hidden actor's position or whether a hidden foe was hit.
+    const witness=bots.find(b=>b.alive&&b.team===event.team&&b.target?.id===point.id&&visibleBetween(b,b.target));
+    return !!witness&&ordinarySkills.blindUntil(point.id,elapsed)>elapsed;
+  };
+  function teamSetup(bot,type,point,targetId,enemy){
+    const aim={yaw:Math.atan2(bot.x-point.x,bot.z-point.z),pitch:0};let target=point,valid=false;
+      const pose={...point,id:targetId,team:bot.team==='blue'?'red':'blue',alive:true,hp:100,grounded:true};
+      if(type==='urchin-gloom')valid=!!enemy&&enemy.id===targetId&&!actors.some(a=>a!==bot&&a.alive&&a.team===bot.team&&urchinGloomAllyInLane(bot,a,aim));
+      else if(type==='nope-flash'||type==='echo-glint'){
+        target=enemy?.id===targetId?(type==='nope-flash'?nopeBotFlashPoint(bot,enemy,aim,actors):echoBotGlintPoint(bot,enemy,aim,actors)):null;valid=!!target;
+      }else{
+        // Frost's centre is safe; place its actual annulus beside the contact.
+        if(type==='frost-stitch')target={x:point.x+FROST_SKILLS.stitchInnerRadius+.5,y:point.y,z:point.z};
+        const radius={'veil-sensor':ROOT_SENSOR.radius,'mend-seeds':MEND_SKILLS.seedsRadius,'frost-stitch':FROST_SKILLS.stitchRadius,'nobi-bell':NOBI_SKILLS.areaRadius,'nobi-whisker':NOBI_SKILLS.areaRadius}[type];
+        const landing=getSkillTarget(bot,type,target,aim),field=landing&&{type,team:bot.team,radius,fromX:bot.x,fromY:(bot.y||0)+1.7,fromZ:bot.z,...landing};
+        valid=!!field&&teamFieldCovers(field,pose)&&!ordinarySkills.events(elapsed).some(e=>e.type===type&&e.team===bot.team&&teamFieldCovers(e,pose));
+      }
+    return {aim,target,valid};
+  }
+  const teamOrders=plan&&tactics.skillPlan?.({now:elapsed,spike,attackerTeam:match.attackerTeam,
+    allies:bots.filter(b=>!b.remoteId&&!b.rangeTarget).map(b=>{
+      const r=plan.roles.get(b.id),id=b.record?.primary||b.record?.secondary||'classic',spec=WEAPONS[id]||WEAPONS.classic;
+      const injured=b.kit?.character==='mend'?selectMendTarget(b,actors,mendReachable):null;
+      return {id:b.id,team:b.team,x:b.x,y:b.y||0,z:b.z,alive:b.alive,character:b.kit?.character,hp:b.hp,role:r?.role,urgent:!!r?.urgent,
+        ammo:b.aiWeapon===id?b.aiAmmo:spec.mag,scoped:!!spec.scope,ready:elapsed>=(b.nextSkillAt||0),
+        impaired:ordinarySkills.blindUntil(b.id,elapsed)>elapsed||ordinarySkills.nearsightUntil(b.id,elapsed)>elapsed||ordinarySkills.sealUntil(b.id,elapsed)>elapsed,
+        busy:!!(b.serviceReload||b.aiReload>0||b.trcLadder||busSeat(b)||carMotionActive(b)||renkoUnarmed(b)||!actorGrounded(b)||spike.plantActor===b.id&&spike.plantProgress>0||spike.defuseActor===b.id&&spike.defuseProgress>0||injured&&injured.hp<=70),
+        stock:{c:b.kit?.smoke||0,q:b.kit?.updraft||0,e:elapsed>=(b.kit?.nextSignatureAt||0)?b.kit?.dash||0:0,x:b.kit?.ultPoints>=7?1:0}};
+    }),canSetup:(caster,action,contact)=>{
+      const bot=bots.find(b=>b.id===caster.id);
+      return !!bot&&teamSetup(bot,action.type,contact,contact.id,bot.target).valid;
+    },effectState:state=>{
+      const event=ordinarySkills.events(elapsed).find(e=>e.id===state.eventId&&e.team===state.team&&e.sourceId===state.caster);
+      if(!event)return null;
+      const travel=event.type==='urchin-gloom'?Math.hypot(state.point.x-event.fromX,state.point.z-event.fromZ)/URCHIN_SKILLS.gloomSpeed:0;
+      return {alive:true,endsAt:event.endsAt,ready:elapsed>=event.triggerAt+travel&&teamFieldCovers(event,{...state.point,id:state.targetId})};
+    }})||new Map();
   function face(bot,point,speed=7){
     const desired=Math.atan2(point.x-bot.x,point.z-bot.z),delta=Math.atan2(Math.sin(desired-bot.group.rotation.y),Math.cos(desired-bot.group.rotation.y));
     // Navigation, objectives and gun aim share one finite body turn per frame.
@@ -3511,6 +3563,19 @@ function updateBots(dt){
       }
     }
     bot.planting=!!interactPlant;bot.defusing=!!interactDefuse;
+    const teamOrder=teamOrders.get(bot.id);
+    // Emergency work, danger at arm's reach and traffic retain their priority.
+    const teamReserved=teamOrder&&!trafficEscape&&!interactPlant&&!interactDefuse&&!role?.urgent&&!retake?.urgent&&enemyDistance>6;
+    if(teamReserved&&teamOrder.kind==='wait'&&!enemy)goal=null;
+    if(teamReserved&&teamOrder.kind==='setup'&&elapsed>=bot.reactionUntil&&elapsed>=(bot.nextSkillAt||0)&&face(bot,teamOrder.point,8)){
+      const type=teamOrder.type,key=teamOrder.key,{aim,target,valid}=teamSetup(bot,type,teamOrder.point,teamOrder.targetId,enemy);
+      if(valid){
+        const before=new Set(ordinarySkills.events(elapsed).map(e=>e.id)),cast=activateAbility(bot,key,{aim,zonePoint:target});
+        if(cast){const event=ordinarySkills.events(elapsed).find(e=>!before.has(e.id)&&e.sourceId===bot.id&&e.type===type);tactics.skillAccepted?.(teamOrder.planId,event,elapsed);}
+        bot.nextSkillAt=elapsed+(cast?1:.5);
+      }
+    }
+    if(!teamReserved){
     if(bot.kit?.character==='duelist'&&!interactPlant&&!interactDefuse&&ordinarySkills.blindUntil(bot.id,elapsed)<=elapsed&&elapsed>=(bot.nextSkillAt||0)){
       const known=enemy||(bot.lastSeen&&elapsed-bot.lastSeen.seenAt<1?bot.lastSeen:null);let cast=null;
       if(known){
@@ -3729,6 +3794,7 @@ function updateBots(dt){
         if(known&&distance(bot,known)<=20&&!zoneAbilities.events(elapsed).some(event=>event.team===bot.team&&event.type===bot.kit.character&&distance(event,known)<event.radius))activateAbility(bot,'x',{zonePoint:known});
       }
     }
+    }
     // Robots are separate from player intel and ability targets. Only a current
     // body sighting may justify a shot; never chase their hidden live position.
     let robotTarget=null;
@@ -3770,6 +3836,11 @@ function updateBots(dt){
       // A deadline cannot be solved by standing still in an endless duel.
       if(goal&&(role?.urgent||retake?.urgent)&&distance(bot,goal)>1.7)bot.moving=advance(bot,goal,'urgent');
       else if(bot.aiReload>0&&bot.reloadGoal)bot.moving=advance(bot,bot.reloadGoal,'reload');
+      else if(teamReserved&&teamOrder.kind==='follow'&&enemy.id===teamOrder.targetId&&enemyDistance>7&&Math.abs((enemy.y||0)-(bot.y||0))<.5&&!spec.scope){
+        const fraction=(enemyDistance-7)/enemyDistance,point={x:bot.x+(enemy.x-bot.x)*fraction,y:bot.y||0,z:bot.z+(enemy.z-bot.z)*fraction};
+        if(navigation.clearSegment(bot.x,bot.z,point.x,point.z,bot.y||0,bot.y||0))bot.moving=advance(bot,point,'team-follow');
+      }
+      else if(teamReserved&&teamOrder.kind==='wait')bot.pathTime=0;
       else if(shotgunIntent&&distance(bot,shotgunIntent.goal)>.4)bot.moving=advance(bot,shotgunIntent.goal,'shotgun-'+shotgunIntent.mode);
       else if(goal&&(!spec.scope||spike.carrier===bot.id||['plant','recover','defuse'].includes(role?.role))&&enemyDistance>(shotgun?SHOTGUN_TACTICS.fireRange:25)&&distance(bot,goal)>(retake?1.7:5))bot.moving=advance(bot,goal,'advance-contact');
       const aligned=face(bot,enemy,8);bot.pathTime=Math.min(bot.pathTime||0,.15);
