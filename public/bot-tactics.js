@@ -19,6 +19,7 @@ export function draftBotCharacters(roster,characters,{seed=0,exclude=[]}={}){
   return result;
 }
 export const BOT_RETAKE=Object.freeze({margin:3,inspectTime:1.1,tapTime:.3,peekTime:1.2,scanAngle:Math.PI/3,scanInterval:.8});
+export const BOT_HABITS=Object.freeze({rounds:4,opening:25,radius:22,enemies:2,repetitions:2});
 
 export function inVisionCone(observer,target,{yaw=observer.yaw||0,range=240,angle=130}={}){
   const dx=target.x-observer.x,dz=target.z-observer.z,length=Math.hypot(dx,dz);
@@ -54,11 +55,37 @@ export function createBotHearing(){
 export function createBotTactics({sites,navigation,collision,lanes=[],attackSpawn={x:0,z:65},defendSpawn={x:0,z:-70},seed=0}){
   const teamSkills=createBotTeamPlanner();
   const intel=new Map(),plans=new Map(),routes=new Map(),retakes=new Map(),approaches=new Map();
+  // Across rounds retain only a coarse site vote, never an enemy position or aim target.
+  const openings=[],openingEnemies=new Map();let openingTeams=null;
   let round=1,cached=null,planTime=-Infinity,planKey='',roundStartedAt=null;
   const pick=label=>choice(`${seed}:${round}:${label}`);
   const profile=team=>['execute','split','probe'][Math.floor(pick(`${team}:style`)*3)];
   const teamIntel=team=>{if(!intel.has(team))intel.set(team,new Map());return intel.get(team);};
-  function reset(value=1){round=value;intel.clear();plans.clear();routes.clear();retakes.clear();approaches.clear();teamSkills.reset();cached=null;planTime=-Infinity;planKey='';roundStartedAt=null;}
+  function reset(value=1){
+    if(value===round+1){
+      const counts=sites.map(s=>({id:s.id,count:[...openingEnemies.values()].filter(id=>id===s.id).length})).sort((a,b)=>b.count-a.count);
+      const site=counts[0]?.count>=BOT_HABITS.enemies&&counts[0].count>=(counts[1]?.count||0)+BOT_HABITS.enemies?counts[0].id:null;
+      openings.push({round,...openingTeams,site});
+      while(openings.length&&value-openings[0].round>BOT_HABITS.rounds)openings.shift();
+    }else openings.length=0;
+    openingEnemies.clear();openingTeams=null;
+    round=value;intel.clear();plans.clear();routes.clear();retakes.clear();approaches.clear();teamSkills.reset();cached=null;planTime=-Infinity;planKey='';roundStartedAt=null;
+  }
+  function recordOpening(team,opponent,now,spike){
+    if(!Number.isFinite(now)||now<0||spike.status!=='carried'||now-roundStartedAt>BOT_HABITS.opening)return;
+    openingTeams={team,opponent};
+    for(const c of contacts(team,now)){
+      if(c.team!==opponent||!Number.isFinite(c.seenAt)||now-c.seenAt>1||now<c.seenAt)continue;
+      const site=sites.slice().sort((a,b)=>distance(c,a)-distance(c,b))[0];
+      if(!site||distance(c,site)>BOT_HABITS.radius)continue;
+      if(!openingEnemies.has(c.id)&&openingEnemies.size<10)openingEnemies.set(c.id,site.id);
+      else if(openingEnemies.has(c.id)&&openingEnemies.get(c.id)!==site.id)openingEnemies.set(c.id,null);
+    }
+  }
+  function habitualSite(team,opponent){
+    const votes=sites.map(site=>({site,count:openings.filter(o=>o.team===team&&o.opponent===opponent&&o.site===site.id).length})).sort((a,b)=>b.count-a.count);
+    return votes[0]?.count>=BOT_HABITS.repetitions&&votes[0].count>(votes[1]?.count||0)?votes[0].site:null;
+  }
   function observe(team,observerId,enemy,now){
     if(!enemy||enemy.team===team||!Number.isFinite(enemy.x)||!Number.isFinite(enemy.z))return;
     teamIntel(team).set(enemy.id,{id:enemy.id,team:enemy.team,x:enemy.x,z:enemy.z,y:enemy.y||0,seenAt:now,observerId});
@@ -138,6 +165,7 @@ export function createBotTactics({sites,navigation,collision,lanes=[],attackSpaw
   function threat(team,site,now){return contacts(team,now).reduce((sum,c)=>sum+Math.max(0,1-distance(c,site)/36)*(1-(now-c.seenAt)/4),0);}
   function update({actors,attackerTeam,defenderTeam,spike,now,remaining=100}){
     if(roundStartedAt===null||now<roundStartedAt)roundStartedAt=now;
+    recordOpening(defenderTeam,attackerTeam,now,spike);
     const living=actors.filter(a=>a.alive),bots=living.filter(aiActor),roles=new Map();
     const key=`${spike.status}:${spike.carrier}:${spike.site}:${spike.defuseActor}:${living.map(a=>`${a.id}/${!!a.remoteId}`).join(',')}`;
     if(cached&&key===planKey&&now>=planTime&&now-planTime<.65)return cached;
@@ -191,10 +219,11 @@ export function createBotTactics({sites,navigation,collision,lanes=[],attackSpaw
     }else{
       const ranked=sites.map(held=>({site:held,pressure:threat(defenderTeam,held,now)})).sort((a,b)=>b.pressure-a.pressure);
       const contested=ranked[0].pressure>.35&&ranked[0].pressure>(ranked[1]?.pressure||0)+.25?ranked[0]:null;
+      const habitual=spike.status==='carried'&&!contacts(defenderTeam,now).length?habitualSite(defenderTeam,attackerTeam):null;
       const available=defenders.slice(),assignments=[];
       // Keep an anchor at the quiet site; do not send the entire team after one sighting.
-      const quota=contested?Math.min(defenders.length-(defenders.length>1?1:0),Math.max(2,Math.ceil(defenders.length*.75))):Math.ceil(defenders.length/2);
-      const first=contested?.site||sites[Math.floor(pick(`${defenderTeam}:anchor`)*sites.length)];
+      const quota=contested||habitual?Math.min(defenders.length-(defenders.length>1?1:0),Math.max(2,Math.ceil(defenders.length*.75))):Math.ceil(defenders.length/2);
+      const first=contested?.site||habitual||sites[Math.floor(pick(`${defenderTeam}:anchor`)*sites.length)];
       for(const held of [first,...sites.filter(s=>s!==first)]){
         const count=held===first?quota:available.length;
         const humanCount=living.filter(a=>a.team===defenderTeam&&!aiActor(a)&&distance(a,held)<18).length;
