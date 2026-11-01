@@ -3363,7 +3363,7 @@ function updateBots(dt){
       const r=plan.roles.get(b.id),id=b.record?.primary||b.record?.secondary||'classic',spec=WEAPONS[id]||WEAPONS.classic;
       const injured=b.kit?.character==='mend'?selectMendTarget(b,actors,mendReachable):null;
       return {id:b.id,team:b.team,x:b.x,y:b.y||0,z:b.z,alive:b.alive,character:b.kit?.character,hp:b.hp,role:r?.role,urgent:!!r?.urgent,
-        ammo:b.aiWeapon===id?b.aiAmmo:spec.mag,scoped:!!spec.scope,ready:elapsed>=(b.nextSkillAt||0),
+        engagedTargetId:b.target?.id||null,ammo:b.aiWeapon===id?b.aiAmmo:spec.mag,scoped:!!spec.scope,ready:elapsed>=(b.nextSkillAt||0),
         impaired:ordinarySkills.blindUntil(b.id,elapsed)>elapsed||ordinarySkills.nearsightUntil(b.id,elapsed)>elapsed||ordinarySkills.sealUntil(b.id,elapsed)>elapsed,
         busy:!!(b.serviceReload||b.aiReload>0||b.trcLadder||busSeat(b)||carMotionActive(b)||renkoUnarmed(b)||!actorGrounded(b)||spike.plantActor===b.id&&spike.plantProgress>0||spike.defuseActor===b.id&&spike.defuseProgress>0||injured&&injured.hp<=70),
         stock:{c:b.kit?.smoke||0,q:b.kit?.updraft||0,e:elapsed>=(b.kit?.nextSignatureAt||0)?b.kit?.dash||0:0,x:b.kit?.ultPoints>=7?1:0}};
