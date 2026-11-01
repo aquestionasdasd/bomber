@@ -51,6 +51,12 @@ export function createBotTeamPlanner(){
    const objective=spike.status==='planted'?(team===attackerTeam?'postplant':'retake'):'entry';
    let state=teams.get(team);
    if(state?.id){
+    // Cast geometry stays fixed in the authoritative event. Only a fresh,
+    // copied allied sighting can move the point used to validate its effect.
+    if(state.phase!=='prepare'){
+     const latest=intel.find(c=>c.id===state.targetId);
+     if(latest)state.point=position(latest);
+    }
     const caster=own.find(a=>a.id===state.caster),follow=own.find(a=>a.id===state.follower);
     if(!caster||!follow||!available(caster)||!follower(follow)||objective!==state.objective||spike.status==='dropped'||
       distance(follow,state.point)>BOT_TEAM_RULES.followRange||Math.abs((follow.y||0)-state.point.y)>.8){finish(team,state,now,'interrupted');continue;}
