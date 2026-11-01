@@ -1,3 +1,4 @@
+import {createBotTeamPlanner} from './bot-team-planner.js';
 // Tactical knowledge is made only from copied observations. Actor references never enter intel.
 const distance=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
 const aiActor=actor=>actor.alive&&!actor.remoteId&&!actor.rangeTarget&&actor.id!=='player'&&!actor.human;
@@ -51,12 +52,13 @@ export function createBotHearing(){
 }
 
 export function createBotTactics({sites,navigation,collision,lanes=[],attackSpawn={x:0,z:65},defendSpawn={x:0,z:-70},seed=0}){
+  const teamSkills=createBotTeamPlanner();
   const intel=new Map(),plans=new Map(),routes=new Map(),retakes=new Map(),approaches=new Map();
   let round=1,cached=null,planTime=-Infinity,planKey='',roundStartedAt=null;
   const pick=label=>choice(`${seed}:${round}:${label}`);
   const profile=team=>['execute','split','probe'][Math.floor(pick(`${team}:style`)*3)];
   const teamIntel=team=>{if(!intel.has(team))intel.set(team,new Map());return intel.get(team);};
-  function reset(value=1){round=value;intel.clear();plans.clear();routes.clear();retakes.clear();approaches.clear();cached=null;planTime=-Infinity;planKey='';roundStartedAt=null;}
+  function reset(value=1){round=value;intel.clear();plans.clear();routes.clear();retakes.clear();approaches.clear();teamSkills.reset();cached=null;planTime=-Infinity;planKey='';roundStartedAt=null;}
   function observe(team,observerId,enemy,now){
     if(!enemy||enemy.team===team||!Number.isFinite(enemy.x)||!Number.isFinite(enemy.z))return;
     teamIntel(team).set(enemy.id,{id:enemy.id,team:enemy.team,x:enemy.x,z:enemy.z,y:enemy.y||0,seenAt:now,observerId});
@@ -266,5 +268,7 @@ export function createBotTactics({sites,navigation,collision,lanes=[],attackSpaw
     }
     return {allow:!danger,urgent:false,phase:danger?'fight':state.phase,watch};
   }
-  return {reset,observe,contacts,routeDistance,plantPosition,selectSite,nearestReachable,update,investigation,defuseDecision};
+  return {reset,observe,contacts,routeDistance,plantPosition,selectSite,nearestReachable,update,investigation,defuseDecision,
+    skillPlan:input=>teamSkills.update({...input,contacts:{blue:contacts('blue',input.now),red:contacts('red',input.now)}}),
+    skillAccepted:teamSkills.accepted,skillState:teamSkills.snapshot};
 }
