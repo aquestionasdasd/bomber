@@ -1,5 +1,7 @@
 # MEND contract fixture maintenance
 
+Subsequent IAGNU maintenance is recorded in `IAGNU-CONTRACT-FIXTURES.md`; the failure below describes the state when the MEND repair completed.
+
 This repairs the seven original MEND groups after the ten NOPE groups in the shared `tests-character-skills.cjs`. Existing selection, healing, team, cover, floor, range, cooldown, non-stacking slow, snapshot authority, clock, reset and twenty-event assertions remain. The default command is unfiltered. No public gameplay, dependency, package or fixed CI condition changed.
 
 ```sh

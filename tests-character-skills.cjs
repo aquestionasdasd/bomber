@@ -15,6 +15,7 @@ async function main() {
   // runs every remaining character group, including unresolved legacy fixtures.
   const nopeOnly = process.argv.includes('--nope');
   const throughMend = process.argv.includes('--through-mend');
+  const throughIagnu = process.argv.includes('--through-iagnu');
   function canonicalNope(event) {
     assert.ok(event);
     const flash = event.type === 'nope-flash', gravity = flash ? 12 : 4, t = event.flight;
@@ -36,6 +37,17 @@ async function main() {
     near(Math.hypot(vx, vy, vz), 12);
     near(event.triggerAt - event.startedAt, t); near(event.endsAt - event.triggerAt, 9);
     assert.equal(event.radius, event.type === 'mend-seeds' ? 4.5 : 4.2);
+  }
+  function canonicalIagnu(event) {
+    assert.ok(event); assert.ok(['echo-tag', 'echo-glint'].includes(event.type));
+    const t = event.flight; assert.ok(t >= .08 && t <= 8);
+    const vx = (event.x - event.fromX) / t, vz = (event.z - event.fromZ) / t;
+    const vy = (event.y - event.fromY) / t + 4 * t / 2;
+    near(Math.hypot(vx, vy, vz), 12);
+    const tag = event.type === 'echo-tag';
+    near(event.triggerAt - event.startedAt, t + (tag ? .5 : 0));
+    near(event.endsAt - event.triggerAt, tag ? 12 : .4);
+    assert.equal(event.radius, tag ? 4.5 : 10);
   }
   let passed = 0;
   function test(name, fn) { fn(); passed++; console.log(`PASS: ${name}`); }
@@ -338,14 +350,19 @@ async function main() {
   }
   test('IAGNU trajectories, tag arming and self-only movement have canonical constants and safe cast ranges', () => {
     const skills = createCharacterSkills(), owner = actor(), tag = skills.cast({ type: 'echo-tag', radius: 999, duration: 999 }, owner, target(0, -18, .12), 2, 1);
-    assert.equal(tag.flight, .55); assert.equal(tag.radius, 4.5); near(tag.triggerAt, 3.05); near(tag.endsAt, 15.05);
+    canonicalIagnu(tag); assert.equal(tag.radius, 4.5); assert.ok(tag.flight > 1.52 && tag.flight < 1.53);
     assert.equal(skills.cast('echo-tag', owner, target(0, -18.001, .12), 2, 1), null);
-    for (const [type, flight, y] of [['echo-tag', .55, .12], ['echo-glint', .5, 1.6]]) {
+    for (const [type, y] of [['echo-tag', .12], ['echo-glint', 1.6]]) {
       const event = skills.cast(type, owner, target(4, -8, y), 2, 1);
-      const mid = skillProjectilePosition(event, 2 + flight / 2); near(mid.x, 2); near(mid.z, -4); near(mid.y, (1.7 + y) / 2 + .8);
+      canonicalIagnu(event); const flight = event.flight;
+      const mid = skillProjectilePosition(event, 2 + flight / 2); near(mid.x, 2); near(mid.z, -4); near(mid.y, (1.7 + y) / 2 + 4 * flight * flight / 8);
+      for (const hz of [20, 60, 144]) for (let frame = 0; frame <= Math.ceil(flight * hz); frame++) {
+        const t = Math.min(flight, frame / hz), u = t / flight, pose = skillProjectilePosition(event, 2 + frame / hz);
+        near(pose.x, 4 * u); near(pose.z, -8 * u); near(pose.y, 1.7 + (y - 1.7) * u + 4 * t * (flight - t) / 2);
+      }
       const end = skillProjectilePosition(event, 10); near(end.x, 4); near(end.y, y); near(end.z, -8);
     }
-    const glint = skills.events(2).find(event => event.type === 'echo-glint'); assert.equal(glint.triggerAt, 2.5); assert.equal(glint.endsAt, 2.9); assert.equal(glint.radius, 10);
+    const glint = skills.events(2).find(event => event.type === 'echo-glint'); canonicalIagnu(glint); assert.equal(glint.radius, 10);
     assert.equal(skills.cast('echo-kerning', owner, target(1, 0), 2, 1), null);
     const kerning = skills.cast('echo-kerning', owner, target(0, 0), 2, 1);
     assert.equal(kerning.fromY, 0); assert.equal(kerning.radius, 0); assert.equal(kerning.flight, 0); assert.equal(kerning.triggerAt, 2); assert.equal(kerning.endsAt, 6);
@@ -354,9 +371,11 @@ async function main() {
   });
   test('IAGNU tags arm before sampling, wait for an entrant, choose distance then ID and freeze one location after source death', () => {
     const skills = createCharacterSkills(), owner = actor(), tag = skills.cast('echo-tag', owner, target(0, -5, .12), 0, 1);
+    canonicalIagnu(tag); const at = tag.triggerAt;
     const early = actor('early', 'red', 0, -5);
-    assert.deepEqual(skills.update([owner, early], 1.049999, 1, allReach), []); assert.equal(skills.events(1.049999).length, 1);
-    assert.deepEqual(skills.update([{ ...owner, alive: false, hp: 0 }], 1.05, 1, allReach), []); assert.equal(skills.events(1.05).length, 1);
+    assert.deepEqual(skills.update([owner, early], tag.flight, 1, allReach), []);
+    assert.deepEqual(skills.update([owner, early], at - .00001, 1, allReach), []); assert.equal(skills.events(at - .00001).length, 1);
+    assert.deepEqual(skills.update([{ ...owner, alive: false, hp: 0 }], at, 1, allReach), []); assert.equal(skills.events(at).length, 1);
     const far = actor('0-far', 'red', 2, -5), b = actor('b', 'red', 1, -5), a = actor('a', 'red', -1, -5);
     const effects = skills.update([far, b, a, a], 2, 1, allReach);
     assert.deepEqual(effects, [{ type: 'detect', sourceId: owner.id, eventId: tag.id, team: 'blue', round: 1, x: -1, y: 0, z: -5, detectedAt: 2, endsAt: 4.5 }]);
@@ -373,68 +392,76 @@ async function main() {
       [actor('wall', 'red', 0, -5), false], [actor('throw', 'red', 0, -5), () => { throw Error('wall'); }],
     ];
     for (const [enemy, reach] of cases) {
-      const skills = createCharacterSkills(); skills.cast('echo-tag', owner, target(0, -5, .12), 0, 1);
-      assert.deepEqual(skills.update([enemy], 1.05, 1, { reachable: typeof reach === 'function' ? reach : () => reach }), []);
-      assert.equal(skills.events(1.05).length, 1);
+      const skills = createCharacterSkills(), tag = skills.cast('echo-tag', owner, target(0, -5, .12), 0, 1);
+      assert.deepEqual(skills.update([enemy], tag.triggerAt, 1, { reachable: typeof reach === 'function' ? reach : () => reach }), []);
+      assert.equal(skills.events(tag.triggerAt).length, 1);
     }
-    const edge = createCharacterSkills(); edge.cast('echo-tag', owner, target(0, -5, .12), 0, 1);
-    assert.equal(edge.update([actor('edge', 'red', 4.5, -5, { y: 2.5 })], 1.05, 1, allReach).length, 1);
-    const noLOS = createCharacterSkills(); noLOS.cast('echo-tag', owner, target(0, -5, .12), 0, 1); assert.deepEqual(noLOS.update([actor('enemy', 'red', 0, -5)], 1.05, 1), []);
-    const late = createCharacterSkills(); late.cast('echo-tag', owner, target(0, -5, .12), 0, 1);
-    assert.deepEqual(late.update([actor('enemy', 'red', 0, -5)], 13.05, 1, allReach), []); assert.deepEqual(late.markers('blue', 13.05), []);
+    const edge = createCharacterSkills(), edgeTag = edge.cast('echo-tag', owner, target(0, -5, .12), 0, 1);
+    assert.equal(edge.update([actor('edge', 'red', 4.5, -5, { y: 2.5 })], edgeTag.triggerAt, 1, allReach).length, 1);
+    const noLOS = createCharacterSkills(), noLOSTag = noLOS.cast('echo-tag', owner, target(0, -5, .12), 0, 1); assert.deepEqual(noLOS.update([actor('enemy', 'red', 0, -5)], noLOSTag.triggerAt, 1), []);
+    const late = createCharacterSkills(), lateTag = late.cast('echo-tag', owner, target(0, -5, .12), 0, 1);
+    assert.deepEqual(late.update([actor('enemy', 'red', 0, -5)], lateTag.endsAt, 1, allReach), []); assert.deepEqual(late.markers('blue', lateTag.endsAt), []);
+    const final = createCharacterSkills(), finalTag = final.cast('echo-tag', owner, target(0, -5, .12), 0, 1);
+    assert.equal(final.update([actor('enemy', 'red', 0, -5)], finalTag.endsAt - .00001, 1, allReach).length, 1);
   });
   test('IAGNU glint shares facing and cover rules but keeps its own two-second blindness through JSON and duplicate snapshots', () => {
     const host = createCharacterSkills(), guest = createCharacterSkills(), owner = actor(), event = host.cast('echo-glint', owner, target(0, -5, 1.6), 0, 1);
     const observers = [owner, actor('enemy', 'red'), actor('friend', 'blue'), actor('away', 'red', 0, 0, { yaw: Math.PI }), actor('wall', 'red'), actor('far', 'red', 0, 5.01)];
-    assert.deepEqual(host.update(observers, .49999, 1, allReach), []);
-    const effects = host.update(observers, .5, 1, { reachable: (_, other) => other.id !== 'wall' });
+    canonicalIagnu(event); const at = event.triggerAt, blindEnd = at + 2;
+    assert.deepEqual(host.update(observers, at - .00001, 1, allReach), []);
+    const effects = host.update(observers, at, 1, { reachable: (_, other) => other.id !== 'wall' });
     assert.deepEqual(effects.map(effect => effect.targetId), ['caster', 'enemy', 'friend']);
-    for (const effect of effects) { assert.equal(effect.type, 'blind'); assert.equal(effect.duration, 2); near(host.blindUntil(effect.targetId, .5), 2.5); }
-    const packet = json(host.snapshot()); assert.equal(guest.restore(packet, .5, 1), true); assert.equal(guest.restore(packet, .5, 1), true);
-    assert.deepEqual(guest.update(observers, .6, 1, allReach), []); near(guest.blindUntil('enemy', .6), 2.5);
-    assert.equal(guest.events(event.endsAt).length, 0); near(guest.blindUntil('enemy', .9), 2.5); assert.equal(guest.blindUntil('enemy', 2.5), 0);
-    const forged = json(packet); forged.blinds[0].endsAt = 2; assert.equal(createCharacterSkills().restore(forged, .5, 1), false);
+    for (const effect of effects) { assert.equal(effect.type, 'blind'); assert.equal(effect.duration, 2); near(host.blindUntil(effect.targetId, at), blindEnd); }
+    const packet = json(host.snapshot()); assert.equal(guest.restore(packet, at, 1), true); assert.equal(guest.restore(packet, at, 1), true);
+    assert.deepEqual(guest.update(observers, at + .1, 1, allReach), []); near(guest.blindUntil('enemy', at + .1), blindEnd);
+    assert.equal(guest.events(event.endsAt).length, 0); near(guest.blindUntil('enemy', event.endsAt), blindEnd); assert.equal(guest.blindUntil('enemy', blindEnd), 0);
+    const forged = json(packet); forged.blinds[0].endsAt = 2; assert.equal(createCharacterSkills().restore(forged, at, 1), false);
   });
   test('IAGNU self movement is separate from slows, host-restored only on guests, bounded and permanently removed by source death', () => {
     const host = createCharacterSkills(), guest = createCharacterSkills(), owner = actor(), enemy = actor('slow-owner', 'red');
-    host.cast('echo-kerning', owner, target(0, 0), 0, 1); host.cast('mend-seeds', enemy, target(0, 0, .12), 0, 1);
-    host.update([owner, enemy], .65, 1, allReach); assert.equal(host.movementScale(owner, .65), 1.35); assert.equal(host.speedScale(owner, .65, allReach), .5);
-    near(host.movementScale(owner, .65) * host.speedScale(owner, .65, allReach), .675); assert.equal(host.movementScale(enemy, .65), 1);
-    assert.equal(host.movementScale({ ...owner, alive: false, hp: 0 }, .65), 1); assert.equal(host.movementScale({ ...owner, team: 'red' }, .65), 1);
-    assert.equal(guest.movementScale(owner, .65), 1, 'No speculative buff exists before a host event arrives');
-    assert.equal(guest.restore(json(host.snapshot()), .65, 1), true); assert.equal(guest.movementScale(owner, .65), 1.35);
+    host.cast('echo-kerning', owner, target(0, 0), 0, 1); const seed = host.cast('mend-seeds', enemy, target(0, 0, .12), 0, 1), at = seed.triggerAt;
+    host.update([owner, enemy], at, 1, allReach); assert.equal(host.movementScale(owner, at), 1.35); assert.equal(host.speedScale(owner, at, allReach), .5);
+    near(host.movementScale(owner, at) * host.speedScale(owner, at, allReach), .675); assert.equal(host.movementScale(enemy, at), 1);
+    assert.equal(host.movementScale({ ...owner, alive: false, hp: 0 }, at), 1); assert.equal(host.movementScale({ ...owner, team: 'red' }, at), 1);
+    assert.equal(guest.movementScale(owner, at), 1, 'No speculative buff exists before a host event arrives');
+    assert.equal(guest.restore(json(host.snapshot()), at, 1), true); assert.equal(guest.movementScale(owner, at), 1.35);
     guest.update([{ ...owner, alive: false, hp: 0 }, enemy], 1, 1, allReach); assert.equal(guest.movementScale(owner, 1), 1); assert.equal(guest.events(1).some(event => event.type === 'echo-kerning'), false);
     host.update([owner, enemy], 4, 1, allReach); assert.equal(host.movementScale(owner, 4), 1);
     const removed = createCharacterSkills(); removed.cast('echo-kerning', owner, target(0, 0), 0, 1); removed.update([], .1, 1); assert.equal(removed.movementScale(owner, .1), 1);
   });
   test('IAGNU team snapshots expose only frozen friendly markers while public glyphs remain visible and restore never redetects', () => {
     const host = createCharacterSkills(), guest = createCharacterSkills(), blue = actor('blue-source'), red = actor('red-source', 'red', 10, 0);
-    host.cast('echo-tag', blue, target(0, -5, .12), 0, 1); host.cast('echo-tag', red, target(10, -5, .12), 0, 1);
+    const tag = host.cast('echo-tag', blue, target(0, -5, .12), 0, 1), at = tag.triggerAt; host.cast('echo-tag', red, target(10, -5, .12), 0, 1);
     host.cast('echo-glint', blue, target(0, -8, 1.6), 0, 1);
     const before = json(host.snapshot('blue')); assert.equal(before.events.length, 3); assert.equal(guest.restore(before, 0, 1), true);
     const enemies = [actor('red-target', 'red', 0, -5), actor('blue-target', 'blue', 10, -5)];
-    assert.deepEqual(guest.update(enemies, 1.05, 1, allReach), []); assert.deepEqual(guest.markers('blue', 1.05), []);
-    host.update(enemies, 1.05, 1, allReach); assert.equal(host.snapshot().markers.length, 2);
+    assert.deepEqual(guest.update(enemies, at, 1, allReach), []); assert.deepEqual(guest.markers('blue', at), []);
+    host.update(enemies, at, 1, allReach); assert.equal(host.snapshot().markers.length, 2);
     assert.deepEqual(host.snapshot('blue').markers.map(marker => marker.team), ['blue']); assert.deepEqual(host.snapshot('red').markers.map(marker => marker.team), ['red']); assert.deepEqual(host.snapshot('invalid').markers, []);
-    const packet = json(host.snapshot('blue')); assert.equal(guest.restore(packet, 1.05, 1), true); assert.equal(guest.markers('blue', 1.05)[0].x, 0); assert.deepEqual(guest.markers('red', 1.05), []);
-    assert.equal(guest.restore(packet, 1.1, 1), true); assert.deepEqual(guest.update(enemies, 1.2, 1, allReach), []);
-    guest.markers('blue', 4); assert.equal(guest.restore(packet, 1.15, 1), true); assert.deepEqual(guest.markers('blue', 4), []);
-    assert.equal(guest.restore(packet, 1.1, 1), false); assert.equal(guest.restore({ events: [], blinds: [] }, 0, 2), true); assert.deepEqual(guest.markers('blue', 0), []);
+    const packet = json(host.snapshot('blue')); assert.equal(guest.restore(packet, at, 1), true); assert.equal(guest.markers('blue', at)[0].x, 0); assert.deepEqual(guest.markers('red', at), []);
+    assert.equal(guest.restore(packet, at + .05, 1), true); assert.deepEqual(guest.update(enemies, at + .15, 1, allReach), []);
+    guest.markers('blue', 4); assert.equal(guest.restore(packet, at + .1, 1), true); assert.deepEqual(guest.markers('blue', 4), []);
+    assert.equal(guest.restore(packet, at + .05, 1), false); assert.equal(guest.restore({ events: [], blinds: [] }, 0, 2), true); assert.deepEqual(guest.markers('blue', 0), []);
   });
   test('IAGNU strict canonical JSON rejects marker leaks, forged timing, duplicate records and malformed events atomically', () => {
-    const host = createCharacterSkills(), owner = actor(); host.cast('echo-tag', owner, target(0, -5, .12), 0, 1);
-    host.update([actor('enemy', 'red', 0, -5)], 1.05, 1, allReach); host.cast('echo-kerning', owner, target(0, 0), 1.05, 1);
-    const packet = json(host.snapshot()), guest = createCharacterSkills(); assert.equal(guest.restore(packet, 1.05, 1), true);
+    const host = createCharacterSkills(), owner = actor(), tag = host.cast('echo-tag', owner, target(0, -5, .12), 0, 1), at = tag.triggerAt;
+    host.update([actor('enemy', 'red', 0, -5)], at, 1, allReach); host.cast('echo-kerning', owner, target(0, 0), at, 1);
+    const packet = json(host.snapshot()), guest = createCharacterSkills(); assert.equal(guest.restore(packet, at, 1), true);
     const invalids = [{ ...packet, markers: null }, { ...packet, markers: Array(21).fill(packet.markers[0]) }, { ...packet, markers: [packet.markers[0], packet.markers[0]] }];
     for (const [key, value] of [['x', Infinity], ['y', '0'], ['z', 1001], ['round', 2], ['team', 'bad'], ['eventId', 'skill-echo-glint-1'], ['eventId', 'skill-echo-tag-0'],
       ['detectedAt', 2], ['endsAt', 20], ['targetId', 'secret'], ['sourceId', 'secret']]) { const bad = json(packet); bad.markers[0][key] = value; invalids.push(bad); }
     for (const [key, value] of [['x', 1], ['fromY', 1.7], ['radius', 1], ['flight', .1], ['endsAt', 9], ['triggerAt', 2]]) { const bad = json(packet); bad.events[0][key] = value; invalids.push(bad); }
-    const same = json(packet); same.events.push({ ...host.cast('echo-tag', owner, target(0, -5, .12), 1.05, 1), id: same.markers[0].eventId }); invalids.push(same);
-    for (const bad of invalids) { const before = guest.snapshot(); assert.equal(guest.restore(bad, 1.05, 1), false); assert.deepEqual(guest.snapshot(), before); }
-    packet.markers[0].x = 900; assert.equal(guest.markers('blue', 1.05)[0].x, 0);
-    const next = guest.cast('echo-glint', owner, target(0, -5, 1.6), 1.05, 1); assert.ok(next.id.endsWith('-3'), 'Marker IDs advance the shared sequence even after the tag has gone');
+    const same = json(packet); same.events.push({ ...host.cast('echo-tag', owner, target(0, -5, .12), at, 1), id: same.markers[0].eventId }); invalids.push(same);
+    for (const bad of invalids) { const before = guest.snapshot(); assert.equal(guest.restore(bad, at, 1), false); assert.deepEqual(guest.snapshot(), before); }
+    packet.markers[0].x = 900; assert.equal(guest.markers('blue', at)[0].x, 0);
+    const next = guest.cast('echo-glint', owner, target(0, -5, 1.6), at, 1); assert.ok(next.id.endsWith('-3'), 'Marker IDs advance the shared sequence even after the tag has gone');
     guest.reset(); assert.deepEqual(guest.snapshot(), { events: [], blinds: [], markers: [] });
   });
+  if (throughIagnu) {
+    assert.equal(passed, 24);
+    console.log('Character contract prefix passed: 10 NOPE + 7 MEND + 7 IAGNU groups; later character groups not run.');
+    return;
+  }
   test('mixed ordinary capacity retains all twenty existing effects, rejects before ownership or IDs advance, and supports stock rollback', () => {
     const skills = createCharacterSkills(), owner = actor(), kit = new DuelistKit({ character: 'echo' });
     for (let n = 0; n < 20; n++) assert.ok(skills.cast('nope-decoy', owner, target(0, -5), 0, 1));
