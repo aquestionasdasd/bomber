@@ -97,7 +97,9 @@ export function createBotTeamPlanner(){
  function accepted(planId,event,now){
   const state=[...teams.values()].find(s=>s.id===planId&&s.phase==='prepare');
   if(!state||!event||event.type!==state.action.type||event.sourceId!==state.caster||event.team!==state.team||!Number.isFinite(event.triggerAt)||event.endsAt<=now)return false;
-  state.eventId=event.id;state.phase='flight';state.until=Math.min(event.endsAt,now+BOT_TEAM_RULES.flightWait);return true;
+  state.eventId=event.id;state.phase='flight';
+  // Keep the accepted arrival fixed; a slower real throw must not time out in mid-air.
+  state.until=Math.min(event.endsAt,Math.max(now+BOT_TEAM_RULES.flightWait,event.triggerAt+BOT_TEAM_RULES.decisionInterval));return true;
  }
  function reset(){teams.clear();history.length=0;sequence=0;lastTime=-Infinity;}
  const snapshot=()=>({plans:[...teams.values()].filter(s=>s.id).map(s=>({...s,action:{...s.action},point:{...s.point}})),history:history.map(s=>({...s}))});

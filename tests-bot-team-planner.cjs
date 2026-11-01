@@ -1,5 +1,5 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),Module=require('node:module'),{pathToFileURL}=require('node:url');
-async function main({mutate=s=>s,only=()=>true,measure=false,baseline=false,moving=false,preparing=false,gloom=false,mutateGame=s=>s}={}){
+async function main({mutate=s=>s,only=()=>true,measure=false,baseline=false,moving=false,preparing=false,gloom=false,longThrow=false,mutateGame=s=>s}={}){
  const root=__dirname,read=p=>fs.readFileSync(path.join(root,p),'utf8');
  const code=mutate(read('public/bot-team-planner.js')).replace("'./abilities.js'",JSON.stringify(pathToFileURL(path.join(root,'public/abilities.js')).href));
  const {createBotTeamPlanner,BOT_SKILL_CAPABILITIES,BOT_TEAM_SETUPS}=await import('data:text/javascript;base64,'+Buffer.from(code).toString('base64'));
@@ -17,6 +17,19 @@ async function main({mutate=s=>s,only=()=>true,measure=false,baseline=false,movi
   orders=p.update({...a,now:10.9,effectState:()=>({alive:true,ready:false,endsAt:16.8})});assert.equal(orders.get('entry')?.kind,'wait','timer alone never declares success');
   orders=p.update({...a,now:11,effectState:()=>({alive:true,ready:true,endsAt:16.8})});assert.equal(orders.get('entry').kind,'follow');
   p.update({...a,now:12.5,effectState:()=>({alive:true,ready:true,endsAt:16.8})});assert.equal(p.snapshot().plans.length,0);assert.equal(p.snapshot().history.at(-1).outcome,'completed');
+ });
+ test('long throws wait for the accepted arrival but still require a real effect and expire finitely',()=>{
+  for(const scenario of['hit','miss','lost','urgent']){
+   const p=createBotTeamPlanner(),a=args();p.update(a);const state=p.snapshot().plans[0],accepted={...event(state),triggerAt:13,endsAt:19};assert.equal(p.accepted(state.id,accepted,10.1),true);
+   const effectState=()=>({alive:scenario!=='lost',ready:false,endsAt:19});
+   const orders=p.update({...a,now:12.9,effectState});
+   if(scenario==='lost'){assert.equal(orders.size,0);continue;}
+   assert.equal(orders.get('entry')?.kind,'wait','accepted long throw must survive the old2.2s cutoff');assert.equal(accepted.triggerAt,13);assert.ok(p.snapshot().plans[0].until<=13.25,'bounded arrival grace');
+   if(scenario==='urgent')a.allies[1].urgent=true;
+   const hit=p.update({...a,now:13.05,effectState:()=>({alive:true,ready:scenario==='hit',endsAt:19})});
+   assert.equal(hit.get('entry')?.kind,scenario==='hit'?'follow':scenario==='urgent'?undefined:'wait');
+   if(scenario==='miss'){p.update({...a,now:13.26,effectState});assert.equal(p.snapshot().plans.length,0,'unhit throw cannot hold a teammate indefinitely');}
+  }
  });
  test('no unseen coordinates, enemy stocks, team leakage or caller-owned mutable position enters plans',()=>{
   const p=createBotTeamPlanner(),a=args();a.contacts.blue=[];a.contacts.red=[{id:'secret',x:0,z:18,seenAt:10}];assert.equal(p.update(a).size,0);
@@ -78,12 +91,12 @@ async function main({mutate=s=>s,only=()=>true,measure=false,baseline=false,movi
   h.run(`var teamSamples=[],teamCasts=[],teamDamage=0,actualTeamDamage=damageEntity,actualTeamActivate=activateAbility;
    damageEntity=function(target,amount,source,options){const before=target.hp+target.armor;const result=actualTeamDamage(target,amount,source,options);if(target===player){teamDamage+=Math.max(0,before-target.hp-target.armor);target.hp=100;target.armor=50;}return result;};
    activateAbility=function(actor,key,options){const result=actualTeamActivate(actor,key,options);if(result&&actor.id==='setup')teamCasts.push({at:elapsed,key,type:result.type});return result;};`);
-  function setup({character='nobi',key='c',disabled=baseline,distance=18}={}){
-   h.reset();h.clearWalls();Object.assign(h.sandbox,{fixtureCharacter:character,fixtureKey:key,disablePlanner:disabled,fixtureDistance:distance});
+  function setup({character='nobi',key='c',disabled=baseline,distance=18,entryZ=0}={}){
+   h.reset();h.clearWalls();Object.assign(h.sandbox,{fixtureCharacter:character,fixtureKey:key,disablePlanner:disabled,fixtureDistance:distance,fixtureEntryZ:entryZ});
    h.run(`match.phase='live';match.roundTime=90;match.spike.status='carried';match.spike.carrier='other';difficulty='hard';
     Object.assign(player,{team:'red',x:0,y:0,z:fixtureDistance,hp:100,armor:50,alive:true,vx:0,vz:0,vy:0});
     makeBot({x:-3,z:0},0,'blue',{id:'setup',team:'blue',secondary:'classic',armor:50});
-    makeBot({x:0,z:0},1,'blue',{id:'entry',team:'blue',secondary:'classic',armor:50});var setter=bots[0],entry=bots[1];
+    makeBot({x:0,z:fixtureEntryZ},1,'blue',{id:'entry',team:'blue',secondary:'classic',armor:50});var setter=bots[0],entry=bots[1];
     setter.kit=new DuelistKit({character:fixtureCharacter});setter.kit.smoke=fixtureKey==='c'?1:0;setter.kit.updraft=fixtureKey==='q'?1:0;setter.kit.dash=fixtureKey==='e'?1:0;setter.kit.ultPoints=0;entry.kit=null;
     for(const b of bots){Object.assign(b,{aiWeapon:'classic',aiAmmo:12,aiReserve:36,aiReload:0,fire:0,think:0,target:null,reactionUntil:0,nextSkillAt:0});b.group.rotation.y=0;}
     updateBots.tactics=createBotTactics({sites:map.sites,navigation,collision:map.collision});var teamUpdate=updateBots.tactics.update;
@@ -92,6 +105,29 @@ async function main({mutate=s=>s,only=()=>true,measure=false,baseline=false,movi
   }
   function step(seconds,hz=60){Object.assign(h.sandbox,{duration:seconds,hz});h.run(`for(let t=0;t<duration-1e-8;t+=1/hz){var previousYaw=bots.map(b=>b.group.rotation.y);updatePlay(Math.min(1/hz,duration-t));teamSamples.push({at:elapsed,z:entry.z,mode:updateBots.tactics.skillState().plans[0]?.phase||null,effect:ordinarySkills.nobiVulnerability(player.id,elapsed,player,ordinaryReachable),speed:actorSpeedScale(player),maxTurn:Math.max(...bots.map((b,i)=>Math.abs(b.group.rotation.y-previousYaw[i]))),hp:player.hp,damage:teamDamage});}`);}
   const value=code=>JSON.parse(JSON.stringify(h.run(code)));
+  function longThrowControls(){
+   const controls=[];
+   for(const hz of[20,60,144])for(const scenario of['long-c','long-q','short-c','lost-field']){
+    const key=scenario==='long-q'?'q':'c',distance=scenario==='short-c'?18:30,entryZ=distance===30?8:0;
+    setup({character:'nobi',key,distance,entryZ});
+    for(let i=0;i<hz*2&&!h.run('teamCasts.length');i++)step(1/hz,hz);
+    const field=value('ordinarySkills.events(elapsed).find(e=>e.sourceId===setter.id)');assert.ok(field,'accepted real field');
+    const start=value('({at:elapsed,z:entry.z})');
+    if(scenario==='lost-field'){step(.3,hz);h.run('ordinarySkills.reset()');}
+    while(h.run('elapsed')<field.triggerAt+.3-1e-8)step(1/hz,hz);
+    const result=value('({casts:teamCasts,stock:fixtureKey==="c"?setter.kit.smoke:setter.kit.updraft,z:entry.z,history:updateBots.tactics.skillState().history,samples:teamSamples})');
+    // Q changes the actual firing interval rather than the C vulnerability.
+    const actualEffect=value('ordinarySkills.nobiInterval(player.id,elapsed,player,ordinaryReachable)');
+    const follow=result.samples.find(s=>s.mode==='exploit'),firstEffect=key==='c'?result.samples.find(s=>s.effect===1.35)?.at:null;
+    assert.equal(result.casts.length,1);assert.equal(result.stock,0);assert.ok(result.samples.every(s=>s.maxTurn<=Math.PI*.8/hz+1e-7));
+    if(scenario!=='short-c')assert.ok(field.triggerAt-field.startedAt>2.2,'real low-gravity flight exceeds old cutoff');
+    if(scenario==='lost-field'){assert.equal(actualEffect,1);assert.ok(!follow,'lost field never causes followup');assert.ok(result.history.some(s=>s.outcome==='effect-lost'));}
+    else {if(key==='c')assert.ok(firstEffect,'actual C vulnerability');else assert.equal(actualEffect,1.6,'actual Q fire interval effect');if(!measure){assert.ok(follow,'accepted throw must reach actual effect before followup timeout');assert.ok(follow.at+1e-8>=field.triggerAt,'never follow before real arrival');assert.ok(result.z>start.z,'actual armed followup movement');}}
+    controls.push({hz,scenario,field,start,casts:result.casts,remainingStock:result.stock,firstEffect,firstFollow:follow?.at??null,z:result.z,actualQEffect:actualEffect,history:result.history,maxTurn:Math.max(...result.samples.map(s=>s.maxTurn))});
+   }
+   return{controls,frame:'actual updatePlay once/frame',fixture:'two allied bots,visible stationary target18m or30m,fixed escort roles;HP/armor restored after real gun hits',limitations:['controlled comparison;not ordinary5v5 win-rate,damage or personal objective improvement','no browser/device/listening confirmation']};
+  }
+  if(longThrow)return longThrowControls();
   function gloomControls(){
    const controls=[];
    for(const hz of[20,60,144])for(const scenario of['late-entry','real-hit','hit-moved','cleansed','hidden','other-wave']){
@@ -178,6 +214,7 @@ async function main({mutate=s=>s,only=()=>true,measure=false,baseline=false,movi
    assert.equal(h.run('teamCasts.length'),1);assert.equal(h.run('setter.kit.smoke'),0,'no refund or second cast');
    activeLossControls.push({hz,removedAt:at,releasedAt:h.run('elapsed'),frames:1,previousZ,normalDecisionZ:h.run('entry.z'),beforeEffect:1.35,afterEffect:h.run('ordinarySkills.nobiVulnerability(player.id,elapsed,player,ordinaryReachable)'),casts:h.run('teamCasts.length'),remainingStock:h.run('setter.kit.smoke')});
   }groups++;console.log('PASS: actual active field loss releases followup next frame at20/60/144Hz');console.log('ACTIVE_LOSS_CONTROLS '+JSON.stringify(activeLossControls));
+  longThrowControls();groups++;console.log('PASS: actual accepted long and short Nobi throws wait for real effects with finite cancellation at20/60/144Hz');
   gloomControls();groups++;console.log('PASS: travelling gloom followup requires this wave hit and current legal sighting across18 actual controls');
   setup();h.run('ordinarySkills.sealUntil=()=>100');step(1.4);assert.equal(h.run('teamCasts.length'),0);assert.equal(h.run('updateBots.tactics.skillState().plans.length'),0);groups++;console.log('PASS: seal prevents actual planner casts');
  }
