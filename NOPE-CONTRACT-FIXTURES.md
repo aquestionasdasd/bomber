@@ -1,6 +1,6 @@
 # NOPE contract fixture maintenance
 
-This repairs the first ten NOPE groups in `tests-character-skills.cjs`. It is a partial repair of that shared suite. The default command still runs all character groups and currently fails later at the untouched MEND seed fixture, which expects the old `0.65` second throw. Gameplay, Sites source, dependencies and fixed controller CI are unchanged.
+This repairs the first ten NOPE groups in `tests-character-skills.cjs`. It is a partial repair of that shared suite. The default command still runs all character groups; a passing focused command does not establish a full-suite pass. Later MEND maintenance is recorded in `MEND-CONTRACT-FIXTURES.md`. Gameplay, Sites source, dependencies and fixed controller CI are unchanged.
 
 Run the focused checks:
 
