@@ -1,6 +1,8 @@
 const assert=require('node:assert/strict'),run=require('./tests-bot-team-planner.cjs');
 (async()=>{
  const faults=[
+  ['ignore uncast caster engagement',s=>s.replace("(state.phase==='prepare'&&!focusedOn(caster,state.targetId))||",''),'caster engagement'],
+  ['reserve an initially occupied caster',s=>s.replace('!focusedOn(caster,contact.id)||',''),'caster engagement'],
   ['ignore follower current engagement',s=>s.replace('const focusedOn=(a,id)=>!a.engagedTargetId||a.engagedTargetId===id;','const focusedOn=()=>true;'),'follower engagement'],
   ['restore fixed early throw timeout',s=>s.replace('Math.max(now+BOT_TEAM_RULES.flightWait,event.triggerAt+BOT_TEAM_RULES.decisionInterval)','now+BOT_TEAM_RULES.flightWait'),'long throws'],
   ['freeze uncast aim at old observation',s=>s.replace('if(latest)state.point=position(latest);',"if(latest&&state.phase!=='prepare')state.point=position(latest);"),'fresh preparation'],

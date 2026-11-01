@@ -57,7 +57,7 @@ export function createBotTeamPlanner(){
     const latest=intel.find(c=>c.id===state.targetId);
     if(latest)state.point=position(latest);
     const caster=own.find(a=>a.id===state.caster),follow=own.find(a=>a.id===state.follower);
-    if(!caster||!follow||!available(caster)||!follower(follow)||!focusedOn(follow,state.targetId)||objective!==state.objective||spike.status==='dropped'||
+    if(!caster||!follow||!available(caster)||(state.phase==='prepare'&&!focusedOn(caster,state.targetId))||!follower(follow)||!focusedOn(follow,state.targetId)||objective!==state.objective||spike.status==='dropped'||
       distance(follow,state.point)>BOT_TEAM_RULES.followRange||Math.abs((follow.y||0)-state.point.y)>.8){finish(team,state,now,'interrupted');continue;}
     if(state.phase==='prepare'&&(now>state.until||!intel.some(c=>c.id===state.targetId))){finish(team,state,now,'setup-unavailable');continue;}
     if(state.phase==='flight'){
@@ -78,7 +78,7 @@ export function createBotTeamPlanner(){
      if(spike.status==='planted'&&distance(contact,spike)>26)continue;
      for(const caster of own.filter(a=>available(a)&&a.ready))for(const action of BOT_TEAM_SETUPS){
       const d=distance(caster,contact);
-      if(caster.character!==action.character||!(caster.stock[action.key]>0)||d<action.min||d>action.max||Math.abs((caster.y||0)-(contact.y||0))>.8)continue;
+      if(!focusedOn(caster,contact.id)||caster.character!==action.character||!(caster.stock[action.key]>0)||d<action.min||d>action.max||Math.abs((caster.y||0)-(contact.y||0))>.8)continue;
       const follow=own.filter(a=>a.id!==caster.id&&follower(a)&&focusedOn(a,contact.id)&&distance(a,caster)<=BOT_TEAM_RULES.allyRange&&distance(a,contact)<=BOT_TEAM_RULES.followRange&&distance(a,contact)>BOT_TEAM_RULES.stopRange+1&&Math.abs((a.y||0)-(contact.y||0))<.8)
        .sort((a,b)=>distance(a,contact)-distance(b,contact)||a.id.localeCompare(b.id))[0];
       if(follow&&canSetup(caster,action,contact))candidates.push({caster,follow,contact,action,score:action.score-distance(follow,contact)*.4-distance(caster,contact)*.2});
