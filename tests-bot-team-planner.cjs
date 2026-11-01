@@ -1,5 +1,5 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),Module=require('node:module'),{pathToFileURL}=require('node:url');
-async function main({mutate=s=>s,only=()=>true,measure=false,baseline=false}={}){
+async function main({mutate=s=>s,only=()=>true,measure=false,baseline=false,moving=false}={}){
  const root=__dirname,read=p=>fs.readFileSync(path.join(root,p),'utf8');
  const code=mutate(read('public/bot-team-planner.js')).replace("'./abilities.js'",JSON.stringify(pathToFileURL(path.join(root,'public/abilities.js')).href));
  const {createBotTeamPlanner,BOT_SKILL_CAPABILITIES,BOT_TEAM_SETUPS}=await import('data:text/javascript;base64,'+Buffer.from(code).toString('base64'));
@@ -45,6 +45,18 @@ async function main({mutate=s=>s,only=()=>true,measure=false,baseline=false}={})
    assert.equal(p.update({...a,now:11.3}).size,0,'normal cooldown still applies');
   }
  });
+ test('new allied sightings update accepted effect checks without moving the locked cast or leaking hidden poses',()=>{
+  for(const mode of['outside','inside','stale','other']){
+   const p=createBotTeamPlanner(),a=args();p.update(a);const accepted=event(p.snapshot().plans[0]);p.accepted(p.snapshot().plans[0].id,accepted,10.1);
+   const effectState=state=>({alive:true,ready:Math.abs(state.point.x)<5,endsAt:16.8});
+   assert.equal(p.update({...a,now:10.8,effectState}).get('entry')?.kind,'follow');
+   const contact={...a.contacts.blue[0],x:mode==='inside'?2:8,seenAt:mode==='stale'?8:10.9};if(mode==='other')contact.id='different-target';
+   const orders=p.update({...a,now:10.9,contacts:{blue:[contact],red:[]},effectState});
+   if(mode==='outside'){assert.equal(orders.size,0,'fresh sighting outside actual effect releases followup');assert.equal(p.snapshot().history.at(-1).outcome,'effect-lost');}
+   else {assert.equal(orders.get('entry')?.kind,'follow');assert.equal(p.snapshot().plans[0].point.x,mode==='inside'?2:0);contact.x=999;assert.equal(p.snapshot().plans[0].point.x,mode==='inside'?2:0,'observation is copied');}
+   assert.equal(accepted.triggerAt,10.8,'accepted attack timing stays fixed');
+  }
+ });
  test('entry, postplant and retake objectives are distinct and dropped bomb / reset release all orders',()=>{
   for(const [spike,attack,expected]of[[{status:'carried'},'blue','entry'],[{status:'planted',x:0,z:18},'blue','postplant'],[{status:'planted',x:0,z:18},'red','retake']]){
    const p=createBotTeamPlanner(),a={...args(),spike,attackerTeam:attack};p.update(a);assert.equal(p.snapshot().plans[0].objective,expected);assert.equal(p.update({...a,now:10.1,spike:{status:'dropped'}}).size,0);p.reset();assert.deepEqual(p.snapshot(),{plans:[],history:[]});
@@ -71,6 +83,18 @@ async function main({mutate=s=>s,only=()=>true,measure=false,baseline=false}={})
   }
   function step(seconds,hz=60){Object.assign(h.sandbox,{duration:seconds,hz});h.run(`for(let t=0;t<duration-1e-8;t+=1/hz){var previousYaw=bots.map(b=>b.group.rotation.y);updatePlay(Math.min(1/hz,duration-t));teamSamples.push({at:elapsed,z:entry.z,mode:updateBots.tactics.skillState().plans[0]?.phase||null,effect:ordinarySkills.nobiVulnerability(player.id,elapsed,player,ordinaryReachable),speed:actorSpeedScale(player),maxTurn:Math.max(...bots.map((b,i)=>Math.abs(b.group.rotation.y-previousYaw[i]))),hp:player.hp,damage:teamDamage});}`);}
   const value=code=>JSON.parse(JSON.stringify(h.run(code)));
+  if(moving){
+   const controls=[];
+   for(const hz of[20,60,144]){
+    setup({character:'mend'});step(2,hz);const before=value('({at:elapsed,phase:updateBots.tactics.skillState().plans[0]?.phase,speed:actorSpeedScale(player),z:entry.z,point:updateBots.tactics.skillState().plans[0]?.point})');
+    assert.equal(before.phase,'exploit');assert.ok(before.speed<1,'real seed slow before movement');
+    h.run('player.x=8');step(1/hz,hz);
+    const after=value('({at:elapsed,phase:updateBots.tactics.skillState().plans[0]?.phase||null,speed:actorSpeedScale(player),z:entry.z,point:updateBots.tactics.skillState().plans[0]?.point||null,seen:setter.lastSeen,casts:teamCasts.length,stock:setter.kit.smoke,outcome:updateBots.tactics.skillState().history.at(-1)?.outcome,field:ordinarySkills.events(elapsed).find(e=>e.sourceId===setter.id)})');
+    controls.push({hz,frames:1,before,after});assert.equal(after.speed,1,'actual target left the field');assert.equal(after.seen.x,8,'target movement is legitimately seen');
+    if(!measure){assert.equal(after.phase,null,'observed target outside actual seed effect releases followup next frame at'+hz);assert.equal(after.outcome,'effect-lost');assert.equal(after.casts,1);assert.equal(after.stock,0);assert.ok(after.field,'real field remains unchanged');}
+   }
+   console.log('MOVING_TARGET_CONTROLS '+JSON.stringify(controls));return{groups:1,controls,frame:'actual updatePlay once/frame',fixture:'two allied bots, stationary18m target stepped sideways8m after real MEND effect;HP/armor restored after actual hits',limitations:['controlled pose change;not ordinary5v5 match results','no browser/device/listening confirmation']};
+  }
   const controls=[];
   for(const hz of[20,60,144]){
    setup();step(2.8,hz);const s=value('({samples:teamSamples,casts:teamCasts,z:entry.z,stocks:{c:setter.kit.smoke,q:setter.kit.updraft},history:updateBots.tactics.skillState().history})');controls.push({hz,...s});

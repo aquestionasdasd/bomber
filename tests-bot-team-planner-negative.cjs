@@ -1,6 +1,7 @@
 const assert=require('node:assert/strict'),run=require('./tests-bot-team-planner.cjs');
 (async()=>{
  const faults=[
+  ['ignore newly observed target movement',s=>s.replace('if(latest)state.point=position(latest);',''),'new allied sightings'],
   ['skip real effect confirmation',s=>s.replace('if(actual.ready){','if(true){'),'setup, authoritative'],
   ['ignore urgent objective',s=>s.replace('&&!a.urgent',''),'death, urgent'],
   ['ignore unsafe setup query',s=>s.replace('follow&&canSetup(caster,action,contact)','follow'),'death, urgent'],
