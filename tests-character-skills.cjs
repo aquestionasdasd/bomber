@@ -14,6 +14,7 @@ async function main() {
   // This focused mode runs the original ten NOPE groups. The default still
   // runs every remaining character group, including unresolved legacy fixtures.
   const nopeOnly = process.argv.includes('--nope');
+  const throughMend = process.argv.includes('--through-mend');
   function canonicalNope(event) {
     assert.ok(event);
     const flash = event.type === 'nope-flash', gravity = flash ? 12 : 4, t = event.flight;
@@ -26,6 +27,15 @@ async function main() {
     near(event.triggerAt - event.startedAt, flash ? 1 : Math.max(1, t));
     near(event.endsAt - event.triggerAt, flash ? .4 : .6);
     assert.equal(event.radius, flash ? 30 : 8);
+  }
+  function canonicalMend(event) {
+    assert.ok(event); assert.ok(['mend-seeds', 'mend-pollen'].includes(event.type));
+    const t = event.flight; assert.ok(t >= .08 && t <= 8);
+    const vx = (event.x - event.fromX) / t, vz = (event.z - event.fromZ) / t;
+    const vy = (event.y - event.fromY) / t + 4 * t / 2;
+    near(Math.hypot(vx, vy, vz), 12);
+    near(event.triggerAt - event.startedAt, t); near(event.endsAt - event.triggerAt, 9);
+    assert.equal(event.radius, event.type === 'mend-seeds' ? 4.5 : 4.2);
   }
   let passed = 0;
   function test(name, fn) { fn(); passed++; console.log(`PASS: ${name}`); }
@@ -228,28 +238,37 @@ async function main() {
 
   test('MEND seeds slow only exposed enemies after arrival, within the exact horizontal and feet-height boundaries', () => {
     const owner = actor(), skills = createCharacterSkills(), event = skills.cast('mend-seeds', owner, target(0, -5, .12), 0, 1);
-    assert.equal(event.triggerAt, .65); assert.equal(event.endsAt, 9.65); assert.equal(event.radius, 4.5);
+    canonicalMend(event); const at = event.triggerAt;
+    assert.ok(at > .4287 && at < .4288); assert.equal(event.radius, 4.5);
     const center = actor('enemy', 'red', 0, -5), edge = actor('edge', 'red', 4.5, -5, { y: 2.5 }), below = actor('below', 'red', 0, -5, { y: -2.5 });
-    assert.equal(skills.speedScale(center, .6499, allReach), 1); assert.equal(skills.speedScale(center, .65, allReach), .5);
-    assert.equal(skills.speedScale(edge, .65, allReach), .5); assert.equal(skills.speedScale(below, .65, allReach), .5);
+    assert.equal(skills.speedScale(center, at - .0001, allReach), 1); assert.equal(skills.speedScale(center, at, allReach), .5);
+    assert.equal(skills.speedScale(edge, at, allReach), .5); assert.equal(skills.speedScale(below, at, allReach), .5);
     for (const excluded of [{ ...edge, x: 4.5001 }, { ...edge, y: 2.5001 }, { ...below, y: -2.5001 }, { ...center, team: 'blue' },
-      { ...center, alive: false, hp: 0 }, { ...center, x: NaN }]) assert.equal(skills.speedScale(excluded, .65, allReach), 1);
-    for (const reachable of [undefined, () => false, () => { throw Error('wall'); }]) assert.equal(skills.speedScale(center, .65, { reachable }), 1);
-    skills.cast('mend-seeds', owner, target(0, -5, .12), .65, 1);
-    assert.equal(skills.speedScale(center, 1.3, allReach), .5, 'Fields do not multiply into a stronger slow');
-    assert.deepEqual(skills.update([owner, center], 1.3, 1, allReach), []); assert.equal(center.hp, 100);
-    assert.equal(skills.speedScale(center, 10.3, allReach), 1, 'The final active field expires at its nine-second boundary');
+      { ...center, alive: false, hp: 0 }, { ...center, x: NaN }]) assert.equal(skills.speedScale(excluded, at, allReach), 1);
+    for (const reachable of [undefined, () => false, () => { throw Error('wall'); }]) assert.equal(skills.speedScale(center, at, { reachable }), 1);
+    const second = skills.cast('mend-seeds', owner, target(0, -5, .12), at, 1); canonicalMend(second);
+    assert.equal(skills.speedScale(center, second.triggerAt, allReach), .5, 'Fields do not multiply into a stronger slow');
+    assert.deepEqual(skills.update([owner, center], second.triggerAt, 1, allReach), []); assert.equal(center.hp, 100);
+    assert.equal(skills.speedScale(center, second.endsAt - .0001, allReach), .5);
+    assert.equal(skills.speedScale(center, second.endsAt, allReach), 1, 'The final active field expires at its nine-second boundary');
   });
 
   test('MEND projectiles use shared absolute arcs; pollen supplies a timed fixed sphere and never damage, blindness or slow', () => {
-    for (const [type, flight, arc, y] of [['mend-seeds', .65, 1.4, .12], ['mend-pollen', .55, .8, 1.7]]) {
+    for (const [type, y] of [['mend-seeds', .12], ['mend-pollen', 1.7]]) {
       const skills = createCharacterSkills(), owner = actor(), event = skills.cast(type, owner, target(4, -8, y), 1, 1);
-      const middle = skillProjectilePosition(event, 1 + flight / 2); near(middle.x, 2); near(middle.z, -4); near(middle.y, (1.7 + y) / 2 + arc);
+      canonicalMend(event); const flight = event.flight;
+      const middle = skillProjectilePosition(event, 1 + flight / 2); near(middle.x, 2); near(middle.z, -4); near(middle.y, (1.7 + y) / 2 + 4 * flight ** 2 / 8);
       const arrival = skillProjectilePosition(event, 1 + flight); near(arrival.x, 4); near(arrival.y, y); near(arrival.z, -8);
+      for (const hz of [20, 60, 144]) for (let n = 0; n <= Math.ceil(flight * hz); n++) {
+        const t = Math.min(flight, n / hz), pose = skillProjectilePosition(event, 1 + t), u = t / flight;
+        near(pose.x, 4 * u); near(pose.z, -8 * u); near(pose.y, 1.7 + (y - 1.7) * u + 4 * t * (flight - t) / 2);
+      }
+      owner.x = 30; owner.z = 50;
+      const fixed = skillProjectilePosition(event, event.endsAt + 1); near(fixed.x, 4); near(fixed.y, y); near(fixed.z, -8);
       const enemy = actor('enemy', 'red', 4, -8); assert.deepEqual(skills.update([owner, enemy], 1 + flight, 1, allReach), []);
       if (type === 'mend-pollen') {
         assert.equal(event.radius, 4.2); assert.equal(skills.speedScale(enemy, 2, allReach), 1); assert.equal(skills.blindUntil(enemy.id, 2), 0);
-        assert.equal(skills.events(10.549999).length, 1); assert.equal(skills.events(10.55).length, 0);
+        assert.equal(skills.events(event.endsAt - .000001).length, 1); assert.equal(skills.events(event.endsAt).length, 0);
       }
     }
   });
@@ -278,19 +297,19 @@ async function main() {
 
   test('MEND JSON restores keep movement and visuals but never own healing, reject malformed target IDs atomically, and cannot rewind expiry', () => {
     const host = createCharacterSkills(), guest = createCharacterSkills(), owner = actor(), ally = actor('friend', 'blue', 4, 0, { hp: 10 }), enemy = actor('enemy', 'red', 0, -5);
-    host.cast('mend-seeds', owner, target(0, -5, .12), 0, 1); host.cast('mend-pollen', owner, target(0, -5, 1.7), 0, 1);
+    const seeds = host.cast('mend-seeds', owner, target(0, -5, .12), 0, 1); host.cast('mend-pollen', owner, target(0, -5, 1.7), 0, 1);
     host.cast('mend-heal', owner, { x: 4, y: 0, z: 0, targetId: ally.id }, 0, 1); const packet = json(host.snapshot());
     assert.equal(guest.restore(packet, 0, 1), true); assert.deepEqual(guest.update([owner, ally, enemy], .1, 1, allReach), []);
     assert.equal(guest.restore(packet, .1, 1), true); assert.deepEqual(guest.update([owner, ally], .2, 1, allReach), []);
     assert.deepEqual(host.update([owner, ally], .2, 1, allReach).map(x => x.type), ['heal']);
-    assert.equal(guest.speedScale(enemy, .65, allReach), .5); assert.equal(guest.events(.65).length, 3);
+    assert.equal(guest.speedScale(enemy, seeds.triggerAt, allReach), .5); assert.equal(guest.events(seeds.triggerAt).length, 3);
     const invalids = [];
     for (const [key, value] of [['targetId', ''], ['targetId', 1], ['targetId', 'x'.repeat(65)], ['targetId', 'bad\nname'], ['radius', 13], ['flight', .1], ['endsAt', 2], ['fromY', 20]]) {
       const bad = json(packet); bad.events[2][key] = value; invalids.push(bad);
     }
     const missing = json(packet); delete missing.events[2].targetId; invalids.push(missing);
     const injected = json(packet); injected.events[0].targetId = ally.id; invalids.push(injected);
-    for (const bad of invalids) { const before = guest.snapshot(); assert.equal(guest.restore(bad, .65, 1), false); assert.deepEqual(guest.snapshot(), before); }
+    for (const bad of invalids) { const before = guest.snapshot(); assert.equal(guest.restore(bad, seeds.triggerAt, 1), false); assert.deepEqual(guest.snapshot(), before); }
     assert.equal(guest.restore(packet, .3, 1), true, 'Render ahead does not reject newer host snapshots');
     assert.equal(guest.speedScale(enemy, .3, allReach), .5, 'Host-clock lag cannot rewind an arrived field to its flight phase');
     assert.equal(guest.events(10).length, 0); assert.equal(guest.restore(packet, .4, 1), true); assert.equal(guest.events(10).length, 0); assert.equal(guest.speedScale(enemy, 10, allReach), 1);
@@ -312,6 +331,11 @@ async function main() {
     const next = skills.cast('mend-seeds', owner, target(0, -5, .12), 0, 1); assert.ok(next.id.endsWith('-21'));
     assert.equal(MEND_SKILLS.healAmount, 60); assert.equal(MEND_SKILLS.seedsSpeedScale, .5);
   });
+  if (throughMend) {
+    assert.equal(passed, 17);
+    console.log('Character contract prefix passed: 10 NOPE + 7 MEND groups; later character groups not run.');
+    return;
+  }
   test('IAGNU trajectories, tag arming and self-only movement have canonical constants and safe cast ranges', () => {
     const skills = createCharacterSkills(), owner = actor(), tag = skills.cast({ type: 'echo-tag', radius: 999, duration: 999 }, owner, target(0, -18, .12), 2, 1);
     assert.equal(tag.flight, .55); assert.equal(tag.radius, 4.5); near(tag.triggerAt, 3.05); near(tag.endsAt, 15.05);
