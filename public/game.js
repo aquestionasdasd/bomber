@@ -647,7 +647,7 @@ function renderOrdinarySkills(){
   flashStatusFX.update(live&&['play','pause'].includes(mode)?bots:[],elapsed,{blindUntil:(id,now)=>Math.max(ordinarySkills.blindUntil(id,now),ordinarySkills.nearsightUntil(id,now)),viewerId:(viewer||player).id,reducedMotion:reducedMotion.matches,visible:actor=>ordinarySkills.blindUntil((viewer||player).id,elapsed)<=elapsed&&visibleBetween(viewer||player,actor)});
   const spectacleEvents=live?[...ordinarySkills.events(elapsed),...teamAbilities.events(elapsed),...zoneAbilities.events(elapsed)]:[];
   skillFeedback.observe(spectacleEvents,elapsed,player.id);skillFeedback.render(elapsed,{active:live&&mode==='play'&&player.alive,reducedMotion:reducedMotion.matches});
-  skillSpectacle.update(spectacleEvents,elapsed,{actors:[player,...bots],viewer:viewer||player,reducedMotion:reducedMotion.matches,visible:p=>ordinarySkills.blindUntil((viewer||player).id,elapsed)<=elapsed&&visibleBetween(viewer||player,p)});
+  skillSpectacle.update(spectacleEvents,elapsed,{actors:[player,...bots],viewer:viewer||player,reducedMotion:reducedMotion.matches,bursts:live?robotArmy.effects():[],visible:p=>rootPointVisible(viewer||player,p)});
   ordinaryFX.update(live?ordinarySkills.events(elapsed).filter(event=>event.type!=='nope-decoy'):[],elapsed,{viewer:viewer||player,showHand:live&&mode==='play'&&player.alive,reducedMotion:reducedMotion.matches});
   nopeDecoyFX.update(live?allNopeDecoys():[],elapsed,{viewer:viewer||player,reducedMotion:reducedMotion.matches});
   mendSkillFX.update(live?ordinarySkills.events(elapsed):[],elapsed,{viewer:viewer||player,showHand:live&&mode==='play'&&player.alive,reducedMotion:reducedMotion.matches});
