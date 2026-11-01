@@ -3331,15 +3331,12 @@ function updateBots(dt){
     if(event.type==='mend-seeds')return ordinarySkills.wouldSeed(pose,event,queries);
     if(event.type==='frost-stitch')return ordinarySkills.wouldStitch(pose,event,queries);
     if(event.type==='nobi-bell'||event.type==='nobi-whisker')return ordinarySkills.wouldNobi(pose,event,queries);
-    if(event.type==='urchin-gloom'){
-      const dx=event.x-event.fromX,dz=event.z-event.fromZ,length=Math.hypot(dx,dz)||1;
-      const along=((point.x-event.fromX)*dx+(point.z-event.fromZ)*dz)/length;
-      return along>=0&&along<=length&&Math.abs((point.x-event.fromX)*dz-(point.z-event.fromZ)*dx)/length<=URCHIN_SKILLS.gloomRadius&&Math.abs((point.y||0)-(event.fromY-1.7))<.8;
-    }
-    // Flash follow-up needs a current legitimate sighting and the real status;
-    // it never learns a hidden actor's position or whether a hidden foe was hit.
+    // A travelling wave's old lane is not proof that this contact was hit.
+    // Status confirmation is usable only while an ally legitimately sees it.
     const witness=bots.find(b=>b.alive&&b.team===event.team&&b.target?.id===point.id&&visibleBetween(b,b.target));
-    return !!witness&&ordinarySkills.blindUntil(point.id,elapsed)>elapsed;
+    if(!witness)return false;
+    if(event.type==='urchin-gloom')return ordinarySkills.snapshot().blinds.some(b=>b.eventId===event.id&&b.targetId===point.id&&b.sourceId===event.sourceId&&b.team===event.team&&!b.ally&&b.endsAt>elapsed);
+    return ordinarySkills.blindUntil(point.id,elapsed)>elapsed;
   };
   function teamSetup(bot,type,point,targetId,enemy){
     const aim={yaw:Math.atan2(bot.x-point.x,bot.z-point.z),pitch:0};let target=point,valid=false;
@@ -3371,8 +3368,7 @@ function updateBots(dt){
     },effectState:state=>{
       const event=ordinarySkills.events(elapsed).find(e=>e.id===state.eventId&&e.team===state.team&&e.sourceId===state.caster);
       if(!event)return null;
-      const travel=event.type==='urchin-gloom'?Math.hypot(state.point.x-event.fromX,state.point.z-event.fromZ)/URCHIN_SKILLS.gloomSpeed:0;
-      return {alive:true,endsAt:event.endsAt,ready:elapsed>=event.triggerAt+travel&&teamFieldCovers(event,{...state.point,id:state.targetId})};
+      return {alive:true,endsAt:event.endsAt,ready:elapsed>=event.triggerAt&&teamFieldCovers(event,{...state.point,id:state.targetId})};
     }})||new Map();
   function face(bot,point,speed=7){
     const desired=Math.atan2(point.x-bot.x,point.z-bot.z),delta=Math.atan2(Math.sin(desired-bot.group.rotation.y),Math.cos(desired-bot.group.rotation.y));
