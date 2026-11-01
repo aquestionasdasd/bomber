@@ -1,5 +1,5 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),Module=require('node:module'),{pathToFileURL}=require('node:url');
-async function main({mutate=s=>s,only=()=>true,measure=false,baseline=false,moving=false,preparing=false}={}){
+async function main({mutate=s=>s,only=()=>true,measure=false,baseline=false,moving=false,preparing=false,gloom=false,mutateGame=s=>s}={}){
  const root=__dirname,read=p=>fs.readFileSync(path.join(root,p),'utf8');
  const code=mutate(read('public/bot-team-planner.js')).replace("'./abilities.js'",JSON.stringify(pathToFileURL(path.join(root,'public/abilities.js')).href));
  const {createBotTeamPlanner,BOT_SKILL_CAPABILITIES,BOT_TEAM_SETUPS}=await import('data:text/javascript;base64,'+Buffer.from(code).toString('base64'));
@@ -73,8 +73,8 @@ async function main({mutate=s=>s,only=()=>true,measure=false,baseline=false,movi
  });
  if(only('actual')){
   const template=read('tests-nope-decoy-game.cjs'),cut=template.indexOf('  const local = harness();');assert.ok(cut>0);
-  const prefix=template.slice(0,cut),m=new Module(path.join(root,'team-planner-harness.cjs'),module);m.filename=path.join(root,'team-planner-harness.cjs');m.paths=module.paths;m._compile(prefix+'\nreturn {harness};\n}\nmodule.exports=main;',m.filename);
-  const {harness}=await m.exports(),h=harness();
+  const prefix=template.slice(0,cut).replace('async function main() {','async function main(mutateGame=s=>s) {').replace("source = fs.readFileSync(path.join(__dirname, 'public/game.js'), 'utf8');","source = mutateGame(fs.readFileSync(path.join(__dirname, 'public/game.js'), 'utf8'));"),m=new Module(path.join(root,'team-planner-harness.cjs'),module);m.filename=path.join(root,'team-planner-harness.cjs');m.paths=module.paths;m._compile(prefix+'\nreturn {harness};\n}\nmodule.exports=main;',m.filename);
+  const {harness}=await m.exports(mutateGame),h=harness();
   h.run(`var teamSamples=[],teamCasts=[],teamDamage=0,actualTeamDamage=damageEntity,actualTeamActivate=activateAbility;
    damageEntity=function(target,amount,source,options){const before=target.hp+target.armor;const result=actualTeamDamage(target,amount,source,options);if(target===player){teamDamage+=Math.max(0,before-target.hp-target.armor);target.hp=100;target.armor=50;}return result;};
    activateAbility=function(actor,key,options){const result=actualTeamActivate(actor,key,options);if(result&&actor.id==='setup')teamCasts.push({at:elapsed,key,type:result.type});return result;};`);
@@ -92,6 +92,43 @@ async function main({mutate=s=>s,only=()=>true,measure=false,baseline=false,movi
   }
   function step(seconds,hz=60){Object.assign(h.sandbox,{duration:seconds,hz});h.run(`for(let t=0;t<duration-1e-8;t+=1/hz){var previousYaw=bots.map(b=>b.group.rotation.y);updatePlay(Math.min(1/hz,duration-t));teamSamples.push({at:elapsed,z:entry.z,mode:updateBots.tactics.skillState().plans[0]?.phase||null,effect:ordinarySkills.nobiVulnerability(player.id,elapsed,player,ordinaryReachable),speed:actorSpeedScale(player),maxTurn:Math.max(...bots.map((b,i)=>Math.abs(b.group.rotation.y-previousYaw[i]))),hp:player.hp,damage:teamDamage});}`);}
   const value=code=>JSON.parse(JSON.stringify(h.run(code)));
+  function gloomControls(){
+   const controls=[];
+   for(const hz of[20,60,144])for(const scenario of['late-entry','real-hit','hit-moved','cleansed','hidden','other-wave']){
+    setup({character:'urchin',key:'e'});
+    for(let i=0;i<hz*2&&!h.run('teamCasts.length');i++)step(1/hz,hz);
+    const cast=value('teamCasts[0]');assert.equal(cast?.type,'urchin-gloom');
+    if(['late-entry','other-wave'].includes(scenario)){
+     h.run('player.x=8');
+     if(scenario==='other-wave'){
+      step(.1,hz);const second=h.run("(()=>{const a=ordinaryActorView(entry),dx=player.x-a.x,dz=player.z-a.z,n=Math.hypot(dx,dz);return ordinarySkills.cast('urchin-gloom',a,{x:a.x+dx/n*36,y:1.7,z:a.z+dz/n*36},elapsed,match.round)})()");assert.ok(second,'second wave has a live source, current clock and full36m endpoint');step(.55,hz);
+     }else step(.65,hz);
+     h.run('player.x=0');
+    }else{
+     step(.6,hz);assert.ok(h.run('ordinarySkills.nearsightUntil(player.id,elapsed)>elapsed'),'actual hit before intervention');
+     if(scenario==='hit-moved')h.run('player.x=8');
+     if(scenario==='cleansed')h.run("ordinarySkills.cleanse(player.id,'red',elapsed)");
+     if(scenario==='hidden')h.wall({z:9,width:30});
+    }
+    const samples=[];
+    for(let i=0;i<Math.ceil(hz*.2);i++){
+     step(1/hz,hz);
+     samples.push(value('({at:elapsed,phase:updateBots.tactics.skillState().plans[0]?.phase||null,near:ordinarySkills.nearsightUntil(player.id,elapsed),seen:setter.lastSeen,witness:bots.some(b=>b.alive&&b.team===setter.team&&b.target?.id===player.id&&visibleBetween(b,b.target)),field:ordinarySkills.events(elapsed).find(e=>e.sourceId===setter.id),blinds:ordinarySkills.snapshot().blinds,z:entry.z,maxTurn:teamSamples.at(-1).maxTurn})'));
+    }
+    const result=value('({casts:teamCasts,stock:setter.kit.dash,point:updateBots.tactics.skillState().plans[0]?.point||null})');
+    assert.equal(result.casts.length,1);assert.equal(result.stock,0);assert.ok(samples.every(s=>s.maxTurn<=Math.PI*.8/hz+1e-7),'normal total turn budget');
+    if(scenario==='late-entry')assert.ok(samples.every(s=>s.near===0),'late entrant was never hit');
+    if(scenario==='other-wave')assert.ok(samples.some(s=>s.blinds.some(b=>b.sourceId==='entry'&&b.endsAt>s.at)),'different real wave actually hit '+JSON.stringify({hz,cast,samples}));
+    if(!measure){
+     const expected=['real-hit','hit-moved'].includes(scenario);
+     assert.equal(samples.some(s=>s.phase==='exploit'),expected,'actual matching visible wave hit is required: '+scenario+' at'+hz);
+     if(expected)assert.ok(samples.every(s=>s.near>s.at&&s.witness),'actual status and current legitimate sighting');
+    }
+    controls.push({hz,scenario,cast,result,samples});
+   }
+   console.log('GLOOM_HIT_CONTROLS '+JSON.stringify(controls.map(c=>({hz:c.hz,scenario:c.scenario,exploit:c.samples.some(s=>s.phase==='exploit'),actualNear:c.samples.some(s=>s.near>s.at),casts:c.result.casts.length,stock:c.result.stock}))));return controls;
+  }
+  if(gloom){const controls=gloomControls();return{groups:1,controls,frame:'actual updatePlay once/frame',fixture:'two allied bots and fixed escort roles;real wave hits,misses,cleanse,wall and another real wave;HP restored after real gun hits',limitations:['controlled scenarios;not ordinary5v5 results','no browser/device/listening confirmation']};}
   if(preparing){
    const controls=[];
    for(const hz of[20,60,144]){
@@ -141,6 +178,7 @@ async function main({mutate=s=>s,only=()=>true,measure=false,baseline=false,movi
    assert.equal(h.run('teamCasts.length'),1);assert.equal(h.run('setter.kit.smoke'),0,'no refund or second cast');
    activeLossControls.push({hz,removedAt:at,releasedAt:h.run('elapsed'),frames:1,previousZ,normalDecisionZ:h.run('entry.z'),beforeEffect:1.35,afterEffect:h.run('ordinarySkills.nobiVulnerability(player.id,elapsed,player,ordinaryReachable)'),casts:h.run('teamCasts.length'),remainingStock:h.run('setter.kit.smoke')});
   }groups++;console.log('PASS: actual active field loss releases followup next frame at20/60/144Hz');console.log('ACTIVE_LOSS_CONTROLS '+JSON.stringify(activeLossControls));
+  gloomControls();groups++;console.log('PASS: travelling gloom followup requires this wave hit and current legal sighting across18 actual controls');
   setup();h.run('ordinarySkills.sealUntil=()=>100');step(1.4);assert.equal(h.run('teamCasts.length'),0);assert.equal(h.run('updateBots.tactics.skillState().plans.length'),0);groups++;console.log('PASS: seal prevents actual planner casts');
  }
  console.log(groups+' team planner groups passed');return{groups};
