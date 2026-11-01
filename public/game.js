@@ -3324,12 +3324,17 @@ function updateBots(dt){
   }
   // Deliberation receives allied equipment and frozen team observations only.
   // Existing authority, perception and actual field queries own execution.
-  const teamFieldCovers=(event,point)=>{
+  const teamFieldCovers=(event,point,live=false)=>{
     const pose={...point,id:'planned-contact',team:event.team==='blue'?'red':'blue',alive:true,hp:100,grounded:true};
     const queries={reachable:ordinaryReachable,groundHeight:ordinaryGroundHeight};
     if(event.type==='veil-sensor')return ordinarySkills.wouldRoot(pose,event,queries);
     if(event.type==='mend-seeds')return ordinarySkills.wouldSeed(pose,event,queries);
-    if(event.type==='frost-stitch')return ordinarySkills.wouldStitch(pose,event,queries);
+    if(event.type==='frost-stitch'){
+      if(!live)return ordinarySkills.wouldStitch(pose,event,queries);
+      // Forecasts may assume a floor; live followup must see the actual grounding.
+      const observer=bots.find(b=>b.alive&&b.team===event.team&&b.target?.id===point.id&&visibleBetween(b,b.target));
+      return !!observer&&ordinarySkills.wouldStitch(ordinaryActorView(observer.target),event,queries);
+    }
     if(event.type==='nobi-bell'||event.type==='nobi-whisker')return ordinarySkills.wouldNobi(pose,event,queries);
     // A travelling wave's old lane is not proof that this contact was hit.
     // Status confirmation is usable only while an ally legitimately sees it.
@@ -3368,7 +3373,7 @@ function updateBots(dt){
     },effectState:state=>{
       const event=ordinarySkills.events(elapsed).find(e=>e.id===state.eventId&&e.team===state.team&&e.sourceId===state.caster);
       if(!event)return null;
-      return {alive:true,endsAt:event.endsAt,ready:elapsed>=event.triggerAt&&teamFieldCovers(event,{...state.point,id:state.targetId})};
+      return {alive:true,endsAt:event.endsAt,ready:elapsed>=event.triggerAt&&teamFieldCovers(event,{...state.point,id:state.targetId},true)};
     }})||new Map();
   function face(bot,point,speed=7){
     const desired=Math.atan2(point.x-bot.x,point.z-bot.z),delta=Math.atan2(Math.sin(desired-bot.group.rotation.y),Math.cos(desired-bot.group.rotation.y));
