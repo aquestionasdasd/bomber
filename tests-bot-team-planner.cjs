@@ -14,7 +14,7 @@ async function main({mutate=s=>s,only=()=>true,measure=false,baseline=false}={})
  test('setup, authoritative acceptance, real effect readiness and bounded followup form one stable sequence',()=>{
   const p=createBotTeamPlanner(),a=args();let orders=p.update(a),s=p.snapshot().plans[0];assert.equal(orders.get('caster').kind,'setup');assert.equal(orders.get('entry').kind,'wait');
   assert.equal(p.accepted(s.id,{...event(s),sourceId:'other'},10.1),false);assert.equal(p.accepted(s.id,event(s),10.1),true);assert.equal(p.accepted(s.id,event(s),10.1),false);
-  orders=p.update({...a,now:10.9,effectState:()=>({alive:true,ready:false,endsAt:16.8})});assert.equal(orders.get('entry').kind,'wait','timer alone never declares success');
+  orders=p.update({...a,now:10.9,effectState:()=>({alive:true,ready:false,endsAt:16.8})});assert.equal(orders.get('entry')?.kind,'wait','timer alone never declares success');
   orders=p.update({...a,now:11,effectState:()=>({alive:true,ready:true,endsAt:16.8})});assert.equal(orders.get('entry').kind,'follow');
   p.update({...a,now:12.5,effectState:()=>({alive:true,ready:true,endsAt:16.8})});assert.equal(p.snapshot().plans.length,0);assert.equal(p.snapshot().history.at(-1).outcome,'completed');
  });
@@ -34,6 +34,15 @@ async function main({mutate=s=>s,only=()=>true,measure=false,baseline=false}={})
  test('failed casts, lost fields and long flights expire without endless waiting or repeated use',()=>{
   for(const kind of['rejected','lost','flight']){const p=createBotTeamPlanner(),a=args();p.update(a);const s=p.snapshot().plans[0];if(kind!=='rejected')p.accepted(s.id,event(s),10.1);
    const now=kind==='flight'?12.4:11.2;p.update({...a,now,effectState:()=>kind==='flight'?{alive:true,ready:false,endsAt:16.8}:null});assert.equal(p.snapshot().plans.length,0,kind);assert.equal(p.update({...a,now:now+.1}).size,0,'cooldown '+kind);
+  }
+ });
+ test('active followup releases immediately when its actual effect is removed or no longer ready',()=>{
+  for(const lost of[null,{alive:false,ready:true,endsAt:16.8},{alive:true,ready:false,endsAt:16.8},{alive:true,ready:true,endsAt:11.1}]){
+   const p=createBotTeamPlanner(),a=args();p.update(a);p.accepted(p.snapshot().plans[0].id,event(p.snapshot().plans[0]),10.1);
+   assert.equal(p.update({...a,now:11,effectState:()=>({alive:true,ready:true,endsAt:16.8})}).get('entry').kind,'follow');
+   assert.equal(p.update({...a,now:11.2,effectState:()=>lost}).size,0,'lost active effect releases every order');
+   assert.equal(p.snapshot().history.at(-1).outcome,'effect-lost');
+   assert.equal(p.update({...a,now:11.3}).size,0,'normal cooldown still applies');
   }
  });
  test('entry, postplant and retake objectives are distinct and dropped bomb / reset release all orders',()=>{
@@ -75,6 +84,16 @@ async function main({mutate=s=>s,only=()=>true,measure=false,baseline=false}={})
   setup();h.wall({z:9,width:30});step(2.8);assert.equal(h.run('teamCasts.length'),0);assert.equal(h.run('updateBots.tactics.skillState().history.length'),0);assert.equal(h.run('!!entry.lastSeen'),false);groups++;console.log('PASS: wall prevents actual setup and hidden contact while public objective movement remains available');
   setup();step(.4);h.run('setter.alive=false');step(.2);assert.equal(h.run('updateBots.tactics.skillState().plans.length'),0);h.run('spawnRound()');assert.equal(h.run('updateBots.tactics.skillState().history.length'),0);groups++;console.log('PASS: actual caster death and round reset release reservations');
   setup();step(.4);h.run('ordinarySkills.reset()');step(.2);assert.equal(h.run('updateBots.tactics.skillState().plans.length'),0);assert.equal(h.run('updateBots.tactics.skillState().history.at(-1).outcome'),'effect-lost');groups++;console.log('PASS: actual lost pending field releases its follower without refund or recast');
+  const activeLossControls=[];for(const hz of[20,60,144]){
+   setup();step(2,hz);assert.equal(h.run('updateBots.tactics.skillState().plans[0]?.phase'),'exploit');assert.equal(h.run('ordinarySkills.nobiVulnerability(player.id,elapsed,player,ordinaryReachable)'),1.35);
+   const at=h.run('elapsed'),previousZ=h.run('entry.z');
+   h.run('ordinarySkills.reset()');step(1/hz,hz);
+   assert.equal(h.run('updateBots.tactics.skillState().plans.length'),0,'actual active field loss releases on the next real frame at'+hz);
+   assert.equal(h.run('updateBots.tactics.skillState().history.at(-1).outcome'),'effect-lost');
+   assert.equal(h.run('ordinarySkills.nobiVulnerability(player.id,elapsed,player,ordinaryReachable)'),1);
+   assert.equal(h.run('teamCasts.length'),1);assert.equal(h.run('setter.kit.smoke'),0,'no refund or second cast');
+   activeLossControls.push({hz,removedAt:at,releasedAt:h.run('elapsed'),frames:1,previousZ,normalDecisionZ:h.run('entry.z'),beforeEffect:1.35,afterEffect:h.run('ordinarySkills.nobiVulnerability(player.id,elapsed,player,ordinaryReachable)'),casts:h.run('teamCasts.length'),remainingStock:h.run('setter.kit.smoke')});
+  }groups++;console.log('PASS: actual active field loss releases followup next frame at20/60/144Hz');console.log('ACTIVE_LOSS_CONTROLS '+JSON.stringify(activeLossControls));
   setup();h.run('ordinarySkills.sealUntil=()=>100');step(1.4);assert.equal(h.run('teamCasts.length'),0);assert.equal(h.run('updateBots.tactics.skillState().plans.length'),0);groups++;console.log('PASS: seal prevents actual planner casts');
  }
  console.log(groups+' team planner groups passed');return{groups};
