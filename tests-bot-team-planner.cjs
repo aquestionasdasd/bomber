@@ -1,5 +1,5 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),Module=require('node:module'),{pathToFileURL}=require('node:url');
-async function main({mutate=s=>s,only=()=>true,measure=false,baseline=false,moving=false,preparing=false,gloom=false,longThrow=false,mutateGame=s=>s}={}){
+async function main({mutate=s=>s,only=()=>true,measure=false,baseline=false,moving=false,preparing=false,gloom=false,longThrow=false,frostGround=false,mutateGame=s=>s}={}){
  const root=__dirname,read=p=>fs.readFileSync(path.join(root,p),'utf8');
  const code=mutate(read('public/bot-team-planner.js')).replace("'./abilities.js'",JSON.stringify(pathToFileURL(path.join(root,'public/abilities.js')).href));
  const {createBotTeamPlanner,BOT_SKILL_CAPABILITIES,BOT_TEAM_SETUPS}=await import('data:text/javascript;base64,'+Buffer.from(code).toString('base64'));
@@ -105,6 +105,31 @@ async function main({mutate=s=>s,only=()=>true,measure=false,baseline=false,movi
   }
   function step(seconds,hz=60){Object.assign(h.sandbox,{duration:seconds,hz});h.run(`for(let t=0;t<duration-1e-8;t+=1/hz){var previousYaw=bots.map(b=>b.group.rotation.y);updatePlay(Math.min(1/hz,duration-t));teamSamples.push({at:elapsed,z:entry.z,mode:updateBots.tactics.skillState().plans[0]?.phase||null,effect:ordinarySkills.nobiVulnerability(player.id,elapsed,player,ordinaryReachable),speed:actorSpeedScale(player),maxTurn:Math.max(...bots.map((b,i)=>Math.abs(b.group.rotation.y-previousYaw[i]))),hp:player.hp,damage:teamDamage});}`);}
   const value=code=>JSON.parse(JSON.stringify(h.run(code)));
+  function frostGroundControls(){
+   const controls=[];
+   for(const hz of[20,60,144])for(const scenario of['grounded','pre-land-jump','active-jump','hidden']){
+    setup({character:'frost',key:'c',distance:15});
+    for(let i=0;i<hz*2&&!h.run('teamCasts.length');i++)step(1/hz,hz);
+    const field=value('ordinarySkills.events(elapsed).find(e=>e.sourceId===setter.id)');assert.equal(field?.type,'frost-stitch');
+    if(scenario==='pre-land-jump'){
+     while(h.run('elapsed')+1/hz<field.triggerAt-1e-8)step(1/hz,hz);
+    }else{
+     for(let i=0;i<hz*3&&h.run('updateBots.tactics.skillState().plans[0]?.phase')!=='exploit';i++)step(1/hz,hz);
+     assert.equal(h.run('actorSpeedScale(player)'),.45,'actual slow before intervention');
+     assert.equal(h.run('updateBots.tactics.skillState().plans[0]?.phase'),'exploit');
+    }
+    const before=value('({at:elapsed,phase:updateBots.tactics.skillState().plans[0]?.phase,speed:actorSpeedScale(player),y:player.y,z:entry.z})');
+    if(scenario.includes('jump'))h.run('jump()');
+    if(scenario==='hidden')h.wall({z:7,width:30});
+    step(1/hz,hz);
+    const after=value('({at:elapsed,phase:updateBots.tactics.skillState().plans[0]?.phase||null,speed:actorSpeedScale(player),grounded:actorGrounded(player),y:player.y,vy:player.vy,witness:bots.some(b=>b.alive&&b.team===setter.team&&b.target?.id===player.id&&visibleBetween(b,b.target)),z:entry.z,casts:teamCasts.length,stock:setter.kit.smoke,field:ordinarySkills.events(elapsed).find(e=>e.id===updateBots.tactics.skillState().plans[0]?.eventId)||ordinarySkills.events(elapsed).find(e=>e.sourceId===setter.id),outcome:updateBots.tactics.skillState().history.at(-1)?.outcome,maxTurn:teamSamples.at(-1).maxTurn})');
+    const jumping=scenario.includes('jump');assert.equal(after.speed,jumping?1:.45,'real movement effect');assert.equal(after.grounded,!jumping);assert.equal(after.witness,scenario!=='hidden');assert.equal(after.casts,1);assert.equal(after.stock,0);assert.ok(after.field,'accepted field remains');assert.ok(after.maxTurn<=Math.PI*.8/hz+1e-7);
+    if(!measure){assert.equal(after.phase,scenario==='grounded'?'exploit':scenario==='pre-land-jump'?'flight':null,'Frost followup needs actual visible grounded target: '+scenario+' at'+hz);if(scenario==='active-jump'||scenario==='hidden')assert.equal(after.outcome,'effect-lost');}
+    controls.push({hz,scenario,before,after,field});
+   }
+   return{controls,frame:'actual updatePlay once/frame;one ordinary jump input and one real frame after intervention',fixture:'visible stationary target15m and fixed escort roles;actual ordinary jump,real field/slow;HP/armor restored after real gun hits',limitations:['controlled comparison;not ordinary5v5 win-rate,damage or personal objective improvement','no browser/device/listening confirmation']};
+  }
+  if(frostGround)return frostGroundControls();
   function longThrowControls(){
    const controls=[];
    for(const hz of[20,60,144])for(const scenario of['long-c','long-q','short-c','lost-field']){
@@ -215,6 +240,7 @@ async function main({mutate=s=>s,only=()=>true,measure=false,baseline=false,movi
    activeLossControls.push({hz,removedAt:at,releasedAt:h.run('elapsed'),frames:1,previousZ,normalDecisionZ:h.run('entry.z'),beforeEffect:1.35,afterEffect:h.run('ordinarySkills.nobiVulnerability(player.id,elapsed,player,ordinaryReachable)'),casts:h.run('teamCasts.length'),remainingStock:h.run('setter.kit.smoke')});
   }groups++;console.log('PASS: actual active field loss releases followup next frame at20/60/144Hz');console.log('ACTIVE_LOSS_CONTROLS '+JSON.stringify(activeLossControls));
   longThrowControls();groups++;console.log('PASS: actual accepted long and short Nobi throws wait for real effects with finite cancellation at20/60/144Hz');
+  frostGroundControls();groups++;console.log('PASS: actual Frost followup checks visible grounding,ordinary jumps and hidden targets across12 controls');
   gloomControls();groups++;console.log('PASS: travelling gloom followup requires this wave hit and current legal sighting across18 actual controls');
   setup();h.run('ordinarySkills.sealUntil=()=>100');step(1.4);assert.equal(h.run('teamCasts.length'),0);assert.equal(h.run('updateBots.tactics.skillState().plans.length'),0);groups++;console.log('PASS: seal prevents actual planner casts');
  }
