@@ -57,7 +57,7 @@ export function createBotTactics({sites,navigation,collision,lanes=[],attackSpaw
   const intel=new Map(),plans=new Map(),routes=new Map(),retakes=new Map(),approaches=new Map();
   // Across rounds retain only a coarse site vote, never an enemy position or aim target.
   const openings=[],openingEnemies=new Map();let openingTeams=null;
-  let round=1,cached=null,planTime=-Infinity,planKey='',roundStartedAt=null;
+  let round=1,cached=null,planTime=-Infinity,planKey='',roundStartedAt=null,retiredTargetIds=[];
   const pick=label=>choice(`${seed}:${round}:${label}`);
   const profile=team=>['execute','split','probe'][Math.floor(pick(`${team}:style`)*3)];
   const teamIntel=team=>{if(!intel.has(team))intel.set(team,new Map());return intel.get(team);};
@@ -69,7 +69,7 @@ export function createBotTactics({sites,navigation,collision,lanes=[],attackSpaw
       while(openings.length&&value-openings[0].round>BOT_HABITS.rounds)openings.shift();
     }else openings.length=0;
     openingEnemies.clear();openingTeams=null;
-    round=value;intel.clear();plans.clear();routes.clear();retakes.clear();approaches.clear();teamSkills.reset();cached=null;planTime=-Infinity;planKey='';roundStartedAt=null;
+    round=value;intel.clear();plans.clear();routes.clear();retakes.clear();approaches.clear();teamSkills.reset();cached=null;planTime=-Infinity;planKey='';roundStartedAt=null;retiredTargetIds=[];
   }
   function recordOpening(team,opponent,now,spike){
     if(!Number.isFinite(now)||now<0||spike.status!=='carried'||now-roundStartedAt>BOT_HABITS.opening)return;
@@ -164,6 +164,9 @@ export function createBotTactics({sites,navigation,collision,lanes=[],attackSpaw
   }
   function threat(team,site,now){return contacts(team,now).reduce((sum,c)=>sum+Math.max(0,1-distance(c,site)/36)*(1-(now-c.seenAt)/4),0);}
   function update({actors,attackerTeam,defenderTeam,spike,now,remaining=100}){
+    // The existing public roster already retires dead contacts below. Pass only
+    // those IDs to skill plans; absence or lost sight never proves a death.
+    retiredTargetIds=actors.filter(a=>!a.alive).map(a=>a.id);
     if(roundStartedAt===null||now<roundStartedAt)roundStartedAt=now;
     recordOpening(defenderTeam,attackerTeam,now,spike);
     const living=actors.filter(a=>a.alive),bots=living.filter(aiActor),roles=new Map();
@@ -298,6 +301,6 @@ export function createBotTactics({sites,navigation,collision,lanes=[],attackSpaw
     return {allow:!danger,urgent:false,phase:danger?'fight':state.phase,watch};
   }
   return {reset,observe,contacts,routeDistance,plantPosition,selectSite,nearestReachable,update,investigation,defuseDecision,
-    skillPlan:input=>teamSkills.update({...input,contacts:{blue:contacts('blue',input.now),red:contacts('red',input.now)}}),
+    skillPlan:input=>teamSkills.update({...input,retiredTargetIds,contacts:{blue:contacts('blue',input.now),red:contacts('red',input.now)}}),
     skillAccepted:teamSkills.accepted,skillState:teamSkills.snapshot};
 }
