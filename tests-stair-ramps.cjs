@@ -11,6 +11,9 @@ async function main(){
  function arena(id){h.sandbox.id=id;h.run(`selectArena(id);match.phase='live';mode='play';clearBots();resetOrdinarySkills();exploring=false;elapsed=10;keys.clear();makeBot(map.teamSpawns.defend[0],0,'red',{id:'dummy',team:'red',secondary:'classic'});bots[0].rangeTarget=true;`);}
  function pose(index=0,f=.5,character='renko'){
   Object.assign(h.sandbox,{index,f,character});h.run(`resetOrdinarySkills();keys.clear();clearCombatInput();match.phase='live';var r=map.ramps[index],sign=r.direction<0?-1:1;
+   // The video-reference park is in the existing 224m practice district,
+   // outside the unchanged 164m match boundary. Test its real playable mode.
+   exploring=map.id==='hirakata'&&(r.minX<map.combatBounds.minX||r.maxX>map.combatBounds.maxX);
    Object.assign(player,{x:(r.minX+r.maxX)/2,z:r.minZ+(r.maxZ-r.minZ)*(sign<0?1-f:f),y:(r.base||0)+r.height*f,vy:0,vx:0,vz:0,crouch:0,alive:true,hp:100,carMotion:null,carImpulseUntil:0,dashTimer:0,trafficLaunch:null,yaw:sign<0?0:Math.PI,pitch:0});
    player.kit=new DuelistKit({character});player.kit.smoke=2;player.kit.updraft=1;`);
  }

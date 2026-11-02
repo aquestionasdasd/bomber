@@ -20,7 +20,7 @@ export const HIRAKATA_DISTRICT_BUILDINGS = Object.freeze([
  ['west-retail',-99,55,22,24,16,'岡本町 商店街','ivory'],
  ['west-home',-99,18,22,26,22,'岡本町 住宅街','cream'],
  ['west-shops',-99,-20,22,24,13,'駅西 路地街','white'],
- ['west-office',-100,-57,20,26,26,'新町 オフィス街','silver'],
+ ['park-hut',-105,-66,8,5,3,'公園 休憩棟','wood'],
 ].map(([id,x,z,w,d,h,name,material])=>Object.freeze({id,x,z,w,d,h,name,material})));
 
 export function addHirakataDistrict({part,solid,sign,mapShapes,breakable=(id,build)=>build()}) {
