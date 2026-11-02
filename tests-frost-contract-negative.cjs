@@ -7,6 +7,8 @@ const faults=[
  ['stitch uses obsolete fixed flight','const endsAt = now + spec.delay + spec.tail;',"if(type==='frost-stitch'){spec.flight=.55;spec.delay=.8;} const endsAt = now + spec.delay + spec.tail;"],
  ['stitch loses its arming delay','const endsAt = now + spec.delay + spec.tail;',"if(type==='frost-stitch')spec.delay=spec.flight; const endsAt = now + spec.delay + spec.tail;"],
  ['mist lifetime changes','const endsAt = now + spec.delay + spec.tail;',"if(type==='frost-mist')spec.tail+=1; const endsAt = now + spec.delay + spec.tail;"],
+ ['fixed mist radius changes even below pose tolerance','const endsAt = now + spec.delay + spec.tail;',"if(type==='frost-mist')spec.radius+=1e-9; const endsAt = now + spec.delay + spec.tail;"],
+ ['FROST cast timestamps shift together','const endsAt = now + spec.delay + spec.tail;',"if(type.startsWith('frost-'))now+=1; const endsAt = now + spec.delay + spec.tail;"],
  ['stitch loses the exact inner edge','distance >= FROST_SKILLS.stitchInnerRadius - 1e-8','distance > FROST_SKILLS.stitchInnerRadius + .001'],
  ['stitch ignores cover','canReach(reachable, { ...event, x, y: projectedFloor, z }, actor)','true'],
  ['stitch joins unsupported heights','const tolerance = FROST_SKILLS.stitchHeightTolerance + 1e-8;','const tolerance = .9;'],
@@ -25,4 +27,4 @@ for(const[name,before,after]of faults){
  const passed=(result.stdout.match(/^PASS: /gm)||[]).length;assert.ok(passed>=41&&passed<49,'Failure must be in FROST after all prior41 groups: '+name);
  assert.doesNotMatch(result.stdout,/Character contract prefix passed/);console.log(`PASS detects ${name} (memory only, prior${passed} groups passed)`);
 }
-console.log('FROST negative contract tests passed: 9 faults; product files never written.');
+console.log('FROST negative contract tests passed: 11 faults; product files never written.');
