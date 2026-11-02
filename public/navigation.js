@@ -150,8 +150,22 @@ function createGridNavigation(map, CELL = 1) {
     const points = nodes.map(id => ({ x: nx(id), z: nz(id) })); points.push(to);
     const result = []; let anchor = from, index = 0;
     while (index < points.length) {
-      let end = points.length - 1;
-      while (end > index && !clearSegment(anchor.x, anchor.z, points[end].x, points[end].z)) end--;
+      // Long routes used to repeat a visibility test for every remaining node,
+      // even when the A* node route was cached. Probe outward exponentially;
+      // every selected shortcut still checks the complete collision footprint.
+      let end = index, stride = 1, blocked = points.length;
+      if (!clearSegment(anchor.x, anchor.z, points[end].x, points[end].z)) return [];
+      while (end < points.length - 1) {
+        const next = Math.min(points.length - 1, index + stride);
+        if (!clearSegment(anchor.x, anchor.z, points[next].x, points[next].z)) { blocked = next; break; }
+        end = next; stride *= 2;
+      }
+      let low = end + 1, high = blocked - 1;
+      while (low <= high) {
+        const mid = (low + high) >> 1;
+        if (clearSegment(anchor.x, anchor.z, points[mid].x, points[mid].z)) { end = mid; low = mid + 1; }
+        else high = mid - 1;
+      }
       const point = points[end];
       if ((point.x - anchor.x) ** 2 + (point.z - anchor.z) ** 2 > EPS) result.push({ x: point.x, z: point.z });
       anchor = point; index = end + 1;

@@ -11,7 +11,10 @@ export function createHirakataNavigation(map,createGroundNavigation) {
   const finished=[];
   const boundedMisses=new Map();
   const preferredStairs=new Map();
-  const ground=createGroundNavigation?.({...map,collision});
+  // Bus motion must not discard the city's static occupancy and route caches.
+  // Only routes actually intersecting traffic need the separate detour grid.
+  const ground=createGroundNavigation?.({...map,collision:solid});
+  let trafficGround=null;
   const left=bounds.minX+.5, top=bounds.minZ+.5;
   const width=Math.floor(bounds.maxX-bounds.minX), depth=Math.floor(bounds.maxZ-bounds.minZ);
   let revision=-1, staticRevision=-1, collapsed=false, nodeCount=0,portals=null,trafficActive=false;
@@ -61,6 +64,12 @@ export function createHirakataNavigation(map,createGroundNavigation) {
   }
   function trace(ax,az,bx,bz,ay,by) {
     if(!isWalkable(ax,az,ay,false)||!isWalkable(bx,bz,by,false))return null;
+    // Hirakata's ground plane always supplies y=0. A continuous collision test
+    // proves that this entire level segment stays on that plane; ramps and
+    // upper floors still use the exact supported-height trace below.
+    if(ay===0&&by===0&&solid.segmentClear(ax,az,bx,bz,radius,0,1.7)){
+      const samples=[ax,az,0,bx,bz,0];samples.ground=true;return samples;
+    }
     const count=Math.max(1,Math.ceil(Math.hypot(bx-ax,bz-az)/.13));
     let y=ay,px=ax,pz=az;const samples=[ax,az,ay];
     for(let i=1;i<=count;i++){
@@ -85,7 +94,10 @@ export function createHirakataNavigation(map,createGroundNavigation) {
     if(segments.has(key))return segments.get(key);
     if(!profiles.has(key)){profiles.set(key,trace(ax,az,bx,bz,ay,by));if(profiles.size>32768)profiles.delete(profiles.keys().next().value);}
     const profile=profiles.get(key);let result=!!profile;
-    if(result&&trafficActive)for(let i=0;i<profile.length;i+=3){if(profile[i+2]>=BUS_SPEC.height)continue;if(collision.blocked(profile[i],profile[i+1],radius,profile[i+2],1.7)){result=false;break;}}
+    if(result&&trafficActive){
+      if(profile.ground)result=collision.segmentClear(ax,az,bx,bz,radius,0,1.7);
+      else for(let i=0;i<profile.length;i+=3){if(profile[i+2]>=BUS_SPEC.height)continue;if(collision.blocked(profile[i],profile[i+1],radius,profile[i+2],1.7)){result=false;break;}}
+    }
     segments.set(key,result);
     if(segments.size>16384)segments.delete(segments.keys().next().value);
     return result;
@@ -146,11 +158,53 @@ export function createHirakataNavigation(map,createGroundNavigation) {
   }
   function groundEdge(p,q) {
     const key=p.id+'>'+q.id;if(groundEdges.has(key))return groundEdges.get(key);
-    const points=ground.path(p.x,p.z,q.x,q.z);let previous=p,cost=0;
+    const points=groundPath(p.x,p.z,q.x,q.z);let previous=p,cost=0;
     const valid=points.length&&Math.hypot(points.at(-1).x-q.x,points.at(-1).z-q.z)<.01&&points.every(point=>{
       const ok=clearSegment(previous.x,previous.z,point.x,point.z,0,0);cost+=Math.hypot(point.x-previous.x,point.z-previous.z);previous=point;return ok;
     });
     const result=valid?{points:points.map(v=>({...v,y:0})),cost}:null;groundEdges.set(key,result);return result;
+  }
+  function groundPath(ax,az,bx,bz) {
+    const points=ground.path(ax,az,bx,bz);if(!points.length)return points;
+    let previous={x:ax,z:az};
+    if(points.every(p=>{const ok=clearSegment(previous.x,previous.z,p.x,p.z,0,0);previous=p;return ok;}))return points;
+    if(!traffic||!trafficActive)return [];
+    trafficGround||=createGroundNavigation({...map,collision});
+    return trafficGround.path(ax,az,bx,bz);
+  }
+  function remember(from,to,points) {
+    // Movement consumes its returned waypoints with shift(); retain our own
+    // array and points so a bot cannot empty another request's cached route.
+    finished.push({from,to,points:points.map(p=>({...p})),revision,validFrom:0});if(finished.length>64)finished.shift();
+    return points;
+  }
+  function reuseFinished(a,b) {
+    for(const entry of finished){
+      if(Math.hypot(b.x-entry.to.x,b.z-entry.to.z,b.y-entry.to.y)>1.5)continue;
+      // Locate progress along the saved polyline, not just near its old start.
+      // A bot beyond a corner must receive the remaining suffix, never the
+      // consumed corner again. Floor distance is part of this projection.
+      let previous=entry.from,index=-1,best=9;
+      for(let i=0;i<entry.points.length;i++){
+        const p=entry.points[i],dx=p.x-previous.x,dz=p.z-previous.z,dy=p.y-previous.y,length=dx*dx+dz*dz+dy*dy;
+        const t=length?Math.max(0,Math.min(1,((a.x-previous.x)*dx+(a.z-previous.z)*dz+(a.y-previous.y)*dy)/length)):0;
+        const d=(a.x-previous.x-dx*t)**2+(a.z-previous.z-dz*t)**2+(a.y-previous.y-dy*t)**2;
+        if(d<=best){best=d;index=i;}previous=p;
+      }
+      if(index<0)continue;
+      const first=entry.points[index],last=entry.points.at(-1);
+      if(!clearSegment(a.x,a.z,first.x,first.z,a.y,first.y)||!clearSegment(last.x,last.z,b.x,b.z,last.y,b.y))continue;
+      if(entry.revision!==revision||index<entry.validFrom){
+        previous=first;
+        const safe=entry.points.slice(index+1).every(p=>{const ok=clearSegment(previous.x,previous.z,p.x,p.z,previous.y,p.y);previous=p;return ok;});
+        if(!safe)continue;
+        entry.validFrom=entry.revision===revision?Math.min(entry.validFrom,index):index;entry.revision=revision;
+      }
+      const suffix=entry.points.slice(index).map(p=>({...p}));
+      if(Math.hypot(last.x-b.x,last.z-b.z,last.y-b.y)>.001)suffix.push({...b});
+      return suffix;
+    }
+    return null;
   }
   function search(start,finish,upperOnly=false,budget={left:2048}) {
     const key=(upperOnly?'upper:':'')+start.id+'>'+finish.id;
@@ -231,16 +285,10 @@ export function createHirakataNavigation(map,createGroundNavigation) {
   }
   function path(ax,az,bx,bz,ay=0,by=0) {
     refresh();const a=nearest(ax,az,ay),b=nearest(bx,bz,by);if(!a||!b)return [];
-    if(a.y>.001||b.y>.001)for(const entry of finished){
-      if(Math.hypot(a.x-entry.from.x,a.z-entry.from.z,a.y-entry.from.y)>3||Math.hypot(b.x-entry.to.x,b.z-entry.to.z,b.y-entry.to.y)>1.5)continue;
-      const first=entry.points[0],last=entry.points.at(-1);
-      if(!clearSegment(a.x,a.z,first.x,first.z,a.y,first.y)||!clearSegment(last.x,last.z,b.x,b.z,last.y,b.y))continue;
-      if(entry.revision!==revision){let previous=first;const safe=entry.points.slice(1).every(p=>{const ok=clearSegment(previous.x,previous.z,p.x,p.z,previous.y,p.y);previous=p;return ok;});if(!safe)continue;entry.revision=revision;}
-      return [...entry.points.map(p=>({...p})),b];
-    }
+    const reused=reuseFinished(a,b);if(reused)return reused;
     if(ground&&Math.abs(a.y)<.001&&Math.abs(b.y)<.001){
-      const flat=ground.path(a.x,a.z,b.x,b.z);let previous=a;
-      if(flat.length&&flat.every(p=>{const ok=clearSegment(previous.x,previous.z,p.x,p.z,0,0);previous=p;return ok;}))return flat.map(p=>({...p,y:0}));
+      const flat=groundPath(a.x,a.z,b.x,b.z);let previous=a;
+      if(flat.length&&flat.every(p=>{const ok=clearSegment(previous.x,previous.z,p.x,p.z,0,0);previous=p;return ok;}))return remember(a,b,flat.map(p=>({...p,y:0})));
     }
     if(clearSegment(a.x,a.z,b.x,b.z,a.y,b.y))return[b];
     const start=connector(a),finish=connector(b);if(!start||!finish)return [];
@@ -290,8 +338,7 @@ export function createHirakataNavigation(map,createGroundNavigation) {
       }
       const p=points[end];result.push({x:p.x,z:p.z,y:p.y});anchor=p;i=end+1;
     }
-    finished.push({from:a,to:b,points:result,revision});if(finished.length>32)finished.shift();
-    return result;
+    return remember(a,b,result);
   }
   return {path,nearest,isWalkable,clearSegment,layered:true,get nodeCount(){return nodeCount;},
     ...(traffic?{updateTraffic(now){traffic.updateTraffic(now);trafficActive=true;},
