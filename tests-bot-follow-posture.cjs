@@ -1,5 +1,5 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),Module=require('node:module'),{pathToFileURL}=require('node:url');
-async function main({mutate=(file,s)=>s,measure=false,only=()=>true}={}){
+async function main({mutate=(file,s)=>s,measure=false,only=()=>true,initialYaw=0}={}){
  const read=p=>fs.readFileSync(path.join(__dirname,p),'utf8'),urls=new Map();
  function moduleURL(file){
   if(!['bot-tactics.js','bot-team-planner.js'].includes(file))return pathToFileURL(path.join(__dirname,'public',file)).href;
@@ -40,7 +40,7 @@ async function main({mutate=(file,s)=>s,measure=false,only=()=>true}={}){
    makeBot({x:0,z:0},1,'blue',{id:'near',team:'blue',secondary:'classic',armor:50});
    makeBot({x:8,z:0},2,'blue',{id:'far',team:'blue',secondary:'classic',armor:50});
    var caster=bots[0],near=bots[1],far=bots[2];caster.kit=new DuelistKit({character:'nobi'});caster.kit.smoke=1;caster.kit.updraft=0;caster.kit.dash=0;caster.kit.ultPoints=0;near.kit=null;far.kit=null;
-   for(const b of bots){Object.assign(b,{crouch:0,aiWeapon:'classic',aiAmmo:12,aiReserve:36,aiReload:0,fire:0,think:0,target:null,reactionUntil:0,nextSkillAt:0});b.group.rotation.y=0;}
+   for(const b of bots){Object.assign(b,{crouch:0,aiWeapon:'classic',aiAmmo:12,aiReserve:36,aiReload:0,fire:0,think:0,target:null,reactionUntil:0,nextSkillAt:0});b.group.rotation.y=b===caster?0:${initialYaw};}
    updateBots.tactics=createBotTactics({sites:map.sites,navigation,collision:map.collision});var normalPoseUpdate=updateBots.tactics.update;
    updateBots.tactics.update=function(input){normalPoseUpdate(input);return{siteId:'A',defuserId:null,roles:new Map(bots.map(b=>[b.id,{goal:{x:b.x,y:0,z:24},watch:{x:0,z:18},role:'escort',siteId:'A'}]))};};
    var rng=3,poseNearCrouch=0;keys.clear();Math.random=()=>((rng=(Math.imul(rng,1664525)+1013904223)>>>0)/4294967296);poseSamples=[];poseCasts=[];poseDamage={};`);
