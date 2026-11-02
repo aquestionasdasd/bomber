@@ -9,7 +9,13 @@ const assert=require('node:assert/strict'),run=require('./tests-bot-follow-postu
   ['treat every ally as crouched','game.js','crouch:b.crouch||0,','crouch:1,','standing','posture selection standing'],
  ]){
   let changed=false;
-  await assert.rejects(()=>run({only:(hz,s)=>hz===20&&s===scenario,mutate:(f,s)=>{if(f!==file)return s;const t=s.replace(needle,replacement);assert.notEqual(t,s,name);changed=true;return t;}}),e=>e.code==='ERR_ASSERTION'&&e.message.includes(message),name);
+  // Already-acquired target preference can independently avoid low cover.
+  // These two controls begin outside normal FOV so posture must still guard
+  // selection before either ally acquires the enemy. Prove the clean control
+  // first, then require the original assertion to catch the same fault.
+  const options={only:(hz,s)=>hz===20&&s===scenario,initialYaw:file==='game.js'?Math.PI/2:0};
+  await run(options);
+  await assert.rejects(()=>run({...options,mutate:(f,s)=>{if(f!==file)return s;const t=s.replace(needle,replacement);assert.notEqual(t,s,name);changed=true;return t;}}),e=>e.code==='ERR_ASSERTION'&&e.message.includes(message),name);
   assert.ok(changed);console.log('PASS detects '+name+' (memory only)');
  }
  console.log('PASS: 4 posture faults detected without changing saved source');

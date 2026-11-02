@@ -82,7 +82,9 @@ export function createBotTeamPlanner(){
       const d=distance(caster,contact);
       if(!focusedOn(caster,contact.id)||caster.character!==action.character||!(caster.stock[action.key]>0)||d<action.min||d>action.max||Math.abs((caster.y||0)-(contact.y||0))>.8)continue;
       const follow=own.filter(a=>a.id!==caster.id&&follower(a)&&focusedOn(a,contact.id)&&distance(a,caster)<=BOT_TEAM_RULES.allyRange&&distance(a,contact)<=BOT_TEAM_RULES.followRange&&distance(a,contact)>BOT_TEAM_RULES.stopRange+1&&Math.abs((a.y||0)-(contact.y||0))<.8&&canFollow(a,contact))
-       .sort((a,b)=>distance(a,contact)-distance(b,contact)||a.id.localeCompare(b.id))[0];
+       // Prefer an ally already seeing this target through normal perception.
+       // Equal engagement still uses the existing distance and stable ID order.
+       .sort((a,b)=>Number(b.engagedTargetId===contact.id)-Number(a.engagedTargetId===contact.id)||distance(a,contact)-distance(b,contact)||a.id.localeCompare(b.id))[0];
       if(follow&&canSetup(caster,action,contact))candidates.push({caster,follow,contact,action,score:action.score-distance(follow,contact)*.4-distance(caster,contact)*.2});
      }
     }
