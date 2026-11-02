@@ -18,6 +18,29 @@ async function main() {
   const throughIagnu = process.argv.includes('--through-iagnu');
   const throughVeil = process.argv.includes('--through-veil');
   const throughEmber = process.argv.includes('--through-ember');
+  const throughFrost = process.argv.includes('--through-frost');
+  // Independently solve the low-arc time from v^2 = horizontal^2 + vertical^2.
+  // Do not call the product throwDuration/throwPosition for expected values.
+  function frostExpected(owner, destination, type, startedAt = 0) {
+    const eye=(owner.y||0)+1.7-(owner.crouch||0)*.55;
+    const d2=(destination.x-owner.x)**2+(destination.z-owner.z)**2,dy=destination.y-eye;
+    const g=4,v2=12**2,a=v2-g*dy;
+    const flight=Math.max(.08,Math.sqrt(2*(a-Math.sqrt(a*a-g*g*(d2+dy*dy)))/(g*g)));
+    const stitch=type==='frost-stitch',triggerAt=startedAt+flight+(stitch?.25:0);
+    return {flight,triggerAt,endsAt:triggerAt+(stitch?8:9),radius:stitch?3.8:3.5};
+  }
+  function canonicalFrost(event, owner, destination) {
+    assert.ok(event);assert.ok(['frost-stitch','frost-mist'].includes(event.type));
+    const expected=frostExpected(owner,destination,event.type,event.startedAt);
+    for(const key of ['flight','triggerAt','endsAt','radius'])near(event[key],expected[key]);
+    const t=expected.flight,vx=(destination.x-owner.x)/t,vz=(destination.z-owner.z)/t;
+    const vy=(destination.y-event.fromY)/t+4*t/2;near(Math.hypot(vx,vy,vz),12);
+    for(const hz of[20,60,144])for(let frame=0;frame/hz<t;frame++){
+      const dt=frame/hz,p=skillProjectilePosition(event,event.startedAt+dt);
+      near(p.x,owner.x+vx*dt);near(p.z,owner.z+vz*dt);near(p.y,event.fromY+vy*dt-4*dt*dt/2);
+    }
+    return expected;
+  }
   function canonicalSolder(event) {
     assert.ok(event); assert.equal(event.type, 'ember-solder');
     const t=event.flight; assert.ok(t>=.08&&t<=8);
@@ -777,8 +800,8 @@ async function main() {
     const stitch = engine.cast({ type: 'frost-stitch', radius: 999, innerRadius: 0, speedScale: 0 }, owner, target(2, -13, 3.32), 2, 1);
     const mist = engine.cast('frost-mist', owner, target(2, -15, 4.6), 2, 1), unravel = engine.cast('frost-unravel', owner, target(2, 3, 3.2), 2, 1);
     assert.ok(stitch); assert.ok(mist); assert.ok(unravel); near(stitch.fromY, 4.9); near(mist.fromY, 4.9); assert.equal(unravel.fromY, 3.2);
-    assert.equal(stitch.flight, .55); near(stitch.triggerAt, 2.8); near(stitch.endsAt, 10.8); assert.equal(stitch.radius, 3.8);
-    assert.equal(mist.flight, .5); assert.equal(mist.triggerAt, 2.5); assert.equal(mist.endsAt, 11.5); assert.equal(mist.radius, 3.5);
+    canonicalFrost(stitch, owner, target(2, -13, 3.32));
+    canonicalFrost(mist, owner, target(2, -15, 4.6));
     assert.equal(unravel.flight, 0); assert.equal(unravel.triggerAt, 2); assert.equal(unravel.endsAt, 7); assert.equal(unravel.radius, 0);
     for (const event of [stitch, mist, unravel]) assert.deepEqual(Object.keys(event).sort(), ['id', 'type', 'team', 'sourceId', 'round', 'fromX', 'fromY', 'fromZ', 'x', 'y', 'z', 'startedAt', 'flight', 'triggerAt', 'endsAt', 'radius'].sort());
     assert.equal(engine.cast('frost-stitch', owner, target(2, -13.001, 3.32), 2, 1), null); assert.equal(engine.cast('frost-mist', owner, target(2, -15.001, 4.6), 2, 1), null);
@@ -788,10 +811,13 @@ async function main() {
     for (const type of ['frost-stitch', 'frost-mist']) assert.ok(createCharacterSkills().cast(type, { ...owner, grounded: false }, target(2, 0, 3.32), 2, 1), 'Throwing does not require grounding');
   });
   test('FROST throws follow the common .8m arc while passive fields retain their exact timing after the caster dies', () => {
-    for (const [type, flight, endpointY, trigger, end] of [['frost-stitch', .55, .12, .8, 8.8], ['frost-mist', .5, 1.4, .5, 9.5]]) {
-      const engine = createCharacterSkills(), owner = actor('doll'), event = engine.cast(type, owner, target(0, -6, endpointY), 0, 1);
-      near(skillProjectilePosition(event, flight / 2).y, (1.7 + endpointY) / 2 + .8); near(skillProjectilePosition(event, flight / 2).z, -3);
-      for (const time of [flight, end]) { const endPoint = skillProjectilePosition(event, time); near(endPoint.x, 0); near(endPoint.z, -6); near(endPoint.y, endpointY); }
+    // Retain the historical group name, but verify the current ballistic arc.
+    for (const [type, endpointY] of [['frost-stitch', .12], ['frost-mist', 1.4]]) {
+      const engine = createCharacterSkills(), owner = actor('doll'), destination=target(0,-6,endpointY), event = engine.cast(type, owner, destination, 0, 1);
+      canonicalFrost(event,owner,destination);
+      const {flight,triggerAt:trigger,endsAt:end}=event;
+      const midpoint=skillProjectilePosition(event,flight/2);near(midpoint.y,(1.7+endpointY)/2+4*flight*flight/8);near(midpoint.z,-3);
+      for(const time of[flight,end]){const p=skillProjectilePosition(event,time);near(p.x,0);near(p.z,-6);near(p.y,endpointY);}
       assert.deepEqual(engine.update([{ ...owner, hp: 0, alive: false }], trigger, 1, allReach), []); assert.equal(engine.events(trigger)[0].id, event.id);
       assert.deepEqual(engine.update([actor('enemy', 'red', 2, -6, { grounded: true })], end - .001, 1, allReach), []);
       assert.equal(engine.events(end).length, 0); assert.equal(engine.blindUntil('enemy', end), 0); assert.deepEqual(engine.markers('blue', end), []);
@@ -801,31 +827,35 @@ async function main() {
   test('FROST stitch slows only the supported enemy annulus including both exact edges after arming and before expiry', () => {
     const options = { ...allReach, groundHeight: () => 0 };
     for (const hz of [20, 60, 144]) {
-      const engine = createCharacterSkills(); engine.cast('frost-stitch', actor(), target(0, -5, .12), 0, 1);
+      const engine = createCharacterSkills(),owner=actor(),destination=target(0,-5,.12);
+      const event=engine.cast('frost-stitch',owner,destination,0,1);canonicalFrost(event,owner,destination);
+      const arm=event.triggerAt,end=event.endsAt;
       const enemy = actor('enemy', 'red', 2, -5, { grounded: true });
-      for (let frame = 0; frame / hz < .8 - 1e-8; frame++) assert.equal(engine.speedScale(enemy, frame / hz, options), 1);
-      assert.equal(engine.speedScale(enemy, .8, options), .45);
-      for (const [radius, expected] of [[0, 1], [.899, 1], [.9, .45], [2.35, .45], [3.8, .45], [3.801, 1]]) assert.equal(engine.speedScale({ ...enemy, x: radius }, .8, options), expected, `r=${radius}`);
-      for (const extra of [{ team: 'blue' }, { alive: false, hp: 0 }, { grounded: false }, { grounded: undefined }, { grounded: 1 }]) assert.equal(engine.speedScale({ ...enemy, ...extra }, .8, options), 1);
-      assert.equal(engine.speedScale(enemy, 8.799999, options), .45); assert.equal(engine.speedScale(enemy, 8.8, options), 1);
+      for (let frame = 0; frame / hz < arm - 1e-8; frame++) assert.equal(engine.speedScale(enemy, frame / hz, options), 1);
+      assert.equal(engine.speedScale(enemy, arm-.000001, options), 1);
+      assert.equal(engine.speedScale(enemy, arm, options), .45);
+      for (const [radius, expected] of [[0, 1], [.899, 1], [.9, .45], [2.35, .45], [3.8, .45], [3.801, 1]]) assert.equal(engine.speedScale({ ...enemy, x: radius }, arm, options), expected, `r=${radius}`);
+      for (const extra of [{ team: 'blue' }, { alive: false, hp: 0 }, { grounded: false }, { grounded: undefined }, { grounded: 1 }]) assert.equal(engine.speedScale({ ...enemy, ...extra }, arm, options), 1);
+      assert.equal(engine.speedScale(enemy, end-.000001, options), .45); assert.equal(engine.speedScale(enemy, end, options), 1);
     }
   });
   test('FROST stitch samples both the radial centerline and actor floor, validates height and tests cover from the local floor', () => {
-    const engine = createCharacterSkills(), owner = actor(), enemy = actor('enemy', 'red', 2.4, -5, { grounded: true }); engine.cast('frost-stitch', owner, target(0, -5, .12), 0, 1);
+    const engine = createCharacterSkills(), owner = actor(), enemy = actor('enemy', 'red', 2.4, -5, { grounded: true }); const event=engine.cast('frost-stitch', owner, target(0, -5, .12), 0, 1);
+    near(event.triggerAt,frostExpected(owner,target(0,-5,.12),'frost-stitch').triggerAt);const arm=event.triggerAt;
     const samples = [], reaches = [], options = { groundHeight: (x, z, ref) => { samples.push([x, z, ref]); return 0; }, reachable: (from, to) => { reaches.push([from, to]); return true; } };
-    assert.equal(engine.speedScale(enemy, .8, options), .45); assert.deepEqual(samples, [[2.35, -5, 0], [2.4, -5, 0]]);
+    assert.equal(engine.speedScale(enemy, arm, options), .45); assert.deepEqual(samples, [[2.35, -5, 0], [2.4, -5, 0]]);
     assert.equal(reaches.length, 1); assert.equal(reaches[0][0].x, 2.35); assert.equal(reaches[0][0].y, 0); assert.equal(reaches[0][0].z, -5); assert.equal(reaches[0][1], enemy);
     for (const groundHeight of [undefined, () => null, () => NaN, () => Infinity, () => '0', () => { throw Error('hole'); }, x => x === 2.35 ? null : 0, x => x === 2.4 ? null : 0]) {
-      assert.equal(engine.speedScale(enemy, .8, { ...allReach, groundHeight }), 1);
+      assert.equal(engine.speedScale(enemy, arm, { ...allReach, groundHeight }), 1);
     }
-    for (const reachable of [undefined, () => false, () => 1, () => { throw Error('wall'); }]) assert.equal(engine.speedScale(enemy, .8, { groundHeight: () => 0, reachable }), 1);
+    for (const reachable of [undefined, () => false, () => 1, () => { throw Error('wall'); }]) assert.equal(engine.speedScale(enemy, arm, { groundHeight: () => 0, reachable }), 1);
     const flat = y => ({ ...allReach, groundHeight: () => y });
-    assert.equal(engine.speedScale({ ...enemy, y: .45 }, .8, flat(.45)), .45); assert.equal(engine.speedScale({ ...enemy, y: .451 }, .8, flat(.451)), 1);
-    assert.equal(engine.speedScale({ ...enemy, y: .45 }, .8, flat(0)), .45); assert.equal(engine.speedScale({ ...enemy, y: .451 }, .8, flat(0)), 1);
-    assert.equal(engine.speedScale({ ...enemy, y: .4 }, .8, { ...allReach, groundHeight: x => x === 2.35 ? -.4 : .4 }), 1, 'Supported points on different ledges do not join across .8m');
+    assert.equal(engine.speedScale({ ...enemy, y: .45 }, arm, flat(.45)), .45); assert.equal(engine.speedScale({ ...enemy, y: .451 }, arm, flat(.451)), 1);
+    assert.equal(engine.speedScale({ ...enemy, y: .45 }, arm, flat(0)), .45); assert.equal(engine.speedScale({ ...enemy, y: .451 }, arm, flat(0)), 1);
+    assert.equal(engine.speedScale({ ...enemy, y: .4 }, arm, { ...allReach, groundHeight: x => x === 2.35 ? -.4 : .4 }), 1, 'Supported points on different ledges do not join across .8m');
     const elevated = createCharacterSkills(); elevated.cast('frost-stitch', { ...owner, y: 3.2 }, target(0, -5, 3.32), 0, 1);
-    assert.equal(elevated.speedScale({ ...enemy, y: 3.2 }, .8, flat(3.2)), .45); assert.equal(elevated.speedScale(enemy, .8, flat(0)), 1, 'An upstairs ring cannot slow the floor below');
-    assert.equal(elevated.speedScale({ ...enemy, y: 3.2 }, .8, flat(0)), 1, 'An airborne pose above lower support is not considered on the upper floor');
+    assert.equal(elevated.speedScale({ ...enemy, y: 3.2 }, arm, flat(3.2)), .45); assert.equal(elevated.speedScale(enemy, arm, flat(0)), 1, 'An upstairs ring cannot slow the floor below');
+    assert.equal(elevated.speedScale({ ...enemy, y: 3.2 }, arm, flat(0)), 1, 'An airborne pose above lower support is not considered on the upper floor');
   });
   test('FROST mitigation leaves fifteen percent of combined slowdown without changing the separate normal movement scale or actor state', () => {
     const owner = actor('doll', 'blue', 2, -5, { grounded: true }), engine = createCharacterSkills(), before = json(owner);
@@ -863,8 +893,12 @@ async function main() {
     const duplicate = json(packet); duplicate.events.push({ ...duplicate.events[2], id: 'skill-frost-unravel-99' }); invalids.push(duplicate);
     for (const bad of invalids) { const before = guest.snapshot(); assert.equal(guest.restore(bad, .1, 1), false); assert.deepEqual(guest.snapshot(), before); }
     assert.equal(guest.restore(packet, .1, 1), true); near(guest.mitigateSlow(owner, .55, .1), .9325);
-    assert.deepEqual(guest.update([owner, actor('enemy', 'red', 2, -12, { grounded: true })], .8, 1, allReach), []); assert.deepEqual(guest.snapshot().blinds, []); assert.deepEqual(guest.markers('blue', .8), []);
-    guest.events(10); assert.equal(guest.restore(packet, .9, 1), true); assert.equal(guest.events(10).length, 0, 'The leading render clock prevents expired effect resurrection');
+    near(packet.events[0].triggerAt,frostExpected(owner,target(0,-16,.12),'frost-stitch').triggerAt);
+    const arm=packet.events[0].triggerAt,enemy=actor('enemy','red',2,-16,{grounded:true});
+    assert.deepEqual(guest.update([owner,enemy],arm,1,allReach),[]);assert.equal(guest.speedScale(enemy,arm,{...allReach,groundHeight:()=>0}),.45);
+    assert.deepEqual(guest.snapshot().blinds, []); assert.deepEqual(guest.markers('blue', arm), []);
+    const renderTime=Math.max(frostExpected(owner,target(0,-16,.12),'frost-stitch').endsAt,frostExpected(owner,target(0,-18,1.4),'frost-mist').endsAt)+.01;
+    guest.events(renderTime); assert.equal(guest.restore(packet, .9, 1), true); assert.equal(guest.events(renderTime).length, 0, 'The leading render clock prevents expired effect resurrection');
     assert.equal(guest.restore(packet, .89, 1), false); assert.equal(guest.restore({ events: [], blinds: [], markers: [] }, 0, 2), true); assert.equal(guest.restore(packet, .9, 1), false);
     const detached = host.events(0); detached[0].radius = 999; assert.equal(host.events(0)[0].radius, 3.8);
   });
@@ -880,6 +914,7 @@ async function main() {
     const before = engine.snapshot(); for (const invalid of [NaN, Infinity, -1, '12', 11]) assert.equal(engine.cast('frost-mist', owner, target(0, -5, 1.4), invalid, 1), null); assert.deepEqual(engine.snapshot(), before);
     engine.reset(); assert.deepEqual(engine.snapshot(), { events: [], blinds: [], markers: [] }); assert.equal(engine.mitigateSlow(owner, .55, 0), .55);
   });
+  if (throughFrost) { console.log(`Character contract prefix passed: ${passed} groups (prior41 + 8 FROST; full suite remains the default).`); return; }
   test('WIND comet uses a full eighteen-meter sphere around the crouched eye and lift is a fixed self-feet event without a ground gate', () => {
     for (const crouch of [0, .5, 1]) {
       const owner = actor('mascot', 'blue', 2, 3, { y: 3.2, crouch, grounded: false, vy: 2 }), eye = 4.9 - crouch * .55;
