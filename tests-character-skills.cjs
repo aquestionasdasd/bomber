@@ -21,6 +21,30 @@ async function main() {
   const throughFrost = process.argv.includes('--through-frost');
   // Independently solve the low-arc time from v^2 = horizontal^2 + vertical^2.
   // Do not call the product throwDuration/throwPosition for expected values.
+  function windExpected(owner, destination, startedAt = 0) {
+    const eye=(owner.y||0)+1.7-(owner.crouch||0)*.55;
+    const d2=(destination.x-owner.x)**2+(destination.z-owner.z)**2,dy=destination.y-eye;
+    // Solve the independent launch-speed quadratic. Vertical manual targets
+    // supply their known flight; the targeted vertical fallback is separate.
+    const a=144-4*dy,flight=destination.flight??(d2<1e-14?Math.max(.5,Math.sqrt(Math.max(0,-dy/2))):Math.max(.08,Math.sqrt((a-Math.sqrt(a*a-16*(d2+dy*dy)))/8)));
+    return {eye,flight,triggerAt:startedAt+flight,endsAt:startedAt+flight+5};
+  }
+  function canonicalWind(event, owner, destination, startedAt = 0) {
+    assert.ok(event);assert.equal(event.type,'duelist-comet');assert.equal(event.startedAt,startedAt);
+    const expected=windExpected(owner,destination,startedAt);
+    near(event.fromY,expected.eye);assert.equal(event.fromX,owner.x);assert.equal(event.fromZ,owner.z);
+    for(const key of ['flight','triggerAt','endsAt'])near(event[key],expected[key]);
+    assert.equal(event.radius,2.8);assert.equal(Object.keys(event).length,16);
+    assert.deepEqual({x:event.x,y:event.y,z:event.z},{x:destination.x,y:destination.y,z:destination.z});
+    const t=expected.flight,vx=(destination.x-owner.x)/t,vz=(destination.z-owner.z)/t,vy=(destination.y-expected.eye)/t+2*t;
+    assert.ok(Math.hypot(vx,vy,vz)<=14+1e-6);
+    if(destination.flight===undefined&&Math.hypot(destination.x-owner.x,destination.z-owner.z)>1e-7)near(Math.hypot(vx,vy,vz),12);
+    for(const hz of [20,60,144])for(let frame=0;frame<=Math.ceil(t*hz)+1;frame++){
+      const dt=Math.min(t,frame/hz),p=skillProjectilePosition(event,startedAt+frame/hz);
+      near(p.x,owner.x+vx*dt);near(p.z,owner.z+vz*dt);near(p.y,expected.eye+vy*dt-2*dt*dt);
+    }
+    return expected;
+  }
   function frostExpected(owner, destination, type, startedAt = 0) {
     const eye=(owner.y||0)+1.7-(owner.crouch||0)*.55;
     const d2=(destination.x-owner.x)**2+(destination.z-owner.z)**2,dy=destination.y-eye;
@@ -921,12 +945,16 @@ async function main() {
     for (const crouch of [0, .5, 1]) {
       const owner = actor('mascot', 'blue', 2, 3, { y: 3.2, crouch, grounded: false, vy: 2 }), eye = 4.9 - crouch * .55;
       for (const [dx, dy, dz] of [[18, 0, 0], [-18, 0, 0], [0, 18, 0], [0, -18, 0], [0, 0, 18], [0, 0, -18], [10.8, 14.4, 0]]) {
-        const engine = createCharacterSkills(), event = engine.cast({ type: 'duelist-comet', radius: 99, flight: 0 }, owner, target(2 + dx, 3 + dz, eye + dy), 5, 1);
-        assert.ok(event, `crouch=${crouch} delta=${dx}/${dy}/${dz}`); near(event.fromY, eye); assert.equal(event.flight, .25); near(event.triggerAt, 5.25); near(event.endsAt, 10.25); assert.equal(event.radius, 2.8);
-        assert.equal(Object.keys(event).length, 16); assert.equal(Object.hasOwn(event, 'crouch'), false);
-        assert.equal(engine.cast('duelist-comet', owner, target(2 + dx * 1.0001, 3 + dz * 1.0001, eye + dy * 1.0001), 5, 1), null);
+        // A known three-second vertical launch reaches the upper sphere edge.
+        // The BOT's zero-horizontal automatic fallback cannot reach that edge.
+        const flight=dx===0&&dz===0?{flight:3}:{},destination={...target(2+dx,3+dz,eye+dy),...flight};
+        const engine=createCharacterSkills(),event=engine.cast({type:'duelist-comet',radius:99,flight:0},owner,destination,5,1);
+        canonicalWind(event,owner,destination,5);assert.equal(Object.hasOwn(event,'crouch'),false);
+        assert.equal(engine.cast('duelist-comet',owner,{...target(2+dx*1.0001,3+dz*1.0001,eye+dy*1.0001),...flight},5,1),null);
       }
-      assert.equal(createCharacterSkills().cast('duelist-comet', owner, target(20, 3, eye + .1), 5, 1), null, 'A horizontally valid target may exceed the full3D range');
+      assert.equal(createCharacterSkills().cast('duelist-comet',owner,target(2,3,eye+18),5,1),null,'The current automatic vertical fallback exceeds the bounded launch speed');
+      for(const flight of [0,1,9,NaN,Infinity])assert.equal(createCharacterSkills().cast('duelist-comet',owner,{...target(2,3,eye+18),flight},5,1),null);
+      assert.equal(createCharacterSkills().cast('duelist-comet',owner,target(20,3,eye+.1),5,1),null,'A horizontally valid target may exceed the full3D range');
       const engine = createCharacterSkills(), lift = engine.cast('duelist-lift', owner, target(2, 3, 3.2), 5, 1);
       assert.ok(lift); assert.equal(lift.fromY, 3.2); assert.equal(lift.flight, 0); assert.equal(lift.triggerAt, 5); near(lift.endsAt, 5.45); assert.equal(lift.radius, 0); assert.equal(Object.keys(lift).length, 16);
       assert.deepEqual(skillProjectilePosition(lift, 5.2), target(2, 3, 3.2));
@@ -935,36 +963,39 @@ async function main() {
     assert.equal(DUELIST_SKILLS.cometRange, 18); assert.equal(DUELIST.updraftVelocity, 7.8);
   });
   test('WIND comet is analytic and strictly linear while all existing arced projectiles retain their trajectories', () => {
-    const engine = createCharacterSkills(), owner = actor('mascot', 'blue', 2, 3, { y: 2, crouch: 1 }), event = engine.cast('duelist-comet', owner, target(8, -3, 7), 0, 1);
-    assert.ok(event); near(event.fromY, 3.15);
-    for (const hz of [20, 60, 144]) for (let frame = 0; frame <= Math.ceil(.25 * hz); frame++) {
-      const now = frame / hz, fraction = Math.min(1, now / .25), position = skillProjectilePosition(event, now);
-      near(position.x, 2 + 6 * fraction); near(position.y, 3.15 + (7 - 3.15) * fraction); near(position.z, 3 - 6 * fraction);
-    }
-    const start = skillProjectilePosition(event, 0), end = skillProjectilePosition(event, 3); near(start.y, 3.15); assert.deepEqual(end, target(8, -3, 7));
-    const old = createCharacterSkills();
-    for (const [type, flight, arc, y] of [['nope-bottle', .55, 1.4, .12], ['mend-seeds', .65, 1.4, .12], ['frost-stitch', .55, .8, .12], ['frost-mist', .5, .8, 1.4], ['ember-solder', .45, .8, .12]]) {
-      const projectile = old.cast(type, actor(), target(0, -5, y), 0, 1); near(skillProjectilePosition(projectile, flight / 2).y, (1.7 + y) / 2 + arc);
+    // Historical name retained; the current common throw is ballistic.
+    const engine=createCharacterSkills(),owner=actor('mascot','blue',2,3,{y:2,crouch:1}),destination=target(8,-3,7),event=engine.cast('duelist-comet',owner,destination,0,1);
+    const expected=canonicalWind(event,owner,destination);near(event.fromY,3.15);
+    const middle=skillProjectilePosition(event,expected.flight/2);near(middle.y,(3.15+7)/2+4*expected.flight**2/8);
+    const start=skillProjectilePosition(event,0);assert.equal(start.x,2);assert.equal(start.z,3);near(start.y,3.15);assert.deepEqual(skillProjectilePosition(event,expected.flight+1),destination);
+    for(const [type,y,delay,tail,radius]of [['nope-bottle',.12,null,.6,8],['mend-seeds',.12,0,9,4.5],['frost-stitch',.12,.25,8,3.8],['frost-mist',1.4,0,9,3.5],['ember-solder',.12,.2,.35,3.2]]){
+      const other=actor(),to=target(0,-5,y),projectile=createCharacterSkills().cast(type,other,to,0,1),physical=windExpected(other,to);
+      near(projectile.flight,physical.flight);assert.equal(projectile.startedAt,0);assert.equal(projectile.radius,radius);
+      near(projectile.triggerAt,delay===null?Math.max(1,physical.flight):physical.flight+delay);near(projectile.endsAt,projectile.triggerAt+tail);
+      for(const hz of [20,60,144])for(let frame=0;frame<=Math.ceil(physical.flight*hz);frame++){
+        const dt=Math.min(physical.flight,frame/hz),vy=(y-1.7)/physical.flight+2*physical.flight,p=skillProjectilePosition(projectile,frame/hz);
+        near(p.x,0);near(p.z,-5*dt/physical.flight);near(p.y,1.7+vy*dt-2*dt*dt);
+      }
     }
   });
   test('WIND comet and lift only describe passive visuals, never apply impulse or combat effects, and persist at their cast point after source death', () => {
     for (const hz of [20, 60, 144]) {
       const engine = createCharacterSkills(), owner = actor('mascot', 'blue', 0, 0, { y: 3.2, grounded: false, vy: 1.25, vx: 2, vz: -3, dashTimer: .1, dashVec: { x: 1, z: 0 }, ammo: 5, hp: 75 });
-      const before = json(owner), comet = engine.cast('duelist-comet', owner, target(0, -6, 6), 0, 1), lift = engine.cast('duelist-lift', owner, target(0, 0, 3.2), 0, 1);
-      assert.ok(comet); assert.ok(lift);
-      for (let frame = 0; frame < Math.ceil(.45 * hz); frame++) {
-        const now = frame / hz; assert.deepEqual(engine.update([owner, actor('enemy', 'red', 0, -6, { y: 6 })], now, 1, allReach), []);
-        assert.deepEqual(owner, before); assert.equal(engine.movementScale(owner, now), 1); assert.equal(engine.speedScale(owner, now, allReach), 1);
+      const before=json(owner),destination=target(0,-6,6),comet=engine.cast('duelist-comet',owner,destination,0,1),lift=engine.cast('duelist-lift',owner,target(0,0,3.2),0,1);
+      canonicalWind(comet,owner,destination);assert.ok(lift);
+      for(let frame=0;frame/hz<comet.endsAt;frame++){
+        const now=frame/hz,source=now>=.5?{...owner,x:20,alive:false,hp:0}:owner;assert.deepEqual(engine.update([source,actor('enemy','red',0,-6,{y:6})],now,1,allReach),[]);
+        assert.deepEqual(owner,before);assert.equal(engine.movementScale(owner,now),1);assert.equal(engine.speedScale(owner,now,allReach),1);
+        if(now>=.45)assert.equal(engine.events(now).some(event=>event.type==='duelist-lift'),false);
       }
-      assert.equal(engine.events(.45).some(event => event.type === 'duelist-lift'), false); assert.equal(owner.vy, 1.25);
-      assert.deepEqual(engine.update([{ ...owner, x: 20, alive: false, hp: 0 }], .5, 1, allReach), []); assert.equal(engine.events(.5)[0].id, comet.id); assert.equal(engine.events(.5)[0].y, 6);
-      assert.equal(engine.blindUntil('enemy', .5), 0); assert.deepEqual(engine.markers('blue', .5), []); assert.equal(engine.events(5.25).length, 0);
-      const death = createCharacterSkills(); death.cast('duelist-lift', owner, target(0, 0, 3.2), 0, 1); assert.deepEqual(death.update([], .1, 1, allReach), []); assert.equal(death.events(.449).length, 1); assert.equal(death.events(.45).length, 0);
+      assert.deepEqual(engine.update([{...owner,x:20,alive:false,hp:0}],comet.endsAt-.000001,1,allReach),[]);assert.equal(engine.events(comet.endsAt-.000001)[0].id,comet.id);assert.equal(engine.events(comet.endsAt-.000001)[0].y,6);
+      assert.equal(owner.vy,1.25);assert.equal(engine.blindUntil('enemy',comet.endsAt),0);assert.deepEqual(engine.markers('blue',comet.endsAt),[]);assert.equal(engine.events(comet.endsAt).length,0);
+      const death=createCharacterSkills();death.cast('duelist-lift',owner,target(0,0,3.2),0,1);assert.deepEqual(death.update([],.1,1,allReach),[]);assert.equal(death.events(.449).length,1);assert.equal(death.events(.45).length,0);
     }
   });
   test('WIND canonical JSON uses the exact eye origin without adding eye height again, owns no effects and rejects forged schema atomically', () => {
     const host = createCharacterSkills(), owner = actor('mascot', 'blue', 0, 0, { crouch: 1, grounded: false }), eye = 1.15;
-    host.cast('duelist-comet', owner, target(0, -18, eye), 0, 1); host.cast('duelist-lift', owner, target(0, 0), 0, 1);
+    const comet=host.cast('duelist-comet',owner,target(0,-18,eye),0,1);canonicalWind(comet,owner,target(0,-18,eye));host.cast('duelist-lift',owner,target(0,0),0,1);
     const packet = json(host.snapshot()), guest = createCharacterSkills(); assert.equal(guest.restore(packet, 0, 1), true); assert.deepEqual(guest.snapshot(), packet);
     assert.deepEqual(guest.update([owner], .1, 1, allReach), []); const invalids = [];
     for (const index of [0, 1]) for (const [key, value] of [['flight', 9], ['radius', 9], ['triggerAt', 9], ['endsAt', 99], ['velocity', 99], ['crouch', 1], ['speedScale', 9], ['targetId', 'hidden'], ['weaponId', 'vandal'], ['extra', true]]) {
@@ -974,7 +1005,8 @@ async function main() {
     const duplicate = json(packet); duplicate.events.push({ ...duplicate.events[0] }); invalids.push(duplicate);
     for (const bad of invalids) { const before = guest.snapshot(); assert.equal(guest.restore(bad, .1, 1), false); assert.deepEqual(guest.snapshot(), before); }
     assert.equal(guest.restore(packet, .1, 1), true); assert.deepEqual(guest.update([owner], .3, 1, allReach), []); assert.equal(guest.events(.45).length, 1);
-    guest.events(6); assert.equal(guest.restore(packet, .2, 1), true); assert.equal(guest.events(6).length, 0); assert.equal(guest.restore(packet, .19, 1), false);
+    const renderTime=windExpected(owner,target(0,-18,eye)).endsAt+.01;
+    guest.events(renderTime);assert.equal(guest.restore(packet,.2,1),true);assert.equal(guest.events(renderTime).length,0);assert.equal(guest.restore(packet,.19,1),false);
     assert.equal(guest.restore({ events: [], blinds: [], markers: [] }, 0, 2), true); assert.equal(guest.restore(packet, .3, 1), false);
     const detached = host.events(0); detached[0].y = 999; assert.equal(host.events(0)[0].y, eye);
   });
@@ -986,8 +1018,9 @@ async function main() {
       const kit = new DuelistKit(); kit.buy('c', () => true); kit.buy('q', () => true); const before = kit.snapshot(), effect = kit.activate(key, 0);
       assert.equal(engine.cast(effect, owner, destination, 0, 1), null); kit.restore(before); assert.deepEqual(kit.snapshot(), before); assert.deepEqual(engine.snapshot(), retained); assert.equal(owner.vy, -1);
     }
-    engine.events(5.25); const next = engine.cast('duelist-lift', owner, target(0, 0), 5.25, 1); assert.ok(next.id.endsWith('-21'));
-    const before = engine.snapshot(); for (const invalid of [NaN, Infinity, -1, '5.25', 5.24]) assert.equal(engine.cast('duelist-comet', owner, target(0, -5, 4), invalid, 1), null); assert.deepEqual(engine.snapshot(), before);
+    const clearTime=windExpected(owner,target(0,-5,4)).endsAt+.01;
+    engine.events(clearTime);const next=engine.cast('duelist-lift',owner,target(0,0),clearTime,1);assert.ok(next.id.endsWith('-21'));
+    const before=engine.snapshot();for(const invalid of [NaN,Infinity,-1,String(clearTime),clearTime-.01])assert.equal(engine.cast('duelist-comet',owner,target(0,-5,4),invalid,1),null);assert.deepEqual(engine.snapshot(),before);
     engine.reset(); assert.deepEqual(engine.snapshot(), { events: [], blinds: [], markers: [] });
   });
   const actualSource = fs.readFileSync(path.join(__dirname, 'public/character-skills.js'), 'utf8');
@@ -996,16 +1029,17 @@ async function main() {
     const source = actualSource.replace(before, after).replace(/from '(\.\/[a-z-]+\.js)'/g, (_, file) => `from ${JSON.stringify(pathToFileURL(path.join(__dirname, 'public', file)).href)}`);
     return import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'));
   }
-  const arcMutant = await memoryEngine("event.type === 'duelist-comet' || event.type === 'renko-dart' ? 0 :", "event.type === 'duelist-comet' ? .8 : event.type === 'renko-dart' ? 0 :");
+  const arcMutant=await memoryEngine('if(isLobbedSkill(event.type))return throwPosition(event,now);',"if(isLobbedSkill(event.type)){const p=throwPosition(event,now);if(event.type==='duelist-comet')p.y+=4*t*(1-t)*.8;return p;}");
   const rangeMutant = await memoryEngine('Math.hypot(target.x - actor.x, target.y - sourceEyeY, target.z - actor.z)', 'Math.hypot(target.x - actor.x, target.z - actor.z)');
   const restoreMutant = await memoryEngine('}, value, value.fromY)', '}, value)');
   test('WIND memory-only negative controls detect an accidental arc, horizontal-only range and doubled eye origin during restore', () => {
-    const arced = arcMutant.createCharacterSkills(), arcEvent = arced.cast('duelist-comet', actor(), target(0, -6, 5), 0, 1);
-    near(arcMutant.skillProjectilePosition(arcEvent, .125).y, (1.7 + 5) / 2 + .8);
-    assert.throws(() => near(arcMutant.skillProjectilePosition(arcEvent, .125).y, (1.7 + 5) / 2), { name: 'AssertionError' }, 'An unwanted arc fails the same midpoint assertion as the real helper');
-    const horizontal = rangeMutant.createCharacterSkills(); assert.ok(horizontal.cast('duelist-comet', actor(), target(0, 0, 19.701), 0, 1)); assert.equal(createCharacterSkills().cast('duelist-comet', actor(), target(0, 0, 19.701), 0, 1), null);
-    const owner = actor('mascot', 'blue', 0, 0, { crouch: 1 }), good = createCharacterSkills(); good.cast('duelist-comet', owner, target(0, -18, 1.15), 0, 1);
-    assert.equal(restoreMutant.createCharacterSkills().restore(json(good.snapshot()), 0, 1), false); assert.equal(createCharacterSkills().restore(json(good.snapshot()), 0, 1), true);
+    const owner0=actor(),destination=target(0,-6,5),physical=windExpected(owner0,destination),arced=arcMutant.createCharacterSkills(),arcEvent=arced.cast('duelist-comet',owner0,destination,0,1),mid=physical.flight/2;
+    const expectedMid=(1.7+5)/2+4*physical.flight**2/8;
+    near(arcMutant.skillProjectilePosition(arcEvent,mid).y,expectedMid+.8);
+    assert.throws(()=>near(arcMutant.skillProjectilePosition(arcEvent,mid).y,expectedMid),{name:'AssertionError'},'Extra arc height fails the same physical midpoint assertion');
+    const outside=target(18,0,1.8),horizontal=rangeMutant.createCharacterSkills();assert.ok(horizontal.cast('duelist-comet',actor(),outside,0,1));assert.equal(createCharacterSkills().cast('duelist-comet',actor(),outside,0,1),null);
+    const owner=actor('mascot','blue',0,0,{crouch:1}),good=createCharacterSkills();good.cast('duelist-comet',owner,target(0,-18,1.15),0,1);
+    assert.equal(restoreMutant.createCharacterSkills().restore(json(good.snapshot()),0,1),false);assert.equal(createCharacterSkills().restore(json(good.snapshot()),0,1),true);
   });
   console.log(`Character skill tests passed: ${passed} groups.`);
 }
