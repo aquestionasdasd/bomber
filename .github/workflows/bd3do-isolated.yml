@@ -1,0 +1,36 @@
+name: BD3DO isolated validation
+on:
+  push:
+    branches: [codex/discord-isolated-runner, 'codex/discord-probe-*']
+permissions:
+  contents: read
+concurrency:
+  group: bd3do-isolated-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  isolated:
+    if: github.repository == 'aquestionasdasd/bomber'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Validate trusted control and game proposal boundaries
+        run: node --test automation/isolation/gate.test.mjs automation/isolation/game-gate.test.mjs automation/isolation/evidence.test.mjs automation/isolation/model.test.mjs automation/isolation/build-guard.test.mjs automation/isolation/release.test.mjs automation/isolation/local.test.mjs automation/isolation/diagnostics.test.mjs
+      - name: Probe isolation and run fixed tests
+        shell: bash
+        run: |
+          mode=selftest
+          if test -f automation-candidate.json; then mode=candidate; fi
+          node automation/isolation/remote.mjs "$mode"
+      - name: Retain bounded trusted report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: bd3do-isolation-report
+          path: isolation-report.json
+          if-no-files-found: error
+          retention-days: 1
+          include-hidden-files: false
