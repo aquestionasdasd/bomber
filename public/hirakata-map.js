@@ -1,151 +1,116 @@
-import {addBusArchitecture} from './bus-architecture.js';
-import {createCollisionIndex} from './collision.js';
+import {createCollisionIndex,rampHeight} from './collision.js';
 import {createBusDestruction} from './bus-destruction.js';
-import {createTrafficClock,createBusModels} from './bus-traffic.js';
-import {addHirakataDistrict} from './hirakata-district.js';
-import {addHirakataTactical,HIRAKATA_INDOOR_SITES} from './hirakata-tactical.js';
-import {addHirakataSurvey} from './station-survey-details.js';
-import {addHirakataVideoDetails,addHirakataGlassLandmark} from './hirakata-video-details.js';
+import {createTrafficClock,createBusModels,ovalRoute} from './bus-traffic.js';
+import {createHirakataModel} from './hirakata-complete-render.js';
+import {HIRAKATA_MODEL_LAYOUT as source} from './hirakata-complete-layout.js';
 
-// Reconstructed from the city plaza plans and Keihan's 2026 station plan.
-// The real NE–SW station is rotated into the game's east–west coordinates.
+// The approved reference model and its walking geometry share one coordinate
+// transform: Blender (x,y,z) -> game (x,z,-y). Metres are visual estimates.
+const rect=(x,z,w,d)=>[[x-w/2,z-d/2],[x+w/2,z-d/2],[x+w/2,z+d/2],[x-w/2,z+d/2]];
 export function createHirakataMap(T,scene){
- const world=new T.Group();world.name='HIRAKATASHI / 南北駅前広場';scene.add(world);
- const bounds={minX:-112,maxX:112,minZ:-112,maxZ:112},colliders=[],mapShapes=[],ramps=[],batches=new Map();
- const breakGroups=new Map();let breakScope=null;
- function breakable(id,build){const prior=breakScope;let g=breakGroups.get(id);if(!g){g={id,parts:[],nodes:[],colliders:[],shapes:[],bounds:[]};breakGroups.set(id,g);}breakScope=g;const c=colliders.length,m=mapShapes.length;try{return build();}finally{g.colliders.push(...colliders.slice(c));g.shapes.push(...mapShapes.slice(m));breakScope=prior;}}
- const geo=new T.BoxGeometry(1,1,1),cyl=new T.CylinderGeometry(1,1,1,12),crown=new T.IcosahedronGeometry(1,1);
- const M={},colors={silver:'#bac2c5',ivory:'#e3e0d4',white:'#eeeae2',concrete:'#a6a9a5',stone:'#aaa99f',dark:'#283036',glass:'#274453',glass2:'#476575',black:'#18232b',metal:'#69777b',road:'#4d5355',yellow:'#e6c350',red:'#ba2441',blue:'#3276a8',wood:'#a18a64',soil:'#655e48',leaf:'#4c7650',flower:'#df6170',cream:'#d4c6a5',warm:'#f4dfad'};
- for(const[k,color]of Object.entries(colors))M[k]=new T.MeshStandardMaterial({color,roughness:k==='glass'?.24:.8,metalness:k==='silver'?.42:.05});
- M.light=new T.MeshStandardMaterial({color:'#fff5df',emissive:'#fff1c7',emissiveIntensity:.8});
- const pos=new T.Vector3(),scale=new T.Vector3(),q=new T.Quaternion(),matrix=new T.Matrix4();
- function part(x,y,z,w,h,d,m='silver',ry=0,g=geo){const key=m+g.uuid;if(!batches.has(key))batches.set(key,{m:M[m],g,entries:[]});pos.set(x,y,z);scale.set(w,h,d);q.setFromEuler(new T.Euler(0,ry,0));const b=batches.get(key),value=matrix.compose(pos,q,scale).clone();b.entries.push(value);if(breakScope){breakScope.parts.push({batch:b,index:b.entries.length-1,matrix:value});const ww=Math.abs(Math.cos(ry))*w+Math.abs(Math.sin(ry))*d,dd=Math.abs(Math.sin(ry))*w+Math.abs(Math.cos(ry))*d;breakScope.bounds.push({minX:x-ww/2,maxX:x+ww/2,minZ:z-dd/2,maxZ:z+dd/2,base:Math.max(0,y-h/2),height:y+h/2});}}
- const rect=(x,z,w,d)=>[[x-w/2,z-d/2],[x+w/2,z-d/2],[x+w/2,z+d/2],[x-w/2,z+d/2]];
- function solid(x,y,z,w,h,d,m='silver',kind='building',id){part(x,y,z,w,h,d,m);const c={minX:x-w/2,maxX:x+w/2,minZ:z-d/2,maxZ:z+d/2,base:Math.max(0,y-h/2),height:y+h/2,kind};if(id)c.surfaceId=id;colliders.push(c);mapShapes.push({polygon:rect(x,z,w,d),color:kind==='surface'?'#84999e':'#586c77',kind:kind==='surface'?'overhead':kind,base:c.base,height:c.height});return c;}
- function plane(x,y,z,w,h,mat,rx=0,ry=0){const o=new T.Mesh(new T.PlaneGeometry(w,h),mat);o.position.set(x,y,z);o.rotation.set(rx,ry,0);o.receiveShadow=true;world.add(o);if(breakScope)breakScope.nodes.push(o);return o;}
- function texture(draw,w=1024,h=256){const c=document.createElement('canvas');c.width=w;c.height=h;draw(c.getContext('2d'),w,h);const t=new T.CanvasTexture(c);t.colorSpace=T.SRGBColorSpace;t.anisotropy=4;return t;}
- function sign(text,sub,x,y,z,w,h,{bg='#eeeae2',fg='#253b47',ry=0}={}){const map=texture((c,cw,ch)=>{c.fillStyle=bg;c.fillRect(0,0,cw,ch);c.fillStyle=fg;c.textAlign='center';c.textBaseline='middle';c.font='bold 78px "Meiryo",sans-serif';c.fillText(text,cw/2,sub?ch*.39:ch*.52,cw*.95);if(sub){c.font='34px "Segoe UI",sans-serif';c.fillText(sub,cw/2,ch*.79,cw*.94);}});return plane(x,y,z,w,h,new T.MeshBasicMaterial({map,side:T.FrontSide}),0,ry);}
- const paving=texture((c,w,h)=>{c.fillStyle='#a2a6a2';c.fillRect(0,0,w,h);for(let r=0;r<8;r++)for(let s=0;s<8;s++){const v=166+(r*19+s*31)%18;c.fillStyle=`rgb(${v},${v+1},${v-4})`;c.fillRect(s*64+1,r*64+1,62,62);}},512,512);paving.wrapS=paving.wrapT=T.RepeatWrapping;paving.repeat.set(40,40);
- plane(0,-.015,0,224,224,new T.MeshStandardMaterial({map:paving,roughness:.95}),-Math.PI/2);
- // Road surfaces are flat and traversable; only the actual islands are solid.
- function ellipse(cx,cz,rx,rz,m,y=.015){const o=new T.Mesh(new T.CircleGeometry(1,96),M[m]);o.rotation.x=-Math.PI/2;o.scale.set(rx,rz,1);o.position.set(cx,y,cz);o.receiveShadow=true;world.add(o);mapShapes.push({polygon:Array.from({length:72},(_,i)=>{const a=i*Math.PI*2/72;return[cx+rx*Math.cos(a),cz+rz*Math.sin(a)];}),kind:'road',color:m==='road'?'#3c505c':m==='leaf'?'#4e715b':'#7a8782'});return o;}
- function curb(cx,cz,rx,rz,green=false){ellipse(cx,cz,rx,rz,'ivory',.035);ellipse(cx,cz,rx-.4,rz-.4,green?'leaf':'stone',.05);for(let i=0;i<72;i++){const a=i*Math.PI*2/72,x=cx+rx*Math.cos(a),z=cz+rz*Math.sin(a);part(x,.12,z,.7,.22,.26,'concrete',-a);}}
- ellipse(0,49,56,24,'road');curb(0,49,40,8,true);
- ellipse(29,-49,36.5,21,'road');curb(29,-49,23.5,7.5,false);
- ellipse(-43,-49,23,19,'road');curb(-43,-49,10,6,true);
- // Loop lanes, parking bays and a tactile pedestrian network.
- for(const[cx,cz,rx,rz]of[[0,49,49,17],[29,-49,30,14],[-43,-49,17,12]])for(let i=0;i<52;i++){const a=i*Math.PI*2/52,dx=-rx*Math.sin(a),dz=rz*Math.cos(a);part(cx+rx*Math.cos(a),.027,cz+rz*Math.sin(a),.14,.016,1.15,'white',Math.atan2(dx,dz));}
- for(let x=-23;x<25;x+=4.6){part(x,.064,49,2.2,.018,.12,'white');part(x,.064,55,2.2,.018,.12,'white');}
- for(let x=13;x<48;x+=5.1){part(x,.065,-49,.13,.018,9,'white');part(x+2.4,.065,-44.5,4.8,.018,.13,'white');}
- for(const z of[-27,27]){part(0,.035,z,132,.025,.42,'yellow');for(let x=-28;x<-12;x+=.8)part(x,.038,z, .5,.03,1.1,'yellow');}
- part(-20,.035,0,.45,.025,54,'yellow');part(-24,.036,0,.45,.025,38,'yellow');
- for(const z of[-31,31])for(let x=-28;x<-12;x+=1)part(x,.031,z,.6,.02,3,'white');
-
- // Ground floor shops leave a broad WEST free passage and a separate EAST road.
- const shops=[[-66,-27,'京阪百貨店'],[-13,33,'駅ナカ'],[47,66,'京阪電車']];
- for(const[a,b,name]of shops)for(const s of[-1,1]){if(s<0&&b<=33)continue;const x=(a+b)/2,z=s*11,w=b-a;solid(x,2.35,z,w,4.7,14,'cream');
-  const face=s*18.04;part(x,2,face,w-.6,2.5,.08,'glass');part(x,3.65,face,w,.6,.2,name==='京阪百貨店'?'red':'dark');for(let xx=a+.8;xx<b;xx+=3.1){part(xx,1.9,face+s*.06,.12,2.7,.14,'metal');part(xx,.55,face+s*.1,2.5,.12,.5,'concrete');}sign(name,name==='京阪百貨店'?'KEIHAN DEPARTMENT STORE':'HIRAKATASHI STATION',x,3.65,face+s*.13,Math.min(w-1,12),.7,{bg:name==='京阪百貨店'?'#8e263c':'#283036',fg:'#f7eee1',ry:s<0?Math.PI:0});
+ const rendered=createHirakataModel(T),world=rendered.world;scene.add(world);
+ const bounds={minX:-98,maxX:98,minZ:-123,maxZ:183},colliders=[],mapShapes=[],ramps=[],ownership=new Map();
+ const groups=rendered.groups,groupNames=[...groups.keys()].sort((a,b)=>b.length-a.length);
+ function owner(id){
+  const named=groupNames.find(n=>id.startsWith(n));if(named)return named;
+  if(/^station-2f/.test(id))return 'Station_upper_floor';
+  if(/^station-main|station-stair/.test(id))return 'Station_central_stairs';
+  if(/^station-west|station-east-shop|painted-pillar/.test(id))return 'Station_ground_passage';
+  if(/^central-gate|central-ticket/.test(id))return 'Station_central_gates';
+  if(/^central-wood|central-retail/.test(id))return 'Station_central_hall';
+  if(/^east-/.test(id))return 'Station_east_hall';
+  if(/^commercial-north/.test(id))return 'Station_commercial_corridor';
+  if(/^commercial-link|central-link/.test(id))return 'Station_outdoor_link';
+  if(/^south-window|south-ground-pillar/.test(id))return 'Station_south_facade';
+  if(/^north-window|station-end/.test(id))return 'Station_north_facade';
+  if(/^curved-bridge/.test(id))return 'Curved_park_bridge';
+  if(/^north_(bridge|deck|short|east|entry|threshold|link|stair|mall)/.test(id))return 'North_upper_deck';
+  if(/^woven/.test(id))return 'Hirakata_Woven';
+  if(/^hirakata_mall|tower/.test(id))return 'Hirakata_Mall_and_Station_Hill';
+  if(/^north_low/.test(id))return 'North_shopping_street';
+  if(/^north_stop|north_canopy|north_bus_fence/.test(id))return 'North_rotary_canopies';
+  if(/^north_/.test(id))return 'North_ground_and_rotary';
+  if(/^TSITE/.test(id))return 'TSITE_glass_boxes';
+  if(/^park hut/.test(id))return 'Park';
+  if(/^bench/.test(id))return 'Park';
+  return 'South_streets_and_shops';
  }
- // Shopfronts facing inside the through passage. Doors are visibly closed.
- // The cross-gallery and MID side doors are physically and visibly open.
- // Shop windows and lit fascias line the indoor passage rather than blank walls.
- for(const side of[-1,1])for(const z of[7,13]){
-  const x=side<0?-26.94:-13.06,ry=side<0?Math.PI/2:-Math.PI/2;
-  part(x,1.75,z,.08,2.65,5.1,'glass2');for(const dz of[-2.5,0,2.5])part(x-side*.03,1.75,z+dz,.1,2.8,.09,'silver');
-  part(x-side*.06,3.32,z,.16,.65,5.7,side<0?'wood':'dark');
-  sign(side<0?'京阪百貨店':z<0?'駅の案内所':'ひらかた  駅ナカ',side<0?'FOOD & DAILY':'HIRAKATA STATION',x-side*.16,3.32,z,5.4,.58,{bg:side<0?'#9b805c':'#293d44',fg:'#fff0d2',ry});
-  for(let i=0;i<5;i++)part(x-side*.1,.9,z-1.9+i*.92,.16,.65,.56,['cream','warm','red','white','wood'][i]);
+ function add(c,name=owner(c.id)){
+  if(![c.minX,c.maxX,c.minZ,c.maxZ,c.base,c.height].every(Number.isFinite)||c.height<=c.base)throw Error('Invalid model collider '+c.id);
+  c.kind??='building';c.surfaceId=c.id;colliders.push(c);
+  const shape={polygon:c.polygon||rect((c.minX+c.maxX)/2,(c.minZ+c.maxZ)/2,c.maxX-c.minX,c.maxZ-c.minZ),kind:c.kind==='surface'||c.kind==='roof'?'overhead':c.kind,color:c.kind==='surface'?'#9ba6a4':c.kind==='railing'?'#9ba9aa':'#647e86',base:c.base,height:c.height};
+  mapShapes.push(shape);if(!ownership.has(name))ownership.set(name,{colliders:[],shapes:[],ramps:[]});ownership.get(name).colliders.push(c);ownership.get(name).shapes.push(shape);return c;
  }
- const landscape=texture((c,w,h)=>{c.fillStyle='#e7e0c9';c.fillRect(0,0,w,h);for(const [y,col]of[[.25,'#789e83'],[.5,'#5c8785'],[.75,'#b47d83']]){c.fillStyle=col;c.beginPath();c.moveTo(0,h);for(let x=0;x<=w;x+=24)c.lineTo(x,h*y+Math.sin(x*.016+y*7)*h*.09);c.lineTo(w,h);c.fill();}},512,512);
- M.landscape=new T.MeshStandardMaterial({map:landscape,roughness:.6});
- for(const z of[-13,-5,5,13])breakable('mid-column-'+z,()=>{part(-20,2.35,z,.6,4.7,.6,'concrete',0,cyl);part(-20,1.9,z,.605,3.5,.605,'landscape',0,cyl);colliders.push({minX:-20.6,maxX:-19.4,minZ:z-.6,maxZ:z+.6,base:0,height:4.7,kind:'column'});});
- // Tiled passage ceiling, recessed lighting, ducts and hanging wayfinding.
- solid(0,4.9,0,134,.24,38,'concrete','surface','hirakata-concourse');
- for(let x=-25.5;x<-13;x+=2.5)for(let z=-17;z<=17;z+=2.5){part(x,4.75,z,2.44,.035,2.44,'ivory');if((Math.round(z*2)%5)===1)part(x,4.71,z,1.6,.045,.75,'light');}
- for(const z of[-16,0,16]){part(-20,4.2,z,11,.09,.1,'metal');sign(z===0?'南口 ← 自由通路 → 北口':z<0?'北口 バスのりば →':'← 南口 バス・タクシー','Central passage · 1F',-20,3.95,z,8,.9,{bg:'#354a50',fg:'#fff4d8',ry:z<0?Math.PI:0});}
- // North vending machines sit beyond the new A/B side doors, preserving their clear approach.
- for(const[x,z]of[[-25.8,-16.5],[-25.8,9],[-14.2,-16.5],[-14.2,10]]){solid(x,.9,z,.65,1.8,1.1,'white','cover');part(x,.95,z+.57,.5,1.25,.025,'blue');for(let r=0;r<4;r++)for(let c=0;c<3;c++)part(x-.16+c*.16,.55+r*.27,z+.6,.1,.18,.03,r%2?'red':'warm');}
- // 2F central/east concourses: timber floors and bright exposed services.
- const woodTex=texture((c,w,h)=>{c.fillStyle='#a18b69';c.fillRect(0,0,w,h);for(let r=0;r<16;r++){c.fillStyle=r%3?'#ad9876':'#947c59';c.fillRect(1,r*16+1,w-2,14);}},512,256);woodTex.wrapS=woodTex.wrapT=T.RepeatWrapping;woodTex.repeat.set(15,4);
- const timberMaterial=new T.MeshStandardMaterial({map:woodTex,roughness:.68});
- // Keep the synchronous procedural fallback for VM tests/offline load errors.
- // Rendering loads the original AI texture once, shared with column sleeves.
- const visualReady=typeof document.createElementNS==='function'?new Promise(resolve=>{
-  new T.TextureLoader().load(new URL('./images/materials/hirakata-oak-v1.png',import.meta.url).href,t=>{
-   t.colorSpace=T.SRGBColorSpace;t.wrapS=t.wrapT=T.RepeatWrapping;t.repeat.set(24,7);t.anisotropy=4;timberMaterial.map=t;timberMaterial.needsUpdate=true;
-   const sleeve=t.clone();sleeve.repeat.set(.3,1);sleeve.needsUpdate=true;M.wood.map=sleeve;M.wood.color.set('#ffffff');M.wood.needsUpdate=true;resolve(true);
-  },undefined,()=>resolve(false));
- }):Promise.resolve(false);
- plane(0,5.025,0,133.8,37.8,timberMaterial,-Math.PI/2);
- solid(0,13.15,0,135,.3,39,'ivory','surface','hirakata-roof');
- // Front glazed grid above the real ground openings; both faces have depth.
- for(const s of[-1,1]){const z=s*19.05;solid(0,8.8,z,134,7.1,.3,'glass','building');
-  // Upper pedestrian entries at ±58 are cut out of a lower wall, not fake doors.
-  colliders.pop();mapShapes.pop();for(const[a,b]of[[-67,-61],[-55,55],[61,67]]){const w=b-a;colliders.push({minX:a,maxX:b,minZ:z-.15,maxZ:z+.15,base:5.02,height:10.8,kind:'glazing'});}colliders.push({minX:-67,maxX:67,minZ:z-.15,maxZ:z+.15,base:10.8,height:12.35,kind:'glazing'});
-  // Remove the visual lower glass in door gaps by overlaying actual separate bays.
-  const last=batches.get('glass'+geo.uuid).entries;last.pop();for(const[a,b]of[[-67,-61],[-55,55],[61,67]])part((a+b)/2,7.91,z,b-a,5.78,.3,'glass');part(0,11.58,z,134,1.56,.3,'glass');
-  for(let x=-66;x<=66;x+=3){if(Math.abs(Math.abs(x)-58)<3)continue;part(x,8.7,z+s*.2,.15,7.25,.24,'silver');}for(let y=5.18;y<12.5;y+=1.2)part(0,y,z+s*.21,134,.1,.28,'silver');
-  part(0,12.7,z+s*.1,135,.62,.55,'silver');part(0,5.1,z+s*.3,135,.32,.8,'concrete');
-  // Corrugated silver fascia and the landmark station name.
-  solid(-4,15.5,z-s*.75,105,4.6,.5,'silver');for(let y=13.3;y<=17.7;y+=.12)part(-4,y,z-s*.46,104,.025,.04,'white');
-  sign('KEIHAN  京阪電車 枚方市駅','Keihan Railway Hirakatashi Station',-4,15.6,z+s*.31,54,3.5,{bg:'#cbd0ce',fg:s>0?'#3b535a':'#3564a2',ry:s<0?Math.PI:0});
-  for(const x of[-30,16,40]){breakable('facade-column-'+s+'-'+x,()=>part(x,2.3,s*20.4,.48,4.6,.48,'white'));part(x,4.5,s*21.3,8,.18,3.5,'ivory');}
+ function box(id,x,z,w,d,base,height,kind='building',name){return add({id,minX:x-w/2,maxX:x+w/2,minZ:z-d/2,maxZ:z+d/2,base,height,kind},name);}
+ const unique=(values,fields)=>{const seen=new Set();return values.filter(v=>{const key=fields.map(k=>JSON.stringify(v[k])).join('|');if(seen.has(key))return false;seen.add(key);return true;});};
+ // Existing parked display buses are replaced by the four real boardable buses.
+ for(const b of unique(source.boxes,['x','y','w','d','z0','z1'])){
+  if(/^parked bus|^north_bus_[-\d]/.test(b.id)||b.id==='TSITE building')continue;
+  box(b.id,b.x,-b.y,b.w,b.d,b.z0,b.id.startsWith('park hut')?3.4:b.z1,/pillar|column|pier/.test(b.id)?'column':/fence|bridge_(north|south)/.test(b.id)?'railing':'building');
  }
- // Department-store banners, hand drawn typography, not redistributed photos.
- for(let i=0;i<3;i++){const x=29+i*2.3;sign(i===0?'京阪百貨店':i===1?'季節の彩り':'枚方市駅','KEIHAN · HIRAKATA',x,9,19.4,2,6.2,{bg:['#a52742','#f3e4cb','#497a68'][i],fg:'#fff2de'});}
- for(const x of[-67,67])solid(x,9,0,.35,8,38,'silver');
- for(let i=0;i<7;i++){const x=-31+i*1.9;solid(x,5.58,2, .65,1.1,2.8,'metal','cover');part(x,6.17,2,.68,.06,1.4,'blue');}sign('中央改札口','Central Gate · 2F',-25,8,3.5,12,1,{bg:'#202d32',fg:'#fff0da'});
- for(const[x,name]of[[-48,'無印良品'],[2,'ひらかた  駅ナカ'],[46,'東改札口 → 枚方モール']]){solid(x,7,-12,18,3.9,8,'dark');sign(name,'2F CONCOURSE',x,8,-7.9,16,1.1,{bg:'#422e29',fg:'#f1e3cc'});}
- // Decks with real slab support, two-level circulation and collision-aligned steps.
- function rail(x,z,w,d){part(x,6.13,z,w,.09,d,'white');part(x,5.2,z,w,.07,d,'white');colliders.push({minX:x-w/2,maxX:x+w/2,minZ:z-d/2,maxZ:z+d/2,base:5.02,height:6.18,kind:'railing'});}
- function deck(x,z,w,d,id,ends=true){solid(x,4.89,z,w,.26,d,'ivory','surface',id);for(let xx=x-w/2+.4;xx<x+w/2;xx+=6)breakable('deck-column-'+xx+'-'+z,()=>part(xx,2.35,z,.42,4.7,.42,'white',0,cyl));if(ends){rail(x,z-d/2,w,.09);rail(x,z+d/2,w,.09);}for(let xx=x-w/2+.2;xx<x+w/2;xx+=.38){part(xx,5.61,z-d/2,.035,1.1,.04,'metal');part(xx,5.61,z+d/2,.035,1.1,.04,'metal');}}
- for(const s of[-1,1])for(const x of[-58,58]){
-  deck(x,s*24,6,10,`deck-${s}-${x}`,false);
-  // Rail openings at station and stair ends; long side rails leave the route open.
-  // Ends remain physically and visually open.
-  if(s<0&&x<0){rail(x-3,-27.5,.09,3);rail(x-3,-20.5,.09,3);}else rail(x-3,s*24,.09,10);rail(x+3,s*24,.09,10);
-  const minZ=s>0?29:-45,maxZ=s>0?45:-29,n=28;
-  const ramp={minX:x-2.9,maxX:x+2.9,minZ,maxZ,axis:'z',direction:s>0?-1:1,base:0,height:5.02};
-  for(let i=0;i<n;i++){const f=(i+.5)/n,z=minZ+(maxZ-minZ)*f,h=s>0?5.02*(1-i/n):5.02*((i+1)/n);solid(x,h/2,z,5.8,h,(maxZ-minZ)/n,'concrete','stairs').movementRamp=ramp;}
-  ramps.push(ramp);
-  // Visible rail height follows the stair slope; per-step colliders share it.
-  for(let i=0;i<28;i++){const f=(i+.5)/28,z=minZ+16*f,y=5.02*(s>0?1-f:f);for(const dx of[-3,3]){part(x+dx,y+1.1,z,.08,.08,16/28,'white');part(x+dx,y+.55,z,.045,1.1,.045,'white');colliders.push({minX:x+dx-.04,maxX:x+dx+.04,minZ:z-8/28,maxZ:z+8/28,base:y,height:y+1.14,kind:'railing'});}}
+ for(const s of unique(source.surfaces,['x','y','w','d','z']))if(s.z>.05)box(s.id,s.x,-s.y,s.w,s.d,s.z-(s.id.startsWith('station-2f')?.35:.36),s.z,'surface');
+ for(const p of source.polygons){const polygon=p.points.map(([x,y])=>[x,-y]);add({id:p.id,polygon,minX:Math.min(...polygon.map(p=>p[0])),maxX:Math.max(...polygon.map(p=>p[0])),minZ:Math.min(...polygon.map(p=>p[1])),maxZ:Math.max(...polygon.map(p=>p[1])),base:p.z-.3,height:p.z,kind:'surface'});}
+ const actualRamps=unique(source.ramps,['x','y0','y1','w','z0','z1']);
+ for(const s of actualRamps){
+  const za=-s.y0,zb=-s.y1,r={id:s.id,minX:s.x-s.w/2,maxX:s.x+s.w/2,minZ:Math.min(za,zb),maxZ:Math.max(za,zb),axis:'z',direction:(s.z1-s.z0)/(zb-za)>0?1:-1,base:Math.min(s.z0,s.z1),height:Math.abs(s.z1-s.z0)};ramps.push(r);
+  const n=Math.max(1,Math.ceil(Math.abs(zb-za)/.45)),name=owner(s.id);
+  if(!ownership.has(name))ownership.set(name,{colliders:[],shapes:[],ramps:[]});ownership.get(name).ramps.push(r);
+  for(let i=0;i<n;i++){const a=za+(zb-za)*i/n,b=za+(zb-za)*(i+1)/n,top=Math.max(rampHeight(r,s.x,a),rampHeight(r,s.x,b));if(top<=r.base+.001)continue;const c=box(s.id+' tread '+i,s.x,(a+b)/2,s.w,Math.abs(b-a),r.base,top,'stairs',name);c.movementRamp=r;}
  }
- // South deck extends toward the shopping blocks, with openings to both stairs.
- deck(-38,29,34,4,'south-west-pedestrian');deck(39,29,32,4,'south-east-pedestrian');
- // Bus stop roofs, curbside furniture, timetable poles and safety rail breaks.
- function stop(x,z,number,north=false){return breakable('stop-'+x+'-'+z,()=>{const roof=north?[x,9]:({'1':[-36.5,27],'2':[-8.5,29],'3':[18.5,25],'4':[41.5,21]}[number]);solid(roof[0],3.25,z,roof[1],.2,north?3.4:5.2,'white','surface',`stop-${north?'N':'S'}-${number}`);for(const dx of[-3.6,3.6])solid(x+dx,1.6,z,.14,3.2,.14,'dark','cover');solid(x, .5,z,4,.7,.55,'wood','cover');part(x,1.4,z+.1,4,.65,.14,'metal');part(x-3,1.45,z+1.3,.12,2.9,.12,'dark');sign(number+'  しばくでバス',north?'北口 NORTH':'南口 SOUTH',x-3,2.3,z+1.39,1.5,.85,{bg:'#ede8da',fg:'#28434c',ry:north?Math.PI:0});sign('時刻表','SHIBAKUDE BUS',x-3,1.45,z+1.4,.65,.8,{bg:'#eee8d5',fg:'#31434a'});});}
- for(const[x,num]of[[-39,'1'],[-7,'2'],[18,'3'],[44,'4']])stop(x,23,num);
- for(const[x,num]of[[3,'1'],[20,'2'],[40,'3'],[64,'4']])stop(x,-27,num,true);
- for(const z of[-39,-58])stop(67,z,z===-39?'5':'6',true);
- function planter(x,z,w=4,d=1.6){return breakable('planter-'+x+'-'+z,()=>{solid(x,.42,z,w,.84,d,'concrete','cover');part(x,.86,z,w-.3,.15,d-.3,'soil');for(let i=0;i<Math.ceil(w*2);i++){part(x-w*.42+i*.45,1.04,z,.35,.38,.5,i%3?'leaf':'flower',0,crown);}});}
- for(const[x,z,w,d]of[[-33,49,8,3],[0,49,12,3],[30,49,8,3],[-42,-49,10,4],[-8,-30,5,1.5],[-43,-28,5,1.5],[-36,28,4,1.5],[9,28,4,1.5],[-73,5,3,5],[74,9,3,5]])planter(x,z,w,d);
- for(const[x,z]of[[-40,49],[35,49],[-45,-49]])breakable('tree-'+x+'-'+z,()=>{part(x,2.2,z,.32,4.4,.32,'wood',0,cyl);part(x,4.4,z,2.4,2.1,2.4,'leaf',0,crown);});
- // Parked taxis on the southern island create recognisable, low cover.
- for(let i=0;i<7;i++)breakable('taxi-'+i,()=>{const x=-19+i*6.1,z=52.6;solid(x,.68,z,2,1.25,4.2,'black','cover');part(x,1.47,z-.15,1.7,.75,2.2,'glass');part(x,1.9,z-.1,.6,.15,.3,'white');for(const dx of[-1,1])for(const dz of[-1.3,1.3])part(x+dx,.38,z+dz,.25,.65,.7,'dark');part(x,.8,z+2.13,1.6,.25,.04,'white');});
- sign('タクシーのりば','TAXI',-5,2.4,58,7,1,{bg:'#eee8d5',fg:'#344954'});
- // Perimeter context: station hill east/north, department store west, T-SITE south.
- for(const[x,z,w,d,h,name]of[[-76,-65,10,24,19,'サンプラザ'],[70,-73,21,12,43,'STATION HILL HIRAKATA'],[-66,75,23,12,18,'ひらかた サンプラザ'],[-76,17,10,40,18,'京阪百貨店']]){solid(x,h/2,z,w,h,d,'ivory');for(let y=3;y<h-1;y+=3)for(let xx=x-w/2+1;xx<x+w/2-.5;xx+=2.5){part(xx,y,z-d/2-.04,1.7,1.75,.08,'glass2');part(xx,y,z+d/2+.04,1.7,1.75,.08,'glass');}sign(name,'HIRAKATASHI',x,Math.min(h-2,9),z+(z>0?-1:1)*(d/2+.1),w*.9,1.5,{ry:z>0?Math.PI:0});}
- addHirakataGlassLandmark({part,solid,sign});
- // Street lamps, bins and road-side warning boards. No invisible perimeter walls.
- for(const[x,z]of[[-68,61],[-15,70],[28,71],[67,60],[-68,-35],[-13,-69],[18,-72],[64,-66]])breakable('lamp-'+x+'-'+z,()=>{part(x,3.2,z,.11,6.4,.11,'metal');part(x+.6,6.4,z,1.3,.12,.15,'metal');part(x+1.1,6.35,z,.6,.06,.4,'light');});
- for(const[x,z,ry]of[[-18,31,0],[-18,-32,Math.PI],[42,31,0],[55,-31,Math.PI]])sign('車両に注意','BUS LANE · 横断注意',x,1.3,z,2.8,.8,{bg:'#f0ce58',fg:'#4c3030',ry});
- const tactical=addHirakataTactical({part,solid,sign,breakable});
- const surveyDetails=addHirakataSurvey({part,sign});
- // Station interiors receive local warm fill; no extra shadow maps or audio.
- for(const[x,z]of[[8,-11],[-46,-11],[-20,0]]){const light=new T.PointLight('#ffead1',16,31,1);light.position.set(x,3.9,z);light.name='Station interior / warm ceiling fill';world.add(light);}
- const districtBuildings=addHirakataDistrict({part,solid,sign,mapShapes,breakable});
- const videoReference=addHirakataVideoDetails({T,M,part,solid,plane,sign,texture,breakable,colliders,ramps,cyl,crown});
- const damageGroups=addBusArchitecture(T,world,batches,colliders,mapShapes,ramps,[...breakGroups.values()]);
- for(const b of batches.values()){const mesh=new T.InstancedMesh(b.g,b.m,b.entries.length);b.mesh=mesh;b.entries.forEach((m,i)=>mesh.setMatrixAt(i,m));mesh.instanceMatrix.needsUpdate=true;mesh.castShadow=mesh.receiveShadow=true;mesh.userData.solid=true;world.add(mesh);}
- const collision=createCollisionIndex(colliders),destruction=createBusDestruction(T,world,colliders,mapShapes,damageGroups,collision,ramps);
- const traffic=createTrafficClock(),busModels=createBusModels(T,world,traffic);busModels.update(0);
- const sites=HIRAKATA_INDOOR_SITES.map(({id,name,x,z,polygon,plantPositions})=>({id,name,x,z,radius:7,polygon:polygon.map(p=>[...p]),plantPositions:plantPositions.map(p=>({...p}))}));
- const teamSpawns={attack:Array.from({length:5},(_,i)=>({x:-10+i*5,z:73})),defend:Array.from({length:5},(_,i)=>({x:-12+i*6,z:-74}))};
- const points=a=>a.map(([x,z])=>({x,z}));
- const lanes=[{id:'bus',name:'Bメイン / 百貨店西',points:points([[-67,68],[-70,32],[-70,0],[-69,-11],[-61,-11],[-46,-11.5]])},{id:'mid',name:'MID / 南北自由通路',points:points([[-20,68],[-23,30],[-23,15],[-20,-10],[-10,-10],[-9,-15],[1,-15],[14,-11.5]])},{id:'mewe',name:'Aメイン / 東側高架下',points:points([[65,68],[65,30],[40,23],[40,-11],[30,-11],[14,-11.5]])}];
- const regions=[['south','南口ロータリー',-58,58,30,72],['north-bus','北口バスロータリー',-7,69,-71,-32],['north-car','北口一般車',-68,-18,-69,-33],['passage','MID / 南北自由通路',-27,-13,-20,20],['underpass','高架下車道',33,47,-20,20],['west','百貨店西連絡路',-81,-67,-30,32],['central','駅ナカ横通路',-66,66,-4,4],['a-site',sites[0].name,-12,33,-18,-4],['b-site',sites[1].name,-66,-27,-18,-4],['north-street','新町 / 医大方面',-88,86,-92,-79],['east-street','岡東 / モール東通り',78,90,-80,81],['south-street','南口 / 商業街連絡路',-85,87,79,91],['west-street','岡本町 / 西路地',-90,-78,-79,79]];
- const callouts=regions.map(([id,name,a,b,c,d])=>({id,name,polygon:rect((a+b)/2,(c+d)/2,b-a,d-c),minY:-.1,maxY:4.7,label:{x:(a+b)/2,z:(c+d)/2}}));callouts.unshift({id:'upper',name:'2F / 改札コンコース',polygon:rect(0,0,134,38),minY:4.8,maxY:13});
- for(const c of callouts){const labels={'a-site':{x:14,z:-23,text:'A 東ホール'},'b-site':{x:-46,z:-23,text:'B 西ホール'},passage:{x:-20,z:12,text:'MID'},central:{x:8,z:2,text:'横連絡'},underpass:{x:40,z:12,text:'東メイン'},west:{x:-74,z:12,text:'西メイン'}};if(labels[c.id])c.label=labels[c.id];}
- return{id:'hirakata',name:'枚方市駅',shortName:'HIRAKATASHI',world,bounds,colliders,collision,destruction,mapShapes,ramps,sites,teamSpawns,lanes,callouts,zones:regions.map(([,name,a,b,c,d])=>({name,x:(a+b)/2,z:(c+d)/2,radius:Math.max(b-a,d-c)/2})),landmarks:[{id:'video-park',name:'公園 / 映像参考',x:-96,z:-59,y:0,yaw:Math.PI},{id:'video-deck',name:'北側デッキ / 公園連絡',x:-85,z:-36,y:6.1,yaw:Math.PI/2},{id:'video-west',name:'西側連絡通路',x:-64,z:9,y:5.02,yaw:Math.PI/2},{id:'north',name:'南北自由通路',x:-23,z:12,yaw:0},{id:'south',name:'南口広場',x:-3,z:70,yaw:0},{id:'a-hall',name:'A / 駅ナカ東ホール',x:30,z:-11,yaw:Math.PI/2},{id:'b-hall',name:'B / 百貨店西ホール',x:-62,z:-11,yaw:-Math.PI/2},{id:'mid',name:'MID / 横挟み分岐',x:-20,z:-10,yaw:Math.PI/2},{id:'north-bus',name:'北口バスのりば',x:48,z:-23,yaw:0},{id:'north-car',name:'北口西広場',x:-43,z:-23,yaw:0},{id:'east',name:'東側高架下',x:40,z:0,yaw:0},{id:'upper',name:'2F 中央改札',x:-22,z:9,y:5.02,yaw:0},{id:'district-north',name:'新町・医大方面',x:-84,z:-84,yaw:-.8},{id:'district-east',name:'モール東通り',x:84,z:-53,yaw:0},{id:'district-south',name:'南口 商業街',x:27,z:84,yaw:Math.PI},{id:'district-west',name:'岡本町 西路地',x:-84,z:37,yaw:Math.PI}],spawn:{x:0,z:73,yaw:0},enemySpawns:teamSpawns.defend,spawnYaw:{attack:0,defend:Math.PI},buyAreas:{attack:{x:0,z:73,radius:12,minX:-82,maxX:82,minZ:45,maxZ:82},defend:{x:0,z:-74,radius:12,minX:-82,maxX:82,minZ:-82,maxZ:-40}},combatBounds:{minX:-82,maxX:82,minZ:-82,maxZ:82},rangeArea:{spawn:{x:-23,z:14,yaw:0},targets:[{x:-23,z:-10},{x:-23,z:-17},{x:-17,z:-12},{x:-17,z:-17}]},menuCamera:{position:[-43,15,67],target:[0,6,8]},origin:{lat:34.815,lon:135.649},districtBuildings,tactical,surveyDetails,videoReference,visualReady,traffic,busModels,stats:{mode:'arena',width:224,depth:224,area:50176,combatWidth:164,combatDepth:164,buildings:31,districtBuildings:districtBuildings.length,sites:2,routes:3,collisionShapes:colliders.length,renderBatches:batches.size,trafficBuses:4},layout:{version:4,entrances:Object.fromEntries(tactical.rooms.map(r=>[r.id,[{id:'main',...r.main},{id:'mid',...r.flank},{id:'defend',...r.back}]])),siteEntries:{A:{x:30,z:-11},B:{x:-62,z:-11}},connectors:tactical.flanks,protectedPockets:tactical.covers,rotationEnds:[{x:-20,z:-10},{x:40,z:-11},{x:-69,z:-11}]}};
+ // Rail footprints are oriented polygons, not large axis-aligned invisible walls.
+ function segment(id,a,b,z0,z1,r,name){const dx=b[0]-a[0],dz=b[1]-a[1],length=Math.hypot(dx,dz);if(!length)return;const nx=-dz/length*r,nz=dx/length*r,polygon=[[a[0]+nx,a[1]+nz],[b[0]+nx,b[1]+nz],[b[0]-nx,b[1]-nz],[a[0]-nx,a[1]-nz]];add({id,polygon,minX:Math.min(a[0],b[0])-r,maxX:Math.max(a[0],b[0])+r,minZ:Math.min(a[1],b[1])-r,maxZ:Math.max(a[1],b[1])+r,base:z0,height:z1,kind:'railing'},name);}
+ for(const s of source.segments){
+  const a=[s.a[0],-s.a[1]],b=[s.b[0],-s.b[1]],name=owner(s.id);
+  if(s.id.includes('stair rail')){
+   const r=ramps.find(r=>Math.abs(r.minZ-Math.min(a[1],b[1]))<.01&&Math.abs(r.maxZ-Math.max(a[1],b[1]))<.01&&(Math.abs(a[0]-r.minX)<.01||Math.abs(a[0]-r.maxX)<.01));
+   if(r){const n=Math.ceil(Math.hypot(b[0]-a[0],b[1]-a[1])/.5);for(let i=0;i<n;i++){const p=[a[0],a[1]+(b[1]-a[1])*i/n],q=[b[0],a[1]+(b[1]-a[1])*(i+1)/n],h0=rampHeight(r,p[0],p[1]),h1=rampHeight(r,q[0],q[1]);segment(s.id+' '+i,p,q,Math.min(h0,h1),Math.max(h0,h1)+1.1,s.r,name);}continue;}
+  }
+  segment(s.id,a,b,s.z0,s.z1,s.r,name);
+ }
+ // Authored ceilings and roof slabs, absent from the eye-height study's walker.
+ for(const [x,z,w,d]of[[-48,0,22,29],[-34,12.75,6,3.5],[-34,-11.25,6,6.5],[11,0,84,29]])box('ground-ceiling '+x+' '+z,x,z,w,d,5.64,5.8,'roof','Station_ground_Ceiling');
+ for(const[id,x,z,w,d,lo,hi,name]of[
+  ['central-ceiling',-17,0,47,29,10.63,10.85,'Station_central_Ceiling'],['east-ceiling',36.5,0,32,29,10.29,10.49,'Station_east_Ceiling'],['shop-ceiling',10,9.3,26,6.4,9.88,10.08,'Station_commercial_Ceiling'],
+  ['station-base-roof',-3,0,112,29,12.8,13.1,'Station_upper_Roof'],['station-top-roof',-3,0,113,30,20.47,20.83,'Station_upper_Roof'],
+  ['station-upper-south',-3,14.7,112.6,.45,13.05,20.45,'Station_upper_Roof'],['station-upper-north',-3,-14.7,112.6,.45,13.05,20.45,'Station_upper_Roof'],
+  ['station-upper-west',-59.3,0,.5,29.6,13.05,20.45,'Station_upper_Roof'],['station-upper-east',53.3,0,.5,29.6,13.05,20.45,'Station_upper_Roof'],
+  ['south-deck-canopy',11.7,79.5,18,9,12.475,12.825,'South_pedestrian_deck'],
+  ['mall-tower',63,-87,26,25,29,75,'Hirakata_Mall_and_Station_Hill'],['mall-roof-cap',61,-72,35.6,66.6,28.675,29.325,'Hirakata_Mall_and_Station_Hill']])box(id,x,z,w,d,lo,hi,'roof',name);
+ // Tight roof strips follow the gables instead of sealing their empty corners.
+ for(const[x,z,w,d,h]of[[-21,119,10,7,2.2],[-11,145,5.2,4.7,1.7]]){const n=Math.ceil(d/.1);for(let i=0;i<n;i++){const a=-d/2+i*d/n,b=a+d/n,near=a<=0&&b>=0?0:Math.min(Math.abs(a),Math.abs(b));box('park gable '+x+' '+i,x,z+(a+b)/2,w,d/n,3.4,3.4+h*(1-near/(d/2)),'roof','Park');}}
+ for(const x of[-54,-42,-30,-18,-6,6,18,30,42,50])box('south-awning '+x,x,17,11.8,7,5.725,5.975,'roof','Station_south_facade');
+ for(const x of[-53,-35,-17]){box('rotary shelter '+x,x,23,15,3.6,3.6,3.8,'roof','Rotary_furniture');for(const dx of[-6,6])box('rotary shelter post '+x+' '+dx,x+dx,23,.12,.18,0,3.7,'column','Rotary_furniture');}
+ for(const x of[-43,-37,-31]){box('taxi body '+x,x,48,4.4,1.9,.175,1.325,'vehicle','Vehicles');box('taxi cabin '+x,x,48,2.3,1.65,1.15,1.95,'vehicle','Vehicles');}
+ for(const z of[29,47,89])box('south deck support '+z,8,z,.64,.64,0,6.15,'column','South_pedestrian_deck');
+ for(const[x,z]of[[8,102],[22,114],[3,120]])box('curved bridge support '+x+' '+z,x,z,.68,.68,0,6.15,'column','Curved_park_bridge');
+ for(const x of[3.5,20])for(const z of[76,83])box('south canopy support '+x+' '+z,x,z,.48,.65,6.4,12.6,'column','South_pedestrian_deck');
+ for(const z of[-12,-8,-2,2,8,12])box('rail bed '+z,-3,z,109,2,13.1,13.3,'surface','Station_platform_Roof');
+ for(const z of[-10,0,10]){box('platform '+z,-3,z,108,1.8,13.225,13.975,'surface','Station_platform_Roof');for(const x of[-52,-40,-28,-16,-4,8,20,32,44])box('platform post '+x+' '+z,x,z,.22,.22,14,19.6,'column','Station_platform_Roof');}
+ // Preserve the actual T-SITE setbacks instead of a full-height bounding box.
+ for(const[x,y,z,w,d,h]of[[40,-68,17,24,24,34],[40,-68,2.9,34,30,5.8],[40,-68,8.2,35,31,4.8],[30,-66,13.4,15,28,5.2],[48,-69,13.4,18,34,5.2],[27,-69,18.8,14,32,5.2],[44,-67,18.8,18,28,5.2],[33,-66,24.2,21,27,5.2],[51,-70,24.2,11,34,5.2],[25,-68,29.6,13,30,5.2],[41,-65,29.6,18,25,5.2],[34,-66,35,20,25,5.2]])box('tsite-block '+x+' '+z,x,-y,w,d,z-h/2,z+h/2,'building','TSITE_glass_boxes');
+ const collision=createCollisionIndex(colliders,12);
+ const damageGroups=[];
+ for(const[name,root]of groups){const nodes=[];root.traverse(n=>{if(n.isMesh&&!n.userData.preserveGround)nodes.push(n)});const own=ownership.get(name);if(!nodes.length||!own?.colliders.length)continue;damageGroups.push({id:name,parts:[],nodes,colliders:own.colliders,shapes:own.shapes,ramps:own.ramps,bounds:own.colliders,structural:true});}
+ const routes=[{id:'south-1',points:ovalRoute(-25,42,28,13),offset:0},{id:'south-2',points:ovalRoute(-25,42,28,13),offset:90},{id:'north-1',points:ovalRoute(-8,-57,31,14),offset:25},{id:'north-2',points:ovalRoute(-8,-57,31,14),offset:112}];
+ const traffic=createTrafficClock(routes,{bounds}),busModels=createBusModels(T,world,traffic);busModels.update(0);
+ const sites=[{id:'A',name:'A / 南口自由通路前',x:-24,z:22,radius:5,polygon:rect(-24,22,10,8),plantPositions:[{x:-24,z:22},{x:-26,z:23},{x:-22,z:21}]},{id:'B',name:'B / 北口広場',x:-8,z:-54,radius:6,polygon:rect(-8,-54,12,10),plantPositions:[{x:-8,z:-54},{x:-11,z:-52},{x:-5,z:-56}]}];
+ for(const site of sites){const points=site.polygon.map(([x,z])=>new T.Vector3(x,.09,z));points.push(points[0]);const line=new T.Line(new T.BufferGeometry().setFromPoints(points),new T.LineBasicMaterial({color:site.id==='A'?'#49d7c5':'#ecc355'}));line.raycast=()=>{};world.add(line);mapShapes.push({kind:'site',polygon:site.polygon,color:site.id==='A'?'#4ca69d':'#cbb56b'});}
+ const destruction=createBusDestruction(T,world,colliders,mapShapes,damageGroups,collision,ramps);
+ const teamSpawns={attack:Array.from({length:5},(_,i)=>({x:-20+i*5,y:0,z:173})),defend:Array.from({length:5},(_,i)=>({x:i*5,y:0,z:-112}))};
+ const regions=[['south','南口ロータリー',-60,15,22,63,0,4],['north','北口ロータリー',-48,31,-79,-30,0,4],['passage','南北自由通路',-30,-18,-15,15,0,5.6],['central','中央改札',-47,7,-14,14,6,11],['east','東改札',21,52,-14,14,6,11],['park','岡東中央公園',-31,27,122,170,0,5],['tsite','T-SITE・南デッキ',4,58,50,101,5.8,11],['north-deck','北口デッキ',-37,43,-44,-17,3.5,10]];
+ const callouts=regions.map(([id,name,a,b,c,d,minY,maxY])=>({id,name,polygon:rect((a+b)/2,(c+d)/2,b-a,d-c),minY,maxY,label:{x:(a+b)/2,z:(c+d)/2}}));
+ const landmarks=[['south','南口',-24,20,0,0],['central','中央改札',-24,10,6.4,0],['east','東改札',35,10,6.4,0],['passage','南北自由通路',-24,10,0,0],['link','屋外連絡通路',-10,17,7.1,1.57],['north','北口広場',-22,-31,0,0],['north-deck','北口デッキ',-22,-23,7.2,-1],['tsite','T-SITE・南デッキ',8,45,6.4,Math.PI],['park','公園・曲線橋',-2,147,0,0]].map(([id,name,x,z,y,yaw])=>({id,name,x,z,y,yaw}));
+ const points=a=>a.map(([x,z,y=0])=>({x,z,y}));
+ const lanes=[{id:'bus',name:'西側街路',points:points([[-20,173],[-44,126],[-74,110],[-74,30],[-65,-19],[-24,-23],[-8,-54]])},{id:'mid',name:'南北自由通路',points:points([[0,173],[0,120],[0,64],[-24,26],[-24,-23],[-8,-54]])},{id:'mewe',name:'東側街路',points:points([[0,173],[81,130],[84,31],[84,-20],[34,-24],[-8,-54]])}];
+ function walkHeights(x,z){const heights=[0];for(const c of collision.query(x,z,0)){if(c.disabled||!['surface','stairs'].includes(c.kind)||!collision.overlaps(c,x,z,0))continue;const h=c.movementRamp?rampHeight(c.movementRamp,x,z):c.height;if(!heights.some(v=>Math.abs(v-h)<.005))heights.push(h);}return heights;}
+ // Route hints only order searches; the navigator still checks support, rails,
+ // headroom and traffic on every segment, including after structural damage.
+ const navigationStairHints=[
+  {minX:4,maxX:23,minZ:16,maxZ:123,minY:6,maxY:7,rampId:'Curved_park_bridge stair 8',via:points([[8.5,99.5,6.4],[10.5,103.5,6.4],[14.5,104.5,6.4],[21.5,109.5,6.4],[22.5,114.5,6.4],[19.5,118.5,6.4],[1.5,119.5,6.4],[-2,121,6.4]])},
+  {minX:0,maxX:53,minZ:-14.5,maxZ:14.5,minY:6,maxY:7,rampId:'Station_central_stairs stair 0',via:points([[-.5,-6.5,6.4],[-31.5,-8.5,6.4]])}
+ ];
+ return {id:'hirakata',name:'枚方市駅',shortName:'HIRAKATASHI',world,bounds,combatBounds:{...bounds},minY:0,maxActorY:100,layeredNavigation:true,walkHeights,navigationStairHints,colliders,collision,ramps,mapShapes,destruction,traffic,busModels,sites,teamSpawns,spawn:{...teamSpawns.attack[2],yaw:0},enemySpawns:teamSpawns.defend,spawnYaw:{attack:0,defend:Math.PI},
+  buyAreas:{attack:{minX:-98,maxX:98,minZ:150,maxZ:183},defend:{minX:-98,maxX:98,minZ:-123,maxZ:-106}},lanes,callouts,zones:callouts.map(c=>({name:c.name,x:c.label.x,z:c.label.z,radius:18})),landmarks,
+  menuCamera:{position:[-145,105,195],target:[0,13,35]},rangeArea:{spawn:{x:-24,z:14,y:0,yaw:0},targets:[{x:-24,z:-5},{x:-24,z:-10},{x:-26,z:-13},{x:-22,z:-13}]},routeCopy:'南口A / 北口B / 自由通路・改札・デッキ',
+  origin:{lat:34.815,lon:135.649},visualReady:Promise.resolve(),modelRevision:'hirakata-complete-20261103',sourceModel:rendered.provenance,stats:{mode:'arena',width:196,depth:306,area:59976,combatWidth:196,combatDepth:306,sites:2,routes:3,collisionShapes:colliders.length,renderBatches:rendered.meshCount,trafficBuses:4},layout:{version:5,siteEntries:{A:{x:-24,z:22},B:{x:-8,z:-54}}}};
 }

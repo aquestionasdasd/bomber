@@ -791,7 +791,8 @@ function combatFeedback(source,type){
   }
 }
 function validBusBreakCue(cue,packet){
- return cue?.type==='bus-break'&&Number.isSafeInteger(cue.seq)&&cue.seq>0&&cue.round===packet.rules?.round&&packet.rules?.phase==='live'&&[cue.x,cue.y,cue.z,cue.time].every(Number.isFinite)&&Math.max(Math.abs(cue.x),Math.abs(cue.z))<=82&&cue.y>=0&&cue.y<=30&&packet.time>=cue.time&&packet.time-cue.time<=.65;
+ const b=map.id==='hirakata'&&map.layeredNavigation===true?activeArenaBounds():{minX:-82,maxX:82,minZ:-82,maxZ:82};
+ return cue?.type==='bus-break'&&Number.isSafeInteger(cue.seq)&&cue.seq>0&&cue.round===packet.rules?.round&&packet.rules?.phase==='live'&&[cue.x,cue.y,cue.z,cue.time].every(Number.isFinite)&&cue.x>=b.minX&&cue.x<=b.maxX&&cue.z>=b.minZ&&cue.z<=b.maxZ&&cue.y>=0&&cue.y<=30&&packet.time>=cue.time&&packet.time-cue.time<=.65;
 }
 function applyNetCues(packet,fresh,ownId){
   const cues=Array.isArray(packet.cues)?packet.cues.slice(-64):[],previous=netSeenCueSequence,seen=new Set();
@@ -907,7 +908,7 @@ function dropItem(weapon,entity,options={}){
   const saved=local?ammoStore[weapon]:entity.netStores?.[weapon];
   const ammo=active===weapon?(local?player.ammo:entity.remoteId?entity.netAmmo:entity.aiAmmo):saved?.ammo;
   const reserve=active===weapon?(local?player.reserve:entity.remoteId?entity.netReserve:entity.aiReserve??spec.reserve):saved?.reserve;
-  const data={id:++dropSequence,weapon,x:entity.x,z:entity.z,...(map.id==='trc'?{y:getZoneFloor(entity.x,entity.z,(entity.y||0)+.05)}:{}),yaw:Math.random()*Math.PI*2,ammo:clamp(Math.floor(ammo??spec.mag),0,spec.mag),reserve:clamp(Math.floor(reserve??spec.reserve),0,spec.reserve)};
+  const data={id:++dropSequence,weapon,x:entity.x,z:entity.z,...(map.id==='trc'||map.layeredNavigation===true?{y:getZoneFloor(entity.x,entity.z,(entity.y||0)+.05)}:{}),yaw:Math.random()*Math.PI*2,ammo:clamp(Math.floor(ammo??spec.mag),0,spec.mag),reserve:clamp(Math.floor(reserve??spec.reserve),0,spec.reserve)};
   if(options.disarm){Object.assign(data,disarmPlan);data.yaw=Math.round(data.yaw*1000)/1000;}
   return addDrop(data);
 }
@@ -919,7 +920,8 @@ function syncDrops(values){
   for(const value of Array.isArray(values)?values.slice(0,32):[]){
     const spec=WEAPONS[value?.weapon];if(!spec||value.weapon==='classic'||!['primary','secondary'].includes(spec.slot)||!Number.isSafeInteger(value.id)||value.id<1||![value.x,value.z,value.yaw,value.ammo,value.reserve].every(Number.isFinite)||value.x<activeArenaBounds().minX||value.x>activeArenaBounds().maxX||value.z<activeArenaBounds().minZ||value.z>activeArenaBounds().maxZ)continue;
     if(value.motion!==undefined&&!validDropMotion(value.motion,value,elapsed))continue;
-    valid.set(value.id,{...(value.motion?{motion:[...value.motion]}:{}),id:value.id,weapon:value.weapon,x:value.x,z:value.z,...(map.id==='trc'?{y:Number.isFinite(value.y)?clamp(value.y,map.minY,12):0}:{}),yaw:value.yaw,ammo:clamp(Math.floor(value.ammo),0,spec.mag),reserve:clamp(Math.floor(value.reserve),0,spec.reserve)});
+    if(map.layeredNavigation===true&&value.y!==undefined&&!validLayeredHeight(value.y))continue;
+    valid.set(value.id,{...(value.motion?{motion:[...value.motion]}:{}),id:value.id,weapon:value.weapon,x:value.x,z:value.z,...(map.layeredNavigation===true?{y:value.y??0}:map.id==='trc'?{y:Number.isFinite(value.y)?clamp(value.y,map.minY,12):0}:{}),yaw:value.yaw,ammo:clamp(Math.floor(value.ammo),0,spec.mag),reserve:clamp(Math.floor(value.reserve),0,spec.reserve)});
   }
   for(const drop of [...droppedWeapons])if(!valid.has(drop.id)||valid.get(drop.id).weapon!==drop.weapon)removeDrop(drop);
   for(const data of valid.values()){
@@ -1124,7 +1126,7 @@ function damageEntity(entity,amount,killer,{firearm=false,returned=false,chain=t
   const creditedKiller=killer&&killer.team!==entity.team?killer:null;
   fullComboTracker.record(match.round,entity,creditedKiller);
   entity.alive=false;ordinarySkills.endTrident(entity.id);entity.renkoUltimate=null;if(entity.kit)entity.kit.renkoActive=false;entity.trcLadder=null;cancelServiceReload(entity);entity.kit?.awardPoint();const record=recordOf(entity);if(record)record.d++;
-  match.dropSpike(entity.id,entity.x,entity.z,map.id==='trc'?getZoneFloor(entity.x,entity.z,entity.y+.05):0);match.cancelPlant(entity.id);match.cancelDefuse(entity.id);
+  match.dropSpike(entity.id,entity.x,entity.z,map.id==='trc'||map.layeredNavigation===true?getZoneFloor(entity.x,entity.z,entity.y+.05):0);match.cancelPlant(entity.id);match.cancelDefuse(entity.id);
   const item=entity===player?inventory.primary:record?.primary;dropItem(item,entity);
   if(creditedKiller){renkoUltimateActive(killer);const refilled=killer.kit?.awardKill();if(refilled&&killer===player)showMessage('リスタートラッシュ','撃破確定 · C・Q・E全回復',2);const k=recordOf(killer);if(k)k.k++;if(!firearm)killFeedback(killer);if(killer===player){totalKills++;match.awardKill();careerCoins.progress({kills:totalKills});}else if(k)k.credits=Math.min(9000,k.credits+200);feed(`${k?.name||CHARACTER_DEFS[killer.kit?.character||'duelist'].label}  ⌁  ${record?.name||(entity===player?'YOU':CHARACTER_DEFS[entity.kit?.character||'duelist'].label)}`);}
   if(entity===player)beginDeathView();
@@ -1334,6 +1336,8 @@ function updateMapLabels(){
   copies['map-site-a-name']=map.sites[0].name;copies['map-site-b-name']=map.sites[1].name;copies['map-detail']=map.id==='hirakata'?'対戦は従来の164m四方。マップ練習では周辺224m四方も探索できます。車道のしばくでバスに注意。':'橋本駅前の景観をもとに構成したオリジナルマップです。';
   copies['map-coordinate-copy']=copies['menu-coordinate-copy']=map.id==='hirakata'?'34.815°N / 135.649°E':'35°35′42″N / 139°20′42″E';copies['menu-map-note']=map.id==='hirakata'?'枚方市駅 / 南北広場・自由通路・駅周辺街区':'非公式ファンメイド / 橋本駅前をモチーフにしたオリジナルマップ';copies['radar-map-copy']=short+' / 2 SITES';
   if(map.id==='trc')Object.assign(copies,{'map-detail':'受付棟を左右に回ってA・Bメインへ。入口は天井までの壁の裏から横入り。MIDは中央への回り込みかS1/S2シャッターを選択。Aは7mダクト・ヘブン、Bは独立した地下搬入路。Fでドア・はしご、Vでダクト、Shiftで消音。','map-coordinate-copy':'TRC INSPIRED / OUTDOOR APPROACH','menu-coordinate-copy':'TRC INSPIRED / OUTDOOR APPROACH','menu-map-note':'同人音楽即売会 / オリジナル対戦レイアウト'});
+  if(map.routeCopy)copies['map-route-copy']=map.routeCopy;
+  if(map.id==='hirakata'&&map.layeredNavigation===true)copies['map-detail']='参考映像をもとに南北広場・2階改札前・南デッキ・公園をつないだマップです。対戦エリアは'+(viewBounds.maxX-viewBounds.minX)+'m × '+(viewBounds.maxZ-viewBounds.minZ)+'m。階段と通路で各エリアへ移動できます。';
   canvas.setAttribute('aria-label',name+'の3D競技マップ');$('large-minimap')?.setAttribute('aria-label',name+'の戦術マップ');
   for(const[id,text]of Object.entries(copies))if($(id))$(id).textContent=text;
   for(const id of ['map-select','online-map'])if($(id)&&(!online||id==='map-select'))$(id).value=map.id||'hashimoto';
@@ -1718,6 +1722,11 @@ function trcBotGoal(bot,fallback,attacking,siteId,spike){
   return points[plan.index];
 }
 function actorBodyHeight(actor){return 1.7-clamp(Number.isFinite(actor.crouch)?actor.crouch:0,0,1)*.55;}
+// Layered floors need the same authoritative slope/gravity rules as TRC,
+// without enabling its doors, ladders, ducts or additional wire fields.
+function layeredMovement(){return !!map.traversal||map.layeredNavigation===true;}
+function maxActorY(){return map.layeredNavigation===true&&Number.isFinite(map.maxActorY)?clamp(map.maxActorY,11,100):11;}
+function validLayeredHeight(y){return Number.isFinite(y)&&y>=(map.minY??0)&&y<=maxActorY();}
 function canStand(x,z,r=.34,feet=player.y,height=1.7) {
   const b=activeArenaBounds();
   if(x<b.minX+r||x>b.maxX-r||z<b.minZ+r||z>b.maxZ-r)return false;
@@ -1744,10 +1753,10 @@ function moveEntity(entity,dx,dz,r=.34,separatingOwner=null) {
     const permitted=(x,z)=>buyAreaContains(area,x,z,r);
     function attempt(x,z){
       if(!permitted(x,z))return;
-      const controlled=entity===player||!!entity.remoteId||!!map.traversal;
+      const controlled=entity===player||!!entity.remoteId||layeredMovement();
       let feet=entity.y||0;
       const ramp=controlled?rampFloor(x,z,feet):null;
-      const followsFloor=entity===player||map.traversal?!entity.vy:!!entity.remoteId;
+      const followsFloor=entity===player||layeredMovement()?!entity.vy:!!entity.remoteId;
       // A movement substep may follow the slope it is already touching, even
       // during a dash, launch or jet. Entering its side from below still blocks.
       const previousRamp=controlled?rampFloor(entity.x,entity.z,feet):null;
@@ -1795,7 +1804,7 @@ function visibleBetween(a,b) {
   return !smokeBlocks(a,b)&&map.collision.rayClear(a.x,eye(a),a.z,b.x,eye(b),b.z)&&(!map.traffic||map.traffic.rayClear({x:a.x,y:eye(a),z:a.z},{x:b.x,y:eye(b),z:b.z},elapsed));
 }
 function safeDropPoint(entity=player){
-  const forwardX=-Math.sin(entity.yaw||0),forwardZ=-Math.cos(entity.yaw||0),feet=map.id==='trc'?(entity.y||0):0;
+  const forwardX=-Math.sin(entity.yaw||0),forwardZ=-Math.cos(entity.yaw||0),feet=map.id==='trc'||map.layeredNavigation===true?(entity.y||0):0;
   for(let distance=2;distance>=0;distance-=.2){
     const x=entity.x+forwardX*distance,z=entity.z+forwardZ*distance,y=getZoneFloor(x,z,feet+.05);
     if(navigation.isWalkable(x,z,y)&&map.collision.rayClear(entity.x,feet+.3,entity.z,x,y+.15,z))return {x,z,y};
@@ -2137,7 +2146,7 @@ function catBotFetchAim(bot){
    if(owned===drop.weapon){const saved=actorWeaponId(bot)===owned?{ammo:bot.aiAmmo,reserve:bot.aiReserve}:bot.netStores?.[owned];if(!saved||!(drop.ammo>saved.ammo)||drop.ammo+drop.reserve<saved.ammo+saved.reserve)continue;}
    else if(spec.price<=current.price)continue;
   }
-  const distance=Math.hypot(drop.x-bot.x,drop.z-bot.z),aim={yaw:Math.atan2(bot.x-drop.x,bot.z-drop.z),pitch:Math.atan2(.2-((bot.y||0)+1.7-(bot.crouch||0)*.55),distance)};
+  const distance=Math.hypot(drop.x-bot.x,drop.z-bot.z),aim={yaw:Math.atan2(bot.x-drop.x,bot.z-drop.z),pitch:Math.atan2((map.layeredNavigation===true?(drop.y||0):0)+.2-((bot.y||0)+1.7-(bot.crouch||0)*.55),distance)};
   // Use the real human target ray: a nearer drop can intercept this aim.
   if(catDropTarget(bot,aim)?.drop!==drop)continue;
   const score=spec.price+drop.ammo/spec.mag;
@@ -2539,7 +2548,7 @@ function updateRenkoVertical(actor,dt,radius){
  const e=renkoFlight(actor);if(!e)return false;
  const velocity=renkoFlightVelocity(e,elapsed,{pitch:actor===player?player.pitch:actor.netPitch||0});
  const steps=Math.max(1,Math.ceil(dt*120)),step=dt/steps;actor.vy=velocity;
- for(let i=0;i<steps;i++){let next=actor.y+velocity*step;const height=actorBodyHeight(actor);let floor=map.floorBaseAt?.(actor.x,actor.z)??0,ceiling=Math.min(11,e.y+RENKO_SKILLS.flightHeight);const ramp=rampFloor(actor.x,actor.z,actor.y);if(ramp!==null&&ramp<=actor.y+.04)floor=ramp;
+ for(let i=0;i<steps;i++){let next=actor.y+velocity*step;const height=actorBodyHeight(actor);let floor=map.floorBaseAt?.(actor.x,actor.z)??0,ceiling=Math.min(maxActorY(),e.y+RENKO_SKILLS.flightHeight);const ramp=rampFloor(actor.x,actor.z,actor.y);if(ramp!==null&&ramp<=actor.y+.04)floor=ramp;
   for(const c of map.collision.query(actor.x,actor.z,radius)){if(c.disabled||!map.collision.overlaps(c,actor.x,actor.z,radius))continue;const underside=c.base||0,top=movementTop(c,actor.x,actor.z);if(actor.y+height<=underside+.00001&&next+height>=underside)ceiling=Math.min(ceiling,underside-height);if(top<=actor.y+.00001)floor=Math.max(floor,top);}
   actor.y=Math.max(floor,Math.min(ceiling,next));if(actor.y!==next)actor.vy=0;
  }return true;
@@ -3101,7 +3110,7 @@ function duckFlight(actor){
 // cannot opt in, and a shared pad grants it to every actual rider.
 function duckAirAim(actor){return match?.phase==='live'&&actor?.alive&&!actorGrounded(actor)&&!!(duckFlight(actor)||duckPadAirborne(actor));}
 function duckFlap(actor){
-  const event=duckFlight(actor);if(!event||actor.planting||actor.defusing||actor.trafficLaunch||actor.y>=Math.min(11,event.y+DUCK_SKILLS.flightHeight)-.02)return false;
+  const event=duckFlight(actor);if(!event||actor.planting||actor.defusing||actor.trafficLaunch||actor.y>=Math.min(maxActorY(),event.y+DUCK_SKILLS.flightHeight)-.02)return false;
   if(actor.duckFlapEvent===event.id&&elapsed<(actor.duckFlapAt||0)+DUCK_SKILLS.flapInterval)return false;
   actor.duckFlapEvent=event.id;actor.duckFlapAt=elapsed;actor.vy=DUCK_SKILLS.flapVelocity;sound('duck-flap',{entity:actor,localOnly:true});return true;
 }
@@ -3213,7 +3222,7 @@ function updateHUD(){
   if(exploring){
     $('timer').textContent='∞';$('round-label').textContent=(map.shortName||'HASHIMOTO')+' / MAP PRACTICE';$('side-label').textContent='マップ練習';
     $('phase-label').textContent='2 SITES / 3 LANES';$('objective-label').textContent=!rangeSession&&!objectivePractice?'C/Q/E/X 無限 · M：ルート確認・地点移動 · B：武器選択':'M：ルート確認・地点移動 · WASD：移動 · B：武器選択';
-    $('spike-state').textContent=map.id==='trc'?'屋外前庭 / A ロング / MID / 搬入 B メイン':map.id==='hirakata'?'南北自由通路 / バス車道に注意 / 接触150ダメージ':'バス通り / 中央連絡路 / ミウィ通り';$('zone').textContent=zone?.name||((map.name||'橋本駅')+'前');
+    $('spike-state').textContent=map.routeCopy||(map.id==='trc'?'屋外前庭 / A ロング / MID / 搬入 B メイン':map.id==='hirakata'?'南北自由通路 / バス車道に注意 / 接触150ダメージ':'バス通り / 中央連絡路 / ミウィ通り');$('zone').textContent=zone?.name||((map.name||'橋本駅')+'前');
   }
   if($('ally-label'))$('ally-label').textContent=rangeSession?'SCORE':'YOUR TEAM';
   if($('enemy-label'))$('enemy-label').textContent=rangeSession?'HEADSHOT':'ENEMY TEAM';
@@ -3251,7 +3260,7 @@ function drawMinimap(target,large=false){
   for(let z=Math.ceil(bounds.minZ/grid)*grid;z<bounds.maxZ;z+=grid){ctx.beginPath();ctx.moveTo(0,pz(z));ctx.lineTo(w,pz(z));ctx.stroke();}
   drawMapShapes(ctx,map.mapShapes,{bounds,px,pz,scale,large});
   if(large&&map.tactical?.flanks){ctx.save();ctx.strokeStyle='#8bc9bd';ctx.lineWidth=2;ctx.setLineDash([5,4]);for(const flank of map.tactical.flanks){const points=flank.points;ctx.beginPath();ctx.moveTo(px(points[0][0]),pz(points[0][1]));for(const[x,z]of points.slice(1))ctx.lineTo(px(x),pz(z));ctx.stroke();const[a,b]=points.slice(-2),angle=Math.atan2(b[1]-a[1],b[0]-a[0]);ctx.setLineDash([]);ctx.beginPath();for(const side of[-1,1]){ctx.moveTo(px(b[0]),pz(b[1]));ctx.lineTo(px(b[0])-Math.cos(angle+side*.5)*9,pz(b[1])-Math.sin(angle+side*.5)*9);}ctx.stroke();ctx.setLineDash([5,4]);}ctx.restore();}
-  if(large&&exploring&&map.combatBounds&&map.combatBounds!==map.bounds){const b=map.combatBounds;ctx.save();ctx.strokeStyle='#e68172';ctx.lineWidth=2;ctx.setLineDash([6,5]);ctx.strokeRect(px(b.minX),pz(b.minZ),(b.maxX-b.minX)*scale,(b.maxZ-b.minZ)*scale);ctx.setLineDash([]);ctx.fillStyle='#efb4a8';ctx.font='12px sans-serif';ctx.textAlign='left';ctx.fillText('対戦エリア / 164m',px(b.minX)+5,pz(b.minZ)+15);ctx.restore();}
+  if(large&&exploring&&map.combatBounds&&map.combatBounds!==map.bounds&&(map.layeredNavigation!==true||['minX','maxX','minZ','maxZ'].some(k=>map.combatBounds[k]!==map.bounds[k]))){const b=map.combatBounds;ctx.save();ctx.strokeStyle='#e68172';ctx.lineWidth=2;ctx.setLineDash([6,5]);ctx.strokeRect(px(b.minX),pz(b.minZ),(b.maxX-b.minX)*scale,(b.maxZ-b.minZ)*scale);ctx.setLineDash([]);ctx.fillStyle='#efb4a8';ctx.font='12px sans-serif';ctx.textAlign='left';ctx.fillText(map.layeredNavigation===true?'対戦エリア / '+(b.maxX-b.minX)+'m × '+(b.maxZ-b.minZ)+'m':'対戦エリア / 164m',px(b.minX)+5,pz(b.minZ)+15);ctx.restore();}
   if(map.traffic)for(const bus of map.traffic.poses(elapsed)){ctx.save();ctx.translate(px(bus.x),pz(bus.z));ctx.rotate(-bus.yaw);ctx.fillStyle='#ee6675';ctx.fillRect(-1.25*scale,-5.3*scale,2.5*scale,10.6*scale);ctx.restore();}
   ctx.textAlign='center';ctx.textBaseline='middle';
   for(const pos of map.sites){
@@ -3392,12 +3401,12 @@ function updateBots(dt){
   }
   function advance(bot,goal,intent='objective'){
     const safe=navigation.nearest(goal.x,goal.z,goal.y||0);if(!safe)return false;
-    const dist=Math.hypot(bot.x-safe.x,bot.z-safe.z,map.traversal?(bot.y||0)-(safe.y||0):0);if(dist<(intent==='bus-escape'?.04:.32)){bot.path=[];return false;}
+    const dist=Math.hypot(bot.x-safe.x,bot.z-safe.z,layeredMovement()?(bot.y||0)-(safe.y||0):0);if(dist<(intent==='bus-escape'?.04:.32)){bot.path=[];return false;}
     bot.pathTime=(bot.pathTime||0)-dt;
     if(bot.pathTime<=0||!bot.path?.length||!bot.goal||distance(bot.goal,safe)>2||bot.pathIntent!==intent){
       bot.path=intent==='bus-escape'?[safe]:navigation.path(bot.x,bot.z,safe.x,safe.z,bot.y||0,safe.y||0);bot.pathTime=.8+Math.random()*.15;bot.goal=safe;bot.pathIntent=intent;
     }
-    while(bot.path.length&&Math.hypot(bot.x-bot.path[0].x,bot.z-bot.path[0].z,map.traversal?(bot.y||0)-(bot.path[0].y||0):0)<(intent==='bus-escape'?.04:.22))bot.path.shift();
+    while(bot.path.length&&Math.hypot(bot.x-bot.path[0].x,bot.z-bot.path[0].z,layeredMovement()?(bot.y||0)-(bot.path[0].y||0):0)<(intent==='bus-escape'?.04:.22))bot.path.shift();
     const point=bot.path[0];if(!point)return false;
     if(map.traversal){
       if(point.ladder){const n=map.traversal.nearby(bot);if(n?.id===point.ladder){bot.trcClimbDirection=point.y>(bot.y||0)?1:-1;trcInteract(bot,n);return true;}}
@@ -3409,7 +3418,7 @@ function updateBots(dt){
     const speed=(bot.kit?.character==='renko'&&renkoEvent(bot,'renko-drive')?RENKO_SKILLS.runSpeed:frostSlideSpeed(bot)||(3.35+cfg.speed*.25)*1.15)*actorSpeedScale(bot)*(map.ductAt?.(bot.x,bot.z,bot.y)?.28:1);
     const step=Math.min(length,speed*dt),oldX=bot.x,oldZ=bot.z;
     if(elapsed<(bot.trafficLaunch?.endsAt||0))return false;
-    if(navigation.trafficStep&&!navigation.trafficStep(bot.x,bot.z,bot.x+dx/length*step,bot.z+dz/length*step)){bot.pathTime=0;return false;}
+    if(navigation.trafficStep&&!navigation.trafficStep(bot.x,bot.z,bot.x+dx/length*step,bot.z+dz/length*step,bot.y||0)){bot.pathTime=0;return false;}
     moveEntity(bot,dx/length*step,dz/length*step,.4);
     // During a duel the gun-facing branch controls orientation, including
     // urgent movement. Moving toward a path must never snap the body around.
@@ -3531,7 +3540,7 @@ function updateBots(dt){
     // A close threat interrupts starting an interaction; an ongoing plant or urgent retake commits.
     const committedPlant=spike.plantActor===bot.id&&spike.plantProgress>0;
     const committedDefuse=spike.defuseActor===bot.id&&spike.defuseProgress>0;
-    const trafficEscape=actorGrounded(bot)?navigation.trafficEscape?.(bot.x,bot.z):null;
+    const trafficEscape=actorGrounded(bot)?navigation.trafficEscape?.(bot.x,bot.z,bot.y||0):null;
     const interactPlant=!trafficEscape&&Math.abs(bot.y||0)<.05&&actorGrounded(bot)&&plantSite&&(enemyDistance>10||committedPlant||role?.urgent);
     const canDefuse=!trafficEscape&&Math.abs(bot.y||0)<.05&&actorGrounded(bot)&&shouldDefuse&&(!spike.defuseActor||spike.defuseActor===bot.id);
     const retake=tactics.defuseDecision?.(bot,elapsed,role,spike,{enemy,canWork:canDefuse,impaired:ordinarySkills.blindUntil(bot.id,elapsed)>elapsed||ordinarySkills.nearsightUntil?.(bot.id,elapsed)>elapsed});
@@ -4048,7 +4057,7 @@ function updateActorVertical(actor,dt,radius=.34){
     for(let i=0;i<verticalSteps;i++){
       assistGrassJump(actor,verticalDt,radius);
       const height=actorBodyHeight(actor),previousFeet=actor.y,nextFeet=previousFeet+actor.vy*verticalDt-7.5*verticalDt*verticalDt;
-      actor.vy-=15*verticalDt;let support=map.floorBaseAt?.(actor.x,actor.z)??0,ceiling=flight?Math.min(11,flight.y+DUCK_SKILLS.flightHeight):Infinity;
+      actor.vy-=15*verticalDt;let support=map.floorBaseAt?.(actor.x,actor.z)??0,ceiling=flight?Math.min(maxActorY(),flight.y+DUCK_SKILLS.flightHeight):Infinity;
       if(nextFeet>previousFeet){
         for(const p of heads)if(previousFeet+height<=p.base+.00001&&nextFeet+height>=p.base&&grassOverlaps(p,actor.x,actor.z,radius))ceiling=Math.min(ceiling,p.base-height);
         for(const c of map.collision.query(actor.x,actor.z,radius)){
@@ -4420,6 +4429,7 @@ function applyNetSnapshot(packet){
   if((packet.mapId||'hashimoto')!==(map.id||'hashimoto'))return;
   if(!packet.rules||!Array.isArray(packet.actors)||packet.actors.length>10||!Array.isArray(packet.roster)||!Number.isFinite(packet.time))return;
   if(packet.actors.some(a=>!a||a.crouch!==undefined&&(!Number.isFinite(a.crouch)||a.crouch<0||a.crouch>1)))return;
+  if(map.layeredNavigation===true&&packet.rules.spike?.y!==undefined&&!validLayeredHeight(packet.rules.spike.y))return;
   const ownId=netParticipants.get(online.session.memberId),self=packet.actors.find(a=>a.id===ownId);if(!self)return;
   if(map.traversal&&(!map.traversal.valid(packet.trcDoors)||packet.actors.some(a=>a.trcLadder!==undefined&&!map.traversal.ladders.some(l=>l.id===a.trcLadder))))return;
   if(packet.damageReport!==undefined&&(packet.rules.phase!=='buy'||!roundDamage.restore(packet.damageReport,packet.roster,packet.rules.round,self.team,true)))return;
@@ -4583,7 +4593,7 @@ function updateRemoteActor(actor,dt){
   const wasClimbing=!!actor.trcLadder&&!carMotionActive(actor);if(wasClimbing){const previous={x:actor.x,y:actor.y,z:actor.z};map.traversal.climb(actor,active&&[-1,0,1].includes(input.climb)?input.climb:0,dt,input.quiet===true);trcMotionSound(actor,dt,previous,input.quiet===true);}
   if(active&&!wasClimbing&&!busSeat(actor)&&Number.isFinite(input.x)&&Number.isFinite(input.z)){
     // An accepted airborne pose ends turf before applying this input's speed cap.
-    const inputFeet=Number.isFinite(input.y)?clamp(input.y,map.minY??0,11):actor.y;
+    const inputFeet=Number.isFinite(input.y)?clamp(input.y,map.minY??0,maxActorY()):actor.y;
     const inputGrounded=actorGrounded({...actor,x:input.x,z:input.z,y:inputFeet,vy:0});
     let dx=input.x-actor.x,dz=input.z-actor.z;const renkoJet=renkoFlight(actor),renkoDrive=renkoDriveMotion(actor,renkoJet?null:renkoEvent(actor,'renko-drive'),elapsed,dt,{x:dx/Math.max(.001,dt*RENKO_SKILLS.runSpeed),z:dz/Math.max(.001,dt*RENKO_SKILLS.runSpeed),crouch:input.crouch>.5,grounded:actorGrounded(actor)});
     if(actor.dashTimer>0&&actor.dashVec){const step=Math.min(dt,actor.dashTimer)*12/.18;dx=actor.dashVec.x*step;dz=actor.dashVec.z*step;}
@@ -4601,7 +4611,7 @@ function updateRemoteActor(actor,dt){
     // client's sampled height. Give that motion a bounded chance to finish;
     // a persistently blocked request still receives an authoritative rejection.
     let waitForStep=false;
-    if(map.traversal&&!renkoJet&&!duckPadAirborne(actor)&&!duckFlight(actor)&&!ordinarySkills.onnaraEvent?.('onnara-hover',actor.id,elapsed)){
+    if(layeredMovement()&&!renkoJet&&!duckPadAirborne(actor)&&!duckFlight(actor)&&!ordinarySkills.onnaraEvent?.('onnara-hover',actor.id,elapsed)){
       const blockedKey=data.connection+':'+data.round;
       if(!blocked||actor.netTrcBlockedKey!==blockedKey)actor.netTrcBlockedAt=null;
       actor.netTrcBlockedKey=blockedKey;
@@ -4624,7 +4634,7 @@ function updateRemoteActor(actor,dt){
         }
       }
       const starJump=ordinarySkills.onnaraEvent?.('onnara-jump',actor.id,elapsed);
-      if((map.traversal||starJump||grassAuthority||['renko','onnara'].includes(actor.kit?.character))&&!flight){
+      if((layeredMovement()||starJump||grassAuthority||['renko','onnara'].includes(actor.kit?.character))&&!flight){
         // One airborne input stream can request one normal jump. Reusing its
         // last height after landing must not repeatedly launch the remote.
         const jumpKey=data.connection+':'+data.round;
@@ -4636,14 +4646,14 @@ function updateRemoteActor(actor,dt){
       actor.y=acceptedY;
       // Remote motion is consumed from its accepted pose; a prior lift impulse
       // must not leave a landed actor permanently classified as airborne.
-      if((!map.traversal&&!starJump&&!grassAuthority&&!['renko','onnara'].includes(actor.kit?.character))||flight)actor.vy=inputGrounded?0:(actor.y-previousY)/Math.max(dt,1e-6);
+      if((!layeredMovement()&&!starJump&&!grassAuthority&&!['renko','onnara'].includes(actor.kit?.character))||flight)actor.vy=inputGrounded?0:(actor.y-previousY)/Math.max(dt,1e-6);
     }
     applyStarHold(actor);
     actorMovementScale(actor);
     actor.netYaw=Number.isFinite(input.yaw)?input.yaw:0;actor.netPitch=clamp(Number(input.pitch)||0,-SKILL_THROW.maxPitch,SKILL_THROW.maxPitch);actor.group.rotation.y=actor.netYaw+Math.PI;
   }
   if(active&&busSeat(actor)){actor.netYaw=Number.isFinite(input.yaw)?input.yaw:actor.netYaw||0;actor.netPitch=clamp(Number(input.pitch)||0,-SKILL_THROW.maxPitch,SKILL_THROW.maxPitch);}
-  if((actor.kit?.character==='onnara'||grassNearby(actor))&&actor.alive&&!wasClimbing&&!busSeat(actor)&&!carMotionActive(actor)&&(!active||!Number.isFinite(input.x)||!Number.isFinite(input.z)))updateActorVertical(actor,dt);
+  if((map.layeredNavigation===true||actor.kit?.character==='onnara'||grassNearby(actor))&&actor.alive&&!wasClimbing&&!busSeat(actor)&&!carMotionActive(actor)&&(!active||!Number.isFinite(input.x)||!Number.isFinite(input.z)))updateActorVertical(actor,dt);
   const remoteRunning=active&&match.phase==='live'&&(frostSlideSpeed(actor)>0||input.quiet!==true&&actor.crouch<.5)&&!wasDashing&&actorGrounded(actor)&&Math.hypot(actor.x-previousX,actor.z-previousZ)>dt*2;
   if(!wasClimbing)trcMotionSound(actor,dt,{x:previousX,y:previousY,z:previousZ},input.quiet===true);
   actor.netStepClock=remoteRunning?(actor.netStepClock||0)+dt:0;if(actor.netStepClock>.35){actor.netStepClock=0;sound('step',{entity:actor});}

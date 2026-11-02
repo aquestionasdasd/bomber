@@ -1,6 +1,7 @@
 import { createCollisionIndex } from './collision.js';
 import { createTrafficNavigation } from './traffic-navigation.js';
 import { createTrcNavigation } from './trc-navigation.js';
+import { createHirakataNavigation } from './hirakata-navigation.js';
 
 // One-metre cells preserve narrow footways. Cells and safe edges are evaluated only when used.
 function createGridNavigation(map, CELL = 1) {
@@ -162,6 +163,7 @@ function createGridNavigation(map, CELL = 1) {
 
 export function createNavigation(map) {
   if(map.id==='trc')return createTrcNavigation(map);
+  if(map.layeredNavigation)return createHirakataNavigation(map,createGridNavigation);
   const traffic = map.traffic?.poses ? createTrafficNavigation(map) : null;
   if (traffic) map = { ...map, collision: traffic.collision };
   const fine = createGridNavigation(map), area = (map.bounds.maxX - map.bounds.minX) * (map.bounds.maxZ - map.bounds.minZ);

@@ -9,7 +9,9 @@ export function busOverlaps(a,b,gap=.7){
  const radius=(p,x,z)=>(1.25+gap/2)*Math.abs(x*Math.cos(p.yaw)-z*Math.sin(p.yaw))+(5.3+gap/2)*Math.abs(x*Math.sin(p.yaw)+z*Math.cos(p.yaw));
  return axes.every(([x,z])=>Math.abs((a.x-b.x)*x+(a.z-b.z)*z)<radius(a,x,z)+radius(b,x,z));
 }
-export function createBusService(schedule){
+export function createBusService(schedule,{bounds={minX:-82,maxX:82,minZ:-82,maxZ:82}}={}){
+ const drivingBounds={...bounds};
+ if(!['minX','maxX','minZ','maxZ'].every(k=>Number.isFinite(drivingBounds[k]))||drivingBounds.minX>=drivingBounds.maxX||drivingBounds.minZ>=drivingBounds.maxZ)throw new RangeError('Invalid bus bounds');
  const states=new Map();
  const fresh=id=>({id,hp:100,riders:[],teams:new Map(),owner:null,fuelUntil:0,custom:null,speed:0});
  const state=id=>{if(!states.has(id))states.set(id,fresh(id));return states.get(id);};
@@ -75,7 +77,7 @@ export function createBusService(schedule){
   if(!Array.isArray(rows)||rows.length>4||ids.length>10)return false;const next=new Map(),seated=new Set(),base=schedule(time);
   for(const v of rows){if(!Array.isArray(v)||![9,10].includes(v.length))return false;const[i,hp,owner,fuel,x,z,yaw,speed,riders,routeTime]=v;const auto=v.length===10;if(auto&&(!Number.isFinite(routeTime)||routeTime<0||routeTime>time+.001||!(hp>0&&hp<=100)||owner!==-1||fuel!==0))return false;
    if(!Number.isInteger(i)||!base[i]||next.has(base[i].id)||!Number.isFinite(hp)||hp<0||hp>100||!Number.isInteger(owner)||owner< -1||owner>=ids.length||!Number.isFinite(fuel)||fuel<0||fuel>time+25.001||!Number.isFinite(speed)||speed< -6.001||speed>17.001||!Array.isArray(riders)||riders.length>7)return false;
-   const custom=x!==null;if(custom?(![x,z,yaw].every(Number.isFinite)||Math.abs(x)>82||Math.abs(z)>82||Math.abs(yaw)>Math.PI+.001):z!==null||yaw!==null||speed!==0||fuel!==0)return false;
+   const custom=x!==null;if(custom?(![x,z,yaw].every(Number.isFinite)||x<drivingBounds.minX||x>drivingBounds.maxX||z<drivingBounds.minZ||z>drivingBounds.maxZ||Math.abs(yaw)>Math.PI+.001):z!==null||yaw!==null||speed!==0||fuel!==0)return false;
    if(owner>=0&&(!riders.includes(owner)||hp!==0||!custom||!fuel))return false;
    if(custom&&hp!==0&&!auto||!custom&&fuel!==0||fuel<=time&&speed!==0&&custom&&!auto||auto&&!custom)return false;
    if(auto){const at=schedule(routeTime)[i];if(Math.hypot(at.x-x,at.z-z)>.04||Math.abs(Math.atan2(Math.sin(at.yaw-yaw),Math.cos(at.yaw-yaw)))>.005||speed<0||speed>11.201)return false;}
