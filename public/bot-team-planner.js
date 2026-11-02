@@ -44,7 +44,7 @@ export function createBotTeamPlanner(){
   history.push({id:state.id,team,objective:state.objective,type:state.action.type,caster:state.caster,follower:state.follower,outcome,at:now});
   if(history.length>24)history.shift();teams.set(team,{nextAt:now+BOT_TEAM_RULES.cooldown});
  }
- function update({allies,contacts,spike,attackerTeam,now,effectState=()=>null,canSetup=()=>true}){
+ function update({allies,contacts,spike,attackerTeam,now,effectState=()=>null,canSetup=()=>true,canFollow=()=>true}){
   if(now<lastTime)reset();lastTime=now;
   const orders=new Map();
   for(const team of ['blue','red']){
@@ -70,6 +70,7 @@ export function createBotTeamPlanner(){
      const actual=effectState(state);
      if(!actual||!actual.alive||!actual.ready||now>=actual.endsAt){finish(team,state,now,'effect-lost');continue;}
     }
+    if(!canFollow(follow,state.point)){finish(team,state,now,'interrupted');continue;}
    }else{
     if(now<(state?.nextAt||0)||spike.status==='dropped')continue;
     teams.set(team,{nextAt:now+BOT_TEAM_RULES.decisionInterval});
@@ -79,7 +80,7 @@ export function createBotTeamPlanner(){
      for(const caster of own.filter(a=>available(a)&&a.ready))for(const action of BOT_TEAM_SETUPS){
       const d=distance(caster,contact);
       if(!focusedOn(caster,contact.id)||caster.character!==action.character||!(caster.stock[action.key]>0)||d<action.min||d>action.max||Math.abs((caster.y||0)-(contact.y||0))>.8)continue;
-      const follow=own.filter(a=>a.id!==caster.id&&follower(a)&&focusedOn(a,contact.id)&&distance(a,caster)<=BOT_TEAM_RULES.allyRange&&distance(a,contact)<=BOT_TEAM_RULES.followRange&&distance(a,contact)>BOT_TEAM_RULES.stopRange+1&&Math.abs((a.y||0)-(contact.y||0))<.8)
+      const follow=own.filter(a=>a.id!==caster.id&&follower(a)&&focusedOn(a,contact.id)&&distance(a,caster)<=BOT_TEAM_RULES.allyRange&&distance(a,contact)<=BOT_TEAM_RULES.followRange&&distance(a,contact)>BOT_TEAM_RULES.stopRange+1&&Math.abs((a.y||0)-(contact.y||0))<.8&&canFollow(a,contact))
        .sort((a,b)=>distance(a,contact)-distance(b,contact)||a.id.localeCompare(b.id))[0];
       if(follow&&canSetup(caster,action,contact))candidates.push({caster,follow,contact,action,score:action.score-distance(follow,contact)*.4-distance(caster,contact)*.2});
      }

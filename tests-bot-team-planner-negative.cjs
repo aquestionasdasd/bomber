@@ -21,11 +21,15 @@ const assert=require('node:assert/strict'),run=require('./tests-bot-team-planner
   ['read hidden enemy directly for Frost grounding',s=>s.replace('const observer=bots.find(b=>b.alive&&b.team===event.team&&b.target?.id===point.id&&visibleBetween(b,b.target));\n      return !!observer&&ordinarySkills.wouldStitch(ordinaryActorView(observer.target),event,queries);','const hidden=[player,...bots].find(a=>a.id===point.id);\n      return !!hidden&&ordinarySkills.wouldStitch(ordinaryActorView(hidden),event,queries);')],
   ['use Frost forecast for actual readiness',s=>s.replace('teamFieldCovers(event,{...state.point,id:state.targetId},true)','teamFieldCovers(event,{...state.point,id:state.targetId})')],
  ];
- for(const[name,mutate]of frostFaults){let changed=false;await assert.rejects(()=>run({mutateGame:s=>{const t=mutate(s);changed=t!==s;assert.ok(changed,name);return t;},only:n=>n==='actual',frostGround:true}),e=>e.code==='ERR_ASSERTION'&&e.message.includes('Frost followup needs actual visible grounded target'));assert.ok(changed);console.log('PASS detects '+name+' (memory only)');}
+ // Isolate effect-witness faults from the independent movement-lane guard.
+ // The lane guard has its own actual-game fault tests; positive game tests
+ // retain both guards and the original assertions below remain unchanged.
+ const isolateLane=s=>{const t=s.replace('return navigation.clearSegment(ally.x,ally.z,x,z,ally.y||0,ally.y||0);','return true;');assert.notEqual(t,s,'actual lane isolation anchor');return t;};
+ for(const[name,mutate]of frostFaults){let changed=false;await assert.rejects(()=>run({mutateGame:s=>{const t=mutate(s);changed=t!==s;assert.ok(changed,name);return isolateLane(t);},only:n=>n==='actual',frostGround:true}),e=>e.code==='ERR_ASSERTION'&&e.message.includes('Frost followup needs actual visible grounded target'));assert.ok(changed);console.log('PASS detects '+name+' (memory only)');}
  const gameFaults=[
   ['accept a passed wave without a hit',s=>s.replace("if(event.type==='urchin-gloom')return ordinarySkills.snapshot().blinds.some", "if(event.type==='urchin-gloom')return true||ordinarySkills.snapshot().blinds.some")],
   ['use another wave hit as confirmation',s=>s.replace('b.eventId===event.id&&','').replace('b.sourceId===event.sourceId&&','')],
   ['read hidden gloom status without a witness',s=>s.replace('if(!witness)return false;','')],
  ];
- for(const[name,mutate]of gameFaults){let changed=false;await assert.rejects(()=>run({mutateGame:s=>{const t=mutate(s);changed=t!==s;assert.ok(changed,name);return t;},only:n=>n==='actual',gloom:true}),e=>e.code==='ERR_ASSERTION'&&e.message.includes('actual matching visible wave hit is required'));assert.ok(changed);console.log('PASS detects '+name+' (memory only)');}
+ for(const[name,mutate]of gameFaults){let changed=false;await assert.rejects(()=>run({mutateGame:s=>{const t=mutate(s);changed=t!==s;assert.ok(changed,name);return isolateLane(t);},only:n=>n==='actual',gloom:true}),e=>e.code==='ERR_ASSERTION'&&e.message.includes('actual matching visible wave hit is required'));assert.ok(changed);console.log('PASS detects '+name+' (memory only)');}
 })().catch(e=>{console.error(e);process.exitCode=1});

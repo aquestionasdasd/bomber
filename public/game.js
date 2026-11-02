@@ -3367,7 +3367,14 @@ function updateBots(dt){
         impaired:ordinarySkills.blindUntil(b.id,elapsed)>elapsed||ordinarySkills.nearsightUntil(b.id,elapsed)>elapsed||ordinarySkills.sealUntil(b.id,elapsed)>elapsed,
         busy:!!(b.serviceReload||b.aiReload>0||b.trcLadder||busSeat(b)||carMotionActive(b)||renkoUnarmed(b)||!actorGrounded(b)||spike.plantActor===b.id&&spike.plantProgress>0||spike.defuseActor===b.id&&spike.defuseProgress>0||injured&&injured.hp<=70),
         stock:{c:b.kit?.smoke||0,q:b.kit?.updraft||0,e:elapsed>=(b.kit?.nextSignatureAt||0)?b.kit?.dash||0:0,x:b.kit?.ultPoints>=7?1:0}};
-    }),canSetup:(caster,action,contact)=>{
+    }),canFollow:(ally,contact)=>{
+      // Match the existing seven-metre follow stop and movement lane. Only
+      // own poses and copied sightings enter this check, never hidden actors.
+      if(Math.abs((ally.y||0)-(contact.y||0))>=.5)return false;
+      const d=distance(ally,contact);if(d<=7)return true;
+      const fraction=(d-7)/d,x=ally.x+(contact.x-ally.x)*fraction,z=ally.z+(contact.z-ally.z)*fraction;
+      return navigation.clearSegment(ally.x,ally.z,x,z,ally.y||0,ally.y||0);
+    },canSetup:(caster,action,contact)=>{
       const bot=bots.find(b=>b.id===caster.id);
       return !!bot&&teamSetup(bot,action.type,contact,contact.id,bot.target).valid;
     },effectState:state=>{
