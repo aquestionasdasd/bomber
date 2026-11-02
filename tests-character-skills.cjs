@@ -29,10 +29,12 @@ async function main() {
     const stitch=type==='frost-stitch',triggerAt=startedAt+flight+(stitch?.25:0);
     return {flight,triggerAt,endsAt:triggerAt+(stitch?8:9),radius:stitch?3.8:3.5};
   }
-  function canonicalFrost(event, owner, destination) {
+  function canonicalFrost(event, owner, destination, startedAt = 0) {
     assert.ok(event);assert.ok(['frost-stitch','frost-mist'].includes(event.type));
-    const expected=frostExpected(owner,destination,event.type,event.startedAt);
-    for(const key of ['flight','triggerAt','endsAt','radius'])near(event[key],expected[key]);
+    assert.equal(event.startedAt,startedAt);
+    const expected=frostExpected(owner,destination,event.type,startedAt);
+    for(const key of ['flight','triggerAt','endsAt'])near(event[key],expected[key]);
+    assert.equal(event.radius,expected.radius);
     const t=expected.flight,vx=(destination.x-owner.x)/t,vz=(destination.z-owner.z)/t;
     const vy=(destination.y-event.fromY)/t+4*t/2;near(Math.hypot(vx,vy,vz),12);
     for(const hz of[20,60,144])for(let frame=0;frame/hz<t;frame++){
@@ -800,8 +802,8 @@ async function main() {
     const stitch = engine.cast({ type: 'frost-stitch', radius: 999, innerRadius: 0, speedScale: 0 }, owner, target(2, -13, 3.32), 2, 1);
     const mist = engine.cast('frost-mist', owner, target(2, -15, 4.6), 2, 1), unravel = engine.cast('frost-unravel', owner, target(2, 3, 3.2), 2, 1);
     assert.ok(stitch); assert.ok(mist); assert.ok(unravel); near(stitch.fromY, 4.9); near(mist.fromY, 4.9); assert.equal(unravel.fromY, 3.2);
-    canonicalFrost(stitch, owner, target(2, -13, 3.32));
-    canonicalFrost(mist, owner, target(2, -15, 4.6));
+    canonicalFrost(stitch, owner, target(2, -13, 3.32), 2);
+    canonicalFrost(mist, owner, target(2, -15, 4.6), 2);
     assert.equal(unravel.flight, 0); assert.equal(unravel.triggerAt, 2); assert.equal(unravel.endsAt, 7); assert.equal(unravel.radius, 0);
     for (const event of [stitch, mist, unravel]) assert.deepEqual(Object.keys(event).sort(), ['id', 'type', 'team', 'sourceId', 'round', 'fromX', 'fromY', 'fromZ', 'x', 'y', 'z', 'startedAt', 'flight', 'triggerAt', 'endsAt', 'radius'].sort());
     assert.equal(engine.cast('frost-stitch', owner, target(2, -13.001, 3.32), 2, 1), null); assert.equal(engine.cast('frost-mist', owner, target(2, -15.001, 4.6), 2, 1), null);
