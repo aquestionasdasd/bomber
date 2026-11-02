@@ -3370,6 +3370,7 @@ function updateBots(dt){
     }),canFollow:(ally,contact)=>{
       // Match the existing seven-metre follow stop and movement lane. Only
       // own poses and copied sightings enter this check, never hidden actors.
+      if(!visibleBetween(ally,contact))return false;
       if(Math.abs((ally.y||0)-(contact.y||0))>=.5)return false;
       const d=distance(ally,contact);if(d<=7)return true;
       const fraction=(d-7)/d,x=ally.x+(contact.x-ally.x)*fraction,z=ally.z+(contact.z-ally.z)*fraction;
