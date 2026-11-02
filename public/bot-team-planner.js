@@ -44,14 +44,15 @@ export function createBotTeamPlanner(){
   history.push({id:state.id,team,objective:state.objective,type:state.action.type,caster:state.caster,follower:state.follower,outcome,at:now});
   if(history.length>24)history.shift();teams.set(team,{nextAt:now+BOT_TEAM_RULES.cooldown});
  }
- function update({allies,contacts,spike,attackerTeam,now,effectState=()=>null,canSetup=()=>true,canFollow=()=>true}){
+ function update({allies,contacts,spike,attackerTeam,now,retiredTargetIds=[],effectState=()=>null,canSetup=()=>true,canFollow=()=>true}){
   if(now<lastTime)reset();lastTime=now;
   const orders=new Map();
   for(const team of ['blue','red']){
-   const own=allies.filter(a=>a.team===team),intel=(contacts[team]||[]).filter(c=>now>=c.seenAt&&now-c.seenAt<=BOT_TEAM_RULES.intelAge);
+   const own=allies.filter(a=>a.team===team),intel=(contacts[team]||[]).filter(c=>!retiredTargetIds.includes(c.id)&&now>=c.seenAt&&now-c.seenAt<=BOT_TEAM_RULES.intelAge);
    const objective=spike.status==='planted'?(team===attackerTeam?'postplant':'retake'):'entry';
    let state=teams.get(team);
    if(state?.id){
+    if(retiredTargetIds.includes(state.targetId)){finish(team,state,now,'target-retired');continue;}
     // Fresh copied sightings guide uncast aim and later effect checks.
     // Accepted cast geometry stays fixed in the authoritative event.
     const latest=intel.find(c=>c.id===state.targetId);
