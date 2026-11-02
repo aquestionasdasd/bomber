@@ -1,0 +1,19 @@
+name: BD3DO request wake validation
+on:
+  push:
+    branches: [codex/discord-event-wake]
+permissions:
+  contents: read
+jobs:
+  wake:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+      - name: Verify read-only endpoint and AI-free deduplication
+        run: node --test automation/event-wake/watcher.test.mjs automation/event-wake/intake/tests/*.test.mjs
