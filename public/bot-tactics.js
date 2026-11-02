@@ -88,7 +88,7 @@ export function createBotTactics({sites,navigation,collision,lanes=[],attackSpaw
   }
   function observe(team,observerId,enemy,now){
     if(!enemy||enemy.team===team||!Number.isFinite(enemy.x)||!Number.isFinite(enemy.z))return;
-    teamIntel(team).set(enemy.id,{id:enemy.id,team:enemy.team,x:enemy.x,z:enemy.z,y:enemy.y||0,seenAt:now,observerId});
+    teamIntel(team).set(enemy.id,{id:enemy.id,team:enemy.team,x:enemy.x,z:enemy.z,y:enemy.y||0,...(Number.isFinite(enemy.crouch)&&enemy.crouch>0?{crouch:Math.min(1,enemy.crouch)}:{}),seenAt:now,observerId});
   }
   function contacts(team,now){
     const known=teamIntel(team),result=[];

@@ -31,7 +31,7 @@ export const BOT_TEAM_SETUPS=Object.freeze([
  ['echo','q','echo-glint',1,18,64],
  ['nope','q','nope-flash',10,18,62]
 ].map(([character,key,type,min,max,score])=>Object.freeze({character,key,type,min,max,score})));
-const distance=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z),position=p=>({x:p.x,y:p.y||0,z:p.z});
+const distance=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z),position=p=>({x:p.x,y:p.y||0,z:p.z,...(Number.isFinite(p.crouch)&&p.crouch>0?{crouch:Math.min(1,p.crouch)}:{})});
 const available=a=>a.alive&&!a.human&&!a.impaired&&!a.busy&&!a.urgent&&a.hp>=BOT_TEAM_RULES.minHealth;
 const focusedOn=(a,id)=>!a.engagedTargetId||a.engagedTargetId===id;
 const follower=a=>available(a)&&a.ammo>0&&!a.scoped&&!['plant','defuse','recover'].includes(a.role);
