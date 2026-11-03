@@ -15,3 +15,15 @@ no reference video frames, recordings, texture library, or font files.
 Station label outlines were baked from locally installed Meiryo / Yu Gothic.
 The game removes six static display buses in favor of its four interactive buses.
 The three modeled taxis remain. Reflections use a procedural local light cube.
+
+hirakata-oak-finish.js
+Oak Veneer 01 by Jenelle van Heerden, Poly Haven, CC0-1.0.
+Asset: https://polyhaven.com/a/oak_veneer_01
+License: https://polyhaven.com/license
+Prepared from the 1k JPG diffuse, roughness and OpenGL normal maps: resized to
+512px, diffuse converted to neutral luminance to retain authored surface colors,
+roughness range adjusted, normals renormalized, rows reversed for DataTexture.
+The three maps are bundled locally; gameplay makes no texture-provider request.
+Source and prepared-byte hashes are embedded in the asset provenance.
+See scripts/prepare-hirakata-oak-finish.py. Other hall micro-surfaces and contact
+AO are original deterministic procedural textures made for this project.

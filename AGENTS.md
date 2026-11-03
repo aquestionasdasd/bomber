@@ -1,3 +1,9 @@
+## 2026-11-03 / 中央・東改札の素材と照明
+
+所有者の見た目改善に対する手動の限定仕上げ。中央/東改札の木部・床・天井・金属へ色/粗さ/法線mapを追加し、既存の明るい清潔な色を保ちながら木目と微細な表面差を付ける。木目はPoly HavenのOak Veneer 01（Jenelle van Heerden、CC0）を512pxへ縮小・中性色化して同梱、他素材は決定的な生成map。計10texture、基礎RGBAデータ5MiB（mipmap/JS文字列等を除く）を初期化時だけ作る。床AOは同じ破壊moduleの柱/什器だけを対象にして、別々に壊れる物体の残像を避ける。中央/東の天井に影なしPointLightを計4個付け、天井破壊/全域崩壊で一緒に消える。枚方全体の環境光/太陽光も調整し、別mapへの切替時には従来の既定値へ戻す。
+
+GLB/歩行layout/position/normal/index/形状数は不変。素材clone/textureは通常終了と途中失敗で破棄し、描画用UV以外の幾何を変えない。surface12群/render7群/map9群/階段13群（実updatePlay含む）/B-site9群/terrace5群がPASS。静的カメラの無音専用GPU描画記録は通常対戦のFPS証明ではなく、最終の実ゲーム確認/公開状況はprivate test-report/runtime/releaseを参照する。全域素材化、全端末の性能、通常5v5バランス、所有者tab、聴感の検証は未実施。A遮蔽物/B位置/階段開口/家具支持/CPU判断/武器/音源/通信は保持。CPU/Discord/旧fps-19定期処理は停止を維持し、controller/保留jobには触らない。
+
 ## 2026-11-03 / T-SITEテラスの浮遊家具と床模様
 
 所有者の画像報告。3卓目の椅子/パラソルが(x16,z86,脚6.4m)、円形模様が(x15,z88,y6.45)にあり、床の外/階段開口上に浮いていた。3卓目と模様を既存の広い床(x14,z57)へ移し、模様はタイル6.412mに近い6.416mへ下げる。階段開口・床/衝突layoutはbyte不変。元394mesh中TSITE_terraceのwhite/steel/ivory/blueだけ変更し、他390mesh・全node/material/scene・三角形数は同一。原本から再現するprepare-hirakata-terrace-support.pyは既存階段開口preparerを先に適用し、別outputで無音background geometry exportのみ行う。

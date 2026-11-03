@@ -38,11 +38,13 @@ async function main(){
   assert.ok(model.groupMeshes.get('Ground_and_roads').every(mesh=>mesh.userData.preserveGround));
   for(const name of['North_ground_and_rotary','Park']){const list=model.groupMeshes.get(name);assert.ok(list.some(mesh=>mesh.userData.preserveGround),name);assert.ok(list.some(mesh=>!mesh.userData.preserveGround),name);}
  });
- check('original PBR materials, reflection cube and only a local ambient fill',()=>{
+ check('original PBR materials and reflection cube retained with restrained fill and owned fixture lights',()=>{
   assert.equal(model.materials.length,32);assert.ok(model.environment.isCubeTexture);assert.equal(model.environment.image.length,6);
   for(const face of model.environment.image){assert.ok(face.isDataTexture);assert.equal(face.image.data.length,64*64*4);}
   for(const material of model.materials){assert.equal(material.envMap,model.environment);assert.equal(material.envMapIntensity,.65);}
-  const fill=model.world.children.filter(node=>node.isLight);assert.equal(fill.length,1);assert.ok(fill[0].isAmbientLight);assert.equal(fill[0].intensity,.65);
+  const fill=model.world.children.filter(node=>node.isLight);assert.equal(fill.length,1);assert.ok(fill[0].isAmbientLight);assert.equal(fill[0].intensity,.18);
+  const fixtures=[];model.world.traverse(node=>{if(node.isPointLight)fixtures.push(node);});assert.equal(fixtures.length,4);
+  for(const light of fixtures){assert.equal(light.castShadow,false);assert.equal(light.intensity,18);assert.equal(light.distance,23);assert.ok(light.parent.isMesh);assert.match(light.parent.userData.hirakataModule,/^Station_(central|east)_Ceiling$/);}
   assert.ok(Math.abs(model.materials.find(m=>m.name==='light').emissiveIntensity-1.164)<1e-6);
  });
  function alteredDoc(change){

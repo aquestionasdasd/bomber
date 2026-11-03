@@ -140,7 +140,8 @@ function beginDeathView(){
 }
 camera.rotation.order = 'YXZ';
 scene.add(camera);
-scene.add(new THREE.HemisphereLight('#d9edff', '#647063', 1.65));
+const hemisphere = new THREE.HemisphereLight('#d9edff', '#647063', 1.65);
+scene.add(hemisphere);
 const sun = new THREE.DirectionalLight('#fff0d6', 3.0);
 sun.position.set(-65, 105, 55);
 sun.castShadow = true;
@@ -1323,7 +1324,8 @@ function selectArena(id){
   if(!arenaCache.has(id))arenaCache.set(id,createMap(THREE,environment,id));
   map=arenaCache.get(id);if(!map.bomberCollapse){map.bomberCollapse=createBuildingCollapse(THREE,map);scene.add(map.bomberCollapse.group);}environment.add(map.world);navigation=createNavigation({...map,bounds:map.combatBounds||map.bounds});updateBots.tactics=null;nopeDecoyTownCandidates=null;
   environment.traverse(object=>{for(const material of Array.isArray(object.material)?object.material:[object.material])if(material?.map)material.map.anisotropy=textureFiltering;});
-  sun.intensity=map.indoor ? .45 : 3;sun.castShadow=!map.indoor;scene.background.set(map.indoor?'#35434a':'#8cbad7');scene.fog=new THREE.Fog(map.indoor?'#657875':'#b7d0dd',map.indoor?65:145,map.indoor?135:380);
+  hemisphere.intensity=map.renderLighting?.hemisphere??1.65;
+  sun.intensity=map.renderLighting?.sun??(map.indoor ? .45 : 3);sun.castShadow=!map.indoor;scene.background.set(map.indoor?'#35434a':'#8cbad7');scene.fog=new THREE.Fog(map.indoor?'#657875':'#b7d0dd',map.indoor?65:145,map.indoor?135:380);
   const shadowSize=map.id==='trc'?2048:4096;
   if(sun.shadow.mapSize.x!==shadowSize){sun.shadow.mapSize.set(shadowSize,shadowSize);sun.shadow.map?.dispose();sun.shadow.map=null;sun.shadow.needsUpdate=true;}
   map.world.updateMatrixWorld(true);updateMapLabels();

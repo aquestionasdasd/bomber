@@ -1,4 +1,5 @@
 import {HIRAKATA_MODEL_BASE64, HIRAKATA_MODEL_PROVENANCE} from './assets/hirakata-complete-model.js';
+import {createHirakataSurfaceFinish} from './hirakata-surface-finish.js';
 
 // This self-exported GLB has no textures, animations, skins, sparse accessors or
 // compression. Keep the decoder bounded to that documented, tested asset format.
@@ -101,7 +102,7 @@ function separateGround(T,mesh,geometries){
 export function decodeHirakataModel(T,buffer){
  const{doc,binStart}=readGlb(buffer),geometries=new Set(),materials=[],nodes=[],groups=new Map(),groupMeshes=new Map();
  const world=new T.Group();world.name='Hirakata complete video-reference model';world.userData.hirakataModel=HIRAKATA_MODEL_PROVENANCE.id;
- let environment;
+ let environment,surfaceFinish;
  try{
   const attributeCache=new Map(),ctors={5121:Uint8Array,5123:Uint16Array,5125:Uint32Array,5126:Float32Array},sizes={SCALAR:1,VEC2:2,VEC3:3,VEC4:4};
   function accessor(id){
@@ -157,18 +158,25 @@ export function decodeHirakataModel(T,buffer){
    }
   }
   world.updateMatrixWorld(true);
-  const vehicles=groups.get('Vehicles');if(vehicles)for(const child of [...vehicles.children])for(const mesh of [...child.children])if(mesh.isMesh){const old=mesh.geometry;removedTriangleCount+=removeSouthBuses(T,mesh);if(mesh.geometry!==old||!mesh.parent)geometries.delete(old);}
+  const vehicles=groups.get('Vehicles');if(vehicles)for(const child of [...vehicles.children])for(const mesh of [...child.children])if(mesh.isMesh){const old=mesh.geometry;removedTriangleCount+=removeSouthBuses(T,mesh);if(mesh.geometry!==old||!mesh.parent)geometries.delete(old);if(mesh.parent)geometries.add(mesh.geometry);}
   const originals=[];world.traverse(mesh=>{if(mesh.isMesh)originals.push(mesh);});for(const mesh of originals)separateGround(T,mesh,geometries);
   world.updateMatrixWorld(true);
+  surfaceFinish=createHirakataSurfaceFinish(T);world.traverse(mesh=>surfaceFinish.apply(mesh));
   const meshes=[];let triangleCount=0;
   for(const[name,group]of groups){const list=[];group.traverse(mesh=>{if(!mesh.isMesh)return;mesh.geometry.computeBoundingBox();mesh.geometry.computeBoundingSphere();geometries.add(mesh.geometry);list.push(mesh);meshes.push(mesh);triangleCount+=(mesh.geometry.index?.count||mesh.geometry.attributes.position.count)/3;});groupMeshes.set(name,list);}
   removedTriangleCount+=northRemovedTriangleCount;
   invariant(sourceTriangleCount-triangleCount===removedTriangleCount,'unexpected triangle loss');
-  const ambient=new T.AmbientLight('#e3dfd3',.65);ambient.name='Hirakata interior fill';world.add(ambient);
+  const ambient=new T.AmbientLight('#e3dfd3',.18);ambient.name='Hirakata interior fill';world.add(ambient);
+  // Small unshadowed fixture lights belong to their destructible ceiling.
+  // No new shadow maps, timers or per-frame material updates are required.
+  for(const [name,xs,y]of [['Station_central_Ceiling',[-29,-10],9.85],['Station_east_Ceiling',[28,44],9.55]]){
+   const ceiling=groupMeshes.get(name)?.find(mesh=>!mesh.userData.preserveGround);if(!ceiling)continue;
+   for(const x of xs){const light=new T.PointLight('#fff2dc',18,23,2);light.name='Hirakata concourse fixture';light.position.set(x,y,0);ceiling.worldToLocal(light.position);ceiling.add(light);}
+  }
   let disposed=false;
-  function dispose(){if(disposed)return;disposed=true;world.removeFromParent();for(const geometry of geometries)geometry.dispose();for(const material of materials)material.dispose();environment.cube.dispose();for(const face of environment.faces)face.dispose();}
-  return{world,groups,groupMeshes,meshes,meshCount:meshes.length,triangleCount,sourceTriangleCount,removedTriangleCount,northRemovedTriangleCount,materials,environment:environment.cube,provenance:HIRAKATA_MODEL_PROVENANCE,dispose};
- }catch(error){world.removeFromParent();for(const geometry of geometries)geometry.dispose();for(const material of materials)material.dispose();if(environment){environment.cube.dispose();for(const face of environment.faces)face.dispose();}throw error;}
+  function dispose(){if(disposed)return;disposed=true;world.removeFromParent();surfaceFinish.dispose();for(const geometry of geometries)geometry.dispose();for(const material of materials)material.dispose();environment.cube.dispose();for(const face of environment.faces)face.dispose();}
+  return{world,groups,groupMeshes,meshes,meshCount:meshes.length,triangleCount,sourceTriangleCount,removedTriangleCount,northRemovedTriangleCount,materials,environment:environment.cube,surfaceFinish,provenance:HIRAKATA_MODEL_PROVENANCE,dispose};
+ }catch(error){world.removeFromParent();surfaceFinish?.dispose();for(const geometry of geometries)geometry.dispose();for(const material of materials)material.dispose();if(environment){environment.cube.dispose();for(const face of environment.faces)face.dispose();}throw error;}
 }
 
 export function createHirakataModel(T){return decodeHirakataModel(T,modelBinary());}
