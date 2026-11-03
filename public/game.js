@@ -883,12 +883,12 @@ function syncBuyBarrier(){
     buyBarrier.geometry.dispose();buyBarrier.geometry=new THREE.BufferGeometry();
     buyBarrier.geometry.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));buyBarrier.geometry.computeBoundingSphere();buyBarrier.userData.outline=key;
   }
-  buyBarrier.position.set(0,0,0);buyBarrier.scale.set(1,1,1);
+  buyBarrier.position.set(0,Number.isFinite(area.minY)?area.minY:0,0);buyBarrier.scale.set(1,1,1);
 }
 function placeStartingBomber(){
-  const points=map.teamSpawns.attack,x=points.reduce((sum,p)=>sum+p.x,0)/points.length,z=Math.min(...points.map(p=>p.z))-4;
-  const point=navigation.nearest(x,z);if(!point)return;
-  match.dropSpike(match.spike.carrier,point.x,point.z);
+  const points=map.teamSpawns.attack,x=points.reduce((sum,p)=>sum+p.x,0)/points.length,y=points.reduce((sum,p)=>sum+(p.y||0),0)/points.length,z=Math.min(...points.map(p=>p.z))-4;
+  const point=navigation.nearest(x,z,y);if(!point)return;
+  match.dropSpike(match.spike.carrier,point.x,point.z,point.y||0);
 }
 
 const objectiveModel=createObjectiveModel(THREE),spikeModel=objectiveModel.group;scene.add(spikeModel);spikeModel.visible=false;
@@ -1244,7 +1244,7 @@ function spawnRound(reset=false) {
   if(reset||!player.alive){inventory={primary:null,secondary:'classic',active:'classic'};player.armor=0;}
   ammoStore={};roundPurchases={};skillPurchaseLedger=new WeakMap();bomberNoticeKey='';bomberNoticeUntil=0;player.alive=true;player.hp=100;reloading=0;round=match.round;timeLeft=match.phaseTime;
   const positions=match.side==='attack'?map.teamSpawns.attack:map.teamSpawns.defend;
-  player.x=positions[0].x;player.z=positions[0].z;player.y=0;player.vy=0;player.vx=0;player.vz=0;player.crouch=0;
+  player.x=positions[0].x;player.z=positions[0].z;player.y=Number.isFinite(positions[0].y)?positions[0].y:0;player.vy=0;player.vx=0;player.vz=0;player.crouch=0;
   player.yaw=map.spawnYaw?.[match.side]??(match.side==='attack'?0:Math.PI);player.pitch=0;player.recoil=0;renderedRecoil=0;resetMouseLook();
   player.dash=1;player.scan=1;scanTime=0;roundWait=0;shotSequence=0;lastShot=-10;
   stepClock=0;
@@ -1470,7 +1470,7 @@ function startGame() {
   if(exploring){
     match.startLive();match.drainEvents();match.credits=9000;inventory.primary='vandal';equip('vandal',true);buyBarrier.visible=false;
     player.kit.ultPoints=7;player.kit.smoke=getCharacterSkill(player.kit.character,'c').max;player.kit.updraft=getCharacterSkill(player.kit.character,'q').max;
-    const entry=map.landmarks?.find(l=>l.id==='north');if(entry)relocate(entry);
+    const entry=map.practiceSpawn||map.landmarks?.find(l=>l.id==='north');if(entry)relocate(entry);
     if(objectivePractice)resetObjectivePractice('A');
     else if(rangeSession){
       relocate(map.rangeArea?.spawn||{x:-20.75,z:-25.5,yaw:0});prepareRangeStart();
@@ -2419,7 +2419,7 @@ function japanMusterTargets(source){
  for(const actor of[player,...bots]){if(actor.alive||actor.team!==source.team)continue;
   const points=actor.team===match.attackerTeam?map.teamSpawns.attack:map.teamSpawns.defend,index=actor===player?0:Math.max(0,Number(actor.id.split('-').at(-1))||0);
   const candidates=[points[index%points.length],...points];let point=null;
-  for(const base of candidates)for(const[dx,dz]of[[0,0],[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,-1]]){const x=base.x+dx,z=base.z+dz,y=getZoneFloor(x,z,.5);
+  for(const base of candidates)for(const[dx,dz]of[[0,0],[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,-1]]){const x=base.x+dx,z=base.z+dz,y=getZoneFloor(x,z,(base.y||0)+.5);
    if(!point&&canStand(x,z,.34,y)&&!occupied.some(a=>Math.hypot(a.x-x,a.z-z)<.8))point={x,y,z};
   }
   if(point){targets.push({actor,point});occupied.push(point);}
