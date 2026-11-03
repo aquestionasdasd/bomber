@@ -141,7 +141,7 @@ async function main(){
    const geometry=new T.PlaneGeometry(2,2),material=new T.MeshStandardMaterial({name,color:'#678491'}),mesh=new T.Mesh(geometry,material);mesh.userData.hirakataModule=module;mesh.name=module+' / '+name;mesh.position.set(3,2,5);mesh.rotation.x=-Math.PI/2;mesh.updateMatrixWorld(true);const before=geometryFingerprint([mesh]);
    assert.equal(finish.apply(mesh),true);assert.equal(geometryFingerprint([mesh]),before);assert.deepEqual(mesh.material.color,material.color);assert.equal(mesh.material.userData.hirakataSurfaceFinish,family);close(mesh.material.roughness,roughness,'roughness');close(mesh.material.metalness,metalness,'metalness');close(mesh.material.normalScale.x,normal,'normal strength');
    const position=geometry.attributes.position,uv=geometry.attributes.uv;for(let i=0;i<position.count;i++){close(uv.getX(i),(3+position.getX(i))/width,'world U');close(uv.getY(i),(5-position.getY(i))/width,'world V');}
-   if(name==='green_glass')close(mesh.material.envMapIntensity,1.35,'glass reflection');material.dispose();geometry.dispose();
+   if(name==='green_glass')close(mesh.material.envMapIntensity,.70,'glass reflection');material.dispose();geometry.dispose();
   }
  });
  check('finish owns only its clones/textures and releases them exactly once',()=>{

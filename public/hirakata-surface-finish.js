@@ -246,7 +246,7 @@ export function createHirakataSurfaceFinish(T){
    if(profile.family==='steel'){material.roughness=.40;material.metalness=.8;}
    if(profile.roughness!==undefined)material.roughness=profile.roughness;
    if(profile.metalness!==undefined)material.metalness=profile.metalness;
-   if(profile.glass)material.envMapIntensity=1.35;
+   if(profile.glass)material.envMapIntensity=.70;
    if(projected.uv1){material.aoMap=contactAo.texture;material.aoMapIntensity=1;}
    material.userData={...material.userData,hirakataSurfaceFinish:profile.family};
    profiles.set(key,material);materials.push(material);stats.materialCount=materials.length;

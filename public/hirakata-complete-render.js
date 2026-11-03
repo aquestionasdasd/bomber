@@ -118,7 +118,7 @@ export function decodeHirakataModel(T,buffer){
   for(const m of doc.materials){
    const p=m.pbrMetallicRoughness||{},c=p.baseColorFactor||[1,1,1,1],emissive=m.emissiveFactor||[0,0,0],strength=m.extensions?.KHR_materials_emissive_strength?.emissiveStrength??1;
    invariant(finiteArray(c,4)&&finiteArray(emissive,3)&&Number.isFinite(strength),'invalid material');
-   materials.push(new T.MeshStandardMaterial({name:m.name||'',color:new T.Color(c[0],c[1],c[2]),opacity:c[3],transparent:m.alphaMode==='BLEND',alphaTest:m.alphaMode==='MASK'?(m.alphaCutoff??.5):0,metalness:p.metallicFactor??1,roughness:p.roughnessFactor??1,side:m.doubleSided?T.DoubleSide:T.FrontSide,emissive:new T.Color(...emissive),emissiveIntensity:strength,envMap:environment.cube,envMapIntensity:.65}));
+   materials.push(new T.MeshStandardMaterial({name:m.name||'',color:new T.Color(c[0],c[1],c[2]),opacity:c[3],transparent:m.alphaMode==='BLEND',alphaTest:m.alphaMode==='MASK'?(m.alphaCutoff??.5):0,metalness:p.metallicFactor??1,roughness:p.roughnessFactor??1,side:m.doubleSided?T.DoubleSide:T.FrontSide,emissive:new T.Color(...emissive),emissiveIntensity:strength,envMap:environment.cube,envMapIntensity:.30}));
   }
   for(const n of doc.nodes){
    const node=new T.Group();node.name=n.name||'';
@@ -166,7 +166,9 @@ export function decodeHirakataModel(T,buffer){
   for(const[name,group]of groups){const list=[];group.traverse(mesh=>{if(!mesh.isMesh)return;mesh.geometry.computeBoundingBox();mesh.geometry.computeBoundingSphere();geometries.add(mesh.geometry);list.push(mesh);meshes.push(mesh);triangleCount+=(mesh.geometry.index?.count||mesh.geometry.attributes.position.count)/3;});groupMeshes.set(name,list);}
   removedTriangleCount+=northRemovedTriangleCount;
   invariant(sourceTriangleCount-triangleCount===removedTriangleCount,'unexpected triangle loss');
-  const ambient=new T.AmbientLight('#e3dfd3',.18);ambient.name='Hirakata interior fill';world.add(ambient);
+  // Restrained sky/reflection fill leaves the existing sun shadows readable;
+  // fixture lights retain clean, legible concourses without new render passes.
+  const ambient=new T.AmbientLight('#e3dfd3',.06);ambient.name='Hirakata interior fill';world.add(ambient);
   // Small unshadowed fixture lights belong to their destructible ceiling.
   // No new shadow maps, timers or per-frame material updates are required.
   for(const [name,xs,y]of [['Station_central_Ceiling',[-29,-10],9.85],['Station_east_Ceiling',[28,44],9.55]]){
