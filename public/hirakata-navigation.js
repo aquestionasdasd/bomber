@@ -65,10 +65,17 @@ export function createHirakataNavigation(map,createGroundNavigation) {
   function trace(ax,az,bx,bz,ay,by) {
     if(!isWalkable(ax,az,ay,false)||!isWalkable(bx,bz,by,false))return null;
     // Hirakata's ground plane always supplies y=0. A continuous collision test
-    // proves that this entire level segment stays on that plane; ramps and
-    // upper floors still use the exact supported-height trace below.
+    // proves that this entire level segment stays on that plane.
     if(ay===0&&by===0&&solid.segmentClear(ax,az,bx,bz,radius,0,1.7)){
-      const samples=[ax,az,0,bx,bz,0];samples.ground=true;return samples;
+      const samples=[ax,az,0,bx,bz,0];samples.ground=true;samples.feet=0;return samples;
+    }
+    // One rectangular slab containing both centres also contains the entire
+    // segment. Only that exact, enabled floor can replace support sampling;
+    // separate slabs, holes, polygons and ramps retain the trace below.
+    if(ay===by&&ay>0&&solid.query(ax,az,0).some(c=>!c.disabled&&c.kind==='surface'&&!c.polygon&&!c.holes&&!c.movementRamp&&c.height===ay
+      &&ax>=c.minX&&ax<=c.maxX&&az>=c.minZ&&az<=c.maxZ&&bx>=c.minX&&bx<=c.maxX&&bz>=c.minZ&&bz<=c.maxZ)
+      &&solid.segmentClear(ax,az,bx,bz,radius,ay,1.7)){
+      const samples=[ax,az,ay,bx,bz,by];samples.feet=ay;return samples;
     }
     const count=Math.max(1,Math.ceil(Math.hypot(bx-ax,bz-az)/.13));
     let y=ay,px=ax,pz=az;const samples=[ax,az,ay];
@@ -95,7 +102,7 @@ export function createHirakataNavigation(map,createGroundNavigation) {
     if(!profiles.has(key)){profiles.set(key,trace(ax,az,bx,bz,ay,by));if(profiles.size>32768)profiles.delete(profiles.keys().next().value);}
     const profile=profiles.get(key);let result=!!profile;
     if(result&&trafficActive){
-      if(profile.ground)result=collision.segmentClear(ax,az,bx,bz,radius,0,1.7);
+      if(profile.feet!==undefined)result=collision.segmentClear(ax,az,bx,bz,radius,profile.feet,1.7);
       else for(let i=0;i<profile.length;i+=3){if(profile[i+2]>=BUS_SPEC.height)continue;if(collision.blocked(profile[i],profile[i+1],radius,profile[i+2],1.7)){result=false;break;}}
     }
     segments.set(key,result);
@@ -292,6 +299,26 @@ export function createHirakataNavigation(map,createGroundNavigation) {
     }
     if(clearSegment(a.x,a.z,b.x,b.z,a.y,b.y))return[b];
     const start=connector(a),finish=connector(b);if(!start||!finish)return [];
+    if(ground&&start.y>.22&&finish.y>.22){
+      // Distinct authored upper districts already have a supported transfer.
+      // Try that bounded route before spending a mixed search on the city;
+      // retain the mixed search if either validated transfer leg fails.
+      // Direct visible routes above still win, but other upper alternatives
+      // need not be identical to the previous mixed-search-first choice.
+      const hintAt=p=>(map.navigationStairHints||[]).find(h=>p.x>=h.minX&&p.x<=h.maxX&&p.z>=h.minZ&&p.z<=h.maxZ&&p.y>=h.minY&&p.y<=h.maxY);
+      const fromHint=hintAt(start),toHint=hintAt(finish);
+      if(fromHint&&toHint&&fromHint.rampId!==toHint.rampId){
+        const transfer=groundConnections().filter(p=>p.portalRamp===toHint.rampId&&isWalkable(p.x,p.z,0))
+          .sort((p,q)=>Math.hypot(p.x-b.x,p.z-b.z)-Math.hypot(q.x-b.x,q.z-b.z))[0];
+        if(transfer){
+          // Both recursive calls have one ground endpoint, so neither can
+          // enter this branch; each keeps its existing 2048-node budget.
+          const down=path(a.x,a.z,transfer.x,transfer.z,a.y,0);
+          const up=down.length?path(transfer.x,transfer.z,b.x,b.z,0,b.y):[];
+          if(down.length&&up.length)return remember(a,b,[...down,...up]);
+        }
+      }
+    }
     let route=null;const budget={left:2048};
     if(ground&&(Math.abs(start.y)<.001)!==(Math.abs(finish.y)<.001)){
       const descending=Math.abs(finish.y)<.001,high=descending?start:finish,low=descending?finish:start;
@@ -322,23 +349,6 @@ export function createHirakataNavigation(map,createGroundNavigation) {
         route=descending?[...upper,...flat.points]:[...flat.points,...upper];preferredStairs.set(highKey,portal.portalRamp);if(preferredStairs.size>256)preferredStairs.delete(preferredStairs.keys().next().value);break;
       }
     }else route=search(start,finish,false,budget);
-    if(!route&&ground&&start.y>.22&&finish.y>.22){
-      // Separate upper districts may connect only by descending and climbing
-      // again. Use one authored destination stair as a bounded transfer, with
-      // the existing supported/traffic-checked paths on both sides. These two
-      // calls each have a ground endpoint, so this fallback cannot recurse.
-      const hintAt=p=>(map.navigationStairHints||[]).find(h=>p.x>=h.minX&&p.x<=h.maxX&&p.z>=h.minZ&&p.z<=h.maxZ&&p.y>=h.minY&&p.y<=h.maxY);
-      const fromHint=hintAt(start),toHint=hintAt(finish);
-      if(fromHint&&toHint&&fromHint.rampId!==toHint.rampId){
-        const transfer=groundConnections().filter(p=>p.portalRamp===toHint.rampId&&isWalkable(p.x,p.z,0))
-          .sort((p,q)=>Math.hypot(p.x-b.x,p.z-b.z)-Math.hypot(q.x-b.x,q.z-b.z))[0];
-        if(transfer){
-          const down=path(a.x,a.z,transfer.x,transfer.z,a.y,0);
-          const up=down.length?path(transfer.x,transfer.z,b.x,b.z,0,b.y):[];
-          if(down.length&&up.length)return remember(a,b,[...down,...up]);
-        }
-      }
-    }
     if(!route)return [];
     const points=[start,...route,b],result=[];let anchor=a;
     for(let i=0;i<points.length;){
