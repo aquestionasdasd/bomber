@@ -76,11 +76,28 @@ async function main() {
     finishRound(m, 'red'); assert.equal(m.phase, 'match'); assert.equal(m.winner, 'red');
   });
 
-  test('Swiftplay grants 2400 plus pistol-win 600, then 4250 with credit carryover', () => {
+  test('short matches use standard win/loss income instead of automatic full-buy grants', () => {
     const m = new MatchRules({ format: 'swift' });
     m.purchase(500); finishRound(m, 'blue'); assert.equal(m.credits, 3300);
-    finishRound(m, 'red'); assert.equal(m.credits, 7550);
-    m.purchase(7000); finishRound(m, 'red'); assert.equal(m.credits, 4800);
+    finishRound(m, 'red'); assert.equal(m.credits, 5200);
+    m.purchase(5000); finishRound(m, 'red'); assert.equal(m.credits, 2600);
+    const loser = new MatchRules({ format: 'swift' });
+    finishRound(loser, 'red'); assert.equal(loser.credits, 2700);
+  });
+
+  test('a win resets loss income for either match length and repeated endRound cannot pay twice', () => {
+    for (const format of ['standard', 'swift']) {
+      const m = new MatchRules({ format });
+      for (const team of ['red','red','red','blue']) {
+        m.credits=0;m.startLive();m.endRound(team,'elimination',{playerAlive:false});
+        const expected=team==='blue'?3000:1900+Math.min(m.lossStreak-1,2)*500;
+        assert.equal(m.credits,expected);assert.equal(m.endRound(team,'elimination'),false);assert.equal(m.credits,expected);
+        if (team==='blue')assert.equal(m.lossStreak,0);
+        m.nextRound();
+      }
+      // Standard continues; short format also reset its half at this point.
+      m.credits=0;m.startLive();m.endRound('red','elimination',{playerAlive:false});assert.equal(m.credits,1900);
+    }
   });
 
   test('standard win, loss streak and kill credits obey the 9000 cap', () => {
@@ -95,12 +112,14 @@ async function main() {
   });
 
   test('saving on attack timeout or defense detonation pays reduced 1000', () => {
-    const attack = new MatchRules();
-    finishRound(attack, 'red', 'timeout', { playerAlive: true });
-    assert.equal(attack.credits, 1800);
-    const defense = new MatchRules({ startingSide: 'defend' });
-    finishRound(defense, 'red', 'detonation', { playerAlive: true });
-    assert.equal(defense.credits, 1800);
+    for(const format of ['standard','swift']){
+      const attack = new MatchRules({format});
+      finishRound(attack, 'red', 'timeout', { playerAlive: true });
+      assert.equal(attack.credits, 1800);
+      const defense = new MatchRules({format, startingSide: 'defend' });
+      finishRound(defense, 'red', 'detonation', { playerAlive: true });
+      assert.equal(defense.credits, 1800);
+    }
   });
 
   test('timeout and elimination resolve for the correct side', () => {

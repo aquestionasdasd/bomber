@@ -1,7 +1,25 @@
+import {createBotTeamPlanner} from './bot-team-planner.js';
 // Tactical knowledge is made only from copied observations. Actor references never enter intel.
 const distance=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
 const aiActor=actor=>actor.alive&&!actor.remoteId&&!actor.rangeTarget&&actor.id!=='player'&&!actor.human;
 const hash=(text)=>{let value=2166136261;for(const char of String(text))value=Math.imul(value^char.charCodeAt(0),16777619);return(value>>>0)/4294967296;};
+// Mix the whole seed, so adjacent seats/rounds do not produce adjacent choices.
+const choice=(text)=>{let n=Math.floor(hash(text)*4294967296);n=Math.imul(n^(n>>>16),2246822507);n=Math.imul(n^(n>>>13),3266489909);return((n^(n>>>16))>>>0)/4294967296;};
+export function draftBotCharacters(roster,characters,{seed=0,exclude=[]}={}){
+  const available=[...new Set(characters)],result=new Map();
+  const reserved=new Set([...exclude,...roster.map(r=>r.kit?.character)].filter(Boolean));
+  let bag=[],batch=0;
+  for(const record of roster){
+    // Human seats, including temporarily disconnected humans, keep their kit.
+    if(record.id==='player'||record.memberId||record.kit)continue;
+    if(!bag.length){bag=available.filter(id=>!reserved.has(id));if(!bag.length)bag=available.slice();
+      bag.sort((a,b)=>choice(`${seed}:draft:${batch}:${a}`)-choice(`${seed}:draft:${batch}:${b}`));batch++;}
+    if(bag.length)result.set(record.id,bag.pop());
+  }
+  return result;
+}
+export const BOT_RETAKE=Object.freeze({margin:3,inspectTime:1.1,tapTime:.3,peekTime:1.2,scanAngle:Math.PI/3,scanInterval:.8});
+export const BOT_HABITS=Object.freeze({rounds:4,opening:25,radius:22,enemies:2,repetitions:2});
 
 export function inVisionCone(observer,target,{yaw=observer.yaw||0,range=240,angle=130}={}){
   const dx=target.x-observer.x,dz=target.z-observer.z,length=Math.hypot(dx,dz);
@@ -34,14 +52,43 @@ export function createBotHearing(){
   return {emit,listen,reset(){pulses.length=0;sequence=0;}};
 }
 
-export function createBotTactics({sites,navigation,collision,lanes=[],attackSpawn={x:0,z:65},defendSpawn={x:0,z:-70}}){
-  const intel=new Map(),plans=new Map(),routes=new Map();
-  let round=1,cached=null,planTime=-Infinity,planKey='';
+export function createBotTactics({sites,navigation,collision,lanes=[],attackSpawn={x:0,z:65},defendSpawn={x:0,z:-70},seed=0}){
+  const teamSkills=createBotTeamPlanner();
+  const intel=new Map(),plans=new Map(),routes=new Map(),retakes=new Map(),approaches=new Map();
+  // Across rounds retain only a coarse site vote, never an enemy position or aim target.
+  const openings=[],openingEnemies=new Map();let openingTeams=null;
+  let round=1,cached=null,planTime=-Infinity,planKey='',roundStartedAt=null,retiredTargetIds=[];
+  const pick=label=>choice(`${seed}:${round}:${label}`);
+  const profile=team=>['execute','split','probe'][Math.floor(pick(`${team}:style`)*3)];
   const teamIntel=team=>{if(!intel.has(team))intel.set(team,new Map());return intel.get(team);};
-  function reset(value=1){round=value;intel.clear();plans.clear();routes.clear();cached=null;planTime=-Infinity;planKey='';}
+  function reset(value=1){
+    if(value===round+1){
+      const counts=sites.map(s=>({id:s.id,count:[...openingEnemies.values()].filter(id=>id===s.id).length})).sort((a,b)=>b.count-a.count);
+      const site=counts[0]?.count>=BOT_HABITS.enemies&&counts[0].count>=(counts[1]?.count||0)+BOT_HABITS.enemies?counts[0].id:null;
+      openings.push({round,...openingTeams,site});
+      while(openings.length&&value-openings[0].round>BOT_HABITS.rounds)openings.shift();
+    }else openings.length=0;
+    openingEnemies.clear();openingTeams=null;
+    round=value;intel.clear();plans.clear();routes.clear();retakes.clear();approaches.clear();teamSkills.reset();cached=null;planTime=-Infinity;planKey='';roundStartedAt=null;retiredTargetIds=[];
+  }
+  function recordOpening(team,opponent,now,spike){
+    if(!Number.isFinite(now)||now<0||spike.status!=='carried'||now-roundStartedAt>BOT_HABITS.opening)return;
+    openingTeams={team,opponent};
+    for(const c of contacts(team,now)){
+      if(c.team!==opponent||!Number.isFinite(c.seenAt)||now-c.seenAt>1||now<c.seenAt)continue;
+      const site=sites.slice().sort((a,b)=>distance(c,a)-distance(c,b))[0];
+      if(!site||distance(c,site)>BOT_HABITS.radius)continue;
+      if(!openingEnemies.has(c.id)&&openingEnemies.size<10)openingEnemies.set(c.id,site.id);
+      else if(openingEnemies.has(c.id)&&openingEnemies.get(c.id)!==site.id)openingEnemies.set(c.id,null);
+    }
+  }
+  function habitualSite(team,opponent){
+    const votes=sites.map(site=>({site,count:openings.filter(o=>o.team===team&&o.opponent===opponent&&o.site===site.id).length})).sort((a,b)=>b.count-a.count);
+    return votes[0]?.count>=BOT_HABITS.repetitions&&votes[0].count>(votes[1]?.count||0)?votes[0].site:null;
+  }
   function observe(team,observerId,enemy,now){
     if(!enemy||enemy.team===team||!Number.isFinite(enemy.x)||!Number.isFinite(enemy.z))return;
-    teamIntel(team).set(enemy.id,{id:enemy.id,team:enemy.team,x:enemy.x,z:enemy.z,y:enemy.y||0,seenAt:now,observerId});
+    teamIntel(team).set(enemy.id,{id:enemy.id,team:enemy.team,x:enemy.x,z:enemy.z,y:enemy.y||0,...(Number.isFinite(enemy.crouch)&&enemy.crouch>0?{crouch:Math.min(1,enemy.crouch)}:{}),seenAt:now,observerId});
   }
   function contacts(team,now){
     const known=teamIntel(team),result=[];
@@ -50,21 +97,23 @@ export function createBotTactics({sites,navigation,collision,lanes=[],attackSpaw
   }
   function routeDistance(from,to,now=0){
     if(!from||!to)return Infinity;
-    const direct=distance(from,to);if(direct<.3)return direct;
-    const key=`${Math.round(from.x/2)},${Math.round(from.z/2)}:${Math.round(to.x*2)},${Math.round(to.z*2)}`;
+    const measure=(a,b)=>navigation.layered?Math.hypot(a.x-b.x,(a.y||0)-(b.y||0),a.z-b.z):distance(a,b);
+    const direct=measure(from,to);if(direct<.3)return direct;
+    const key=`${Math.round(from.x/2)},${Math.round(from.z/2)},${navigation.layered?from.y||0:0}:${Math.round(to.x*2)},${Math.round(to.z*2)},${navigation.layered?to.y||0:0}`;
     const previous=routes.get(key);if(previous&&now-previous.at<1.5&&now>=previous.at)return previous.cost;
-    const path=navigation.path(from.x,from.z,to.x,to.z);
+    const path=navigation.path(from.x,from.z,to.x,to.z,from.y||0,to.y||0);
     let cost=path.length?0:Infinity,point=from;
-    for(const next of path){cost+=distance(point,next);point=next;}
-    if(path.length&&distance(point,to)>1.2)cost=Infinity;
+    for(const next of path){cost+=measure(point,next);point=next;}
+    if(path.length&&measure(point,to)>1.2)cost=Infinity;
     routes.set(key,{cost,at:now});if(routes.size>256)routes.delete(routes.keys().next().value);
     return cost;
   }
   function plantPosition(site,from,now=0,preferredId=null){
     const choices=site.plantPositions?.length?site.plantPositions:[{id:`${site.id}-center`,x:site.x,z:site.z}];
     let best=null,bestCost=Infinity;
-    for(const point of choices){
-      if(collision?.blocked(point.x,point.z,.45,0))continue;
+    for(const candidate of choices){
+      const point={...candidate,...(candidate.y===undefined&&site.y!==undefined?{y:site.y}:{})};
+      if(!Number.isFinite(point.y??0)||Math.abs((point.y??0)-(site.y??0))>.05||collision?.blocked(point.x,point.z,.45,point.y??0))continue;
       const cost=routeDistance(from,point,now)+(point.id===preferredId?-5:0)+(point.style==='cover'?-1.5:0);
       if(cost<bestCost){best=point;bestCost=cost;}
     }
@@ -75,7 +124,7 @@ export function createBotTactics({sites,navigation,collision,lanes=[],attackSpaw
     const ranked=sites.map(site=>{
       const plant=plantPosition(site,carrier,now),cost=plant?routeDistance(carrier,plant,now):Infinity;
       const pressure=observations.reduce((sum,contact)=>sum+Math.max(0,1-distance(site,contact)/30)*(1-(now-contact.seenAt)/4),0);
-      return {site,cost,score:cost+pressure*22+hash(`${round}:${team}:${site.id}`)*18};
+      return {site,cost,score:cost+pressure*22+pick(`${team}:site:${site.id}`)*18};
     }).filter(entry=>Number.isFinite(entry.score)).sort((a,b)=>a.score-b.score);
     if(!ranked.length)return previous?.siteId||sites[0].id;
     const current=ranked.find(entry=>entry.site.id===previous?.siteId),best=ranked[0];
@@ -90,73 +139,95 @@ export function createBotTactics({sites,navigation,collision,lanes=[],attackSpaw
     for(const actor of candidates){const cost=routeDistance(actor,goal,now);if(cost<best){best=cost;chosen=actor;}}
     return {actor:chosen,distance:best};
   }
-  function safe(point){return navigation.nearest(point.x,point.z);}
-  function ring(center,index,count,radius,watch){
-    const base=Math.atan2(watch.x-center.x,watch.z-center.z),angle=base+(index-(count-1)/2)*.72;
-    return safe({x:center.x+Math.sin(angle)*radius,z:center.z+Math.cos(angle)*radius})||{x:center.x,z:center.z};
+  function safe(point){return navigation.nearest(point.x,point.z,point.y||0);}
+  function ring(center,index,count,radius,watch,salt=''){
+    const offset=salt?(pick(`${salt}:angle`)-.5)*.9:0;
+    const base=Math.atan2(watch.x-center.x,watch.z-center.z),angle=base+(index-(count-1)/2)*.72+offset;
+    return safe({x:center.x+Math.sin(angle)*radius,y:center.y||0,z:center.z+Math.cos(angle)*radius})||{x:center.x,y:center.y||0,z:center.z};
+  }
+  // Choose once on a commitment, rather than rolling a new destination every
+  // think tick. Only mapped, reachable lanes with a bounded detour qualify.
+  function approach(key,from,site,now,remaining,{optional=true}={}){
+    if(remaining<30||distance(from,site)<22)return null;
+    let state=approaches.get(key);
+    if(!state){
+      const direct=routeDistance(from,site,now);
+      const alternatives=lanes.filter(l=>l.points?.length).map(l=>{
+        const raw=l.points[Math.floor(l.points.length/2)],point=safe(Array.isArray(raw)?{x:raw[0],z:raw[1],y:raw[2]||0}:raw);
+        return {id:l.id,point,cost:point?routeDistance(from,point,now)+routeDistance(point,site,now):Infinity};
+      }).filter(a=>a.point&&distance(from,a.point)>7&&distance(a.point,site)>8&&a.cost<=direct*1.3+6)
+        .sort((a,b)=>a.cost-b.cost).slice(0,3);
+      const choices=optional?[null,...alternatives]:alternatives;
+      const selected=choices[Math.floor(pick(key)*choices.length)];state={point:selected?.point||null,done:false};approaches.set(key,state);
+    }
+    if(state.point&&(distance(from,state.point)<6||!Number.isFinite(routeDistance(from,state.point,now))))state.done=true;
+    return state.done?null:state.point;
   }
   function threat(team,site,now){return contacts(team,now).reduce((sum,c)=>sum+Math.max(0,1-distance(c,site)/36)*(1-(now-c.seenAt)/4),0);}
   function update({actors,attackerTeam,defenderTeam,spike,now,remaining=100}){
+    // The existing public roster already retires dead contacts below. Pass only
+    // those IDs to skill plans; absence or lost sight never proves a death.
+    retiredTargetIds=actors.filter(a=>!a.alive).map(a=>a.id);
+    if(roundStartedAt===null||now<roundStartedAt)roundStartedAt=now;
+    recordOpening(defenderTeam,attackerTeam,now,spike);
     const living=actors.filter(a=>a.alive),bots=living.filter(aiActor),roles=new Map();
     const key=`${spike.status}:${spike.carrier}:${spike.site}:${spike.defuseActor}:${living.map(a=>`${a.id}/${!!a.remoteId}`).join(',')}`;
     if(cached&&key===planKey&&now>=planTime&&now-planTime<.65)return cached;
     planKey=key;planTime=now;
     for(const known of intel.values())for(const id of known.keys())if(actors.some(a=>a.id===id&&!a.alive))known.delete(id);
-    const attackers=bots.filter(a=>a.team===attackerTeam),defenders=bots.filter(a=>a.team===defenderTeam);
+    const order=(a,b)=>pick(`order:${a.id}`)-pick(`order:${b.id}`);
+    const attackers=bots.filter(a=>a.team===attackerTeam).sort(order),defenders=bots.filter(a=>a.team===defenderTeam).sort(order);
     const carrier=living.find(a=>a.id===spike.carrier&&a.team===attackerTeam);
     const chosenId=carrier?selectSite(attackerTeam,carrier,now,{remaining}):plans.get(attackerTeam)?.siteId||sites[0].id;
     const site=sites.find(s=>s.id===chosenId)||sites[0];
     let defuser=null,recoverer=null;
     if(spike.status==='carried'){
-      const escorts=attackers.filter(bot=>bot!==carrier),route=carrier?navigation.path(carrier.x,carrier.z,site.x,site.z):[];
+      const style=profile(attackerTeam),main=carrier?approach(`${attackerTeam}:${site.id}:main`,carrier,site,now,remaining):null;
+      const escorts=attackers.filter(bot=>bot!==carrier),route=carrier?navigation.path(carrier.x,carrier.z,(main||site).x,(main||site).z,carrier.y||0,(main||site).y||0):[];
+      const flankCount=style==='split'?2:style==='probe'?1:0;
       for(const [index,bot]of attackers.entries()){
         if(bot===carrier){
           const point=plantPosition(site,bot,now,bot.plantPositionId);
-          roles.set(bot.id,{role:'plant',siteId:site.id,goal:point||{x:site.x,z:site.z},plantPositionId:point?.id,urgent:remaining<15,watch:defendSpawn});continue;
+          roles.set(bot.id,{role:'plant',siteId:site.id,goal:main||point||{x:site.x,z:site.z,...(site.y?{y:site.y}:{})},approach:!!main,plantPositionId:point?.id,urgent:remaining<15,watch:defendSpawn});continue;
         }
         const escortIndex=escorts.indexOf(bot);let goal;
         if(!carrier)goal=ring(site,index,attackers.length,8,defendSpawn);
-        else if(distance(carrier,site)<20)goal=ring(site,escortIndex,escorts.length,8+escortIndex%2*3,defendSpawn);
+        else if(distance(carrier,site)<20)goal=ring(site,escortIndex,escorts.length,7+pick(`${bot.id}:entry`)*5,defendSpawn,bot.id);
         else{
           const next=route[0]||site,dx=next.x-carrier.x,dz=next.z-carrier.z,length=Math.hypot(dx,dz)||1;
-          const forward=5+Math.floor(escortIndex/2)*4,flank=(escortIndex%2?1:-1)*(2.2+Math.floor(escortIndex/2)*1.2);
-          goal=safe({x:carrier.x+dx/length*forward-dz/length*flank,z:carrier.z+dz/length*forward+dx/length*flank});
-          // One outer escort uses a nearby alternate lane when it remains a practical route.
-          if(escortIndex===escorts.length-1&&escorts.length>=3&&distance(carrier,site)>35){
-            if(bot.flankGoal&&distance(bot,bot.flankGoal)<7)bot.flankComplete=true;
-            const alternatives=lanes.map(lane=>{const p=lane.points[Math.floor(lane.points.length/2)];return Array.isArray(p)?{x:p[0],z:p[1]}:p;})
-              .filter(point=>distance(point,bot)>6&&Math.abs(point.x-site.x)>15)
-              .map(point=>({point,cost:routeDistance(bot,point,now)+routeDistance(point,site,now)}))
-              .filter(entry=>entry.cost<routeDistance(bot,site,now)*1.35+8).sort((a,b)=>a.cost-b.cost);
-            if(!bot.flankComplete){bot.flankGoal||=alternatives[0]?.point;if(bot.flankGoal)goal=bot.flankGoal;}
-          }
+          const forward=(style==='probe'?3:style==='execute'?7:5)+Math.floor(escortIndex/2)*3;
+          const flank=(escortIndex%2?1:-1)*(2+pick(`${bot.id}:spacing`)*2);
+          goal=safe({x:carrier.x+dx/length*forward-dz/length*flank,y:carrier.y||0,z:carrier.z+dz/length*forward+dx/length*flank});
+          if(escorts.length>=3&&escortIndex>=escorts.length-flankCount&&distance(carrier,site)>35)
+            goal=approach(`${bot.id}:${site.id}:flank`,bot,site,now,remaining,{optional:false})||goal;
         }
-        roles.set(bot.id,{role:escortIndex===escorts.length-1&&escorts.length>=3?'flank':'escort',siteId:site.id,goal:goal||{x:site.x,z:site.z},watch:defendSpawn});
+        roles.set(bot.id,{role:escortIndex>=escorts.length-flankCount&&escorts.length>=3?'flank':'escort',siteId:site.id,goal:goal||{x:site.x,z:site.z,...(site.y?{y:site.y}:{})},watch:defendSpawn});
       }
     }else if(spike.status==='dropped'){
       recoverer=nearestReachable(attackers,spike,now).actor;
-      for(const [index,bot]of attackers.entries())roles.set(bot.id,{role:bot===recoverer?'recover':'cover',goal:bot===recoverer?{x:spike.x,z:spike.z}:ring(spike,index,attackers.length,5+index%2*2,defendSpawn),urgent:bot===recoverer,watch:defendSpawn});
+      for(const [index,bot]of attackers.entries())roles.set(bot.id,{role:bot===recoverer?'recover':'cover',goal:bot===recoverer?{x:spike.x,z:spike.z,...(spike.y?{y:spike.y}:{})}:ring(spike,index,attackers.length,5+index%2*2,defendSpawn),urgent:bot===recoverer,watch:defendSpawn});
     }else if(spike.status==='planted'){
-      for(const [index,bot]of attackers.entries())roles.set(bot.id,{role:'hold',goal:ring(spike,index,attackers.length,7+index%2*3,defendSpawn),watch:spike});
+      for(const [index,bot]of attackers.entries())roles.set(bot.id,{role:'hold',goal:ring(spike,index,attackers.length,6+pick(`${bot.id}:post`)*6,defendSpawn,bot.id),watch:spike});
     }
     if(spike.status==='planted'){
-      const active=living.find(a=>a.id===spike.defuseActor&&a.team===defenderTeam&&distance(a,spike)<2.5);
+      const active=living.find(a=>a.id===spike.defuseActor&&a.team===defenderTeam&&Math.abs((a.y||0)-(spike.y||0))<=.05&&distance(a,spike)<2.5);
       const selected=active?{actor:active,distance:0}:nearestReachable(defenders,spike,now);defuser=selected.actor;
       const defuseTime=7-(spike.defuseActor===defuser?.id?spike.defuseProgress||0:spike.checkpoint||0);
       const urgent=spike.timer<selected.distance/3.9+defuseTime+3;
       const covers=defenders.filter(bot=>bot!==defuser);
       for(const bot of defenders){
         const index=covers.indexOf(bot),known=contacts(defenderTeam,now).sort((a,b)=>distance(a,spike)-distance(b,spike))[0];
-        roles.set(bot.id,bot===defuser?{role:'defuse',goal:{x:spike.x,z:spike.z},urgent,watch:known||attackSpawn}:
+        roles.set(bot.id,bot===defuser?{role:'defuse',goal:{x:spike.x,z:spike.z,...(spike.y?{y:spike.y}:{})},urgent,watch:known||attackSpawn}:
           {role:'retake',goal:ring(spike,index,covers.length,6+index%2*2,known||attackSpawn),watch:known||attackSpawn});
       }
     }else{
       const ranked=sites.map(held=>({site:held,pressure:threat(defenderTeam,held,now)})).sort((a,b)=>b.pressure-a.pressure);
       const contested=ranked[0].pressure>.35&&ranked[0].pressure>(ranked[1]?.pressure||0)+.25?ranked[0]:null;
+      const habitual=spike.status==='carried'&&!contacts(defenderTeam,now).length?habitualSite(defenderTeam,attackerTeam):null;
       const available=defenders.slice(),assignments=[];
       // Keep an anchor at the quiet site; do not send the entire team after one sighting.
-      const quota=contested?Math.min(defenders.length-(defenders.length>1?1:0),Math.max(2,Math.ceil(defenders.length*.75))):Math.ceil(defenders.length/2);
-      const first=contested?.site||sites[round%sites.length];
+      const quota=contested||habitual?Math.min(defenders.length-(defenders.length>1?1:0),Math.max(2,Math.ceil(defenders.length*.75))):Math.ceil(defenders.length/2);
+      const first=contested?.site||habitual||sites[Math.floor(pick(`${defenderTeam}:anchor`)*sites.length)];
       for(const held of [first,...sites.filter(s=>s!==first)]){
         const count=held===first?quota:available.length;
         const humanCount=living.filter(a=>a.team===defenderTeam&&!aiActor(a)&&distance(a,held)<18).length;
@@ -168,7 +239,11 @@ export function createBotTactics({sites,navigation,collision,lanes=[],attackSpaw
       for(const {bot,site:held}of assignments){
         const peers=assignments.filter(a=>a.site===held),index=peers.findIndex(a=>a.bot===bot);
         const known=contacts(defenderTeam,now).filter(c=>distance(c,held)<36).sort((a,b)=>b.seenAt-a.seenAt)[0];
-        roles.set(bot.id,{role:contested?.site===held?'rotate':'anchor',siteId:held.id,goal:ring(held,index,peers.length,8+index%2*2,attackSpawn),watch:known||attackSpawn});
+        // A few anchors change angle after a long hold; the others keep their
+        // crossfire. Fresh contacts and planted-bomb retakes take precedence.
+        const phase=!known&&pick(`${bot.id}:mobile`)<.4?Math.floor((now-roundStartedAt)/(10+pick(`${bot.id}:interval`)*5))%2:0;
+        const radius=6+pick(`${bot.id}:depth`)*6;
+        roles.set(bot.id,{role:contested?.site===held?'rotate':'anchor',siteId:held.id,goal:ring(held,index,peers.length,radius,attackSpawn,`${bot.id}:hold:${phase}`),watch:known||attackSpawn});
       }
     }
     cached={siteId:site.id,roles,defuserId:defuser?.id||null,recovererId:recoverer?.id||null};return cached;
@@ -180,5 +255,53 @@ export function createBotTactics({sites,navigation,collision,lanes=[],attackSpaw
     if(spike.status==='planted'&&distance(seen,spike)>14)return null;
     return {x:seen.x,z:seen.z};
   }
-  return {reset,observe,contacts,routeDistance,plantPosition,selectSite,nearestReachable,update,investigation};
+  // Decisions only see copied sightings, fixed sound origins and the public bomb.
+  // They never query an unseen enemy actor or perform objective work themselves.
+  function defuseDecision(bot,now,role,spike,{enemy=null,canWork=false,impaired=false}={}){
+    if(role?.role!=='defuse'||spike.status!=='planted'||!bot.alive){retakes.delete(bot.id);return null;}
+    let state=retakes.get(bot.id);
+    if(!state||state.site!==spike.site||state.x!==spike.x||state.z!==spike.z||now<state.at){
+      state={site:spike.site,x:spike.x,z:spike.z,at:now,inspected:false,fakeUsed:false,phase:'approach'};retakes.set(bot.id,state);
+    }
+    const owned=spike.defuseActor===bot.id,progress=owned?spike.defuseProgress||0:spike.checkpoint||0;
+    const urgent=state.deadlineCommit||role.urgent||spike.timer<=routeDistance(bot,spike,now)/3.9+7-progress+BOT_RETAKE.margin;
+    // Once the deadline forces a commitment, a paused clock or plan refresh
+    // must not reopen a fake/duel and throw away the accepted work.
+    if(urgent){state.deadlineCommit=true;state.phase='commit';return {allow:true,urgent:true,phase:'commit'};}
+    const nearby=p=>p&&[p.x,p.z].every(Number.isFinite)&&distance(p,spike)<=26&&distance(bot,p)<=30;
+    const danger=enemy&&distance(enemy,spike)<32&&distance(bot,enemy)<40;
+    const seen=contacts(bot.team,now).filter(nearby).sort((a,b)=>b.seenAt-a.seenAt)[0];
+    const heard=bot.lastHeard&&now>=bot.lastHeard.at&&now-bot.lastHeard.at<1.8&&nearby(bot.lastHeard)?bot.lastHeard:null;
+    const threat=heard&&(!seen||heard.at>seen.seenAt)?heard:seen;
+    const base=role.watch||spike,angle=Math.atan2(base.x-bot.x,base.z-bot.z);
+    const sweep=[0,-1,1,0][Math.floor((now-state.at)/BOT_RETAKE.scanInterval)%4]*BOT_RETAKE.scanAngle;
+    const watch=threat?{x:threat.x,z:threat.z}:{x:bot.x+Math.sin(angle+sweep)*16,z:bot.z+Math.cos(angle+sweep)*16};
+    // A short, bounded check of a known approach must not become an endless hunt.
+    if(!state.inspected&&!owned&&!danger&&threat&&distance(bot,spike)>2.05&&distance(bot,spike)<18){
+      state.inspected=true;state.phase='inspect';state.until=now+BOT_RETAKE.inspectTime;
+      const point=safe(threat),cost=point?routeDistance(bot,point,now):Infinity;
+      state.probe=point&&cost<=10&&cost<=routeDistance(bot,spike,now)+5?{...point}:null;
+    }
+    if(state.phase==='inspect'){
+      if(now<state.until&&!danger)return {allow:false,urgent:false,phase:'inspect',watch,hold:!state.probe,goal:state.probe};
+      state.phase='approach';
+    }
+    if(state.phase==='tap'){
+      // Start the timer only after the real rules have accepted ownership.
+      if(owned&&state.started===undefined)state.started=now;
+      if(state.started!==undefined&&now-state.started>=BOT_RETAKE.tapTime){state.phase='peek';state.until=now+BOT_RETAKE.peekTime;}
+      else return {allow:!danger,urgent:false,phase:'tap',watch};
+    }
+    if(state.phase==='peek'){
+      if(now<state.until)return {allow:false,urgent:false,phase:'peek',watch,hold:true};
+      state.phase='commit';
+    }
+    if(!state.fakeUsed&&!owned&&canWork&&!danger&&!impaired&&threat&&spike.checkpoint===0&&spike.timer>7+BOT_RETAKE.tapTime+BOT_RETAKE.peekTime+BOT_RETAKE.margin){
+      state.fakeUsed=true;state.phase='tap';return {allow:true,urgent:false,phase:'tap',watch};
+    }
+    return {allow:!danger,urgent:false,phase:danger?'fight':state.phase,watch};
+  }
+  return {reset,observe,contacts,routeDistance,plantPosition,selectSite,nearestReachable,update,investigation,defuseDecision,
+    skillPlan:input=>teamSkills.update({...input,retiredTargetIds,contacts:{blue:contacts('blue',input.now),red:contacts('red',input.now)}}),
+    skillAccepted:teamSkills.accepted,skillState:teamSkills.snapshot};
 }

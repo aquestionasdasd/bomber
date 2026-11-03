@@ -104,23 +104,29 @@ async function main() {
   local.sandbox.duct=(await load('trc-layout.js')).TRC_DUCTS[0];
   function setup(){local.reset();local.run("selectArena('trc');map.traversal.reset();match.startLive();clearBots();player.trcLadder=null;player.crouch=0;player.vy=0;Object.assign(player,map.teamSpawns.attack[0]);player.y=0;elapsed=10;");}
   check('all spawns and plant positions connect; the heaven, preparation room and stage are supported',()=>{setup();local.run(`for(const p of Object.values(map.teamSpawns).flat())for(const s of map.sites)for(const t of s.plantPositions){if(!navigation.isWalkable(p.x,p.z))throw Error('spawn');if(!navigation.isWalkable(t.x,t.z)||!navigation.path(p.x,p.z,t.x,t.z).length)throw Error('plant route');}for(const p of map.landmarks.filter(p=>p.y)){if(!navigation.path(map.spawn.x,map.spawn.z,p.x,p.z,0,p.y).length)throw Error('upper route '+p.id);Object.assign(player,p,{vy:0});for(let i=0;i<60;i++)updateActorVertical(player,.016);if(Math.abs(player.y-p.y)>.01)throw Error('unsupported '+p.id);}`);});
-  check('both stairways ascend and descend with real movement at 30/60/144Hz',()=>{setup();local.run(`map.traversal.restore(map.traversal.snapshot().map(([id,hp])=>[id,hp,true]));for(const hz of [30,60,144])for(const r of map.ramps){const cx=(r.minX+r.maxX)/2,cz=(r.minZ+r.maxZ)/2,axis=r.axis,sign=r.direction,min=axis==='x'?r.minX:r.minZ,max=axis==='x'?r.maxX:r.maxZ;Object.assign(player,{x:cx,z:cz,y:0,vy:0,crouch:0});player[axis]=sign>0?min-.65:max+.65;const length=max-min+1.3;for(let t=0;t<length/2;t+=1/hz){moveEntity(player,axis==='x'?sign*2/hz:0,axis==='z'?sign*2/hz:0);updateActorVertical(player,1/hz);}if(Math.abs(player.y-r.height)>.03)throw Error('ascent '+r.id+' '+hz+' '+JSON.stringify({x:player.x,y:player.y,z:player.z}));for(let t=0;t<length/2;t+=1/hz){moveEntity(player,axis==='x'?-sign*2/hz:0,axis==='z'?-sign*2/hz:0);updateActorVertical(player,1/hz);}for(let t=0;t<60;t++)updateActorVertical(player,1/60);if(player.y>.05)throw Error('descent '+r.id);}`);});
+  check('all eight stairways ascend and descend with real movement at 30/60/144Hz',()=>{setup();local.run(`map.traversal.restore(map.traversal.snapshot().map(([id,hp])=>[id,hp,true]));for(const hz of [30,60,144])for(const r of map.ramps){const cx=(r.minX+r.maxX)/2,cz=(r.minZ+r.maxZ)/2,axis=r.axis,sign=r.direction,min=axis==='x'?r.minX:r.minZ,max=axis==='x'?r.maxX:r.maxZ;Object.assign(player,{x:cx,z:cz,y:r.base,vy:0,crouch:0});player[axis]=sign>0?min-.65:max+.65;const length=max-min+1.3;for(let t=0;t<length/2;t+=1/hz){moveEntity(player,axis==='x'?sign*2/hz:0,axis==='z'?sign*2/hz:0);updateActorVertical(player,1/hz);}if(Math.abs(player.y-(r.base+r.height))>.03)throw Error('ascent '+r.id+' '+hz+' '+JSON.stringify({x:player.x,y:player.y,z:player.z}));for(let t=0;t<length/2;t+=1/hz){moveEntity(player,axis==='x'?-sign*2/hz:0,axis==='z'?-sign*2/hz:0);updateActorVertical(player,1/hz);}for(let t=0;t<60;t++)updateActorVertical(player,1/60);if(Math.abs(player.y-r.base)>.05)throw Error('descent '+r.id);}`);});
   check('the duct hatch climb continuously, exit onto their gallery, descend and reject distant requests',()=>{setup();local.run(`for(const l of map.traversal.ladders){Object.assign(player,{x:l.x,y:0,z:l.z,vy:0,crouch:0});if(!map.traversal.interact(player,{kind:'ladder',id:l.id},elapsed))throw Error('attach '+l.id);let y=0;for(let i=0;i<200;i++){map.traversal.climb(player,1,.016);if(player.y-y>.024)throw Error('teleport');y=player.y;if(!player.trcLadder)break;}if(player.trcLadder||Math.abs(player.y-l.height)>.01)throw Error('exit '+l.id+' '+player.y);if(!actorGrounded(player))throw Error('exit support');if(!map.traversal.interact(player,{kind:'ladder',id:l.id},elapsed))throw Error('descent attach');for(let i=0;i<200;i++)map.traversal.climb(player,-1,.016);if(player.y!==0||player.trcLadder)throw Error('descent');Object.assign(player,{x:0,y:0,z:25});if(map.traversal.interact(player,{kind:'ladder',id:l.id},elapsed))throw Error('remote attach');}`);});
-  check('crouch-only duct entrance blocks standing and permits crouched passage',()=>{setup();local.run(`const r=duct.rects[0];Object.assign(player,duct.entry,{y:0,crouch:0});for(let i=0;i<80;i++){moveEntity(player,0,-.05);updateActorVertical(player,.016);}if(player.z<r.maxZ+.2)throw Error('standing entered');player.crouch=1;for(let i=0;i<150;i++){moveEntity(player,0,-.05);updateActorVertical(player,.016);}if(player.z>r.maxZ-5)throw Error('crouch stuck '+player.z);if(canStand(player.x,player.z,.34,0,1.7))throw Error('standing clearance');`);});
+  check('crouch-only duct entrance blocks standing and permits crouched passage',()=>{setup();local.run(`const r=duct.rects[0];Object.assign(player,duct.entry,{y:0,crouch:0});for(let i=0;i<80;i++){moveEntity(player,0,-.05);updateActorVertical(player,.016);}if(player.z<r.maxZ+.2)throw Error('standing entered');player.crouch=1;for(let i=0;i<110;i++){moveEntity(player,0,-.05);updateActorVertical(player,.016);}if(player.z>r.maxZ-5)throw Error('crouch stuck '+player.z);if(canStand(player.x,player.z,.34,0,1.7))throw Error('standing clearance');`);});
   check('F operates doors for either team, blocks closing on players, shots break and round reset restores',()=>{setup();local.run(`for(const d of map.traversal.doors){Object.assign(player,{x:d.x+(d.axis==='z'?1:0),z:d.z+(d.axis==='x'?1:0),y:d.y,crouch:0});elapsed+=1;const n=map.traversal.nearby(player);if(n?.id!==d.id)throw Error('door prompt '+d.id);if(map.traversal.interact(player,n,elapsed,[player])!=='door-open')throw Error('open');if(!d.collider.disabled)throw Error('open collision');player.x=d.x;player.z=d.z;elapsed++;if(map.traversal.interact(player,n,elapsed,[player]))throw Error('crush');player.x+=d.axis==='z'?1:0;player.z+=d.axis==='x'?1:0;elapsed++;map.traversal.interact(player,n,elapsed,[player]);for(let i=0;i<5;i++)map.traversal.damage(d.id,40);if(d.hp!==0||!d.open||!d.collider.disabled)throw Error('break');}spawnRound();if(map.traversal.doors.some(d=>d.open||d.hp!==180||d.collider.disabled))throw Error('round reset');`);});
-  check('metal footsteps reach hearing while muted; Shift suppresses metal but doors stay audible',()=>{setup();local.run(`{Object.assign(player,tp(5.2,40),{y:0,crouch:1});const previous={x:player.x,y:0,z:player.z+.03},listener={team:'red',x:player.x-2,y:0,z:player.z};soundEnabled=false;volume=0;botHearing.reset();for(let i=0;i<30;i++)trcMotionSound(player,.016,previous,false);if(!botHearing.listen(listener,elapsed))throw Error('silent simulation');botHearing.reset();for(let i=0;i<30;i++)trcMotionSound(player,.016,previous,true);if(botHearing.listen(listener,elapsed))throw Error('Shift audible');sound('door-open',{entity:player});if(!botHearing.listen(listener,elapsed))throw Error('door silent');}`);});
+  check('metal footsteps reach hearing while muted; Shift suppresses metal but doors stay audible',()=>{setup();local.run(`{Object.assign(player,tp(9,62),{y:0,crouch:1});const previous={x:player.x,y:0,z:player.z+.03},listener={team:'red',x:player.x-2,y:0,z:player.z};soundEnabled=false;volume=0;botHearing.reset();for(let i=0;i<30;i++)trcMotionSound(player,.016,previous,false);if(!botHearing.listen(listener,elapsed))throw Error('silent simulation');botHearing.reset();for(let i=0;i<30;i++)trcMotionSound(player,.016,previous,true);if(botHearing.listen(listener,elapsed))throw Error('Shift audible');sound('door-open',{entity:player});if(!botHearing.listen(listener,elapsed))throw Error('door silent');}`);});
   check('host-owned doors survive JSON sync/rejoin, reject malformed state and old packets',()=>{
     setup();local.run(`makeBot({x:15,z:1},0,'red',{id:'red-0',team:'red',primary:null,secondary:'classic',armor:0,credits:800,kit:new DuelistKit({character:'nope'})});var remote=bots[0];remote.id='red-0';remote.remoteId='guest';remote.netWeapon='classic';remote.netAmmo=12;remote.netReserve=36;onlinePlaying=true;online={host:true,session:{memberId:'host',hostId:'host'},send:p=>{captured=JSON.parse(JSON.stringify(p))}};map.traversal.damage('D1',200);netClock=0;tickOnline(.1);`);
     const guest=harness({realMap:true});guest.reset();guest.run(`selectArena('trc');onlinePlaying=true;online={host:false,room:{code:'TRCTEST1'},session:{memberId:'guest',hostId:'host'},send:()=>{}};netParticipants.set('guest','red-0');`);
+    // The two new main/MID shutters use the same authoritative state and rejoin packet.
+    local.run(`map.traversal.damage('D4',200);const d=map.traversal.doors.find(v=>v.id==='D5');Object.assign(remote,{x:d.x+1,z:d.z,y:0});applyRemoteAction(remote,{type:'trc-interact',kind:'door',id:'D5'});elapsed+=.2;netClock=0;tickOnline(.1);`);
     guest.sandbox.packet=copy(local.run('captured'));guest.run("receiveNetPacket('host',packet)");assert.equal(guest.run('map.traversal.doors[0].hp'),0);assert.ok(Buffer.byteLength(JSON.stringify(guest.sandbox.packet))<65536);
+    assert.equal(guest.run("map.traversal.doors.find(d=>d.id==='D4').hp"),0);
+    assert.equal(guest.run("map.traversal.doors.find(d=>d.id==='D5').open"),true);
+    assert.equal(guest.sandbox.packet.trcDoors.length,5);
     guest.sandbox.bad={...copy(guest.sandbox.packet),trcDoors:[['D1',-1,true]],time:999};guest.run('applyNetSnapshot(bad)');assert.notEqual(guest.run('elapsed'),999);
     guest.run("receiveNetPacket('host',packet)");assert.equal(guest.run('map.traversal.doors[0].hp'),0);
     local.run(`Object.assign(remote,{x:0,z:25,y:0});applyRemoteAction(remote,{type:'trc-interact',kind:'door',id:'D2'});`);assert.equal(local.run('map.traversal.doors[1].open'),false);
   });
-  check('real BOT update follows the A duct to heaven and the B loading route',()=>{
-    for(const route of ['attackA','attackB']){setup();local.sandbox.routeName=route;local.run(`
+  check('real BOT update follows attacker side routes and the simplified defender stairs',()=>{
+    for(const route of ['attackA','attackB','defendA','defendB']){setup();local.sandbox.routeName=route;local.run(`
       Object.assign(match.spike,{status:'carried',carrier:player.id});
-      makeBot(map.teamSpawns.attack[0],3,'blue',{id:'blue-3',name:'climber',team:'blue',primary:'vandal',secondary:'classic',armor:0,credits:0,kit:new DuelistKit({character:'nope'})});
+      Object.assign(player,map.spawn);var attackingRoute=routeName.startsWith('attack'),routeTeam=attackingRoute?'blue':'red',routeSlot=routeName==='defendA'?1:3;
+      makeBot(map.teamSpawns[attackingRoute?'attack':'defend'][0],routeSlot,routeTeam,{id:routeTeam+'-'+routeSlot,name:'climber',team:routeTeam,primary:'vandal',secondary:'classic',armor:0,credits:0,kit:new DuelistKit({character:'nope'})});
       var climber=bots[0];climber.trcRoute={key:routeName,round:match.round,index:0};
       for(var i=0;i<1500;i++){elapsed+=.05;updateBots(.05);}
       var end=map.traversal.routes[routeName].at(-1);
@@ -145,16 +151,16 @@ async function main() {
        const route=navigation.path(map.spawn.x,map.spawn.z,site.x,site.z);let previous=map.spawn,length=0;for(const p of route){length+=Math.hypot(p.x-previous.x,p.z-previous.z);previous=p;}if(length<95)throw Error('approach too short '+length);
        if(map.collision.rayClear(map.spawn.x,1.5,map.spawn.z,site.x,1.5,site.z))throw Error('spawn sees site');
       }
-      for(const [a,b]of [[[13,68],[27,35]],[[84,70],[84,35]],[[50,53],[27,35]],[[50,53],[84,35]]]){const p=tp(...a),q=tp(...b);if(map.collision.rayClear(p.x,1.5,p.z,q.x,1.5,q.z))throw Error('unbroken approach sightline');}
-      const heaven=tp(25,24,4.7),target=tp(27,35,1.5);if(!map.collision.rayClear(heaven.x,heaven.y,heaven.z,target.x,target.y,target.z))throw Error('heaven has no useful window');
-      for(const [x,z]of [[16,38],[37,43],[71,37],[96,33]]){const p=tp(x,z);if(!navigation.isWalkable(p.x,p.z)||!navigation.path(map.spawn.x,map.spawn.z,p.x,p.z).length)throw Error('hide inaccessible');}
+      for(const [a,b]of [[[13,94],[26,43]],[[91,96],[88,46]],[[54,81],[26,43]],[[54,81],[88,46]]]){const p=tp(...a),q=tp(...b);if(map.collision.rayClear(p.x,1.5,p.z,q.x,1.5,q.z))throw Error('unbroken approach sightline');}
+      const heaven=tp(14,45,4.7),target=tp(26,43,1.5);if(!map.collision.rayClear(heaven.x,heaven.y,heaven.z,target.x,target.y,target.z))throw Error('heaven has no useful window');
+      for(const [x,z]of [[19,47],[35,37],[75,48],[98,39]]){const p=tp(x,z);if(!navigation.isWalkable(p.x,p.z)||!navigation.path(map.spawn.x,map.spawn.z,p.x,p.z).length)throw Error('hide inaccessible');}
     `);
   });
   check('plant anywhere on broad clear floors, including beside a door; upper floors reject planting',()=>{
     setup();local.run(`{
-      const positions=[...map.sites.flatMap(s=>s.plantPositions),tp(27,44.6)];
+      const positions=[...map.sites.flatMap(s=>s.plantPositions),tp(73.1,49)];
       for(const p of positions){Object.assign(player,p,{y:0,vy:0});Object.assign(match.spike,{status:'carried',carrier:player.id,plantProgress:0,plantActor:null});interactionHeld=true;updateInteraction(4,true);if(match.spike.status!=='planted'||Math.hypot(match.spike.x-p.x,match.spike.z-p.z)>.001)throw Error('plant failed '+JSON.stringify(p));}
-      Object.assign(player,tp(27,44.6),{y:0,vy:0});Object.assign(match.spike,{status:'carried',carrier:player.id,plantProgress:0,plantActor:null});updateInteraction(0,true);if($('interaction-key').textContent!=='4')throw Error('door stole plant prompt');
+      Object.assign(player,tp(73.1,49),{y:0,vy:0});Object.assign(match.spike,{status:'carried',carrier:player.id,plantProgress:0,plantActor:null});updateInteraction(0,true);if($('interaction-key').textContent!=='4')throw Error('door stole plant prompt');
       player.y=3.2;updateInteraction(4,true);if(match.spike.status!=='carried')throw Error('airborne plant');
       player.y=0;player.team=match.defenderTeam;Object.assign(match.spike,{status:'planted',x:player.x,z:player.z,defuseProgress:0,defuseActor:null,checkpoint:0});updateInteraction(0,true);if($('interaction-key').textContent!=='4')throw Error('door stole defuse prompt');updateInteraction(7,true);if(match.spike.status==='planted')throw Error('door prevented defuse');
     }`);
@@ -164,22 +170,22 @@ async function main() {
     assert.equal(local.run('canStand(match.spike.x,match.spike.z,.34,0)&&buyAreaContains(map.buyAreas.attack,match.spike.x,match.spike.z,.34)'),true);
     local.run(`match.phase='buy';Object.assign(player,{x:match.spike.x,z:match.spike.z,y:0,vy:0});updateInteraction(.05,true);`);
     assert.equal(local.run('match.spike.carrier'),local.run('player.id'));
-    local.run(`match.phase='live';Object.assign(player,tp(27,44.6),{y:0,vy:0,vx:3,vz:3});
+    local.run(`match.phase='live';Object.assign(player,tp(73.1,49),{y:0,vy:0,vx:3,vz:3});
       makeBot(map.teamSpawns.defend[0],0,'red',{id:'red-0',team:'red',primary:null,secondary:'classic',armor:0,credits:800,kit:new DuelistKit({character:'nope'})});bots[0].rangeTarget=true;
       var workX=player.x,workZ=player.z;`);
     const key=(code,up=false)=>{for(const fn of local.listeners.get(up?'keyup':'keydown')||[])fn({code,repeat:false,preventDefault(){},target:{}});};
-    key('KeyF');assert.equal(local.run('map.traversal.doors[0].open'),true);assert.equal(local.run('interactionHeld'),false);key('KeyF',true);
+    key('KeyF');assert.equal(local.run('map.traversal.doors[2].open'),true);assert.equal(local.run('interactionHeld'),false);key('KeyF',true);
     key('KeyW');key('Digit4');local.run('for(var i=0;i<20;i++)updatePlay(.05)');
     assert.equal(local.run('player.x'),local.run('workX'));assert.equal(local.run('player.z'),local.run('workZ'));
     assert.ok(local.run('match.spike.plantProgress>.99'));
-    assert.equal(local.run('map.traversal.doors[0].open'),true);
+    assert.equal(local.run('map.traversal.doors[2].open'),true);
     key('Digit4',true);local.run('updatePlay(.05)');assert.equal(local.run('match.spike.plantProgress'),0);key('KeyW',true);
   });
   function detonateTrc(){local.run(`Object.assign(match.spike,{status:'planted',x:map.sites[0].x,z:map.sites[0].z,timer:.01});match.tick(.02,{blueAlive:1,redAlive:1,playerAlive:true});handleMatchEvents();`);}
   check('TRC collapse preserves visible ground, releases climbers and removes upper support, routes and door interactions together',()=>{
     setup();local.run(`
       var intact={colliders:map.colliders.length,shapes:map.mapShapes.length,ramps:map.ramps.length};
-      var floorPoints=[map.spawn,...map.sites,tp(53,74)];
+      var floorPoints=[map.spawn,...map.sites,tp(55,104)];
       var groundVisible=()=>floorPoints.every(p=>new THREE.Raycaster(new THREE.Vector3(p.x,.3,p.z),new THREE.Vector3(0,-1,0),0,.4).intersectObject(map.world,true).some(h=>h.object.visible&&busSurfaceVisible(h)));
       environment.updateMatrixWorld(true);if(!groundVisible())throw Error('initial visible floor');
       map.traversal.damage('D1',200);
@@ -226,7 +232,7 @@ async function main() {
     // Create the second map while the first is collapsed: shared layout data
     // must not lose its stairs when a live map clears its support array.
     const guest=harness({realMap:true});guest.reset();guest.run(`selectArena('trc');onlinePlaying=true;online={host:false,room:{code:'TRCCLAPS'},session:{memberId:'guest',hostId:'host'},send:()=>{}};netParticipants.set('guest','red-0');`);
-    assert.equal(guest.run('map.ramps.length'),2);
+    assert.equal(guest.run('map.ramps.length'),8);
     guest.sandbox.transfer=copy(packet);guest.run(`receiveNetPacket('host',transfer);var sequence=netLastSnapshot;`);
     assert.equal(guest.run('map.bomberCollapse.active'),true);
     assert.equal(guest.run('map.colliders.length'),0);
@@ -240,11 +246,11 @@ async function main() {
     guest.run(`receiveNetPacket('host',transfer)`);
     assert.equal(guest.run('map.bomberCollapse.active'),false);
     assert.equal(guest.run('map.colliders.length'),local.run('map.colliders.length'));
-    assert.equal(guest.run('map.ramps.length'),2);
+    assert.equal(guest.run('map.ramps.length'),8);
     assert.equal(guest.run('map.traversal.doors.every(d=>d.hp===180&&!d.open&&!d.collider.disabled)&&leaves.every(o=>o.visible)'),true);
   });
   check('a full ten-actor round runs the real movement, tactics, weapons and objective loop',()=>{
-    setup();local.run(`online=null;onlinePlaying=false;mode='menu';$('map-select').value='trc';$('match-format').value='standard';startGame();startRound();if(bots.length!==9)throw Error('roster');for(let i=0;i<900;i++){updatePlay(.05);for(const a of [player,...bots])if(![a.x,a.y,a.z,a.hp].every(Number.isFinite)||a.y<-.01||a.y>9.6)throw Error('invalid actor');}if(!match||!['live','post','buy','match'].includes(match.phase))throw Error('round stopped');`);
+    setup();local.run(`online=null;onlinePlaying=false;mode='menu';$('map-select').value='trc';$('match-format').value='standard';startGame();startRound();if(bots.length!==9)throw Error('roster');for(let i=0;i<900;i++){updatePlay(.05);for(const a of [player,...bots])if(![a.x,a.y,a.z,a.hp].every(Number.isFinite)||a.y<-3.21||a.y>9.6)throw Error('invalid actor');}if(!match||!['live','post','buy','match'].includes(match.phase))throw Error('round stopped');`);
   });
   console.log('PASS '+groups+' TRC game groups (audio mocked)');
 }

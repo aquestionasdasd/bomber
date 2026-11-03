@@ -91,7 +91,7 @@ async function main() {
       for (const key of ['label', 'role', 'ultName', 'ultShortName', 'description', 'ultIcon']) assert.ok(definition[key]?.length > 0);
       assert.equal(definition.ultimatePoints, 7); assert.match(definition.color, /^#[0-9a-f]{6}$/i);
       assert.match(definition.description, /7pt/);
-      assert.match(definition.description, id === 'onnara' ? /C：.*コイン.*Q：.*宝玉.*E：.*空中/ : id === 'urchin' ? /C：.*装填.*Q：.*主武器.*E：.*コイン/ : id === 'cap' ? /C：.*ADS.*Q：.*妨害.*E：.*反射/ : id === 'japan' ? /C：.*国境線.*Q：.*装甲.*E：.*返送/ : id === 'nobi' ? /C：.*銃に弱く.*Q：.*連射.*E：.*電源オフ/ : id === 'car' ? /C：.*押し出す.*Q：.*煙.*除去.*E：.*移動射撃/ : id === 'nope' ? /C：瓶グレネード.*Q：顔フラッシュ.*E：.*全身の囮.*X：.*30体/ : id === 'mend' ? /C：足止めの種.*Q：花粉の煙幕.*E：単体60回復/ : id === 'echo' ? /C：.*金文字.*Q：反射閃光.*E：短い移動補助/ : id === 'veil' ? /C：.*土煙.*Q：.*根の帯.*E：.*芝走り/ : id === 'ember' ? /C：.*はんだ玉.*Q：.*遮光眼鏡.*E：.*整備/ : id === 'cat' ? /C：.*保存地点.*Q：.*5発.*E：.*遠隔回収/ : id === 'duck' ? /C：.*封印.*Q：.*羽盾.*E：.*着地音/ : id === 'frost' ? /C：.*円環.*Q：.*ドールミスト.*E：.*減速を軽減/ : /C：.*流れ星の幕.*Q：アンテナリフト.*E：.*ダッシュ/);
+      assert.match(definition.description, id === 'onnara' ? /C：.*大ジャンプ.*Q：.*宝玉.*E：.*空中/ : id === 'urchin' ? /C：.*装填.*Q：.*主武器.*E：.*コイン/ : id === 'cap' ? /C：.*ADS.*Q：.*妨害.*E：.*反射/ : id === 'japan' ? /C：.*国境線.*Q：.*装甲.*E：.*返送/ : id === 'nobi' ? /C：.*銃に弱く.*Q：.*連射.*E：.*電源オフ/ : id === 'car' ? /C：.*押し出す.*Q：.*煙.*除去.*E：.*移動射撃/ : id === 'nope' ? /C：瓶グレネード.*Q：顔フラッシュ.*E：.*全身の囮.*X：.*30体/ : id === 'mend' ? /C：足止めの種.*Q：花粉の煙幕.*E：単体60回復/ : id === 'echo' ? /C：.*金文字.*Q：反射閃光.*E：短い移動補助/ : id === 'veil' ? /C：.*土煙.*Q：.*根の帯.*E：.*芝走り/ : id === 'ember' ? /C：.*はんだ玉.*Q：.*遮光眼鏡.*E：.*整備/ : id === 'cat' ? /C：.*保存地点.*Q：.*5発.*E：.*遠隔回収/ : id === 'duck' ? /C：.*封印.*Q：.*羽盾.*E：.*着地音/ : id === 'frost' ? /C：.*円環.*Q：.*ドールミスト.*E：.*減速を軽減/ : /C：.*流れ星の幕.*Q：アンテナリフト.*E：.*ダッシュ/);
       assert.match(definition.ultIcon, /^[MmLlHhVvAaQqCcSsTtZz0-9.,\s-]+$/, 'Only an SVG path is stored in icon metadata');
     }
     const html = fs.readFileSync(path.join(__dirname, 'public/play.html'), 'utf8');
@@ -131,7 +131,7 @@ async function main() {
   test('ECHO spends seven points once and describes three fixed-center pulses with brief map-only reveals', () => {
     const kit = new DuelistKit({ character: 'echo' }); kit.ultPoints = 6;
     assert.equal(kit.activate('x', 0), null); assert.equal(kit.ultPoints, 6); kit.awardPoint();
-    assert.deepEqual(kit.activate('x', 1), { type: 'recon', radius: 30, duration: 6, pulses: 3, interval: 2, revealDuration: 1.25 });
+    assert.deepEqual(kit.activate('x', 1), { type: 'recon', radius: 300, duration: 6, pulses: 3, interval: 2, revealDuration: 1.25 });
     assert.equal(kit.ultPoints, 0); assert.equal(kit.activate('x', 1), null);
     assert.equal(kit.knivesActive, false); assert.equal(kit.knives, 0); assert.equal(kit.consumeKnife(), false);
     kit.awardKill(); assert.equal(kit.knives, 0);
@@ -151,7 +151,7 @@ async function main() {
   });
   test('EMBER and FROST consume seven points once and expose independent exact zone contracts', () => {
     const definitions = [
-      ['ember', { type: 'ember', radius: 6, duration: 4.8, pulses: [1.2, 2.4, 3.6], damage: 30 }],
+      ['ember', { type: 'ember', radius: 6, duration: 4.8, pulses: [1.2, 2.4, 3.6], damage: 80 }],
       ['frost', { type: 'frost', radius: 7, duration: 10, warmup: .8, slowMultiplier: .55 }],
     ];
     for (const [id, expected] of definitions) {
@@ -300,7 +300,7 @@ async function main() {
     assert.deepEqual(kit.activate('q', 2), { type: 'echo-glint', flight: .5, radius: 10, duration: 2 }); assert.equal(kit.activate('q', 2), null);
     assert.deepEqual(kit.activate('e', 2), { type: 'echo-kerning', duration: 4, speedScale: 1.35, cooldown: 18 });
     assert.equal(kit.armReadyAt, null); assert.equal(kit.armExpiresAt, null); assert.equal(kit.activate('e', 3), null); assert.equal(kit.nextSignatureAt, 20);
-    assert.equal(kit.ultPoints, 7); assert.deepEqual(kit.activate('x', 3), { type: 'recon', radius: 30, duration: 6, pulses: 3, interval: 2, revealDuration: 1.25 });
+    assert.equal(kit.ultPoints, 7); assert.deepEqual(kit.activate('x', 3), { type: 'recon', radius: 300, duration: 6, pulses: 3, interval: 2, revealDuration: 1.25 });
     assert.equal(kit.ultPoints, 0); assert.equal(kit.knivesActive, false); assert.equal(kit.consumeKnife(), false);
   });
   test('IAGNU timed signature survives JSON, rejects borrowed dash arms and refills only by time or round reset', () => {
@@ -380,7 +380,7 @@ async function main() {
     assert.deepEqual(kit.activate('q', 2), { type: 'ember-shade', duration: 8, flashScale: .15 }); assert.equal(kit.activate('q', 2), null);
     assert.deepEqual(kit.activate('e', 2), { type: 'ember-service', duration: .8, cooldown: 18 }); assert.equal(kit.activate('e', 3), null);
     assert.equal(kit.nextSignatureAt, 20); assert.equal(kit.armReadyAt, null); assert.equal(kit.armExpiresAt, null); assert.equal(kit.ultPoints, 7);
-    assert.deepEqual(kit.activate('x', 3), { type: 'ember', radius: 6, duration: 4.8, pulses: [1.2, 2.4, 3.6], damage: 30 });
+    assert.deepEqual(kit.activate('x', 3), { type: 'ember', radius: 6, duration: 4.8, pulses: [1.2, 2.4, 3.6], damage: 80 });
     assert.equal(kit.ultPoints, 0); assert.equal(kit.knivesActive, false); assert.equal(kit.consumeKnife(), false);
   });
   test('EMBER service cooldown survives JSON, rejects dash arms and invalid clocks, and refills by time or round rather than kills', () => {

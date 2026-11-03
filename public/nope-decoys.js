@@ -12,9 +12,12 @@ const record = value => value !== null && typeof value === 'object' && !Array.is
 const living = actor => actor && identifier(actor.id) && team(actor.team) && actor.alive === true
   && Number.isFinite(actor.hp) && actor.hp > 0 && actor.hp <= 1000 && coordinate(actor.x) && coordinate(actor.z)
   && (actor.y === undefined || coordinate(actor.y));
-const endTime = startedAt => startedAt + NOPE_SKILLS.decoyDuration;
+const endTime = startedAt => startedAt + NOPE_SKILLS.decoyDuration + (NOPE_SKILLS.decoyWaveCount-1)*NOPE_SKILLS.decoyWaveInterval;
 const validEnd = (startedAt, endsAt) => clock(endsAt) && endsAt > startedAt && endsAt === endTime(startedAt)
-  && Math.abs(endsAt - startedAt - NOPE_SKILLS.decoyDuration) < 1e-7;
+  && Math.abs(endsAt-startedAt-(NOPE_SKILLS.decoyDuration+(NOPE_SKILLS.decoyWaveCount-1)*NOPE_SKILLS.decoyWaveInterval)) < 1e-7;
+const validMasks = masks => Array.isArray(masks)&&masks.length===NOPE_SKILLS.decoyWaveCount&&Object.keys(masks).length===masks.length
+  &&Object.keys(masks).every((key,index)=>key===String(index))
+  &&masks.every(mask=>Number.isSafeInteger(mask)&&mask>=0&&mask<=FULL_MASK);
 const sequenceOf = (id, round) => {
   if (typeof id !== 'string' || !id.startsWith(`nope-wave-${round}-`)) return 0;
   const suffix = id.slice(`nope-wave-${round}-`.length);
@@ -41,12 +44,12 @@ function validPacked(points) {
       && Math.abs(point[3]) <= 31416 && (point.length===4||point[4]>=0&&point[4]<=NOPE_SKILLS.decoyWalkRange*100)) && distinct(points);
 }
 const copyWave = wave => ({ id: wave.id, team: wave.team, sourceId: wave.sourceId, round: wave.round,
-  startedAt: wave.startedAt, endsAt: wave.endsAt, points: wave.points.map(point => [...point]), shotMask: wave.shotMask });
+  startedAt: wave.startedAt, endsAt: wave.endsAt, points: wave.points.map(point => [...point]), shotMask: [...wave.shotMask] });
 const sameWave = (a, b) => fields.filter(key => key !== 'shotMask').every(key => key === 'points'
   ? a.points.every((point, index) => point.length===b.points[index].length&&point.every((value, axis) => value === b.points[index][axis])) : a[key] === b[key]);
 
-// One global ultimate wave, independent of the ordinary twenty-event pool.
-// The wire stores centimeters and 1e-4 radians, not render objects or targets.
+// Three fixed cohorts reuse thirty host-planned routes. Only three30-bit masks
+// travel on the wire; ninety render bodies never consume ordinary event slots.
 export function createNopeDecoys() {
   let wave = null, closed = false, owned = false, sequence = 0, seenSequence = 0;
   let currentRound = null, currentTime = -Infinity, lastRestoreTime = -Infinity;
@@ -55,11 +58,12 @@ export function createNopeDecoys() {
     currentRound = round; currentTime = now; lastRestoreTime = -Infinity;
   }
   function prune() { if (wave && currentTime >= wave.endsAt) closed = true; }
-  function eventAt(index) {
+  function eventAt(index, cohort) {
     const point = wave.points[index];
-    return nopeWalkPose({ id: `${wave.id}-${index + 1}`, type: 'nope-decoy', team: wave.team, sourceId: wave.sourceId, round: wave.round,
+    const startedAt=wave.startedAt+cohort*NOPE_SKILLS.decoyWaveInterval;
+    return nopeWalkPose({ id: `${wave.id}-${cohort*COUNT+index + 1}`, type: 'nope-decoy', team: wave.team, sourceId: wave.sourceId, round: wave.round,
       x: point[0] / 100, y: point[1] / 100, z: point[2] / 100, yaw: point[3] / 10000,
-      startedAt: wave.startedAt, endsAt: wave.endsAt,...(point.length===5?{walkLength:point[4]/100}:{}) },currentTime);
+      startedAt, endsAt: startedAt+NOPE_SKILLS.decoyDuration,...(point.length===5?{walkLength:point[4]/100}:{}) },currentTime);
   }
   function start(sourceActor, points, now, round) {
     if (!living(sourceActor) || !clock(now) || !roundNumber(round) || !validEnd(now, endTime(now))
@@ -68,7 +72,7 @@ export function createNopeDecoys() {
     if (round !== currentRound) clearRound(round, now);
     sequence++; seenSequence = sequence; currentTime = now;
     wave = { id: `nope-wave-${round}-${sequence}`, team: sourceActor.team, sourceId: sourceActor.id, round,
-      startedAt: now, endsAt: endTime(now), points: packed, shotMask: 0 };
+      startedAt: now, endsAt: endTime(now), points: packed, shotMask: Array(NOPE_SKILLS.decoyWaveCount).fill(0) };
     closed = false; owned = true; return true;
   }
   function events(now) {
@@ -76,18 +80,22 @@ export function createNopeDecoys() {
     currentTime = Math.max(currentTime, now); prune();
     if (!wave || closed) return [];
     const result = [];
-    for (let index = 0; index < COUNT; index++) if (!(wave.shotMask & 1 << index)) result.push(eventAt(index));
+    for(let cohort=0;cohort<NOPE_SKILLS.decoyWaveCount;cohort++){
+      const start=wave.startedAt+cohort*NOPE_SKILLS.decoyWaveInterval;
+      if(currentTime<start||currentTime>=start+NOPE_SKILLS.decoyDuration)continue;
+      for (let index = 0; index < COUNT; index++) if (!(wave.shotMask[cohort] & 1 << index)) result.push(eventAt(index,cohort));
+    }
     return result;
   }
   function consume(id, shooterTeam, now, round) {
     if (!owned || !wave || closed || !team(shooterTeam) || shooterTeam === wave.team || round !== currentRound
       || !roundNumber(round) || !clock(now) || now < currentTime || now < wave.startedAt || typeof id !== 'string') return null;
     const prefix = `${wave.id}-`, suffix = id.startsWith(prefix) ? id.slice(prefix.length) : '';
-    if (!/^(?:[1-9]|[12][0-9]|30)$/.test(suffix)) return null;
-    const index = Number(suffix) - 1;
+    if (!/^(?:[1-9]|[1-8][0-9]|90)$/.test(suffix)) return null;
+    const slot = Number(suffix)-1,cohort=Math.floor(slot/COUNT),index=slot%COUNT,start=wave.startedAt+cohort*NOPE_SKILLS.decoyWaveInterval;
     currentTime = now; prune();
-    if (closed || wave.shotMask & 1 << index) return null;
-    const removed = eventAt(index); wave.shotMask |= 1 << index; return removed;
+    if (closed || now<start || now>=start+NOPE_SKILLS.decoyDuration || wave.shotMask[cohort] & 1 << index) return null;
+    const removed = eventAt(index,cohort); wave.shotMask[cohort] |= 1 << index; return removed;
   }
   function snapshot() { prune(); return wave && !closed ? copyWave(wave) : null; }
   function restore(value, now, round) {
@@ -98,7 +106,7 @@ export function createNopeDecoys() {
       if (!record(value) || Object.keys(value).length !== fields.length || !fields.every(key => Object.hasOwn(value, key))
         || !team(value.team) || !identifier(value.sourceId) || value.round !== round || !clock(value.startedAt)
         || value.startedAt > now || !validEnd(value.startedAt, value.endsAt) || !validPacked(value.points)
-        || !Number.isSafeInteger(value.shotMask) || value.shotMask < 0 || value.shotMask > FULL_MASK
+        || !validMasks(value.shotMask)
         || !(incomingSequence = sequenceOf(value.id, round))) return false;
       if (round === currentRound && (incomingSequence < seenSequence
         || incomingSequence === seenSequence && wave && !sameWave(wave, value)
@@ -110,7 +118,7 @@ export function createNopeDecoys() {
     if (value === null) { closed = true; return true; }
     if (incomingSequence === seenSequence && wave) {
       // Consumed/cleared copies stay gone even in repeated same-clock packets.
-      wave.shotMask |= value.shotMask;
+      for(let cohort=0;cohort<NOPE_SKILLS.decoyWaveCount;cohort++)wave.shotMask[cohort] |= value.shotMask[cohort];
     } else {
       wave = copyWave(value); seenSequence = incomingSequence; closed = false;
     }

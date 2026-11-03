@@ -10,6 +10,7 @@ export const CHARACTER_HANDS = Object.freeze({
   cat:['#fff5ec','#e8c4bf'], car:['#e9ece8','#292f33'],
   nobi:['#f0c49b','#dba87d'], japan:['#b99b6e','#e8ca91'],
   cap:['#f1b27a','#d79362'], urchin:['#a9f1e4','#70cabe'],
+  renko:['#f5d5be','#769ac7'],
   onnara:['#ffdbba','#ffe073'],
 });
 
@@ -215,6 +216,7 @@ export function createViewmodel(THREE, camera) {
   }
   group.traverse(object => { if (object.isMesh) { object.onBeforeRender = prepareEquipmentDepth; object.renderOrder = 100; } });
   flash.renderOrder = 118;
+  let wasUnarmed = false;
   let current = '', equipBlend = 0, aimBlend = 0, wasReloading = false, reloadClock = 0;
   let previousKick = 0, boltKick = 0, caseIndex = 0, slash = 0, throwClock = 0, disposed = false;
   const bladeFraming = { scale: .87, x: 0, y: -.235, z: -.60, adsZ: -.60 };
@@ -265,94 +267,112 @@ export function createViewmodel(THREE, camera) {
       part.hand.rotation.x += grasp * .12;
     }
   }
-  function setWeapon(id) {
-    const next = models.has(id) ? id : 'classic'; if (next === current) return;
-    if (current) equipBlend = 1;
+  function setWeapon(id, reset = false) {
+    const next = models.has(id) ? id : 'classic'; if (next === current && !reset) return;
+    if (current) equipBlend = reset ? 0 : 1;
+    if (reset) aimBlend = 0;
     if (current) models.get(current).fan?.update(0, { active: false, count: 5 });
     current = next; previousKick = 0; boltKick = 0; slash = 0; throwClock = 0; wasReloading = false; reloadClock = 0;
     for (const [name, model] of models) model.parent.visible = name === current;
     const model = models.get(current); model.weapon.muzzle.add(muzzle); muzzle.position.set(0, 0, 0); flash.visible = false;
     for (const item of casings) { item.life = 0; item.object.visible = false; }
   }
-  function eject(model) {
+  function eject(model, seed = null) {
+    // Spectator-only casing motion must not consume the host's combat RNG.
+    const random = seed === null ? Math.random : () => { seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296; };
     const item = casings[caseIndex++ % casings.length];
     model.weapon.bolt.getWorldPosition(caseOrigin); group.worldToLocal(caseOrigin);
     item.object.position.copy(caseOrigin); item.object.position.x += .045;
-    item.velocity.set(.43 + Math.random() * .12, .18 + Math.random() * .06, .10);
-    item.life = .42; item.spin = (Math.random() + .5) * 13; item.object.visible = true;
+    item.velocity.set(.43 + random() * .12, .18 + random() * .06, .10);
+    item.life = .42; item.spin = (random() + .5) * 13; item.object.visible = true;
   }
   function update(dt, state = {}) {
     if (disposed) return;
     if(state.character!==undefined)setCharacter(state.character);
     dt = Math.min(.1, Math.max(0, Number(dt) || 0));
     const model = models.get(current), weapon = model.weapon, time = Number(state.time) || 0;
+    const unarmed = state.unarmed === true;
+    if (wasUnarmed && !unarmed) equipBlend = 1;
+    wasUnarmed = unarmed;
     const smoothing = 1 - Math.exp(-dt * 17);
-    const thrown = model.fan?.update(dt, { active: Boolean(state.ultimate) && !state.interacting,
+    const thrown = model.fan?.update(dt, { active: !unarmed && Boolean(state.ultimate) && !state.interacting,
       count: state.knives, shotSequence: state.shotSequence, time });
     throwClock = thrown ? .20 : Math.max(0, throwClock - dt);
-    const bladeStorm = Boolean(model.fan && (state.ultimate || model.fan.group.userData.throwing));
+    const bladeStorm = !unarmed && Boolean(model.fan && (state.ultimate || model.fan.group.userData.throwing));
+    if (unarmed && model.fan) model.fan.group.visible = false;
     const throwFlick = Math.sin(Math.min(1, throwClock / .20) * Math.PI);
     // Also hide the solid equipment while looking through the optical overlay.
     // This guard survives an equip/snapshot arriving between gameplay frames.
-    weapon.group.visible = !bladeStorm && !state.scoped;
+    weapon.group.visible = !unarmed && !bladeStorm && !state.scoped;
     if (model.openRight) {
       model.openRight.visible = bladeStorm; model.right.closedHand.visible = !bladeStorm;
       model.right.hand = bladeStorm ? model.openRight : model.right.closedHand;
     }
-    const isReloading = Boolean(state.reloading);
+    const isReloading = !unarmed && Boolean(state.reloading);
     if (!wasReloading && isReloading) reloadClock = 0;
     if (isReloading) reloadClock += dt;
     const duration = Math.max(.1, Number(state.reloadDuration) || 2.5);
     const remaining = typeof state.reloading === 'number' ? state.reloading : Math.max(0, duration - reloadClock);
     const progress = isReloading ? THREE.MathUtils.clamp(1 - remaining / duration, 0, 1) : 0;
     wasReloading = isReloading;
-    const aiming = state.aiming && !weapon.knife && !isReloading && !state.interacting;
+    const cycling = !unarmed && (current === 'scout' || current === 'atlas') && !isReloading && !state.interacting && Number.isFinite(state.cycleProgress) && state.cycleProgress < 1;
+    const cycleProgress = cycling ? THREE.MathUtils.clamp(state.cycleProgress, 0, 1) : 0;
+    const cycleWave = cycling ? Math.sin(cycleProgress * Math.PI) : 0;
+    const cycleGrip = cycling ? smooth(cycleProgress / .2) * (1 - smooth((cycleProgress - .76) / .2)) : 0;
+    const cyclePull = cycling ? pulse(cycleProgress, .28, .48, .68) : 0;
+    const cycleLift = cycling ? pulse(cycleProgress, .14, .25, .76) : 0;
+    const aiming = !unarmed && state.aiming && !cycling && !weapon.knife && !isReloading && !state.interacting;
     aimBlend += ((aiming ? 1 : 0) - aimBlend) * smoothing;
     equipBlend = Math.max(0, equipBlend - dt * 4.6);
     const movement = THREE.MathUtils.clamp(Number(state.moving) || 0, 0, 1);
     const bob = Math.sin(time * 9.5) * .0035 * movement * (1 - aimBlend * .86);
     const sway = Math.sin(time * 4.75) * .0035 * movement * (1 - aimBlend * .88);
-    const kick = Math.max(0, Number(state.kick) || 0);
-    const shot = kick > previousKick + .003 && !isReloading && !state.interacting;
-    if (shot && !bladeStorm) { boltKick = 1; if (weapon.knife) slash = 1; else eject(model); }
+    const kick = unarmed ? 0 : Math.max(0, Number(state.kick) || 0);
+    const shot = !unarmed && kick > previousKick + .003 && !isReloading && !state.interacting;
+    if (shot && !bladeStorm) { boltKick = 1; if (weapon.knife) slash = 1; else eject(model, state.spectating ? (Number(state.shotSequence)||0)>>>0 : null); }
     previousKick = kick; boltKick *= Math.exp(-dt * 24); slash = Math.max(0, slash - dt * 5);
     const reloadWave = isReloading ? Math.sin(progress * Math.PI) : 0;
-    const framing = bladeStorm ? bladeFraming : model.framing;
+    const framing = unarmed || bladeStorm ? bladeFraming : model.framing;
     const targetX = THREE.MathUtils.lerp(framing.x, 0, aimBlend) + sway - reloadWave * .018;
-    const targetY = THREE.MathUtils.lerp(framing.y, -weapon.sightY * framing.scale, aimBlend) + bob - reloadWave * .057 - equipBlend * .13 - (state.interacting ? .22 : 0);
+    const targetY = THREE.MathUtils.lerp(framing.y, -weapon.sightY * framing.scale, aimBlend) + bob - reloadWave * .057 - cycleWave * .025 - equipBlend * .13 - (state.interacting ? .22 : 0);
     const targetZ = THREE.MathUtils.lerp(framing.z, framing.adsZ, aimBlend) + kick * .72 + equipBlend * .07;
     group.position.x += (targetX - group.position.x) * smoothing;
     group.position.y += (targetY - group.position.y) * smoothing;
     group.position.z += (targetZ - group.position.z) * smoothing;
-    group.rotation.set(kick * 1.13 - reloadWave * .17 + (state.interacting ? .37 : 0) + slash * .15,
-      reloadWave * -.13 - slash * .38,
-      (weapon.knife ? -.12 : 0) * (1 - aimBlend) + sway - reloadWave * .34 + slash * .3);
+    group.rotation.set(kick * 1.13 - reloadWave * .17 + cycleWave * .04 + (state.interacting ? .37 : 0) + slash * .15,
+      reloadWave * -.13 - cycleWave * .05 - slash * .38,
+      (weapon.knife ? -.12 : 0) * (1 - aimBlend) + sway - reloadWave * .34 - cycleWave * .16 + slash * .3);
     if (bladeStorm) group.rotation.set(-throwFlick * .035, 0, sway);
     const magDrop = isReloading ? magazineOffset(progress) : 0;
     weapon.magazine.position.set(0, magDrop, isReloading ? -magDrop * .18 : 0);
     weapon.magazine.rotation.set(isReloading ? -magDrop * .55 : 0, 0, isReloading ? -magDrop * .15 : 0);
     weapon.magazine.visible = !(isReloading && progress > .41 && progress < .56);
     const charge = isReloading ? pulse(progress, .78, .835, .91) : 0;
-    weapon.bolt.position.z = boltKick * .027 + charge * .041;
+    weapon.bolt.position.z = boltKick * .027 + charge * .041 + cyclePull * .08;
+    weapon.bolt.rotation.z = cycling ? -cycleLift * .75 : 0;
     weapon.slide.position.z = boltKick * .032 + charge * .045;
     wrist.copy(model.rear);
+    if (cycling) wrist.lerp(chargeHand.set(.065, .008, .064 + cyclePull * .08).multiply(weapon.group.scale), cycleGrip);
+    if (unarmed) wrist.set(.18, -.045, .02);
     if (bladeStorm) wrist.set(.235, .005 + throwFlick * .018, .045 - throwFlick * .19);
     poseArm(model.right, wrist, model, progress, isReloading);
+    if (cycling) model.right.hand.rotation.z -= cycleLift * .5;
     wrist.copy(model.front);
     if (isReloading) reloadHand(wrist, progress, model);
     else if (state.interacting) wrist.lerp(magazineHand.set(-.15, -.22, -.16), .9);
+    if (unarmed) wrist.set(-.18, -.045, .02);
     if (bladeStorm) wrist.set(-.235, -.012, .045);
     poseArm(model.left, wrist, model, progress, isReloading);
     if (bladeStorm) {
       model.right.hand.rotation.set(-.08, .10, -.40 + throwFlick * .16);
       model.left.hand.rotation.set(-.08, -.10, .40);
     }
-    if (weapon.knife || state.interacting || isReloading) flash.visible = false;
+    if (unarmed || weapon.knife || state.interacting || isReloading) flash.visible = false;
     group.updateMatrixWorld(true);
 
     for (const item of casings) {
       if (item.life <= 0) continue;
-      item.life -= dt; item.object.visible = item.life > 0 && group.visible;
+      item.life -= dt; item.object.visible = !unarmed && item.life > 0 && group.visible;
       item.object.position.addScaledVector(item.velocity, dt); item.velocity.y -= dt * 1.2;
       item.object.rotation.x += dt * item.spin; item.object.rotation.z += dt * item.spin * .63;
     }

@@ -1,8 +1,8 @@
 import { CAP_SKILLS } from './abilities.js';
 
 // Shared by real shots and the local aiming guide, including instanced walls.
-export function capBounceFrame(THREE, incoming, hit) {
-  if (!hit?.face || hit.object.userData.bot || !Number.isFinite(hit.distance) || hit.distance >= CAP_SKILLS.bounceRange - .1) return null;
+export function capBounceFrame(THREE, incoming, hit, range = CAP_SKILLS.bounceRange) {
+  if (!hit?.face || hit.object.userData.bot || !Number.isFinite(hit.distance) || hit.distance < 0 || !Number.isFinite(range) || hit.distance >= range - .1) return null;
   const transform = hit.object.matrixWorld.clone();
   if (hit.object.isInstancedMesh && Number.isInteger(hit.instanceId)) {
     const instance = new THREE.Matrix4();hit.object.getMatrixAt(hit.instanceId, instance);transform.multiply(instance);
@@ -11,7 +11,7 @@ export function capBounceFrame(THREE, incoming, hit) {
   if (Math.abs(normal.y) > .3) return null;
   const aim = incoming.clone().normalize().reflect(normal).normalize();
   if (aim.dot(normal) < 0) normal.negate();
-  return { aim, from: hit.point.clone().addScaledVector(normal, .025), remaining: CAP_SKILLS.bounceRange - hit.distance };
+  return { aim, from: hit.point.clone().addScaledVector(normal, .025), remaining: range - hit.distance - .025 };
 }
 
 // A deterministic cone, resolved from the accepted trigger sequence. Guests

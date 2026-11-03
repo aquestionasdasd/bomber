@@ -27,7 +27,7 @@ export function addHashimotoSurvey({box,label,M,parkedBus}){
  // Pale fascia jointing and blue glazing horizontal bands seen in north photos.
  for(let y=5.6;y<20.5;y+=.85){box(62,y,-18.49,27.7,.045,.06,M.ivory);box(47.57,y,-39,.06,.045,39.5,M.ivory);}
  // North-side road SV (2024-01): yellow body and red/orange waist, distinct
- // from Hirakata's white/red Keihan buses. Thin cosmetic skins cover the old
+ // from Hirakata's white/red bus palette. Thin cosmetic skins cover the old
  // teal belt without touching its audited collision/roof/mesh transforms.
  const{x,z}=parkedBus;
  for(const side of[-1,1]){

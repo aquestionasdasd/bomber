@@ -3,7 +3,7 @@ export function createOnnaraAvatar(T,{rig,upper,head,rightArm,leftArm,leftLeg,ri
  const group=new T.Group();group.name='おんなら / golden star knight';rig.add(group);
  const geometries=new Set(),materials=new Map(),frames=[];
  for(const[n,c]of[['skin','#ffdbba'],['hair','#f8ba26'],['gold','#ffe073'],['red','#a62125'],['dark','#462d32'],['white','#fff7eb'],['blue','#3869bf'],['team',team==='blue'?'#169cb7':'#d64c5c']])materials.set(n,new T.MeshStandardMaterial({color:c,metalness:['red','gold'].includes(n)?.6:.05,roughness:.42}));
- function frame(source){const f=new T.Group();f.matrixAutoUpdate=false;group.add(f);frames.push([f,source]);return f;}
+ function frame(source){const f=new T.Group();f.userData.agentHead=source===head;f.matrixAutoUpdate=false;group.add(f);frames.push([f,source]);return f;}
  function part(parent,name,g,p,s,m){geometries.add(g);const o=new T.Mesh(g,materials.get(m));o.name='おんなら / '+name;o.position.set(...p);o.scale.set(...s);o.raycast=()=>{};o.castShadow=o.receiveShadow=true;parent.add(o);return o;}
  const ball=(p,n,x,s,m)=>part(p,n,new T.SphereGeometry(1,16,12),x,s,m);
  const box=(p,n,x,s,m)=>part(p,n,new T.BoxGeometry(1,1,1),x,s,m);

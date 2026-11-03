@@ -38,17 +38,36 @@ const body = `
    if(bench&&actor?.id===bench.focalId&&bench.disabled.includes(key))return;
    measuredDepth++;let effect;
    try{effect=fn(actor,key,options);}finally{measuredDepth--;}
-   if(effect&&bench&&measuredDepth===0){const stat=bench.actors[actor.id];if(stat)stat.casts[key]=(stat.casts[key]||0)+1;}
+   if(effect&&bench&&measuredDepth===0){const stat=bench.actors[actor.id];if(stat){stat.casts[key]=(stat.casts[key]||0)+1;
+     if(actor.kit?.character==='renko'&&key==='c'&&stat.restartRefills>0)stat.restartLaterCasts=(stat.restartLaterCasts||0)+1;
+     if(actor.kit?.character==='cat'&&key==='x')(stat.clockCasts||=[]).push({at:elapsed,team:actor.team,attackerTeam:match.attackerTeam,status:match.spike.status,roundTime:match.roundTime,bomberTime:match.spike.timer});
+   }}
    return effect;
  };
  activateAbility=measureActivate(activateAbility);
  activateJapanAbility=measureActivate(activateJapanAbility);
+ // This callback is injected only into the saved-game measurement source,
+ // immediately after the real HP assignment. Never credit requested/overflow HP.
+ function observeMendHeal(target,source,before){
+   const actual=Math.max(0,target.hp-before),owner=bench?.actors[source.id];
+   if(owner&&measuredOrdinaryDepth&&actual>0){owner.mendHeals=(owner.mendHeals||0)+1;owner.mendHealing=(owner.mendHealing||0)+actual;const key=target.id===source.id?'mendSelfHealing':'mendAllyHealing';owner[key]=(owner[key]||0)+actual;(owner.mendTargets||={})[target.id]=true;}
+ }
  const measuredOrdinaryUpdate=ordinarySkills.update;
+ const renkoPushEffects=new Map(),renkoPushWindows=new Map();
  ordinarySkills.update=function(...args){
    const effects=measuredOrdinaryUpdate(...args);
+   if(bench)for(const effect of effects)if(effect.type==='renko-push')renkoPushEffects.set(effect.eventId,effect);
    if(bench)for(const effect of effects)if(effect.type==='nearsight'){
      const owner=bench.actors[effect.sourceId],target=bench.actors[effect.targetId];
      if(owner&&target){const key=owner.team===target.team?'gloomFriendlyHits':'gloomEnemyHits';owner[key]=(owner[key]||0)+1;}
+   }
+   if(bench)for(const effect of effects)if(effect.type==='blind'){
+     const owner=bench.actors[effect.sourceId],target=bench.actors[effect.targetId];
+     if(owner?.character==='echo'&&target){const key=effect.targetId===effect.sourceId?'glintSelfBlinds':owner.team===target.team?'glintFriendlyBlinds':'glintEnemyBlinds';owner[key]=(owner[key]||0)+1;if(owner.team!==target.team)owner.glintEnemyBlindSeconds=(owner.glintEnemyBlindSeconds||0)+effect.duration;}
+   }
+   if(bench)for(const effect of effects)if(effect.type==='detect'){
+     const owner=bench.actors[effect.sourceId];
+     if(owner?.character==='echo'){owner.tagDetections=(owner.tagDetections||0)+1;(owner.tagPoints||=[]).push({x:effect.x,y:effect.y,z:effect.z,at:effect.detectedAt,endsAt:effect.endsAt});}
    }return effects;
  };
  const measuredPads=tickDuckPads;
@@ -67,32 +86,74 @@ const body = `
    if(bench&&marker&&!actor.serviceReload&&actor.aiAmmo>before){const stat=bench.actors[actor.id];if(stat){stat.serviceCompletions++;stat.serviceRounds+=actor.aiAmmo-before;}}
    return result;
  };
+ // Separate actual ordinary-skill losses from zone ultimate/gun damage.
+ // EMBER's only damaging ordinary event is C; do not count requested overkill.
+ let measuredOrdinaryDepth=0;
+ const measuredOrdinaryFrame=updateOrdinarySkills;
+ updateOrdinarySkills=function(...args){measuredOrdinaryDepth++;try{return measuredOrdinaryFrame(...args);}finally{measuredOrdinaryDepth--;}};
+ const measuredPushStart=beginCarMotion;
+ beginCarMotion=function(actor,m,...args){
+   const result=measuredPushStart(actor,m,...args),effect=renkoPushEffects.get(m.id);
+   if(bench&&measuredOrdinaryDepth&&m.phase===4&&actor.carMotion?.id===m.id&&effect?.targetId===actor.id){
+     const owner=bench.actors[effect.sourceId];if(owner){owner.dartPushes=(owner.dartPushes||0)+1;renkoPushWindows.set(actor.id,{id:m.id,sourceId:effect.sourceId,at:elapsed});}
+   }
+   renkoPushEffects.delete(m.id);return result;
+ };
  const measuredDamage=damageEntity;
  damageEntity=function(target,amount,killer,options){
    const hp=target.hp,armor=target.armor||0,alive=target.alive;
+   const restart=killer?.alive&&killer.kit?.character==='renko'&&renkoUltimateActive(killer)?[killer.kit.smoke,killer.kit.updraft,killer.kit.dash]:null;
    const result=measuredDamage(target,amount,killer,options);
    if(bench&&alive){const actual=Math.max(0,hp-target.hp)+Math.max(0,armor-(target.armor||0)),stat=bench.actors[killer?.id];
-     if(stat){stat.damage+=actual;if(options?.skill==='car'&&target.carMotion?.phase===2){stat.ramHits++;stat.ramDamage+=actual;}if(!target.alive)stat.kills++;}
+     if(stat){stat.damage+=actual;if(options?.skill==='car'&&target.carMotion?.phase===2){stat.ramHits++;stat.ramDamage+=actual;}if(measuredOrdinaryDepth&&killer?.kit?.character==='ember'&&options?.skill==='ember'&&actual>0){stat.solderHits=(stat.solderHits||0)+1;stat.solderDamage=(stat.solderDamage||0)+actual;if(!target.alive)stat.solderKills=(stat.solderKills||0)+1;}if(measuredOrdinaryDepth&&killer?.kit?.character==='nope'&&options?.skill==='nope'&&actual>0){stat.bottleHits=(stat.bottleHits||0)+1;stat.bottleDamage=(stat.bottleDamage||0)+actual;if(!target.alive)stat.bottleKills=(stat.bottleKills||0)+1;}if(!target.alive)stat.kills++;
+       if(restart&&!target.alive&&actual>0&&target.team!==killer.team){stat.restartRefills=(stat.restartRefills||0)+1;for(const[i,key]of['smoke','updraft','dash'].entries()){const restored=Math.max(0,killer.kit[key]-restart[i]);stat['restartRestored'+key]=(stat['restartRestored'+key]||0)+restored;}}
+       const push=renkoPushWindows.get(target.id);if(options?.firearm&&actual>0&&push?.sourceId===killer.id&&elapsed>=push.at&&elapsed-push.at<=2){stat.dartFollowupDamage=(stat.dartFollowupDamage||0)+actual;if(!target.alive)stat.dartFollowupKills=(stat.dartFollowupKills||0)+1;}
+     }
    }return result;
  };
  // Use the browser's complete frame driver. The old partial tick omitted
  // forced car movement and must not be used for balance conclusions.
- function advanceMeasuredRound(dt){updatePlay(dt);}
+ let rootStepDt=0,rootStepSeen=new Set();
+ const measuredSpeedScale=ordinarySkills.speedScale;
+ ordinarySkills.speedScale=function(actor,now,queries){
+   const scale=measuredSpeedScale(actor,now,queries);
+   if(bench&&rootStepDt>0&&scale<=VEIL_SKILLS.rootsSpeedScale){
+     for(const event of ordinarySkills.events(now))if(now>=event.triggerAt&&ordinarySkills.wouldRoot(actor,event,queries)){
+       const owner=bench.actors[event.sourceId],key=event.sourceId+'|'+actor.id;
+       if(owner&&!rootStepSeen.has(key)){rootStepSeen.add(key);owner.rootSlowSamples=(owner.rootSlowSamples||0)+1;owner.rootSlowSeconds=(owner.rootSlowSeconds||0)+rootStepDt;(owner.rootTargets||={})[actor.id]=true;}
+     }
+   }
+   if(bench&&rootStepDt>0&&scale<=MEND_SKILLS.seedsSpeedScale){
+     for(const event of ordinarySkills.events(now))if(now>=event.triggerAt&&ordinarySkills.wouldSeed(actor,event,queries)){
+       const owner=bench.actors[event.sourceId],key='seeds|'+event.sourceId+'|'+actor.id;
+       if(owner&&!rootStepSeen.has(key)){rootStepSeen.add(key);owner.seedSlowSamples=(owner.seedSlowSamples||0)+1;owner.seedSlowSeconds=(owner.seedSlowSeconds||0)+rootStepDt;(owner.seedTargets||={})[actor.id]=true;}
+     }
+   }
+   if(bench&&rootStepDt>0&&scale<=FROST_SKILLS.stitchSpeedScale){
+     for(const event of ordinarySkills.events(now))if(now>=event.triggerAt&&ordinarySkills.wouldStitch(actor,event,queries)){
+       const owner=bench.actors[event.sourceId],key='stitch|'+event.sourceId+'|'+actor.id;
+       if(owner&&!rootStepSeen.has(key)){rootStepSeen.add(key);owner.stitchSlowSamples=(owner.stitchSlowSamples||0)+1;owner.stitchSlowSeconds=(owner.stitchSlowSeconds||0)+rootStepDt;(owner.stitchTargets||={})[actor.id]=true;}
+     }
+   }
+   return scale;
+ };
+ function advanceMeasuredRound(dt){rootStepDt=dt;rootStepSeen.clear();try{updatePlay(dt);}finally{rootStepDt=0;}}
  function observeMeasuredMatch(){
+   renkoPushEffects.clear();renkoPushWindows.clear();
    const drainEvents=match.drainEvents.bind(match);
    match.drainEvents=function(){const events=drainEvents();for(const e of events){if(e.type==='planted'){bench.plants++;if(bench.actors[e.actorId])bench.actors[e.actorId].plants=(bench.actors[e.actorId].plants||0)+1;}if(e.type==='defused'){bench.defuses++;if(bench.actors[e.actorId])bench.actors[e.actorId].defuses=(bench.actors[e.actorId].defuses||0)+1;}}return events;};
    for(const method of ['interactPlant','interactDefuse']){
      const work=match[method].bind(match),field=method==='interactPlant'?'plantProgress':'defuseProgress';
      match[method]=function(dt,options){const before=this.spike[field],result=work(dt,options),after=this.spike[field],stat=bench.actors[options.actorId];
-       if(stat&&after>before){const scale=ordinarySkills.nobiWork(options.actorId,elapsed)||1,progress=after-before;stat.workProgress=(stat.workProgress||0)+progress;if(scale>1){stat.toolWorkProgress=(stat.toolWorkProgress||0)+progress;stat.toolSavedSeconds=(stat.toolSavedSeconds||0)+progress*(1-1/scale);}}return result;
+       if(stat&&after>before){const scale=ordinarySkills.nobiWork(options.actorId,elapsed,[player,...bots].find(a=>a.id===options.actorId),ordinaryReachable)||1,progress=after-before;stat.workProgress=(stat.workProgress||0)+progress;if(scale>1){stat.toolWorkProgress=(stat.toolWorkProgress||0)+progress;stat.toolSavedSeconds=(stat.toolSavedSeconds||0)+progress*(1-1/scale);}}return result;
      };
    }
  }
  const measuredCarMotion=updateCarMotions;
  updateCarMotions=function(dt){
-   const before=[player,...bots].map(a=>({actor:a,x:a.x,z:a.z,phase:a.carMotion?.phase}));
+   const before=[player,...bots].map(a=>({actor:a,x:a.x,z:a.z,phase:a.carMotion?.phase,motionId:a.carMotion?.id}));
    const result=measuredCarMotion(dt);
-   if(bench){bench.carMotionFrames++;for(const p of before){const stat=bench.actors[p.actor.id];if(stat&&p.phase){const moved=Math.hypot(p.actor.x-p.x,p.actor.z-p.z);if(p.phase===1)stat.ramTravel+=moved;else stat.launchedTravel+=moved;}}}
+   if(bench){bench.carMotionFrames++;for(const p of before){const stat=bench.actors[p.actor.id];if(stat&&p.phase){const moved=Math.hypot(p.actor.x-p.x,p.actor.z-p.z);if(p.phase===1)stat.ramTravel+=moved;else stat.launchedTravel+=moved;const push=renkoPushWindows.get(p.actor.id),owner=bench.actors[push?.sourceId];if(p.phase===4&&push?.id===p.motionId&&owner)owner.dartPushDistance=(owner.dartPushDistance||0)+moved;}}}
    return result;
  };\`);
  for(const mapId of config.maps)for(const side of ['attack','defend'])for(let seed=config.start;seed<config.start+config.seeds;seed++){
@@ -151,10 +212,11 @@ const body = `
  console.log('REPORT '+config.out+'; '+rows.length+' rounds; '+Math.round(performance.now()-started)+'ms');
 }main().catch(e=>{console.error(e);process.exitCode=1;});
 `;
-module.exports={body,fixturePrefix:fixture.slice(0,boundary)};
+const fixturePrefix=fixture.slice(0,boundary).replace("fs.readFileSync(path.join(__dirname, 'public/game.js'), 'utf8')","fs.readFileSync(path.join(__dirname, 'public/game.js'), 'utf8').replace(\"if(target.hp>before)skillImpact(target,source,'mend','heal');\",\"if(target.hp>before){skillImpact(target,source,'mend','heal');observeMendHeal(target,source,before);}\")");
+module.exports={body,fixturePrefix};
 if(require.main===module){
  const runner = new Module(path.join(root, 'bot-balance-harness.cjs'), module);
  runner.filename = path.join(root, 'bot-balance-harness.cjs');
  runner.paths = Module._nodeModulePaths(root);
- runner._compile(fixture.slice(0, boundary) + body, runner.filename);
+ runner._compile(fixturePrefix + body, runner.filename);
 }

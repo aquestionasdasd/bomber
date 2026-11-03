@@ -117,29 +117,51 @@ async function main() {
 
   const local=harness();
   const localSetup=()=>{local.reset();local.run("match.phase='buy';match.phaseTime=30;mode='shop';match.credits=800;player.kit.smoke=0;player.kit.updraft=0");local.audioCalls.length=0;};
-  check('repeat left click refunds exactly one same-round skill; +1 keeps multi-charge purchasing',()=>{
+  check('left click buys one charge up to max; right sell refunds one charge at a time',()=>{
     localSetup();assert.equal(local.run("clickSkillPurchase('c')"),true);assert.equal(local.run('player.kit.smoke'),1);assert.equal(local.run('match.credits'),700);
-    assert.equal(local.run("buy('c')"),true);assert.equal(local.run('player.kit.smoke'),2);assert.equal(local.run('match.credits'),600);
-    assert.equal(local.run("clickSkillPurchase('c')"),true);assert.equal(local.run('player.kit.smoke'),1);assert.equal(local.run('match.credits'),700);
-    assert.equal(local.run("clickSkillPurchase('c')"),true);assert.equal(local.run('player.kit.smoke'),0);assert.equal(local.run('match.credits'),800);
-    for(let i=0;i<20;i++){local.run("clickSkillPurchase('q');clickSkillPurchase('q')");}assert.equal(local.run('match.credits'),800);
+    assert.equal(local.run("clickSkillPurchase('c')"),true);assert.equal(local.run('player.kit.smoke'),2);assert.equal(local.run('match.credits'),600);
+    assert.equal(local.run("clickSkillPurchase('c')"),false);assert.equal(local.run('player.kit.smoke'),2);
+    assert.equal(local.run("sell('c')"),true);assert.equal(local.run('player.kit.smoke'),1);assert.equal(local.run('match.credits'),700);
+    assert.equal(local.run("sell('c')"),true);assert.equal(local.run('player.kit.smoke'),0);assert.equal(local.run('match.credits'),800);
+    for(let i=0;i<20;i++){local.run("clickSkillPurchase('q');sell('q')");}assert.equal(local.run('match.credits'),800);
   });
-  check('carryover/current-round ledger, death/live/pause and round/character changes cannot mint money',()=>{
-    localSetup();local.run('player.kit.smoke=1');assert.equal(local.run("clickSkillPurchase('c')"),false);assert.equal(local.run('match.credits'),800);
-    local.run("buy('c');clickSkillPurchase('c')");assert.equal(local.run('player.kit.smoke'),1);assert.equal(local.run('match.credits'),800);assert.equal(local.run("clickSkillPurchase('c')"),false);
-    for(const condition of ["match.phase='live'","player.alive=false","netHostPaused=true","match.round++","player.kit.character='cat'"]){localSetup();local.run("buy('q');"+condition);assert.equal(local.run("clickSkillPurchase('q')"),false,condition);assert.equal(local.run('match.credits'),700);}
+  check('carryover/current-round skill ledger, death/live/pause/round/character cannot mint money',()=>{
+    localSetup();local.run('player.kit.smoke=1');assert.equal(local.run("sell('c')"),false);
+    local.run("clickSkillPurchase('c');sell('c')");assert.equal(local.run('player.kit.smoke'),1);assert.equal(local.run('match.credits'),800);assert.equal(local.run("sell('c')"),false);
+    for(const condition of ["match.phase='live'","player.alive=false","netHostPaused=true","match.round++","player.kit.character='cat'"]){localSetup();local.run("buy('q');"+condition);assert.equal(local.run("sell('q')"),false,condition);assert.equal(local.run('match.credits'),700);}
   });
-  check('guest sell waits for host authority, exact receipt, duplicate actions/snapshots cannot refund twice',()=>{
-    setup();submit('c');assert.equal(guest.run('player.kit.smoke'),1);guest.run("clickSkillPurchase('c');clickSkillPurchase('c')");assert.equal(guest.run('netActions.length'),1);assert.equal(guest.run('player.kit.smoke'),1);assert.equal(guest.run('match.credits'),700);
+  check('guest skill sale waits for host receipt; duplicate input/snapshot cannot refund twice',()=>{
+    setup();submit('c');assert.equal(guest.run('player.kit.smoke'),1);guest.run("sell('c');sell('c')");assert.equal(guest.run('netActions.length'),1);assert.equal(guest.run('player.kit.smoke'),1);assert.equal(guest.run('match.credits'),700);
     guest.run('netClock=0;tickOnline(.1)');host.sandbox.transfer=copy(guest.run('captured'));host.run("receiveNetPacket('guest',transfer);updateRemoteActor(remote,.05);receiveNetPacket('guest',transfer);updateRemoteActor(remote,.05)");const p=snapshot();assert.equal(host.run('record.credits'),800);assert.equal(guest.run('match.credits'),800);assert.equal(guest.run('player.kit.smoke'),0);assert.match(guest.elements.get('shop-status').textContent,/売却しました/);
     const n=buys(guest);guest.sandbox.transfer=p;guest.run("receiveNetPacket('host',transfer)");snapshot();assert.equal(buys(guest),n);assert.equal(host.run('record.credits'),800);
   });
-  check('forged remote sell without current purchase, wrong skill/live/dead never refunds or succeeds',()=>{
+  check('forged remote skill sale without current purchase, wrong skill/live/dead cannot refund',()=>{
     for(const mode of ['carry','empty','wrong','live','dead']){setup();if(mode==='carry')host.run('remote.kit.smoke=1');if(['wrong','live','dead'].includes(mode))submit('q');if(mode==='live')host.run("match.phase='live'");if(mode==='dead')host.run('remote.alive=false');const before=host.run('record.credits');const cue=buys(guest);submit('sell-c');assert.equal(host.run('record.credits'),before,mode);assert.equal(buys(guest),cue,mode);}
   });
-  check('all15 skill cards retain sell access at full stock/zero funds; +1 respects stock/funds/death',()=>{
-    const h=local;localSetup();for(const character of Object.keys(imported.CHARACTER_DEFS)){h.sandbox.character=character;h.run("player.kit.character=character;player.kit.smoke=getCharacterSkill(character,'c').max;player.kit.updraft=getCharacterSkill(character,'q').max;match.credits=0;updateShop()");for(const k of ['c','q']){assert.equal(h.elements.get('shop-skill-'+k).disabled,false,character+k);assert.equal(h.elements.get('shop-skill-'+k+'-add').disabled,true);assert.match(h.elements.get('shop-skill-'+k+'-count').textContent,/左クリック.*売却/);}}
+  check('all15 skill cards show stock and separate touch sale; full stock/zero funds retain right-click access',()=>{
+    const h=local;localSetup();for(const character of Object.keys(imported.CHARACTER_DEFS)){h.sandbox.character=character;h.run("player.kit.character=character;player.kit.smoke=getCharacterSkill(character,'c').max;player.kit.updraft=getCharacterSkill(character,'q').max;match.credits=0;updateShop()");for(const k of ['c','q']){assert.equal(h.elements.get('shop-skill-'+k).disabled,false,character+k);assert.equal(h.elements.get('shop-skill-'+k+'-sell').disabled,true);assert.match(h.elements.get('shop-skill-'+k+'-count').textContent,/所持/);assert.match(h.elements.get('shop-skill-'+k).attributes['aria-label'],/左クリック.*購入.*右クリック.*売却/);}}
     h.run('player.alive=false;updateShop()');assert.equal(h.elements.get('shop-skill-c').disabled,true);
+  });
+  check('all ten guns buy/sell at listed prices and leave no duplicate refund',()=>{
+    for(const [id,w]of Object.entries(imported.WEAPONS).filter(([,w])=>w.slot!=='melee')){localSetup();local.sandbox.id=id;local.run('match.credits=9000');if(id==='classic')local.run("inventory.secondary='ghost';equip('ghost',true)");assert.equal(local.run('buy(id)'),true,id);assert.equal(local.run('match.credits'),9000-w.price);assert.equal(local.run('buy(id)'),false,'repeat left does not sell '+id);assert.equal(local.run('sell(id)'),true,id);assert.equal(local.run('match.credits'),9000);assert.equal(local.run('sell(id)'),false,id);}
+  });
+  check('replacements refund only current purchase; sale restores carried gun ammo and shield amount',()=>{
+    localSetup();local.run("match.credits=9000;inventory.primary='scout';equip('scout',true);player.ammo=2;player.reserve=7;player.armor=17;buy('vandal');buy('phantom')");assert.equal(local.run('match.credits'),6100);assert.equal(local.run("sell('vandal')"),false);assert.equal(local.run("sell('phantom')"),true);assert.equal(local.run('inventory.primary'),'scout');assert.equal(local.run('player.ammo'),2);assert.equal(local.run('player.reserve'),7);assert.equal(local.run('match.credits'),9000);assert.equal(local.run("sell('scout')"),false);
+    local.run("buy('light');buy('heavy')");assert.equal(local.run('match.credits'),8000);assert.equal(local.run("sell('light')"),false);assert.equal(local.run("sell('heavy')"),true);assert.equal(local.run('player.armor'),17);assert.equal(local.run('match.credits'),9000);
+  });
+  check('weapon sales reject dropped/mismatched, dead/live/pause and prior round; practice remains free',()=>{
+    for(const condition of ["inventory.primary=null","inventory.primary='pump'","player.alive=false","match.phase='live'","netHostPaused=true","match.round++"]){localSetup();local.run("match.credits=5000;buy('vandal');"+condition);assert.equal(local.run("sell('vandal')"),false,condition);assert.equal(local.run('match.credits'),2100);}
+    localSetup();local.run("exploring=true;match.credits=0;match.phase='live'");assert.equal(local.run("buy('atlas')"),true);assert.equal(local.run("sell('atlas')"),false);assert.equal(local.run('match.credits'),0);
+  });
+  check('independent host/guest equipment sale, replacement, ACK and duplicate JSON are authoritative',()=>{
+    setup(9000);submit('vandal');submit('phantom');assert.equal(guest.run('match.credits'),6100);submit('heavy');assert.equal(guest.run('player.armor'),50);
+    assert.equal(guest.run("sell('heavy')"),true);assert.equal(guest.run('match.credits'),5100);assert.equal(guest.run('player.armor'),50);guest.run('netClock=0;tickOnline(.1)');host.sandbox.transfer=copy(guest.run('captured'));host.run("receiveNetPacket('guest',transfer);updateRemoteActor(remote,.05);receiveNetPacket('guest',transfer);updateRemoteActor(remote,.05)");snapshot();assert.equal(guest.run('match.credits'),6100);assert.equal(guest.run('player.armor'),0);
+    submit('sell-phantom');assert.equal(guest.run('match.credits'),9000);assert.equal(guest.run('inventory.primary'),null);assert.equal(guest.run('inventory.active'),'classic');assert.match(guest.elements.get('shop-status').textContent,/PHANTOM.*売却/);submit('sell-phantom');assert.equal(guest.run('match.credits'),9000);
+  });
+  check('forged remote gun/armor sales and supplied price cannot mint money; full guest queue stays unchanged',()=>{
+    for(const id of ['sell-vandal','sell-heavy','sell-knife','sell-__proto__']){setup();submit(id);assert.equal(host.run('record.credits'),800);}
+    setup(5000);submit('vandal');host.run("applyRemoteAction(remote,{type:'buy',id:'sell-vandal',price:999999,refund:999999,seq:99})");assert.equal(host.run('record.credits'),5000);host.run("applyRemoteAction(remote,{type:'buy',id:'sell-vandal',seq:100})");assert.equal(host.run('record.credits'),5000);
+    setup();guest.run("netActions=Array.from({length:64},(_,i)=>({type:'equip',seq:i+1,round:match.round}));");assert.equal(guest.run("clickSkillPurchase('c')"),false);assert.equal(guest.run("buy('ghost')"),false);assert.equal(guest.run('netActions.length'),64);assert.equal(guest.run('match.credits'),800);
   });
   check('plant cue reaches distant/occluded players centrally; tick louder spatial range and mute gates remain',()=>{
     localSetup();local.wall({z:-2});local.run("soundEnabled=true;volume=.4;sound('plant',{entity:{x:0,z:-200}});sound('spike',{entity:{x:0,z:-100}})");const a=local.audioCalls.at(-2),b=local.audioCalls.at(-1);assert.equal(a.type,'plant');assert.equal(a.options.distance,0);assert.equal(a.options.occluded,false);assert.equal(a.options.pan,0);assert.equal(a.options.volume,.4);assert.equal(b.options.distance,35);assert.equal(b.options.occluded,false);

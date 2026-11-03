@@ -158,17 +158,23 @@ async function joinRoom(request, db, room, now) {
   if (!changed(result)) fail(409, 'room_full', '部屋またはチームが満員です。');
   return json({ ...(await publicRoom(db, room, now)), memberId: id, token }, 201);
 }
+function requireMatchEpoch(body, room) {
+  const epoch = body.epoch ?? 0;
+  if (!Number.isInteger(epoch) || epoch < 0 || epoch > 9999 || epoch !== (JSON.parse(room.settings).matchEpoch || 0)) fail(409, 'stale_match', '部屋の最新状態を待ってください。');
+  return epoch;
+}
 async function setReady(request, db, room, member, now) {
   requireOpen(room);
   if (room.status !== 'lobby') fail(409, 'match_started', '試合中はチームを変更できません。');
   const body = await readBody(request);
   if (typeof body.ready !== 'boolean') fail(400, 'invalid_ready', '準備状態を指定してください。');
+  const epoch = requireMatchEpoch(body, room);
   const team = cleanTeam(body.team, member.team);
   if (member.id === room.host_id && team !== 'blue') fail(403, 'host_team_fixed', 'ホストはBLUEチームに固定です。');
   const result = await statement(db, `UPDATE online_members SET ready = ?, team = ? WHERE id = ? AND left_at IS NULL
-    AND EXISTS (SELECT 1 FROM online_rooms WHERE code = ? AND status = 'lobby')
+    AND EXISTS (SELECT 1 FROM online_rooms WHERE code = ? AND status = 'lobby' AND COALESCE(json_extract(settings, '$.matchEpoch'), 0) = ?)
     AND (team = ? OR (SELECT COUNT(*) FROM online_members WHERE room_code = ? AND team = ? AND left_at IS NULL) < 5)`,
-    body.ready ? 1 : 0, team, member.id, room.code, team, room.code, team).run();
+    body.ready ? 1 : 0, team, member.id, room.code, epoch, team, room.code, team).run();
   if (!changed(result)) fail(409, 'team_full', '選択したチームは満員です。');
   return json(await publicRoom(db, room, now));
 }
@@ -179,10 +185,10 @@ async function configureRoom(request, db, room, member, now) {
   const body = await readBody(request);
   // Both fields are required: delayed partial requests must not restore old settings.
   if (typeof body.format !== 'string' || typeof body.mapId !== 'string') fail(400, 'invalid_settings', 'マップと試合形式を選択してください。');
-  const { format, mapId } = lobbySettings(body);
+  const { format, mapId } = lobbySettings(body), epoch = requireMatchEpoch(body, room);
   const result = await statement(db, `UPDATE online_rooms SET settings = json_set(settings,
     '$.format', ?, '$.mapId', ?, '$.lobbyRevision', COALESCE(json_extract(settings, '$.lobbyRevision'), 0) + 1)
-    WHERE code = ? AND status = 'lobby'`, format, mapId, room.code).run();
+    WHERE code = ? AND status = 'lobby' AND COALESCE(json_extract(settings, '$.matchEpoch'), 0) = ?`, format, mapId, room.code, epoch).run();
   if (!changed(result)) fail(409, 'match_started', '試合が開始または終了したため変更できません。');
   return json(await publicRoom(db, await roomByCode(db, room.code, now), now));
 }
@@ -191,18 +197,39 @@ async function startRoom(request, db, room, member, now) {
   if (member.id !== room.host_id) fail(403, 'host_only', 'ホストだけが開始できます。');
   const body = await readBody(request);
   if (!['swift', 'standard'].includes(body.format)) fail(400, 'invalid_format', '試合形式を選択してください。');
+  const epoch = requireMatchEpoch(body, room);
   const mapId=body.mapId??JSON.parse(room.settings).mapId??'hashimoto';
   if(!['hashimoto','hirakata','trc'].includes(mapId))fail(400,'invalid_map','マップを選択してください。');
-  const settings = JSON.stringify({ format: body.format, mapId, maxPlayers: 10 });
-  const result = await statement(db, `UPDATE online_rooms SET status = 'playing', settings = ? WHERE code = ? AND status = 'lobby'
+  const settings = JSON.stringify({ ...JSON.parse(room.settings), format: body.format, mapId, maxPlayers: 10 });
+  const result = await statement(db, `UPDATE online_rooms SET status = 'playing', settings = ? WHERE code = ? AND status = 'lobby' AND COALESCE(json_extract(settings, '$.matchEpoch'), 0) = ?
     AND (SELECT COUNT(*) FROM online_members WHERE room_code = ? AND left_at IS NULL) >= 2
     AND EXISTS (SELECT 1 FROM online_members WHERE room_code = ? AND team = 'blue' AND left_at IS NULL)
     AND EXISTS (SELECT 1 FROM online_members WHERE room_code = ? AND team = 'red' AND left_at IS NULL)
     AND NOT EXISTS (SELECT 1 FROM online_members WHERE room_code = ? AND left_at IS NULL AND (ready = 0 OR last_seen <= ?))`,
-    settings, room.code, room.code, room.code, room.code, room.code, now - CONNECTED_TIMEOUT).run();
+    settings, room.code, epoch, room.code, room.code, room.code, room.code, now - CONNECTED_TIMEOUT).run();
   if (!changed(result)) fail(409, 'not_ready', '両チームに参加し、全員が準備完了にしてください。');
   room.status = 'playing'; room.settings = settings;
   return json(await publicRoom(db, room, now));
+}
+// Keep the authenticated party; invalidate the previous world's packets atomically.
+async function rematchRoom(request, db, room, member, now) {
+  requireOpen(room);
+  if (member.id !== room.host_id) fail(403, 'host_only', 'ホストだけが全員を待機室へ戻せます。');
+  const body = await readBody(request), epoch = body.epoch;
+  if (!Number.isInteger(epoch) || epoch < 0 || epoch >= 9999) fail(400, 'invalid_epoch', '試合の番号が不正です。');
+  const current = JSON.parse(room.settings).matchEpoch || 0;
+  if (room.status === 'lobby' && current === epoch + 1) return json(await publicRoom(db, room, now));
+  if (room.status !== 'playing' || current !== epoch) fail(409, 'stale_match', '部屋の最新状態を待ってください。');
+  const results = await db.batch([
+    statement(db, `UPDATE online_members SET ready = CASE WHEN id = ? THEN 1 ELSE 0 END WHERE room_code = ? AND left_at IS NULL
+      AND EXISTS (SELECT 1 FROM online_rooms WHERE code = ? AND status = 'playing' AND COALESCE(json_extract(settings, '$.matchEpoch'), 0) = ?)`, room.host_id, room.code, room.code, epoch),
+    statement(db, `UPDATE online_rooms SET status = 'lobby', expires_at = ?, settings = json_set(settings,
+      '$.matchEpoch', ?, '$.lobbyRevision', COALESCE(json_extract(settings, '$.lobbyRevision'), 0) + 1)
+      WHERE code = ? AND status = 'playing' AND COALESCE(json_extract(settings, '$.matchEpoch'), 0) = ?`, now + ROOM_TTL, epoch + 1, room.code, epoch),
+  ]);
+  const latest = await roomByCode(db, room.code, now);
+  if (!changed(results[1]) && !(latest.status === 'lobby' && JSON.parse(latest.settings).matchEpoch === epoch + 1)) fail(409, 'stale_match', '部屋の最新状態を待ってください。');
+  return json(await publicRoom(db, latest, now));
 }
 async function sendMessage(request, db, room, member, now) {
   requireOpen(room);
@@ -220,6 +247,7 @@ async function sendMessage(request, db, room, member, now) {
   }
   if (body.kind === 'game') {
     if (room.status !== 'playing') fail(409, 'match_not_started', '試合開始をお待ちください。');
+    if ((body.data.epoch ?? 0) !== (JSON.parse(room.settings).matchEpoch || 0)) fail(409, 'stale_match', '前の試合の通信です。');
     if (!isHost && to !== room.host_id) fail(403, 'host_only', '操作はホストへ送信してください。');
     if (to === 'all' && !isHost) fail(403, 'host_only', 'ホストだけが全員へ送信できます。');
   } else if (to === 'all') fail(400, 'invalid_recipient', '接続先を一人指定してください。');
@@ -232,9 +260,10 @@ async function sendMessage(request, db, room, member, now) {
   // a participant cannot grow the queue without bound or flood its peers.
   const limit = body.kind === 'signal' ? 40 : 12;
   const result = await statement(db, `INSERT INTO online_messages (room_code, sender_id, to_id, kind, data, created_at, expires_at)
-    SELECT ?, ?, ?, ?, ?, ?, ? WHERE EXISTS (SELECT 1 FROM online_rooms WHERE code = ? AND status != 'closed')
+    SELECT ?, ?, ?, ?, ?, ?, ? WHERE EXISTS (SELECT 1 FROM online_rooms WHERE code = ? AND status != 'closed'
+      AND (? != 'game' OR (status = 'playing' AND COALESCE(json_extract(settings, '$.matchEpoch'), 0) = ?)))
     AND (SELECT COUNT(*) FROM online_messages WHERE room_code = ? AND sender_id = ? AND kind = ? AND created_at > ?) < ?`,
-    room.code, member.id, to, body.kind, data, now, now + MESSAGE_TTL, room.code, room.code, member.id, body.kind, now - 1000, limit).run();
+    room.code, member.id, to, body.kind, data, now, now + MESSAGE_TTL, room.code, body.kind, body.data.epoch ?? 0, room.code, member.id, body.kind, now - 1000, limit).run();
   if (!changed(result)) fail(429, 'rate_limited', '通信が混み合っています。少し待ってください。');
   // DELETE is indexed and bounded; reads also filter expiry even before cleanup.
   await statement(db, 'DELETE FROM online_messages WHERE seq IN (SELECT seq FROM online_messages WHERE expires_at <= ? ORDER BY expires_at LIMIT 100)', now).run();
@@ -249,7 +278,8 @@ async function receiveMessages(db, room, member, now, url) {
   // risk skipping a message inserted between the two reads.
   const cursor = pending.length ? pending[pending.length - 1].seq : after;
   const messages = pending.filter(m => m.sender_id !== member.id && (m.to_id === member.id || m.to_id === 'all' || m.to_id === `team:${member.team}`))
-    .map(m => ({ seq: m.seq, from: m.sender_id, to: m.to_id, kind: m.kind, data: JSON.parse(m.data) }));
+    .map(m => ({ seq: m.seq, from: m.sender_id, to: m.to_id, kind: m.kind, data: JSON.parse(m.data) }))
+    .filter(m => m.kind !== 'game' || (room.status === 'playing' && (m.data.epoch ?? 0) === (JSON.parse(room.settings).matchEpoch || 0)));
   return json({ messages, cursor, room: await publicRoom(db, room, now) });
 }
 async function leaveRoom(db, room, member, now) {
@@ -270,7 +300,7 @@ export async function handleRooms(request, env) {
       if (request.method !== 'POST') fail(405, 'method_not_allowed', 'この操作には対応していません。');
       return await createRoom(request, env.DB, now);
     }
-    const match = path.match(/^\/api\/rooms\/([A-Z2-9]{8})(?:\/(join|ready|settings|start|messages|leave))?$/i);
+    const match = path.match(/^\/api\/rooms\/([A-Z2-9]{8})(?:\/(join|ready|settings|start|rematch|messages|leave))?$/i);
     if (!match) fail(404, 'not_found', '部屋のURLが不正です。');
     const code = match[1].toUpperCase(), action = match[2], room = await roomByCode(env.DB, code, now);
     if (action === 'join' && request.method === 'POST') return await joinRoom(request, env.DB, room, now);
@@ -284,6 +314,7 @@ export async function handleRooms(request, env) {
     if (action === 'ready' && request.method === 'POST') return await setReady(request, env.DB, room, member, now);
     if (action === 'settings' && request.method === 'POST') return await configureRoom(request, env.DB, room, member, now);
     if (action === 'start' && request.method === 'POST') return await startRoom(request, env.DB, room, member, now);
+    if (action === 'rematch' && request.method === 'POST') return await rematchRoom(request, env.DB, room, member, now);
     if (action === 'messages' && request.method === 'POST') return await sendMessage(request, env.DB, room, member, now);
     if (action === 'leave' && request.method === 'POST') return await leaveRoom(env.DB, room, member, now);
     fail(405, 'method_not_allowed', 'この操作には対応していません。');

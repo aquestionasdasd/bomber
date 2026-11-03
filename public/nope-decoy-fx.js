@@ -1,6 +1,6 @@
 import { acquireNopeDecoyAsset } from './nope-avatar.js';
 
-const MAX_DECOYS=50,MAX_SCAN=200;
+const MAX_DECOYS=110,MAX_SCAN=200;
 const REQUIRED=['id','type','team','sourceId','round','x','y','z','startedAt','endsAt'];
 const CONTROL=/[\u0000-\u001f\u007f]/;
 const coordinate=value=>Number.isFinite(value)&&Math.abs(value)<=1000;
@@ -37,13 +37,16 @@ export function createNopeDecoyFX(THREE){
   function update(events,now,{viewer=null}={}){
     if(disposed)return;reset();
     if(!Number.isFinite(now)||now<0||!Array.isArray(events))return;
+    const viewerTeam=viewer?.team,hasViewerTeam=viewerTeam==='blue'||viewerTeam==='red';
     for(let index=0;index<Math.min(events.length,MAX_SCAN);index++){
       const event=events[index];if(!validEvent(event,now)||seen.has(event.id))continue;
       seen.add(event.id);
+      // Reuse the fixed color batches without tinting shared live-avatar materials.
+      const displayTeam=hasViewerTeam?(event.team===viewerTeam?'blue':'red'):event.team;
       const yaw=Object.hasOwn(event,'yaw')?event.yaw:viewer&&coordinate(viewer.x)&&coordinate(viewer.z)?Math.atan2(viewer.x-event.x,viewer.z-event.z):0;
       // Translation is already derived by host-clock event views. Limb motion is cosmetic.
       transform.position.set(event.x,event.y,event.z);transform.rotation.set(0,yaw,0);transform.scale.set(1,1,1);transform.updateMatrix();
-      for(const {mesh,team,motion}of batches){if(team&&team!==event.team)continue;
+      for(const {mesh,team,motion}of batches){if(team&&team!==displayTeam)continue;
         if(motion!=='body'&&event.walking===true&&Number.isFinite(event.walkPhase)){const angle=Math.sin(event.walkPhase*4)*(motion==='legL'?1:-1)*.35;leg.position.set(0,.8,0);leg.rotation.set(angle,0,0);leg.updateMatrix();result.multiplyMatrices(transform.matrix,leg.matrix).multiply(pivot);mesh.setMatrixAt(mesh.count++,result);}
         else mesh.setMatrixAt(mesh.count++,transform.matrix);}
       if(seen.size===MAX_DECOYS)break;

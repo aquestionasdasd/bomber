@@ -18,12 +18,12 @@ async function main(){
   const snapshot=fx=>fx.group.children.map(mesh=>({count:mesh.count,matrix:Array.from(mesh.instanceMatrix.array.slice(0,mesh.count*16)),color:Array.from(mesh.instanceColor.array.slice(0,mesh.count*3))}));
   let passed=0;const test=(name,fn)=>{fn();passed++;console.log(`PASS: ${name}`);};
 
-  test('real cast dust is a fixed opaque radius3.5 sphere from .2 through7.2s, including raised floors',()=>{
+  test('real cast dust is a fixed opaque radius3.5 sphere from .2 through13.2s, including raised floors',()=>{
     const camera=new THREE.PerspectiveCamera(),fx=createGrassSkillFX(THREE,camera),data=events(3.2);assert.ok(data.every(Boolean));const dust=pool(fx,'fixed opaque');
     fx.update([data[0]],.199);assert.equal(fx.group.visible,false);
-    for(const now of [.2,.3,1,7.199999]){fx.update([data[0]],now);assert.equal(dust.count,1);const actual=pose(dust);close(actual.p.x,0);close(actual.p.y,4.45);close(actual.p.z,0);assert.deepEqual(actual.s.toArray(),[3.5,3.5,3.5]);}
+    for(const now of [.2,.3,1,7.2,13.199999]){fx.update([data[0]],now);assert.equal(dust.count,1);const actual=pose(dust);close(actual.p.x,0);close(actual.p.y,4.45);close(actual.p.z,0);assert.deepEqual(actual.s.toArray(),[3.5,3.5,3.5]);}
     assert.equal(dust.material.transparent,false);assert.equal(dust.material.opacity,1);assert.equal(dust.material.depthWrite,true);assert.equal(dust.material.side,THREE.DoubleSide);
-    fx.update([data[0]],7.2);assert.equal(dust.count,0);assert.equal(fx.group.visible,false);fx.dispose();
+    fx.update([data[0]],13.2);assert.equal(dust.count,0);assert.equal(fx.group.visible,false);fx.dispose();
   });
 
   test('roots follow callback floor at+.085 with no visual support creation and exact arm/expiry',()=>{
@@ -78,7 +78,7 @@ async function main(){
   });
 
   test('strict bounded packets, duplicate IDs and reduced motion preserve finite fixed resources and nonhit geometry',()=>{
-    const camera=new THREE.PerspectiveCamera(),fx=createGrassSkillFX(THREE,camera),event=events()[0],invalid=[null,[],{},Object.create(event),{...event,type:'__proto__'},{...event,id:'bad'},{...event,sourceId:'\0'},{...event,team:'green'},{...event,round:0},{...event,y:Infinity},{...event,x:1001},{...event,fromY:1},{...event,flight:.1},{...event,radius:3},{...event,triggerAt:.3},{...event,endsAt:5}];
+    const camera=new THREE.PerspectiveCamera(),fx=createGrassSkillFX(THREE,camera),event=events()[0],invalid=[null,[],{},Object.create(event),{...event,type:'__proto__'},{...event,id:'bad'},{...event,sourceId:'\0'},{...event,team:'green'},{...event,round:0},{...event,y:Infinity},{...event,x:1001},{...event,fromY:1001},{...event,flight:.1},{...event,radius:3},{...event,triggerAt:.3},{...event,endsAt:5}];
     fx.update(invalid,1);assert.equal(fx.group.visible,false);fx.update([event,event],1,{reducedMotion:true});assert.equal(fx.group.userData.activeEvents,1);const first=snapshot(fx);fx.update([event],1,{reducedMotion:true});assert.deepEqual(snapshot(fx),first);
     fx.update(Array.from({length:200},(_,index)=>({...event,id:`skill-veil-dust-${index+1}`})),1);assert.equal(fx.group.userData.activeEvents,20);assert.equal(pool(fx,'fixed opaque').count,20);assert.equal(pool(fx,'soil grains').count,480);finite(fx,camera);
     for(const mesh of [...meshes(fx.group),...meshes(camera)]){assert.equal(mesh.userData.solid,false);assert.equal(mesh.castShadow,false);assert.equal(mesh.receiveShadow,false);assert.equal(mesh.material.depthTest,true);const hits=[];mesh.raycast(new THREE.Raycaster(),hits);assert.deepEqual(hits,[]);}

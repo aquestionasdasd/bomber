@@ -1,3 +1,5 @@
+import { TEAM_ABILITIES } from './team-abilities.js';
+
 // Ground-only ability cues. All poses derive from event timestamps, so joining
 // midway or replaying an authoritative event never restarts its animation.
 export function createCharacterFX(THREE) {
@@ -62,7 +64,7 @@ export function createCharacterFX(THREE) {
           }
         }
       }else{
-        const pulse=Math.min(2,Math.floor(age/2)),pulseAge=age-pulse*2,progress=clamp(pulseAge/2,0,1),radius=Math.min(30,event.radius);
+        const pulse=Math.min(2,Math.floor(age/2)),pulseAge=age-pulse*2,progress=clamp(pulseAge/2,0,1),radius=Math.min(TEAM_ABILITIES.reconRadius,event.radius);
         const startRadius=Math.min(.35,radius),distance=reducedMotion?radius:startRadius+(radius-startRadius)*progress;
         const fade=Math.pow(1-progress,.65)*(.35+.65*Math.min(1,pulseAge/.16));
         write(recon,event.x,y,event.z,distance,distance,fade);

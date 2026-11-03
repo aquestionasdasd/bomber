@@ -100,7 +100,13 @@ async function main(){
   const dome=smokes.find(s=>s.kind==='veil'),domeMaterial=watch(dome.mesh.material),domeGeometry=watch(dome.mesh.geometry);
   assert.notEqual(domeGeometry,geometry);assert.equal(domeGeometry.index.count/3,4992);assert.equal(dome.mesh.material.map,texture);assert.equal(factory.count,1);
   assert.equal(dome.mesh.material.color.getHexString(),'77718f');assert.deepEqual(dome.mesh.scale.toArray(),[2.5,2.5,2.5]);
-  for(const time of [8,12,19.6,19.8,20]){api.updateSmokeAppearance(time);assert.deepEqual(dome.mesh.scale.toArray(),[2.5,2.5,2.5]);}
+  for(const time of [8,12,19.6,19.8,19.999999]){
+    api.updateSmokeAppearance(time);assert.deepEqual(dome.mesh.scale.toArray(),[2.5,2.5,2.5]);
+    assert.equal(domeMaterial.transparent,false,'X must use the opaque render pass so the exterior never blends with actors or scenery behind it');
+    assert.equal(domeMaterial.opacity,1,'X must remain opaque throughout its active lifetime, including the ordinary smoke fade window');
+    assert.equal(domeMaterial.depthWrite,true);assert.equal(domeMaterial.depthTest,true);assert.equal(domeMaterial.side,THREE.DoubleSide);
+    const ordinary=smokes.find(s=>s.kind==='smoke');assert.equal(ordinary.mesh.material.transparent,true);assert.equal(ordinary.mesh.material.opacity,.98*Math.max(0,Math.min(1,(ordinary.expires-time)/.4)));
+  }
   api.updateSmokeAppearance(8);scene.updateMatrixWorld(true);
   const outside=new THREE.Raycaster(new THREE.Vector3(0,1.7,12),new THREE.Vector3(0,0,-1)).intersectObject(dome.mesh);
   assert.ok(Math.abs(outside[0].distance-3)<.02,'The smooth shell matches the 9m boundary within 2cm');
@@ -109,6 +115,7 @@ async function main(){
   api.syncSmokes([ordinary,restored,restored,{...veil,id:1000,radius:999},{...veil,id:1001,kind:'hostile'},{...veil,id:1002,x:Infinity},{...veil,id:1003,x:1001}]);
   assert.equal(smokes.length,2,'Duplicate IDs and invalid sizes, kinds and coordinates cannot grow or resize a dome');
   assert.equal(smokes.find(s=>s.id===999).mesh,dome.mesh,'Snapshot replay retains the same live shell');
+  assert.equal(domeMaterial.transparent,false);assert.equal(domeMaterial.opacity,1,'Snapshot replay cannot restore ordinary smoke transparency on X');
   api.syncSmokes(Array.from({length:20},(_,i)=>make(i)));
   assert.equal(disposeCount.get(domeMaterial),1);assert.equal(disposeCount.get(domeGeometry),1);
 
@@ -143,6 +150,10 @@ async function main(){
     assert.equal(disposeCount.get(g),1);for(const material of m)assert.equal(disposeCount.get(material),1);
   }
   assert.equal(factory.count,1);assert.equal(disposeCount.get(texture),0);assert.equal(scene.children.length,0);
+  api.syncSmokes([restored]);const reusedMesh=smokes[0].mesh,reusedMaterial=watch(reusedMesh.material);
+  api.syncSmokes([{...restored,kind:'smoke',radius:3.6}]);assert.equal(smokes[0].mesh,reusedMesh);assert.equal(reusedMaterial.transparent,true);api.updateSmokeAppearance(19.8);assert.ok(Math.abs(reusedMaterial.opacity-.49)<1e-12);
+  api.syncSmokes([restored]);assert.equal(smokes[0].mesh,reusedMesh);assert.equal(reusedMaterial.transparent,false);assert.equal(reusedMaterial.opacity,1,'A reused authoritative ID applies the current kind rather than retaining stale material flags');
+  api.syncSmokes([]);assert.equal(disposeCount.get(reusedMaterial),1);
   const secondFactory=canvasFactory(),secondSmokes=[];
   const second=new Function('THREE','scene','document','smokes','clamp',source.slice(start,end)+';return {cloudTexture};')(THREE,new THREE.Scene(),secondFactory.document,secondSmokes,(n,min,max)=>Math.max(min,Math.min(max,n)));
   assert.deepEqual(second.cloudTexture().image.pixels,texture.image.pixels,'The texture remains deterministic across sessions');

@@ -2,7 +2,7 @@ import {busCabinRayClear} from './bus-cabin.js';
 import {createBusService,BUS_SERVICE,busPoint} from './bus-service.js';
 // Deterministic environmental traffic. The host alone calls impacts(); rendering
 // uses the same clock on guests. No audio and no actor/room references here.
-export const BUS_SPEC=Object.freeze({speed:11.2,width:2.5,length:10.6,height:3.25,damage:100,cooldown:1.25,launchSeconds:.8});
+export const BUS_SPEC=Object.freeze({speed:11.2,width:2.5,length:10.6,height:3.25,damage:150,cooldown:1.25,launchSeconds:.8});
 export function ovalRoute(cx,cz,rx,rz,count=80){return Array.from({length:count},(_,i)=>{const a=i*Math.PI*2/count;return{x:cx+Math.cos(a)*rx,z:cz+Math.sin(a)*rz};});}
 export const HIRAKATA_BUS_ROUTES=Object.freeze([
  {id:'south-1',points:ovalRoute(0,49,49,17),offset:0},
@@ -10,7 +10,7 @@ export const HIRAKATA_BUS_ROUTES=Object.freeze([
  {id:'north-1',points:ovalRoute(29,-49,30,14),offset:30},
  {id:'north-2',points:ovalRoute(29,-49,30,14),offset:118},
 ]);
-export function createTrafficClock(routes=HIRAKATA_BUS_ROUTES){
+export function createTrafficClock(routes=HIRAKATA_BUS_ROUTES,{bounds}={}){
  const tracks=routes.map(r=>{const points=[r.points[0],...r.points.slice(1).reverse()],segments=points.map((p,i)=>{const q=points[(i+1)%points.length];return{p,q,length:Math.hypot(q.x-p.x,q.z-p.z)};});return{...r,segments,length:segments.reduce((s,v)=>s+v.length,0)};});
  function routePose(r,d){d=(d%r.length+r.length)%r.length;for(let i=0;i<r.segments.length;i++){const s=r.segments[i];if(d<=s.length){const f=d/s.length,prev=r.segments[(i+r.segments.length-1)%r.segments.length],next=r.segments[(i+1)%r.segments.length],sx=(s.q.x-s.p.x)/s.length,sz=(s.q.z-s.p.z)/s.length;let dx=sx+(prev.q.x-prev.p.x)/prev.length*(1-f)+(next.q.x-next.p.x)/next.length*f,dz=sz+(prev.q.z-prev.p.z)/prev.length*(1-f)+(next.q.z-next.p.z)/next.length*f;const length=Math.hypot(dx,dz);dx/=length;dz/=length;return{id:r.id,x:s.p.x+(s.q.x-s.p.x)*f,z:s.p.z+(s.q.z-s.p.z)*f,yaw:Math.atan2(dx,dz),dx,dz};}d-=s.length;}return null;}
  // A stop once per lap; offsets retain each vehicle's initial road position.
@@ -19,13 +19,14 @@ export function createTrafficClock(routes=HIRAKATA_BUS_ROUTES){
   if(time<r.first){d=r.offset+time*BUS_SPEC.speed;eta=r.first-time;}
   else{const phase=(time-r.first)%r.cycle;door=phase<BUS_SERVICE.dwell;d=r.stopDistance+Math.max(0,phase-BUS_SERVICE.dwell)*BUS_SPEC.speed;eta=door?0:r.cycle-phase;}
   return{...routePose(r,d),speed:door?0:BUS_SPEC.speed,door,eta};});}
- const service=createBusService(schedule),poses=time=>service.poses(time);
+ const service=createBusService(schedule,{bounds}),poses=time=>service.poses(time);
  function stops(time){return ['south','north'].map(prefix=>{const related=poses(time).filter(p=>p.id.startsWith(prefix)),p=routePose(tracks.find(r=>r.id.startsWith(prefix)),tracks.find(r=>r.id.startsWith(prefix)).stopDistance),available=related.filter(p=>!poses(time).find(v=>v.id===p.id)?.diverted);return{...p,id:prefix,eta:available.length?Math.min(...available.map(p=>p.eta)):null,door:available.some(p=>p.door)};});}
  const cooldown=new Map(),previous=new Map();let last=null,sequence=0;
- function reset(time=null){cooldown.clear();previous.clear();last=time;sequence=0;service.reset();}
+ function reset(time=null,options){cooldown.clear();previous.clear();last=time;sequence=0;service.reset(options);}
  function impacts(actors,time,{enabled=true}={}){
   if(!Number.isFinite(time)||time<0)return[];
-  if(last!==null&&time<last){reset(time);return[];}
+  // A clock correction invalidates swept contacts, never host-owned vehicles.
+  if(last!==null&&time<last){cooldown.clear();previous.clear();last=time;sequence=0;return[];}
   const start=last===null?time:Math.max(last,time-.25),dt=time-start,result=[];
   for(const[id,end]of cooldown)if(end<=time)cooldown.delete(id);
   if(enabled){const count=Math.max(1,Math.ceil(dt/.025));

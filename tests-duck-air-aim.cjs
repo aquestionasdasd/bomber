@@ -3,7 +3,7 @@ const fixture=fs.readFileSync(path.join(__dirname,'tests-onnara-game.cjs'),'utf8
 if(boundary<0)throw Error('Saved-game harness boundary changed');
 const fault=process.argv.find(s=>s.startsWith('--fault='))?.split('=')[1];
 if(fault){const read=fs.readFileSync;fs.readFileSync=function(p,...args){let s=read.call(this,p,...args);if(String(p).replaceAll('\\','/').endsWith('/public/game.js')&&typeof s==='string'){
- const changes={local:['steadyAir=duckAirAim(player)','steadyAir=false'],arsenal:['steadyAir:duckAirAim(actor)','steadyAir:false'],landing:['actor.y=support;actor.vy=0;actor.duckPadUntil=0','actor.y=support;actor.vy=0']};
+ const changes={local:['steadyAir=steadyAirAim(player)','steadyAir=false'],arsenal:['steadyAir:steadyAirAim(actor)','steadyAir:false'],landing:['actor.y=support;actor.vy=0;actor.duckPadUntil=0','actor.y=support;actor.vy=0']};
  const [a,b]=changes[fault]||[];if(!a||!s.includes(a))throw Error('Fault anchor missing');s=s.replace(a,b);}return s;};}
 const suite=String.raw`
  const local=harness();

@@ -1,0 +1,2 @@
+const {spawnSync}=require('node:child_process');const assert=require('node:assert/strict');
+for(const fault of ['gravity','up','range','codec']){const r=spawnSync(process.execPath,['tests-skill-throw.cjs','--fault='+fault],{cwd:__dirname,encoding:'utf8',windowsHide:true,timeout:120000});assert.notEqual(r.status,0,'Undetected '+fault);assert.match(r.stderr,/AssertionError/,'Fault did not reach an assertion: '+fault+' '+r.stderr);console.log('PASS: detected memory-only '+fault+' fault');}

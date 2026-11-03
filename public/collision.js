@@ -1,5 +1,15 @@
 // Shared horizontal collision for real building footprints and simple arena cover.
 const EPS = 1e-5;
+// Stair meshes and sight/bullet boxes keep their authored treads. Actor movement
+// uses a continuous floor, shared by support and horizontal collision queries.
+export function rampHeight(ramp, x, z) {
+  const along = ramp.axis === 'x' ? x : z, min = ramp.axis === 'x' ? ramp.minX : ramp.minZ, max = ramp.axis === 'x' ? ramp.maxX : ramp.maxZ;
+  const t = Math.max(0, Math.min(1, (along - min) / Math.max(.001, max - min)));
+  return (ramp.base || 0) + ramp.height * (ramp.direction === -1 ? 1 - t : t);
+}
+export function movementTop(collider, x, z) {
+  return collider.movementRamp ? rampHeight(collider.movementRamp, x, z) : collider.height;
+}
 function pointSegmentDistanceSquared(px, pz, ax, az, bx, bz) {
   const dx = bx - ax, dz = bz - az, length = dx * dx + dz * dz;
   const t = length ? Math.max(0, Math.min(1, ((px - ax) * dx + (pz - az) * dz) / length)) : 0;
@@ -88,7 +98,7 @@ export function createCollisionIndex(colliders, cellSize = 20) {
   const blocksAtHeight = (c, feet, height) => !c.disabled && c.height > feet + EPS && (c.base || 0) < feet + height - EPS;
   function blocked(x, z, r = .34, feet = 0, height = 1.7) {
     if (![x, z, r, feet, height].every(Number.isFinite) || r < 0 || height <= 0) return true;
-    return query(x, z, r).some(c => blocksAtHeight(c, feet, height) && overlaps(c, x, z, r));
+    return query(x, z, r).some(c => !c.disabled && movementTop(c, x, z) > feet + EPS && (c.base || 0) < feet + height - EPS && overlaps(c, x, z, r));
   }
   function segmentCandidates(ax, az, bx, bz, r) {
     if (Math.abs(bx - ax) < cellSize && Math.abs(bz - az) < cellSize) {
@@ -127,20 +137,20 @@ export function createCollisionIndex(colliders, cellSize = 20) {
   }
   // A sight ray has no actor height. Clip it to each solid's vertical span before
   // testing the footprint so an overhead deck cannot hide a ground-level enemy.
-  function rayClear(ax, ay, az, bx, by, bz) {
-    if (![ax, ay, az, bx, by, bz].every(Number.isFinite)) return false;
+  function rayClear(ax, ay, az, bx, by, bz, radius = 0) {
+    if (![ax, ay, az, bx, by, bz,radius].every(Number.isFinite)||radius<0) return false;
     const dx=bx-ax,dy=by-ay,dz=bz-az;
-    for(const c of segmentCandidates(ax,az,bx,bz,0)){
+    for(const c of segmentCandidates(ax,az,bx,bz,radius)){
       if(c.disabled)continue;
       let low=0,high=1;
-      for(const [start,delta,min,max] of [[ax,dx,c.minX,c.maxX],[ay,dy,c.base||0,c.height],[az,dz,c.minZ,c.maxZ]]){
+      for(const [start,delta,min,max] of [[ax,dx,c.minX-radius,c.maxX+radius],[ay,dy,(c.base||0)-radius,c.height+radius],[az,dz,c.minZ-radius,c.maxZ+radius]]){
         if(Math.abs(delta)<1e-12){if(start<min||start>max){low=1;high=0;break;}}
         else{const a=(min-start)/delta,b=(max-start)/delta;low=Math.max(low,Math.min(a,b));high=Math.min(high,Math.max(a,b));if(low>high)break;}
       }
       if(low>high)continue;
       const sx=ax+dx*low,sz=az+dz*low,ex=ax+dx*high,ez=az+dz*high;
-      if(overlaps(c,sx,sz)||overlaps(c,ex,ez))return false;
-      for(const ring of rings(c))for(let i=0,j=ring.length-1;i<ring.length;j=i++)if(segmentsDistanceSquared(sx,sz,ex,ez,...ring[j],...ring[i])<1e-12)return false;
+      if(overlaps(c,sx,sz,radius)||overlaps(c,ex,ez,radius))return false;
+      for(const ring of rings(c))for(let i=0,j=ring.length-1;i<ring.length;j=i++){const d=segmentsDistanceSquared(sx,sz,ex,ez,...ring[j],...ring[i]);if(radius?d<=radius*radius+1e-12:d<1e-12)return false;}
     }
     return true;
   }

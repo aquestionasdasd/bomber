@@ -6,7 +6,7 @@ const {pathToFileURL}=require('node:url');
 
 async function main(){
   const started=performance.now(),load=file=>import(pathToFileURL(path.join(__dirname,'public',file)).href);
-  const [THREE,{createEnemyRim},{createAgentModel},{DuelistKit}]=await Promise.all([load('vendor/three.module.js'),load('enemy-rim.js'),load('agent-model.js'),load('abilities.js')]);
+  const [THREE,{createEnemyRim},{createAgentModel},{DuelistKit,CHARACTER_DEFS}]=await Promise.all([load('vendor/three.module.js'),load('enemy-rim.js'),load('agent-model.js'),load('abilities.js')]);
   const disposals=new Map(),watch=object=>{if(!disposals.has(object)){disposals.set(object,0);object.addEventListener('dispose',()=>disposals.set(object,disposals.get(object)+1));}return object;};
   const compile=material=>{const shader={uniforms:{},vertexShader:THREE.ShaderLib.standard.vertexShader,fragmentShader:THREE.ShaderLib.standard.fragmentShader};material.onBeforeCompile(shader,{});return shader;};
   const geometry=watch(new THREE.BoxGeometry(1,1,1)),texture=watch(new THREE.DataTexture(new Uint8Array([255,255,255,255]),1,1));
@@ -108,7 +108,9 @@ async function main(){
     throw Error(`Unclosed function ${name}`);
   }
   const {roundDanceState}=await load('victory-dance.js');
-  const context=vm.createContext({roundDanceState,reducedMotion:{matches:false},THREE,DuelistKit,createAgentModel,characterIds:roles,player:{alive:true,team:'blue'},spectatedBot:null,mode:'play',elapsed:0,match:{attackerTeam:'blue'},map:{spawnYaw:{attack:0,defend:1.93878}},bots:[],botsGroup:new THREE.Group()});
+  // This rim-only fixture has no active slide effect; character labels come
+  // from the same real definitions as makeBot, including its first frame.
+  const context=vm.createContext({roundDanceState,frostSlideSpeed:()=>0,reducedMotion:{matches:false},THREE,DuelistKit,CHARACTER_DEFS,createAgentModel,characterIds:roles,player:{alive:true,team:'blue'},spectatedBot:null,mode:'play',elapsed:0,match:{attackerTeam:'blue'},map:{spawnYaw:{attack:0,defend:1.93878}},bots:[],botsGroup:new THREE.Group()});
   vm.runInContext([extract('enemyRimFor'),extract('agentEquipment'),extract('makeBot')].join('\n'),context);
   const equipment=(team,extra={})=>{context.testBot={team,...extra};return vm.runInContext('agentEquipment(testBot)',context);};
   assert.equal(equipment('red').enemyRim,true);assert.equal(equipment('blue').enemyRim,false);
