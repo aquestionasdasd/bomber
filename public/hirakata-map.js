@@ -90,7 +90,9 @@ export function createHirakataMap(T,scene){
  // Preserve the actual T-SITE setbacks instead of a full-height bounding box.
  for(const[x,y,z,w,d,h]of[[40,-68,17,24,24,34],[40,-68,2.9,34,30,5.8],[40,-68,8.2,35,31,4.8],[30,-66,13.4,15,28,5.2],[48,-69,13.4,18,34,5.2],[27,-69,18.8,14,32,5.2],[44,-67,18.8,18,28,5.2],[33,-66,24.2,21,27,5.2],[51,-70,24.2,11,34,5.2],[25,-68,29.6,13,30,5.2],[41,-65,29.6,18,25,5.2],[34,-66,35,20,25,5.2]])box('tsite-block '+x+' '+z,x,-y,w,d,z-h/2,z+h/2,'building','TSITE_glass_boxes');
  // Append groups so every existing destruction bit keeps its original meaning.
- const siteCover=createHirakataSiteCover(T);
+ let siteCover;
+ try{siteCover=createHirakataSiteCover(T,rendered.surfaceFinish);}
+ catch(error){rendered.dispose();throw error;}
  for(const spec of HIRAKATA_A_COVER){const root=siteCover.groups.get(spec.id);world.add(root);groups.set(spec.id,root);box(spec.id,spec.x,spec.z,spec.w,spec.d,0,spec.h,'building',spec.id);}
  const collision=createCollisionIndex(colliders,12);
  const damageGroups=[];

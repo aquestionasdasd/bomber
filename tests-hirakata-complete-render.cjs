@@ -11,14 +11,14 @@ async function main(){
  check('embedded bytes retain reviewed source hash, with no embedded video/image/font file',()=>{
   assert.equal(raw.length,data.HIRAKATA_MODEL_PROVENANCE.bytes);
   assert.equal(crypto.createHash('sha256').update(raw).digest('hex'),data.HIRAKATA_MODEL_PROVENANCE.sha256);
-  assert.equal(data.HIRAKATA_MODEL_PROVENANCE.sha256,'f14ad708413e6ec880c3327fd720adf0742608097145153ec35e37ad7a68534e');
+  assert.equal(data.HIRAKATA_MODEL_PROVENANCE.sha256,'3769f66622423958d10e58f22bc2ad9aa2aecd9284e07a57170c28cd11d0b800');
   assert.equal(data.HIRAKATA_MODEL_PROVENANCE.referencesEmbedded,false);
  });
  const began=performance.now(),model=createHirakataModel(T),createdMs=performance.now()-began;
  check('factory returns complete real Three geometry synchronously and stable named roots',()=>{
   assert.ok(model.world.isGroup);assert.equal(model.then,undefined);assert.equal(model.groups.size,36);
   for(const name of['Station_central_hall','Station_east_hall','Station_upper_Roof','South_pedestrian_deck','Park','Hirakata_Woven'])assert.ok(model.groups.get(name)?.isGroup,name);
-  assert.equal(model.sourceTriangleCount,263764);assert.equal(model.meshCount,472);
+  assert.equal(model.sourceTriangleCount,286644);assert.equal(model.meshCount,472);
   assert.equal(model.sourceTriangleCount-model.triangleCount,model.removedTriangleCount);
   assert.equal(model.removedTriangleCount,1344);assert.equal(model.northRemovedTriangleCount,896);
   const actual=[];model.world.traverse(node=>{if(node.isMesh)actual.push(node);});assert.equal(actual.length,model.meshCount);

@@ -2,7 +2,7 @@ hirakata-complete-model.js / hirakata-complete.glb
 Original scripted station geometry created for this project from the owner's
 walking-video references, 2026-11-02. Dimensions and unseen details are estimates;
 this is not a measured survey or a photogrammetry reconstruction.
-Source GLB SHA256: f14ad708413e6ec880c3327fd720adf0742608097145153ec35e37ad7a68534e
+Source GLB SHA256: 3769f66622423958d10e58f22bc2ad9aa2aecd9284e07a57170c28cd11d0b800
 2026-11-03: the T-SITE deck has a stair opening, a landing and two side walks.
 Only its five floor-material mesh payloads changed; the original reference
 model is retained in the project history. See prepare-hirakata-stair-opening.py.
@@ -10,6 +10,10 @@ model is retained in the project history. See prepare-hirakata-stair-opening.py.
 moved onto the existing terrace floor. Only four TSITE_terrace mesh payloads
 changed; walking/collision layout and the stair opening are unchanged.
 See prepare-hirakata-terrace-support.py for the reproducible source preparation.
+2026-11-03: Blender bevels the vertical edges of 1,430 selected boxes by at most
+2cm, preserving floors, stairs, contact heights, walking layout and module order.
+See scripts/prepare-hirakata-district-geometry.py. The original protected mesh
+payloads and bounded edge changes are checked by the district geometry tests.
 The binary includes geometry and authored PBR material parameters. It includes
 no reference video frames, recordings, texture library, or font files.
 Station label outlines were baked from locally installed Meiryo / Yu Gothic.
@@ -25,5 +29,21 @@ Prepared from the 1k JPG diffuse, roughness and OpenGL normal maps: resized to
 roughness range adjusted, normals renormalized, rows reversed for DataTexture.
 The three maps are bundled locally; gameplay makes no texture-provider request.
 Source and prepared-byte hashes are embedded in the asset provenance.
-See scripts/prepare-hirakata-oak-finish.py. Other hall micro-surfaces and contact
-AO are original deterministic procedural textures made for this project.
+See scripts/prepare-hirakata-oak-finish.py. Plaster, brushed-metal, leaf-cluster
+finishes and contact AO are original deterministic procedural textures.
+
+hirakata-district-finish.js
+Three prepared texture families from Poly Haven, CC0-1.0.
+Clean Asphalt - Dimitrios Savva
+https://polyhaven.com/a/clean_asphalt
+Granular Concrete - Dario Barresi (processing), Michael Jenkins (photography)
+https://polyhaven.com/a/granular_concrete
+Granite Tile - Charlotte Baglioni
+https://polyhaven.com/a/granite_tile
+License: https://polyhaven.com/license
+Prepared diffuse, roughness and OpenGL normal maps at 512px. Albedo uses
+neutral modulation; normals are renormalized and stored bottom-up.
+Granite uses a joint-free crop with matched repeat edges.
+Source/prepared hashes are embedded in provenance. Maps are bundled locally;
+gameplay makes no provider request.
+See scripts/prepare-hirakata-district-materials.py.

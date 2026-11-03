@@ -7,15 +7,17 @@ export const HIRAKATA_A_COVER=Object.freeze([
  {id:'A_cover_south_east',x:-20.6,z:25.6,w:2.6,d:1,h:1.4,style:'planter'},
 ].map(Object.freeze));
 
-export function createHirakataSiteCover(T){
- const geometry=new T.BoxGeometry(1,1,1),groups=new Map();let meshCount=0;
- const material=(color)=>new T.MeshStandardMaterial({color,roughness:.85});
- const cabinet=material('#4d6468'),panel=material('#8faaa9'),stripe=material('#56a69a');
- const concrete=material('#a5a698'),soil=material('#575c42'),green=material('#6f8056');
- for(const spec of HIRAKATA_A_COVER){
+export function createHirakataSiteCover(T,finish){
+ const geometry=new T.BoxGeometry(1,1,1),geometries=new Set([geometry]),materials=[],groups=new Map();let meshCount=0,disposed=false;
+ const material=(name,color)=>{const m=new T.MeshStandardMaterial({name,color,roughness:.85});materials.push(m);return m;};
+ const cabinet=material('steel','#4d6468'),panel=material('panel','#8faaa9'),stripe=material('turquoise','#56a69a');
+ const concrete=material('panel','#a5a698'),soil=material('soil','#575c42'),green=material('leaf','#6f8056');
+ try{for(const spec of HIRAKATA_A_COVER){
   const root=new T.Group();root.name=spec.id;root.position.set(spec.x,0,spec.z);
   function part(name,x,y,z,w,h,d,mat){
-   const mesh=new T.Mesh(geometry,mat);mesh.name=spec.id+' / '+name;
+   // World-metre texture UVs differ per panel; keep the tiny box buffers local.
+   const partGeometry=finish?geometry.clone():geometry;geometries.add(partGeometry);
+   const mesh=new T.Mesh(partGeometry,mat);mesh.name=spec.id+' / '+name;
    mesh.position.set(x,y,z);mesh.scale.set(w,h,d);mesh.castShadow=true;mesh.receiveShadow=true;
    mesh.userData={solid:true,hirakataModule:spec.id,preserveGround:false};root.add(mesh);meshCount++;
   }
@@ -31,7 +33,9 @@ export function createHirakataSiteCover(T){
    part('bed',0,spec.h-.003,0,spec.w-.22,.008,spec.d-.22,soil);
    part('planting',0,spec.h,0,spec.w-.4,.008,spec.d-.4,green);
   }
+  root.updateMatrixWorld(true);if(finish)root.traverse(mesh=>finish.apply(mesh));
   groups.set(spec.id,root);
- }
- return {groups,meshCount};
+ }}catch(error){dispose();throw error;}
+ function dispose(){if(disposed)return;disposed=true;for(const root of groups.values())root.removeFromParent();for(const g of geometries)g.dispose();for(const m of materials)m.dispose();}
+ return {groups,meshCount,dispose};
 }

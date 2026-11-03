@@ -1,7 +1,8 @@
 import {HIRAKATA_MODEL_LAYOUT} from './hirakata-complete-layout.js';
 import {OAK_FINISH} from './assets/hirakata-oak-finish.js';
+import {DISTRICT_FINISH} from './assets/hirakata-district-finish.js';
 
-// CC0 oak and original, deterministic finishes for the video-reference halls.
+// Shared CC0 material scans and deterministic fine finishes across the district.
 // This adds material detail only: no new geometry, layout, colliders or animation.
 const SIZE=256,OAK_SIZE=512,OAK_BYTES=OAK_SIZE*OAK_SIZE*4;
 const PROFILES=Object.freeze({
@@ -9,6 +10,13 @@ const PROFILES=Object.freeze({
  stone:Object.freeze({family:'mineral',width:1.6,length:1.6,normal:.14}),
  plaster:Object.freeze({family:'mineral',width:1.15,length:1.15,normal:.10}),
  steel:Object.freeze({family:'steel',width:.42,length:1.8,normal:.10}),
+ concrete:Object.freeze({family:'concrete',width:2.4,length:2.4,normal:.26,roughness:.88,metalness:0}),
+ paving:Object.freeze({family:'paving',width:.359375,length:.359375,normal:.20,roughness:.78,metalness:0}),
+ asphalt:Object.freeze({family:'asphalt',width:2.1,length:2.1,normal:.38,roughness:.96,metalness:0}),
+ painted:Object.freeze({family:'steel',width:.8,length:.8,normal:.045,roughness:.6,metalness:.18}),
+ glass:Object.freeze({family:'steel',width:2.5,length:2.5,normal:.009,roughness:.19,metalness:.42,glass:true}),
+ foliage:Object.freeze({family:'foliage',width:.8,length:.8,normal:.32,roughness:.94,metalness:0}),
+ soil:Object.freeze({family:'concrete',width:.6,length:.6,normal:.42,roughness:1,metalness:0}),
 });
 const AO_WIDTH=512,AO_HEIGHT=256,AO_NEUTRAL=Object.freeze([.5/AO_WIDTH,.5/AO_HEIGHT]);
 const AO_REGIONS=Object.freeze({
@@ -17,6 +25,9 @@ const AO_REGIONS=Object.freeze({
 });
 
 function profileFor(module,name){
+ if(!module||module==='Vehicles'||module==='North_stationary_buses')return null;
+ // This green surface is a landscape printed on columns, not live planting.
+ if(module==='Station_ground_passage'&&name==='leaf')return null;
  if(module==='Station_central_hall'){
   if(name==='wood'||name==='woodlight'||name==='tan')return PROFILES.wood;
   if(name==='steel'||name==='silver')return PROFILES.steel;
@@ -30,7 +41,18 @@ function profileFor(module,name){
  if(module==='Station_central_gates'&&(name==='steel'||name==='silver'))return PROFILES.steel;
  if(module==='Station_upper_floor'&&name==='tile')return PROFILES.stone;
  if((module==='Station_central_Ceiling'||module==='Station_east_Ceiling')&&(name==='ivory'||name==='panel'))return PROFILES.plaster;
- // White/ivory lettering, glass, lights and tactile markings stay unmodified.
+ // Authored letter meshes and road/tactile paint are protected by apply().
+ // The original geometry already defines seams: the stone scan has no grout.
+ if(name==='wood'||name==='woodlight')return PROFILES.wood;
+ if(name==='road')return PROFILES.asphalt;
+ if(['paving','tile','tile2','tile3','brick'].includes(name))return PROFILES.paving;
+ if(['panel','sand','brown','tan'].includes(name))return PROFILES.concrete;
+ if(name==='ivory')return PROFILES.plaster;
+ if(name==='white'||name==='black')return PROFILES.painted;
+ if(name==='steel'||name==='silver')return PROFILES.steel;
+ if(['window','green_glass','glass_light','glass_dark'].includes(name))return PROFILES.glass;
+ if(['leaf','leaflight','leafdark'].includes(name))return PROFILES.foliage;
+ if(name==='soil')return PROFILES.soil;
  return null;
 }
 
@@ -74,6 +96,19 @@ function makeOak(T,textures){
  return{map:texture('albedo'),roughnessMap:texture('roughness'),normalMap:texture('normal')};
 }
 
+function makePhotographedFamily(T,textures,name){
+ const source=DISTRICT_FINISH[name],size=512,bytes=size*size*4;
+ if(!source||source.width!==size||source.height!==size)throw Error('Hirakata district: invalid material size');
+ const result={};
+ for(const[kind,slot]of [['albedo','map'],['roughness','roughnessMap'],['normal','normalMap']]){
+  const encoded=source[kind];if(typeof encoded!=='string'||encoded.length!==4*Math.ceil(bytes/3))throw Error('Hirakata district: invalid encoded size');
+  const decoded=atob(encoded);if(decoded.length!==bytes)throw Error('Hirakata district: invalid decoded size');
+  const data=new Uint8Array(bytes);for(let i=0;i<bytes;i++)data[i]=decoded.charCodeAt(i);
+  result[slot]=surfaceTexture(T,textures,data,kind,'CC0 '+name,size,size);
+ }
+ return result;
+}
+
 function makeFamily(T,family,textures){
  const height=new Float32Array(SIZE*SIZE),albedo=new Uint8Array(SIZE*SIZE*4),roughness=new Uint8Array(SIZE*SIZE*4),normal=new Uint8Array(SIZE*SIZE*4);
  for(let y=0;y<SIZE;y++)for(let x=0;x<SIZE;x++){
@@ -85,6 +120,12 @@ function makeFamily(T,family,textures){
    value=246+7*(broad-.5)+7*(grain-.5)-10*pores;
    rough=.94+.08*(grain-.5)-.03*(broad-.5);
    h=.50+.10*(grain-.5)+.08*(fine-.5)-.07*pores;
+  }else if(family==='foliage'){
+   // Fine leaf-cluster variation on the retained canopy silhouettes. No alpha
+   // cards, extra draw calls or animation; this does not replace tree geometry.
+   const clusters=noise(u,v,12,12,413),veins=noise(u,v,64,32,377);
+   value=210+32*(clusters-.5)+12*(fine-.5);
+   rough=.94+.06*(veins-.5);h=.5+.24*(clusters-.5)+.08*(veins-.5);
   }else{
    const brush=noise(u,v,128,4,653),wear=noise(u,v,16,32,113);
    value=245+7*(brush-.5)+4*(wear-.5);
@@ -176,26 +217,36 @@ function projectedUv(T,mesh,profile,region){
  * textures, never source materials or geometries. dispose() is idempotent. */
 export function createHirakataSurfaceFinish(T){
  const textures=[],materials=[],cache=new Map(),applied=new WeakSet();
- const stats={textureCount:0,textureSizes:{wood:[OAK_SIZE,OAK_SIZE],mineral:[SIZE,SIZE],steel:[SIZE,SIZE],contactAo:[AO_WIDTH,AO_HEIGHT]},textureBytes:0,materialCount:0,meshCount:0,uvVertices:0,contactAoMeshes:0,contactAoVertices:0,contactAoOccluders:{},families:{wood:0,mineral:0,steel:0},disposed:false};
+ const stats={textureCount:0,textureSizes:{wood:[OAK_SIZE,OAK_SIZE],mineral:[SIZE,SIZE],steel:[SIZE,SIZE],foliage:[SIZE,SIZE],concrete:[512,512],paving:[512,512],asphalt:[512,512],contactAo:[AO_WIDTH,AO_HEIGHT]},textureBytes:0,materialCount:0,meshCount:0,uvVertices:0,contactAoMeshes:0,contactAoVertices:0,contactAoOccluders:{},families:{wood:0,mineral:0,steel:0,foliage:0,concrete:0,paving:0,asphalt:0},modules:{},disposed:false};
  let families,contactAo,disposed=false;
  try{
-  families={wood:makeOak(T,textures),mineral:makeFamily(T,'mineral',textures),steel:makeFamily(T,'steel',textures)};
+  families={wood:makeOak(T,textures),mineral:makeFamily(T,'mineral',textures),steel:makeFamily(T,'steel',textures),foliage:makeFamily(T,'foliage',textures)};
+  for(const name of ['concrete','paving','asphalt'])families[name]=makePhotographedFamily(T,textures,name);
   contactAo=makeContactAo(T,textures);stats.contactAoOccluders=contactAo.occluders;
   stats.textureCount=textures.length;stats.textureBytes=textures.reduce((sum,t)=>sum+t.image.data.byteLength,0);
  }catch(error){for(const texture of textures)texture.dispose();throw error;}
  function apply(mesh){
   if(disposed||!mesh?.isMesh||applied.has(mesh)||Array.isArray(mesh.material)||!mesh.material?.isMeshStandardMaterial)return false;
-  const source=mesh.material,profile=profileFor(mesh.userData?.hirakataModule,source.name);
+  const module=mesh.userData?.hirakataModule,source=mesh.material;
+  // Letters are independent meshes named by their text, never group/material.
+  // Thin painted ground/road markings retain their original untextured color.
+  if(mesh.name&&!mesh.name.startsWith(module+' / '))return false;
+  if(['yellow','light','red','blue','pink','turquoise','warm'].includes(source.name))return false;
+  if(mesh.userData.preserveGround&&['white','ivory','black'].includes(source.name))return false;
+  const profile=profileFor(module,source.name);
   if(!profile)return false;
   const projected=projectedUv(T,mesh,profile,AO_REGIONS[mesh.userData?.hirakataModule]);if(!projected)return false;
   let profiles=cache.get(source);if(!profiles){profiles=new Map();cache.set(source,profiles);}
-  const key=profile.family+'/'+profile.width+'/'+profile.length+'/'+(projected.uv1?'contact':'plain');
+  const key=JSON.stringify([profile,!!projected.uv1]);
   let material=profiles.get(key);
   if(!material){
    material=source.clone();Object.assign(material,families[profile.family]);
    material.normalScale.set(profile.normal,profile.normal);
    if(profile.family==='wood'){material.roughness=.65;material.metalness=0;}
    if(profile.family==='steel'){material.roughness=.40;material.metalness=.8;}
+   if(profile.roughness!==undefined)material.roughness=profile.roughness;
+   if(profile.metalness!==undefined)material.metalness=profile.metalness;
+   if(profile.glass)material.envMapIntensity=1.35;
    if(projected.uv1){material.aoMap=contactAo.texture;material.aoMapIntensity=1;}
    material.userData={...material.userData,hirakataSurfaceFinish:profile.family};
    profiles.set(key,material);materials.push(material);stats.materialCount=materials.length;
@@ -203,7 +254,7 @@ export function createHirakataSurfaceFinish(T){
   mesh.geometry.setAttribute('uv',projected.uv);
   if(projected.uv1){mesh.geometry.setAttribute('uv1',projected.uv1);stats.contactAoMeshes++;stats.contactAoVertices+=projected.floorVertices;}
   mesh.material=material;applied.add(mesh);
-  stats.meshCount++;stats.uvVertices+=projected.uv.count;stats.families[profile.family]++;return true;
+  stats.meshCount++;stats.uvVertices+=projected.uv.count;stats.families[profile.family]++;stats.modules[module]=(stats.modules[module]||0)+1;return true;
  }
  function dispose(){
   if(disposed)return;disposed=true;stats.disposed=true;
