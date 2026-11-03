@@ -3,6 +3,7 @@ import {createBusDestruction} from './bus-destruction.js';
 import {createTrafficClock,createBusModels,ovalRoute} from './bus-traffic.js';
 import {createHirakataModel} from './hirakata-complete-render.js';
 import {HIRAKATA_MODEL_LAYOUT as source} from './hirakata-complete-layout.js';
+import {HIRAKATA_A_COVER,createHirakataSiteCover} from './hirakata-site-cover.js';
 
 // The approved reference model and its walking geometry share one coordinate
 // transform: Blender (x,y,z) -> game (x,z,-y). Metres are visual estimates.
@@ -88,6 +89,9 @@ export function createHirakataMap(T,scene){
  for(const z of[-10,0,10]){box('platform '+z,-3,z,108,1.8,13.225,13.975,'surface','Station_platform_Roof');for(const x of[-52,-40,-28,-16,-4,8,20,32,44])box('platform post '+x+' '+z,x,z,.22,.22,14,19.6,'column','Station_platform_Roof');}
  // Preserve the actual T-SITE setbacks instead of a full-height bounding box.
  for(const[x,y,z,w,d,h]of[[40,-68,17,24,24,34],[40,-68,2.9,34,30,5.8],[40,-68,8.2,35,31,4.8],[30,-66,13.4,15,28,5.2],[48,-69,13.4,18,34,5.2],[27,-69,18.8,14,32,5.2],[44,-67,18.8,18,28,5.2],[33,-66,24.2,21,27,5.2],[51,-70,24.2,11,34,5.2],[25,-68,29.6,13,30,5.2],[41,-65,29.6,18,25,5.2],[34,-66,35,20,25,5.2]])box('tsite-block '+x+' '+z,x,-y,w,d,z-h/2,z+h/2,'building','TSITE_glass_boxes');
+ // Append groups so every existing destruction bit keeps its original meaning.
+ const siteCover=createHirakataSiteCover(T);
+ for(const spec of HIRAKATA_A_COVER){const root=siteCover.groups.get(spec.id);world.add(root);groups.set(spec.id,root);box(spec.id,spec.x,spec.z,spec.w,spec.d,0,spec.h,'building',spec.id);}
  const collision=createCollisionIndex(colliders,12);
  const damageGroups=[];
  for(const[name,root]of groups){const nodes=[];root.traverse(n=>{if(n.isMesh&&!n.userData.preserveGround)nodes.push(n)});const own=ownership.get(name);if(!nodes.length||!own?.colliders.length)continue;damageGroups.push({id:name,parts:[],nodes,colliders:own.colliders,shapes:own.shapes,ramps:own.ramps,bounds:own.colliders,structural:true});}
@@ -112,5 +116,5 @@ export function createHirakataMap(T,scene){
  return {id:'hirakata',name:'枚方市駅',shortName:'HIRAKATASHI',world,bounds,combatBounds:{...bounds},minY:0,maxActorY:100,layeredNavigation:true,walkHeights,navigationStairHints,colliders,collision,ramps,mapShapes,destruction,traffic,busModels,sites,teamSpawns,spawn:{...teamSpawns.attack[2],yaw:0},enemySpawns:teamSpawns.defend,spawnYaw:{attack:0,defend:Math.PI},
   buyAreas:{attack:{minX:-98,maxX:98,minZ:150,maxZ:183},defend:{minX:-98,maxX:98,minZ:-123,maxZ:-106}},lanes,callouts,zones:callouts.map(c=>({name:c.name,x:c.label.x,z:c.label.z,radius:18})),landmarks,
   menuCamera:{position:[-145,105,195],target:[0,13,35]},rangeArea:{spawn:{x:-24,z:14,y:0,yaw:0},targets:[{x:-24,z:-5},{x:-24,z:-10},{x:-26,z:-13},{x:-22,z:-13}]},routeCopy:'南口A / 2階東改札前B / 自由通路・デッキ',
-  origin:{lat:34.815,lon:135.649},visualReady:Promise.resolve(),modelRevision:'hirakata-complete-20261103',sourceModel:rendered.provenance,stats:{mode:'arena',width:196,depth:306,area:59976,combatWidth:196,combatDepth:306,sites:2,routes:3,collisionShapes:colliders.length,renderBatches:rendered.meshCount,trafficBuses:4},layout:{version:6,siteEntries:{A:{x:-24,z:22},B:{x:35,z:6,y:6.4}}}};
+  origin:{lat:34.815,lon:135.649},visualReady:Promise.resolve(),modelRevision:'hirakata-complete-20261103',sourceModel:rendered.provenance,stats:{mode:'arena',width:196,depth:306,area:59976,combatWidth:196,combatDepth:306,sites:2,routes:3,collisionShapes:colliders.length,renderBatches:rendered.meshCount+siteCover.meshCount,trafficBuses:4},layout:{version:7,siteEntries:{A:{x:-24,z:22},B:{x:35,z:6,y:6.4}}}};
 }
