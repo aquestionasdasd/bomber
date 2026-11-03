@@ -50,20 +50,20 @@ export class MatchRules {
     s.status='carried';s.carrier=actorId;this.events.push({type:'pickup',actorId});return true;
   }
   cancelPlant(actorId){const s=this.spike;if(s.plantActor===actorId){s.plantProgress=0;s.plantActor=null;}}
-  interactPlant(dt,{actorId,team,site,x,z,stationary=true}){
+  interactPlant(dt,{actorId,team,site,x,z,y=0,stationary=true}){
     const s=this.spike;
-    if(this.phase!=='live'||s.status!=='carried'||s.carrier!==actorId||team!==this.attackerTeam||!site||!stationary){this.cancelPlant(actorId);return false;}
+    if(this.phase!=='live'||s.status!=='carried'||s.carrier!==actorId||team!==this.attackerTeam||!site||!Number.isFinite(y)||!stationary){this.cancelPlant(actorId);return false;}
     if(s.plantActor!==actorId){s.plantProgress=0;s.plantActor=actorId;}
     s.plantProgress=Math.min(4,s.plantProgress+Math.min(Math.max(0,dt),this.roundTime));
     if(s.plantProgress<4-1e-8)return false;
-    s.status='planted';s.carrier=null;s.site=site;s.x=x;s.z=z;delete s.y;s.timer=45;s.plantProgress=4;
+    s.status='planted';s.carrier=null;s.site=site;s.x=x;s.z=z;if(y!==0)s.y=y;else delete s.y;s.timer=45;s.plantProgress=4;
     if(team==='blue'&&!this.plantAwarded){this.addCredits(300);this.plantAwarded=true;}
     this.events.push({type:'planted',actorId,team,site});return true;
   }
   cancelDefuse(actorId){const s=this.spike;if(s.defuseActor===actorId){s.defuseProgress=s.checkpoint;s.defuseActor=null;}}
-  interactDefuse(dt,{actorId,team,near=true,stationary=true}){
+  interactDefuse(dt,{actorId,team,y=0,near=true,stationary=true}){
     const s=this.spike;
-    if(this.phase!=='live'||s.status!=='planted'||team!==this.defenderTeam||!near||!stationary){this.cancelDefuse(actorId);return false;}
+    if(this.phase!=='live'||s.status!=='planted'||team!==this.defenderTeam||!Number.isFinite(y)||Math.abs(y-(s.y||0))>.05+1e-8||!near||!stationary){this.cancelDefuse(actorId);return false;}
     // Keep the first defuser until they cancel; another held key must not reset
     // their progress or add a second contribution during the same frame.
     if(s.defuseActor!==null&&s.defuseActor!==actorId)return false;

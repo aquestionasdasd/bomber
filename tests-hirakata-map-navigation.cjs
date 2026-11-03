@@ -13,7 +13,7 @@ const assert=require('node:assert/strict'),path=require('node:path'),{pathToFile
   return points;
  }
  assert.deepEqual(map.bounds,{minX:-98,maxX:98,minZ:-123,maxZ:183});
- for(const site of map.sites)for(const p of site.plantPositions)assert.ok(nav.isWalkable(p.x,p.z,0),'plant '+site.id+' '+JSON.stringify(p));
+ for(const site of map.sites)for(const p of site.plantPositions)assert.ok(nav.isWalkable(p.x,p.z,p.y||0),'plant '+site.id+' '+JSON.stringify(p));
  for(const[team,spawns]of Object.entries(map.teamSpawns))for(const [i,p]of spawns.entries()){
   assert.ok(nav.isWalkable(p.x,p.z,0),'spawn '+team+i);for(const site of map.sites)route(p,site,'spawn '+team+i+' to '+site.id);
  }
@@ -27,6 +27,6 @@ const assert=require('node:assert/strict'),path=require('node:path'),{pathToFile
   nav.updateTraffic(i*.3);const before=timings.length;
   route({x:-24,z:22-i*.4,y:0},{x:-22,z:-23,y:7.2},'moving pursuit '+i);tracking.push(timings[before].ms);
  }
- console.log('PASS '+count+' actual-model routes: ten ground spawns to both ground sites, six upper areas in both directions, and changing traffic pursuits');
+ console.log('PASS '+count+' actual-model routes: ten ground spawns to ground A and upper B sites, six upper areas in both directions, and changing traffic pursuits');
  console.log(JSON.stringify({colliders:map.colliders.length,ramps:map.ramps.length,nodes:nav.nodeCount,groundMs:timings.slice(0,20).map(p=>p.ms),upperMs:timings.slice(20,32).map(p=>p.ms),pursuitMs:tracking,limitations:'Node numerical paths only; runtime updatePlay and live browser validation are separate',audioPlayed:false}));
 })().catch(error=>{console.error(error);process.exitCode=1;});

@@ -111,8 +111,9 @@ export function createBotTactics({sites,navigation,collision,lanes=[],attackSpaw
   function plantPosition(site,from,now=0,preferredId=null){
     const choices=site.plantPositions?.length?site.plantPositions:[{id:`${site.id}-center`,x:site.x,z:site.z}];
     let best=null,bestCost=Infinity;
-    for(const point of choices){
-      if(collision?.blocked(point.x,point.z,.45,0))continue;
+    for(const candidate of choices){
+      const point={...candidate,...(candidate.y===undefined&&site.y!==undefined?{y:site.y}:{})};
+      if(!Number.isFinite(point.y??0)||Math.abs((point.y??0)-(site.y??0))>.05||collision?.blocked(point.x,point.z,.45,point.y??0))continue;
       const cost=routeDistance(from,point,now)+(point.id===preferredId?-5:0)+(point.style==='cover'?-1.5:0);
       if(cost<bestCost){best=point;bestCost=cost;}
     }
@@ -187,7 +188,7 @@ export function createBotTactics({sites,navigation,collision,lanes=[],attackSpaw
       for(const [index,bot]of attackers.entries()){
         if(bot===carrier){
           const point=plantPosition(site,bot,now,bot.plantPositionId);
-          roles.set(bot.id,{role:'plant',siteId:site.id,goal:main||point||{x:site.x,z:site.z},approach:!!main,plantPositionId:point?.id,urgent:remaining<15,watch:defendSpawn});continue;
+          roles.set(bot.id,{role:'plant',siteId:site.id,goal:main||point||{x:site.x,z:site.z,...(site.y?{y:site.y}:{})},approach:!!main,plantPositionId:point?.id,urgent:remaining<15,watch:defendSpawn});continue;
         }
         const escortIndex=escorts.indexOf(bot);let goal;
         if(!carrier)goal=ring(site,index,attackers.length,8,defendSpawn);
@@ -200,7 +201,7 @@ export function createBotTactics({sites,navigation,collision,lanes=[],attackSpaw
           if(escorts.length>=3&&escortIndex>=escorts.length-flankCount&&distance(carrier,site)>35)
             goal=approach(`${bot.id}:${site.id}:flank`,bot,site,now,remaining,{optional:false})||goal;
         }
-        roles.set(bot.id,{role:escortIndex>=escorts.length-flankCount&&escorts.length>=3?'flank':'escort',siteId:site.id,goal:goal||{x:site.x,z:site.z},watch:defendSpawn});
+        roles.set(bot.id,{role:escortIndex>=escorts.length-flankCount&&escorts.length>=3?'flank':'escort',siteId:site.id,goal:goal||{x:site.x,z:site.z,...(site.y?{y:site.y}:{})},watch:defendSpawn});
       }
     }else if(spike.status==='dropped'){
       recoverer=nearestReachable(attackers,spike,now).actor;
@@ -209,14 +210,14 @@ export function createBotTactics({sites,navigation,collision,lanes=[],attackSpaw
       for(const [index,bot]of attackers.entries())roles.set(bot.id,{role:'hold',goal:ring(spike,index,attackers.length,6+pick(`${bot.id}:post`)*6,defendSpawn,bot.id),watch:spike});
     }
     if(spike.status==='planted'){
-      const active=living.find(a=>a.id===spike.defuseActor&&a.team===defenderTeam&&distance(a,spike)<2.5);
+      const active=living.find(a=>a.id===spike.defuseActor&&a.team===defenderTeam&&Math.abs((a.y||0)-(spike.y||0))<=.05&&distance(a,spike)<2.5);
       const selected=active?{actor:active,distance:0}:nearestReachable(defenders,spike,now);defuser=selected.actor;
       const defuseTime=7-(spike.defuseActor===defuser?.id?spike.defuseProgress||0:spike.checkpoint||0);
       const urgent=spike.timer<selected.distance/3.9+defuseTime+3;
       const covers=defenders.filter(bot=>bot!==defuser);
       for(const bot of defenders){
         const index=covers.indexOf(bot),known=contacts(defenderTeam,now).sort((a,b)=>distance(a,spike)-distance(b,spike))[0];
-        roles.set(bot.id,bot===defuser?{role:'defuse',goal:{x:spike.x,z:spike.z},urgent,watch:known||attackSpawn}:
+        roles.set(bot.id,bot===defuser?{role:'defuse',goal:{x:spike.x,z:spike.z,...(spike.y?{y:spike.y}:{})},urgent,watch:known||attackSpawn}:
           {role:'retake',goal:ring(spike,index,covers.length,6+index%2*2,known||attackSpawn),watch:known||attackSpawn});
       }
     }else{

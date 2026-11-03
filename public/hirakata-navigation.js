@@ -322,6 +322,23 @@ export function createHirakataNavigation(map,createGroundNavigation) {
         route=descending?[...upper,...flat.points]:[...flat.points,...upper];preferredStairs.set(highKey,portal.portalRamp);if(preferredStairs.size>256)preferredStairs.delete(preferredStairs.keys().next().value);break;
       }
     }else route=search(start,finish,false,budget);
+    if(!route&&ground&&start.y>.22&&finish.y>.22){
+      // Separate upper districts may connect only by descending and climbing
+      // again. Use one authored destination stair as a bounded transfer, with
+      // the existing supported/traffic-checked paths on both sides. These two
+      // calls each have a ground endpoint, so this fallback cannot recurse.
+      const hintAt=p=>(map.navigationStairHints||[]).find(h=>p.x>=h.minX&&p.x<=h.maxX&&p.z>=h.minZ&&p.z<=h.maxZ&&p.y>=h.minY&&p.y<=h.maxY);
+      const fromHint=hintAt(start),toHint=hintAt(finish);
+      if(fromHint&&toHint&&fromHint.rampId!==toHint.rampId){
+        const transfer=groundConnections().filter(p=>p.portalRamp===toHint.rampId&&isWalkable(p.x,p.z,0))
+          .sort((p,q)=>Math.hypot(p.x-b.x,p.z-b.z)-Math.hypot(q.x-b.x,q.z-b.z))[0];
+        if(transfer){
+          const down=path(a.x,a.z,transfer.x,transfer.z,a.y,0);
+          const up=down.length?path(transfer.x,transfer.z,b.x,b.z,0,b.y):[];
+          if(down.length&&up.length)return remember(a,b,[...down,...up]);
+        }
+      }
+    }
     if(!route)return [];
     const points=[start,...route,b],result=[];let anchor=a;
     for(let i=0;i<points.length;){

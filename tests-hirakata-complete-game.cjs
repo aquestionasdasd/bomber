@@ -118,9 +118,9 @@ async function main(){
  });
  if(process.argv.includes('--actual')){
   const actual=harness({realMap:true});actual.reset();actual.run("selectArena('hirakata');match.phase='live';clearBots();mode='play';");
-  check('actual Hirakata advertises layered physics and provides supported ground sites/spawns',()=>{
+  check('actual Hirakata advertises layered physics and provides supported site floors and ground spawns',()=>{
    assert.equal(actual.run('map.layeredNavigation'),true);assert.equal(actual.run('map.traversal'),undefined);
-   actual.run(`for(const p of Object.values(map.teamSpawns).flat()){if(!canStand(p.x,p.z,.4,0)||Math.abs(getZoneFloor(p.x,p.z,.05))>.01)throw Error('invalid spawn '+JSON.stringify(p));}for(const s of map.sites)for(const p of s.plantPositions){if(!canStand(p.x,p.z,.45,0)||Math.abs(getZoneFloor(p.x,p.z,.05))>.01)throw Error('invalid plant '+JSON.stringify(p));}`);
+   actual.run(`for(const p of Object.values(map.teamSpawns).flat()){if(!canStand(p.x,p.z,.4,0)||Math.abs(getZoneFloor(p.x,p.z,.05))>.01)throw Error('invalid spawn '+JSON.stringify(p));}for(const s of map.sites)for(const p of s.plantPositions){if(!canStand(p.x,p.z,.45,p.y||0)||Math.abs(getZoneFloor(p.x,p.z,(p.y||0)+.05)-(p.y||0))>.01)throw Error('invalid plant '+JSON.stringify(p));}`);
   });
   check('actual station main stairs carry ordinary CPU up and down',()=>{
    actual.run(`var walker={...player,id:'stairs-cpu',x:-34,z:12,y:0,vy:0,remoteId:null,crouch:0};for(let i=0;i<420;i++){moveEntity(walker,0,-3/60,.4);updateActorVertical(walker,1/60,.4);}`);
