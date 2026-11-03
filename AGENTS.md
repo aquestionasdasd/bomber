@@ -1,3 +1,9 @@
+## 2026-11-03 / T-SITEテラスの浮遊家具と床模様
+
+所有者の画像報告。3卓目の椅子/パラソルが(x16,z86,脚6.4m)、円形模様が(x15,z88,y6.45)にあり、床の外/階段開口上に浮いていた。3卓目と模様を既存の広い床(x14,z57)へ移し、模様はタイル6.412mに近い6.416mへ下げる。階段開口・床/衝突layoutはbyte不変。元394mesh中TSITE_terraceのwhite/steel/ivory/blueだけ変更し、他390mesh・全node/material/scene・三角形数は同一。原本から再現するprepare-hirakata-terrace-support.pyは既存階段開口preparerを先に適用し、別outputで無音background geometry exportのみ行う。
+
+新support検査は旧GLBで4群FAIL/1群PASS、修正後5群PASS。全3卓21接点/脚576頂点とリング1490頂点の支持、旧位置の消失、破壊復元、階段経路を確認。既存render7群/map9群/階段13群（実updatePlay20/60/144Hz）もPASS。無音の専用ブラウザーで同一角度の前後と移設先を確認。椅子/卓/傘は従来の装飾で移動用colliderは増やしていない。A遮蔽物/B改札移設/CPU軽量化/音源/通信を保持。CPU/Discord/旧fps-19定期処理は停止を維持しcontroller/保留jobは触らない。
+
 ## 2026-11-03 / A設置の周囲に4個の遮蔽物
 
 所有者の手動依頼。南口Aの東西に高さ2.05mの設備ボックス2個、南側に高さ1.4mのコンクリートプランター2個を追加。中央3.7mの通路と既存A/Bの全設置候補を保持する。独立moduleのbody寸法を描画/衝突/ミニマップで共用し、既存35破壊groupの末尾へ4個を追加。39groupでもsnapshotは10桁hex、旧bit順を保全。16mesh/192三角形、共有geometry1個/material6個で毎frameの新処理なし。原本GLB/音源/CPU/武器/経済/通信は変更しない。

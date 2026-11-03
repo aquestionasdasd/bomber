@@ -11,7 +11,7 @@ async function main(){
  check('embedded bytes retain reviewed source hash, with no embedded video/image/font file',()=>{
   assert.equal(raw.length,data.HIRAKATA_MODEL_PROVENANCE.bytes);
   assert.equal(crypto.createHash('sha256').update(raw).digest('hex'),data.HIRAKATA_MODEL_PROVENANCE.sha256);
-  assert.equal(data.HIRAKATA_MODEL_PROVENANCE.sha256,'8e01083d4bdbc90efeb5fd768751db752aff2154a4d8ad3d7e49e93ceb060a10');
+  assert.equal(data.HIRAKATA_MODEL_PROVENANCE.sha256,'f14ad708413e6ec880c3327fd720adf0742608097145153ec35e37ad7a68534e');
   assert.equal(data.HIRAKATA_MODEL_PROVENANCE.referencesEmbedded,false);
  });
  const began=performance.now(),model=createHirakataModel(T),createdMs=performance.now()-began;

@@ -2,10 +2,14 @@ hirakata-complete-model.js / hirakata-complete.glb
 Original scripted station geometry created for this project from the owner's
 walking-video references, 2026-11-02. Dimensions and unseen details are estimates;
 this is not a measured survey or a photogrammetry reconstruction.
-Source GLB SHA256: 8e01083d4bdbc90efeb5fd768751db752aff2154a4d8ad3d7e49e93ceb060a10
+Source GLB SHA256: f14ad708413e6ec880c3327fd720adf0742608097145153ec35e37ad7a68534e
 2026-11-03: the T-SITE deck has a stair opening, a landing and two side walks.
 Only its five floor-material mesh payloads changed; the original reference
 model is retained in the project history. See prepare-hirakata-stair-opening.py.
+2026-11-03: the unsupported third terrace cafe setting and paving rings were
+moved onto the existing terrace floor. Only four TSITE_terrace mesh payloads
+changed; walking/collision layout and the stair opening are unchanged.
+See prepare-hirakata-terrace-support.py for the reproducible source preparation.
 The binary includes geometry and authored PBR material parameters. It includes
 no reference video frames, recordings, texture library, or font files.
 Station label outlines were baked from locally installed Meiryo / Yu Gothic.
