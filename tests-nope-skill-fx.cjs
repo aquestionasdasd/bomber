@@ -31,7 +31,7 @@ async function main(){
       assert.equal(mesh.userData.solid,false);const hits=[];mesh.raycast(new THREE.Raycaster(),hits);assert.deepEqual(hits,[]);
       assert.equal(mesh.material.depthTest,true,'The normal world depth hides effects behind opaque geometry');
     }
-    finite(fx.group);fx.update(data,1.2);assert.equal(fx.group.userData.activeEvents,2);
+    finite(fx.group);fx.update(data,data[1].endsAt+.01);assert.equal(fx.group.userData.activeEvents,2);
     const bottle=fx.group.children.find(child=>child.name.endsWith('nope-bottle'));assert.equal(bottle.children[0].visible,false);assert.equal(bottle.children[1].visible,true);
     assert.ok(bottle.children[1].scale.x>0&&bottle.children[1].scale.x<=8);
     fx.update([data[0]],data[0].endsAt-1e-6);assert.ok(bottle.children[1].scale.x>7.99,'The burst reaches the strengthened8m radius');

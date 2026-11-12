@@ -1,0 +1,2 @@
+const assert=require('node:assert/strict'),path=require('node:path'),{spawnSync}=require('node:child_process');
+for(const fault of['drive','host','reset']){const r=spawnSync(process.execPath,[path.join(__dirname,'tests-renko-drive-unarmed.cjs'),'--fault='+fault],{encoding:'utf8'});assert.notEqual(r.status,0,fault+' must be detected');assert.match(r.stdout+r.stderr,/AssertionError/);assert.doesNotMatch(r.stdout+r.stderr,/Missing fault anchor|SyntaxError|ReferenceError/);console.log('PASS detected memory-only '+fault+' regression');}

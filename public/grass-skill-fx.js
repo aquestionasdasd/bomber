@@ -1,9 +1,11 @@
-import { VEIL_SKILLS } from './abilities.js';
+import { isLobbedSkill, validThrowFlight, throwDelay } from './skill-throw.js';
+import { VEIL_SKILLS, veilRootSegment } from './abilities.js';
 
 const MAX_EVENTS=20,caches=new WeakMap();
 const specs=Object.freeze({
   'veil-dust':{delay:VEIL_SKILLS.dustArmDelay,tail:VEIL_SKILLS.dustDuration,radius:VEIL_SKILLS.dustRadius},
   'veil-roots':{delay:VEIL_SKILLS.rootsArmDelay,tail:VEIL_SKILLS.rootsDuration,radius:VEIL_SKILLS.rootsWidth/2},
+  'veil-root-seed':{flight:VEIL_SKILLS.rootsThrowFlight,delay:VEIL_SKILLS.rootsThrowFlight+VEIL_SKILLS.rootsArmDelay,tail:VEIL_SKILLS.rootsDuration,radius:VEIL_SKILLS.rootsThrowWidth/2},
   'veil-turf':{delay:0,tail:VEIL_SKILLS.turfDuration,radius:0},
 });
 const coordinate=value=>Number.isFinite(value)&&Math.abs(value)<=1000;
@@ -17,10 +19,11 @@ function validEvent(event,now){
     ||![event.x,event.y,event.z,event.fromX,event.fromY,event.fromZ].every(coordinate)
     ||![event.startedAt,event.triggerAt,event.endsAt].every(value=>Number.isFinite(value)&&value>=0))return false;
   const spec=specs[event.type],distance=Math.hypot(event.x-event.fromX,event.z-event.fromZ);
-  return event.flight===0&&event.radius===spec.radius
-    &&Math.abs(event.triggerAt-event.startedAt-spec.delay)<1e-7&&Math.abs(event.endsAt-event.triggerAt-spec.tail)<1e-7
+  return (isLobbedSkill(event.type)?validThrowFlight(event):event.flight===(spec.flight??0))&&event.radius===spec.radius
+    &&Math.abs(event.triggerAt-event.startedAt-(isLobbedSkill(event.type)?throwDelay(event,spec.flight,spec.delay):spec.delay))<1e-7&&Math.abs(event.endsAt-event.triggerAt-spec.tail)<1e-7
     &&(event.type==='veil-roots'?distance>=VEIL_SKILLS.rootsMinRange-1e-7&&distance<=VEIL_SKILLS.rootsRange+1e-7
-      :distance<1e-7&&Math.abs(event.y-event.fromY-(event.type==='veil-dust'?VEIL_SKILLS.dustCenterOffset:0))<1e-7)
+      :event.type==='veil-root-seed'?distance<=VEIL_SKILLS.rootsThrowRange+1e-7
+      :event.type==='veil-dust'||distance<1e-7&&Math.abs(event.y-event.fromY)<1e-7)
     &&now>=event.startedAt&&now<event.endsAt;
 }
 function phase(id){let value=2166136261;for(let i=0;i<id.length;i++)value=Math.imul(value^id.charCodeAt(i),16777619);return (value>>>0)/4294967296*Math.PI*2;}
@@ -66,7 +69,7 @@ export function createGrassSkillFX(THREE,camera){
   function cue(key,now){const type={c:'veil-dust',q:'veil-roots'}[typeof key==='string'?key.toLowerCase().replace(/^key/,''):''];if(type)playThrow(type,now);}
   const throwing=now=>!disposed&&Number.isFinite(now)&&now>=throwStarted&&now<throwStarted+.32;
   function reset(){clear();unique.clear();endedTurf.clear();rootSurfaces.clear();throwStarted=-Infinity;throwType=null;handGroup.visible=false;}
-  function update(events,now,{viewer=null,showHand=false,reducedMotion=false,actors=null,groundHeight=null}={}){
+  function update(events,now,{viewer=null,showHand=false,reducedMotion=false,actors=null,groundHeight=null,reachable=null,terrainRevision=null}={}){
     if(disposed)return;clear();unique.clear();
     for(const [id,end]of endedTurf)if(Number.isFinite(now)&&now>=end)endedTurf.delete(id);
     if(Number.isFinite(now)&&now>=0&&Array.isArray(events))for(let index=0;index<Math.min(events.length,80);index++){
@@ -76,10 +79,10 @@ export function createGrassSkillFX(THREE,camera){
       if(typeof groundHeight!=='function')return null;
       try{const y=groundHeight(x,z,referenceY);return coordinate(y)&&Math.abs(y-referenceY)<=VEIL_SKILLS.rootsHeightTolerance+1e-7?y:null;}catch{return null;}
     };
-    for(const [id]of rootSurfaces)if(unique.get(id)?.type!=='veil-roots')rootSurfaces.delete(id);
-    function branch(output,ax,az,bx,bz,referenceA,referenceB,width,hex){
+    for(const [id]of rootSurfaces)if(!['veil-roots','veil-root-seed'].includes(unique.get(id)?.type))rootSurfaces.delete(id);
+    function branch(output,ax,az,bx,bz,referenceA,referenceB,width,hex,allowed){
       const ay=floor(ax,az,referenceA),by=floor(bx,bz,referenceB),mx=(ax+bx)/2,mz=(az+bz)/2,my=floor(mx,mz,(referenceA+referenceB)/2);
-      if(ay===null||by===null||my===null||Math.abs(ay-by)>VEIL_SKILLS.rootsHeightTolerance+1e-7)return;
+      if(ay===null||by===null||my===null||Math.abs(ay-by)>VEIL_SKILLS.rootsHeightTolerance+1e-7||!allowed(ax,ay,az)||!allowed(mx,my,mz)||!allowed(bx,by,bz))return;
       // Split at the sampled midpoint so a small slope follows its support.
       for(const [x1,y1,z1,x2,y2,z2]of [[ax,ay,az,mx,my,mz],[mx,my,mz,bx,by,bz]]){
         direction.set(x2-x1,y2-y1,z2-z1);const length=direction.length();if(length<1e-6)continue;
@@ -87,22 +90,23 @@ export function createGrassSkillFX(THREE,camera){
         output.push({x:(x1+x2)/2,y:(y1+y2)/2+.085,z:(z1+z2)/2,q:transform.quaternion.toArray(),length,width,hex});
       }
     }
-    function rootSurface(event){
-      const key=[event.round,event.fromX,event.fromY,event.fromZ,event.x,event.y,event.z,event.radius].join('|'),cached=rootSurfaces.get(event.id);
-      if(cached&&cached.key===key&&cached.groundHeight===groundHeight)return cached;
+    function rootSurface(event,landing){
+      const key=[event.round,event.fromX,event.fromY,event.fromZ,event.x,event.y,event.z,event.radius,terrainRevision].join('|'),cached=rootSurfaces.get(event.id);
+      if(cached&&cached.key===key&&cached.groundHeight===groundHeight&&cached.reachable===reachable)return cached;
+      const allowed=(x,y,z)=>{if(!landing||typeof reachable!=='function')return true;try{return reachable({...landing,y:landing.y-VEIL_SKILLS.rootsGroundOffset},{x,y,z})===true;}catch{return false;}};
       const surface={key,groundHeight,branches:[],blades:[]},dx=event.x-event.fromX,dz=event.z-event.fromZ,length=Math.hypot(dx,dz),segments=Math.max(1,Math.min(Math.ceil(VEIL_SKILLS.rootsRange/.5),Math.ceil((length-1e-8)/.5))),sideX=dz/length,sideZ=-dx/length;
       const reference=t=>event.fromY+(event.y-event.fromY)*t,point=(t,lateral=0)=>({x:event.fromX+dx*t+sideX*lateral,z:event.fromZ+dz*t+sideZ*lateral}),widthScale=event.radius/1.2;
       for(let index=0;index<segments;index++){
         const t0=index/segments,t1=(index+1)/segments,tc=(t0+t1)/2,a=point(t0),b=point(t1),mid=point(tc),left=point(tc+.12/length,-1.12*widthScale),right=point(tc-.12/length,1.12*widthScale);
-        branch(surface.branches,a.x,a.z,b.x,b.z,reference(t0),reference(t1),1,0x6f4f31);
+        branch(surface.branches,a.x,a.z,b.x,b.z,reference(t0),reference(t1),1,0x6f4f31,allowed);
         for(const [endpoint,side]of [[left,-1],[right,1]]){
           const fork=point(tc,side*.64*widthScale),tip=point(tc-.14/length,side*1.08*widthScale);
-          branch(surface.branches,mid.x,mid.z,endpoint.x,endpoint.z,reference(tc),reference(tc),.72,0x876440);
-          branch(surface.branches,fork.x,fork.z,tip.x,tip.z,reference(tc),reference(tc),.48,0x9b7950);
+          branch(surface.branches,mid.x,mid.z,endpoint.x,endpoint.z,reference(tc),reference(tc),.72,0x876440,allowed);
+          branch(surface.branches,fork.x,fork.z,tip.x,tip.z,reference(tc),reference(tc),.48,0x9b7950,allowed);
         }
-        const y=floor(mid.x,mid.z,reference(tc));if(y!==null)surface.blades.push({x:mid.x,y:y+.12,z:mid.z,index});
+        const y=floor(mid.x,mid.z,reference(tc));if(y!==null&&allowed(mid.x,y,mid.z))surface.blades.push({x:mid.x,y:y+.12,z:mid.z,index});
       }
-      rootSurfaces.set(event.id,surface);return surface;
+      surface.reachable=reachable;rootSurfaces.set(event.id,surface);return surface;
     }
     let rendered=0;
     for(const event of unique.values()){
@@ -113,10 +117,10 @@ export function createGrassSkillFX(THREE,camera){
           const a=p+index*2.39996,r=event.radius*(.86+(index%4)*.045),rise=reducedMotion?.10:((after*.35+index*.11)%.8),s=.018+(index%3)*.008;
           write(flecks,event.x+Math.cos(a)*r,event.y-VEIL_SKILLS.dustCenterOffset+.085+rise,event.z+Math.sin(a)*r,s,s*.7,s,0,a,0,index%2?0x7b6544:0xb49b72);
         }
-      }else if(event.type==='veil-roots'){
+      }else if(event.type==='veil-roots'||event.type==='veil-root-seed'){
         const fade=clamp((event.endsAt-now)/.3),growth=reducedMotion?1:clamp(after/.18),width=.027*growth*fade;
         if(width<=0)continue;
-        const surface=rootSurface(event);
+        const surface=rootSurface(veilRootSegment(event),event.type==='veil-root-seed'?event:null);
         for(const value of surface.branches){
           const index=roots.mesh.count;if(index>=roots.capacity)break;
           transform.position.set(value.x,value.y,value.z);transform.quaternion.fromArray(value.q);transform.scale.set(width*value.width,value.length,width*value.width);transform.updateMatrix();roots.mesh.setMatrixAt(index,transform.matrix);color.setHex(value.hex);roots.mesh.setColorAt(index,color);roots.mesh.count++;

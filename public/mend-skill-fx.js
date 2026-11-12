@@ -1,3 +1,4 @@
+import { isLobbedSkill, validThrowFlight, throwDelay } from './skill-throw.js';
 import { skillProjectilePosition } from './character-skills.js';
 import { MEND_SKILLS } from './abilities.js';
 
@@ -18,8 +19,8 @@ function validEvent(event,now){
     ||![event.x,event.y,event.z,event.fromX,event.fromY,event.fromZ].every(coordinate)
     ||![event.startedAt,event.triggerAt,event.endsAt].every(value=>Number.isFinite(value)&&value>=0))return false;
   const spec=specs[event.type];
-  return event.flight===spec.flight&&event.radius===spec.radius
-    &&Math.abs(event.triggerAt-event.startedAt-spec.flight)<1e-7&&Math.abs(event.endsAt-event.triggerAt-spec.tail)<1e-7
+  return (isLobbedSkill(event.type)?validThrowFlight(event):event.flight===spec.flight)&&event.radius===spec.radius
+    &&Math.abs(event.triggerAt-event.startedAt-(isLobbedSkill(event.type)?event.flight:spec.flight))<1e-7&&Math.abs(event.endsAt-event.triggerAt-spec.tail)<1e-7
     &&(event.type!=='mend-heal'||Object.hasOwn(event,'targetId')&&identifier(event.targetId))&&now>=event.startedAt&&now<event.endsAt;
 }
 function seed(id){let value=2166136261;for(let i=0;i<id.length;i++)value=Math.imul(value^id.charCodeAt(i),16777619);return (value>>>0)/4294967296;}

@@ -1,0 +1,15 @@
+# Legacy EMBER contract fixture maintenance
+
+Current EMBER is the robot character. The `ember-solder`, `ember-shade` and `ember-service` events tested here are retained compatibility behavior, not current player skills. This change modifies only the shared suite and its test/guide files; it does not change robots, characters, weapons, damage, maps, sound, networking, controller policy or CI.
+
+The eight original EMBER groups now pass (six bodies updated, the two existing source-cancellation and service-purity bodies unchanged). Solder uses physical launch speed12 and gravity4, an independent trajectory sampled at20/60/144Hz, a .2-second post-arrival warning and .35-second tail. Tests retain raw75 damage with radial falloff, exact floor-height limits, cover/team/death exclusions, duplicate-target and one-hit ownership, post-source-death effects, and late-update expiry. These are engine-returned effects, not measured game HP/armor results.
+
+Shade is tested against real NOPE1-second fuse and IAGNU physical arrival times in both insertion orders. The .15 factor, eight-second self effect, inability to cure or shorten an existing longer blindness, exact expiry and single sampling remain required. The JSON test staggers NOPE at0 and legacy effects at.5 so all three compatibility events still exist when the real flash triggers at1. Event indices are found by type. It retains resisted-blind schema rejection, weapon constraints, atomic restore, copied visuals, no guest hit ownership, leading render clocks and round isolation.
+
+The capacity test directly casts each supported legacy type against the20-event cap and independently proves it is valid in an empty engine. It also checks current kit C/Q/E produce robot types that the ordinary engine rejects and that the caller can restore its stock/cooldown snapshot. It does not mistake rejection of an unsupported robot type for proof of the legacy capacity guard, or claim to validate the robot manager's separate limits.
+
+All55 group names, prior33 bodies and later14 bodies are preserved. `node tests-character-skills.cjs --through-ember` explicitly runs a41-group diagnostic prefix. Package and CI defaults remain unfiltered. The default command passes41 groups and **still fails** at the unchanged FROST fixed-flight expectation (actual1.3440530401761295 versus old.55). One shared suite plus other existing test debt remains; Sites-side legacy fixtures are unchanged.
+
+`node tests-ember-legacy-contract-negative.cjs` detects nine actual-source memory-only faults: obsolete solder flight, missing warning, wrong damage, friendly/through-wall/repeated damage, wrong shade factor, service surviving a weapon mismatch, and guest solder ownership. Every fault must pass prior33 groups and fail a legacy EMBER assertion. Import, syntax, type, timeout or infrastructure failures do not count. Product source files are never mutated.
+
+This cycle runs pure compatibility-engine checks only. No new `updatePlay`, current robot, autonomous CPU, ordinary5v5 strength, personal objective, GPU, browser, device, audio or real-network-feel result is claimed. The existing public version remains unchanged.

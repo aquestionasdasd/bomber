@@ -1,0 +1,52 @@
+const fs=require('node:fs'),path=require('node:path'),Module=require('node:module');
+const fixture=fs.readFileSync(path.join(__dirname,'tests-renko-game.cjs'),'utf8'),boundary=fixture.indexOf(' const h=harness();');
+const fault=process.argv.find(a=>a.startsWith('--fault='))?.slice(8);
+const faults={
+ local:["if(key==='q'&&renkoEvent(player,'renko-drive')){","if(false){",'Q second press'],
+ host:["if(action.renkoStop===true&&action.key==='q'&&actor.kit?.character==='renko')stopRenkoDrive(actor);","if(false)stopRenkoDrive(actor);",'confirmed JSON'],
+ replay:["&&!(player.kit.character==='renko'&&action.key==='q'&&action.renkoStop===true)",'','pending JSON'],
+ mask:["if(type==='renko-drive'&&renkoDriveStopping(actor))return null;",'','pending JSON']
+};
+if(fault){const[a,b]=faults[fault]||[];if(!a)throw Error('Unknown fault');const read=fs.readFileSync;fs.readFileSync=function(file,...args){let s=read.call(this,file,...args);if(String(file).replaceAll('\\','/').endsWith('/public/game.js')&&typeof s==='string'){if(!s.includes(a))throw Error('Missing fault anchor');s=s.replace(a,b)}return s}}
+const network=fixture.slice(fixture.indexOf(' function peers()'),fixture.indexOf(" check('independent host/guest flight"));
+const suite=String.raw`
+ const h=harness();
+ function setup(g=h){g.reset();g.clearWalls();g.run("player.kit=new DuelistKit({character:'renko'});player.kit.smoke=2;player.kit.updraft=1;match.phase='live';makeBot({x:60,z:-12},0,'red',{id:'enemy',team:'red',credits:800,secondary:'classic',kit:new DuelistKit({character:'nope'})});var enemy=bots[0];enemy.remoteId='passive';enemy.fire=999;enemy.reactionUntil=999");}
+ function step(t,g=h,hz=60){g.sandbox.duration=t;g.sandbox.hz=hz;g.run('for(let i=0;i<duration-1e-8;i+=1/hz)updatePlay(Math.min(1/hz,duration-i))');}
+ function key(g,repeat=false){for(const fn of g.listeners.get('keydown')||[])fn({code:'KeyQ',repeat,preventDefault(){},target:{}})}
+ check('Q second press cancels running/sliding at20/60/144Hz without stock refund or extra cast and restores same gun',()=>{
+  for(const hz of[20,60,144])for(const slide of[false,true]){setup();h.run("inventory.primary='vandal';equip('vandal',true);keys.add('KeyW');useAbility('q')");step(.3,h,hz);if(slide){h.run("keys.add('KeyV')");step(.1,h,hz);assert.equal(h.run('renkoSliding(player)'),true)}h.run('var ammoBefore=player.ammo,reserveBefore=player.reserve;var stock=player.kit.snapshot();var position=[player.x,player.y,player.z];');key(h);assert.equal(h.run("renkoEvent(player,'renko-drive')"),null);assert.equal(h.run('player.renkoDrive'),null);near(h.run('player.vx'),0,'clear x');near(h.run('player.vz'),0,'clear z');assert.deepEqual(copy(h.run('player.kit.snapshot()')),copy(h.run('stock')));assert.deepEqual(copy(h.run('[player.x,player.y,player.z]')),copy(h.run('position')));h.run('updateFirstPersonEquipment(.016)');assert.equal(h.run("gun.getObjectByName('Equipment / vandal').visible"),true);assert.equal(h.run('player.ammo'),h.run('ammoBefore'));assert.equal(h.run('player.reserve'),h.run('reserveBefore'));h.run('keys.clear();shoot()');assert.equal(h.run('player.ammo'),h.run('ammoBefore')-1);h.run("useAbility('q')");assert.equal(h.run("renkoEvent(player,'renko-drive')"),null,'empty stock cannot restart');}
+ });
+ check('airborne cancellation keeps height and vertical velocity; Q jump boost ends and E flight remains bare-handed',()=>{
+  setup();h.run("useAbility('q');jump();var yBefore=player.y,vyBefore=player.vy;useAbility('q')");near(h.run('player.y'),h.run('yBefore'),'height unchanged');near(h.run('player.vy'),h.run('vyBefore'),'gravity unchanged');near(h.run('normalJumpVelocity(player)'),6.552,'ordinary next jump');
+  setup();h.run("useAbility('q');useAbility('e');var jetEnd=renkoFlight(player).endsAt;useAbility('q');updateFirstPersonEquipment(.016)");assert.equal(h.run("renkoEvent(player,'renko-drive')"),null);near(h.run('renkoFlight(player).endsAt'),h.run('jetEnd'),'jet unchanged');assert.equal(h.run('renkoUnarmed(player)'),true);assert.equal(h.run("gun.getObjectByName('Equipment / classic').visible"),false);h.run('releaseRenkoJet();updateFirstPersonEquipment(.016)');assert.equal(h.run('renkoUnarmed(player)'),false);assert.equal(h.run("gun.getObjectByName('Equipment / classic').visible"),true);
+ });
+ check('cancel fits full20event queue and owns only own Q; auto-repeat pause death and other characters do not toggle',()=>{
+  setup();h.run("useAbility('q');for(let i=1;i<20;i++)ordinarySkills.cast('onnara-chain',{...ordinaryActorView(player),id:'other'+i},ordinaryActorView(player),elapsed,match.round);var n=ordinarySkills.events(elapsed).length");assert.equal(h.run('n'),20);h.run("useAbility('q')");assert.equal(h.run('ordinarySkills.events(elapsed).length'),19);
+  setup();h.run("useAbility('q')");key(h,true);assert.ok(h.run("renkoEvent(player,'renko-drive')"));h.run("ordinarySkills.cast('renko-drive',{...ordinaryActorView(player),id:'someone'},ordinaryActorView(player),elapsed,match.round);var ownedState=ordinarySkills.snapshot();var clone=createCharacterSkills();clone.restore(ownedState,elapsed,match.round)");assert.equal(h.run('clone.cancelRenkoDrive(player.id,elapsed)'),false);h.run("useAbility('q')");assert.ok(h.run("ordinarySkills.renkoEvent('renko-drive','someone',elapsed)"));
+  for(const gate of["mode='pause'","player.alive=false","netHostPaused=true"]){setup();h.run("useAbility('q')");h.run(gate);h.run("useAbility('q')");assert.equal(h.run("ordinarySkills.events(elapsed).filter(e=>e.type==='renko-drive').length"),1)}
+  setup();h.run("player.kit.character='mend';useAbility('q')");assert.equal(h.run("ordinarySkills.events(elapsed).some(e=>e.type==='renko-drive')"),false);
+ });
+`+network+String.raw`
+ function controls(p){p.host.sandbox.inputPacket={type:'input',seq:++p.inputSeq,connection:'renko',round:p.host.run('match.round'),input:{x:p.host.run('enemy.x'),y:p.host.run('enemy.y'),z:p.host.run('enemy.z'),yaw:0,pitch:0,jet:p.guest.run('player.renkoJetHeld===true')},actions:copy(p.guest.run('netActions'))};p.host.run("receiveNetPacket('guest',inputPacket);updateRemoteActor(enemy,.05);netClock=0;tickOnline(.1)")}
+ function pair(){const p=peers();p.inputSeq=2;return p}
+ check('confirmed JSON host cancels Q once; guest ACK and third-person weapon recover; duplicate stop cannot start or spend',()=>{
+  const p=pair();request(p,'q');ack(p);p.guest.run("useAbility('q')");assert.equal(p.guest.run("renkoEvent(player,'renko-drive')"),null);controls(p);assert.equal(p.host.run("renkoEvent(enemy,'renko-drive')"),null);assert.equal(p.host.run('enemy.kit.updraft'),0);p.host.run("enemy.visual.update(.016,{alive:true,...agentEquipment(enemy)})");assert.equal(p.host.run("enemy.group.getObjectByName('Equipment / classic').visible"),true);ack(p);assert.equal(p.guest.run("renkoEvent(player,'renko-drive')"),null);p.guest.run('updateFirstPersonEquipment(.016)');assert.equal(p.guest.run("gun.getObjectByName('Equipment / classic').visible"),true);controls(p);ack(p);assert.equal(p.host.run('enemy.kit.updraft'),0);p.host.run("enemy.kit.updraft=1;applyRemoteAction(enemy,{type:'ability',key:'q',renkoStop:true})");assert.equal(p.host.run('enemy.kit.updraft'),1);assert.equal(p.host.run("renkoEvent(enemy,'renko-drive')"),null);
+ });
+ check('pending JSON stop masks delayed start ACK without spending X-refilled Q; immediate third press waits for stop ACK',()=>{
+  const p=pair();request(p,'q');p.host.run('enemy.kit.updraft=1;netClock=0;tickOnline(.1)');p.guest.run("useAbility('q')");assert.equal(p.guest.run('player.renkoPending'),null);ack(p);assert.equal(p.guest.run("renkoEvent(player,'renko-drive')"),null);assert.equal(p.guest.run('player.kit.updraft'),1,'stop replay is not Q activation');const n=p.guest.run('netActions.length');p.guest.run("useAbility('q')");assert.equal(p.guest.run('netActions.length'),n);controls(p);ack(p);p.guest.run("useAbility('q')");assert.ok(p.guest.run("renkoEvent(player,'renko-drive')"));assert.equal(p.guest.run('player.kit.updraft'),0);
+ });
+ check('unacknowledged start and stop remain ordered; rejected cast and stop restore stock; full64queue retains running state',()=>{
+  const p=pair();p.guest.run("useAbility('q');useAbility('q')");assert.equal(p.guest.run('netActions.length'),2);assert.equal(p.guest.run('netActions[1].renkoStop'),true);controls(p);ack(p);assert.equal(p.host.run("renkoEvent(enemy,'renko-drive')"),null);assert.equal(p.guest.run('player.kit.updraft'),0);
+  const q=pair();q.host.run("for(let i=0;i<20;i++)ordinarySkills.cast('onnara-chain',{...ordinaryActorView(player),id:'s'+i},ordinaryActorView(player),elapsed,match.round)");q.guest.run("useAbility('q');useAbility('q')");controls(q);ack(q);assert.equal(q.guest.run('player.kit.updraft'),1);assert.equal(q.guest.run("renkoEvent(player,'renko-drive')"),null);
+  const f=pair();request(f,'q');ack(f);f.guest.run("netActions=Array.from({length:64},(_,i)=>({seq:i+2,type:'reload',round:match.round}));useAbility('q')");assert.ok(f.guest.run("renkoEvent(player,'renko-drive')"));assert.equal(f.guest.run('netActions.length'),64);
+ });
+ check('malformed or foreign cancel rejected; death next-round and menu clear pending stop; Q description advertises toggle',()=>{
+  const p=pair();request(p,'q');ack(p);for(const action of[{type:'ability',key:'q',renkoStop:'true'},{type:'ability',key:'q',renkoStop:false},{type:'ability',key:'e',renkoStop:true}]){p.host.sandbox.bad=action;p.host.run('applyRemoteAction(enemy,bad)');assert.ok(p.host.run("renkoEvent(enemy,'renko-drive')"))}
+  p.guest.run("useAbility('q')");p.host.run('enemy.alive=false;enemy.hp=0;resetOrdinarySkills();netClock=0;tickOnline(.1)');ack(p);assert.equal(p.guest.run("renkoEvent(player,'renko-drive')"),null);p.guest.run('online.close=()=>{};backMenu()');assert.equal(p.guest.run('netActions.length'),0);assert.equal(p.guest.run('renkoDriveStopping(player)'),false);
+  setup();h.run("useAbility('q');match.round++;resetOrdinarySkills()");assert.equal(h.run('renkoDriveStopping(player)'),false);assert.match(h.run("getCharacterSkill('renko','q').description"),/もう一度Q/);
+ });
+ console.log('PASS: '+groups+' Renko Q toggle actual game/JSON groups; audio inert');
+}main().catch(e=>{console.error(e);process.exitCode=1;});`;
+const compiled=new Module(__filename,module);compiled.filename=__filename;compiled.paths=module.paths;
+compiled._compile(fixture.slice(0,boundary).replace('fn(); groups++;',`if(${JSON.stringify(faults[fault]?.[2]||'')}&&!label.startsWith(${JSON.stringify(faults[fault]?.[2]||'')}))return;fn(); groups++;`)+suite,__filename);

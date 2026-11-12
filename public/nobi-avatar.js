@@ -2,7 +2,7 @@
 export function createNobiAvatar(THREE,{rig,upper,head,rightArm,leftArm,leftLeg,rightLeg,team='red'}){
  const group=new THREE.Group();group.name='のび / yellow pocket shirt';rig.add(group);const gs=new Set(),ms=new Map(),frames=[];
  for(const[n,color,roughness]of [['white','#eeeedd',.85],['yellow','#e8be35',.84],['blue','#263d66',.9],['skin','#dc9b67',.93],['black','#263532',.9],['red','#b32c21',.35],['cyan','#6daba4',.77],['green','#438466',.85],['gold','#d7a532',.45],['team',team==='blue'?'#3cbbc0':'#cf6e6b',.6]])ms.set(n,new THREE.MeshStandardMaterial({color,roughness}));
- function frame(s){const f=new THREE.Group();f.matrixAutoUpdate=false;group.add(f);frames.push([f,s]);return f;}
+ function frame(s){const f=new THREE.Group();f.userData.agentHead=s===head;f.matrixAutoUpdate=false;group.add(f);frames.push([f,s]);return f;}
  function part(parent,name,geometry,p,s,mat){gs.add(geometry);const o=new THREE.Mesh(geometry,ms.get(mat));o.name='Nobi / '+name;o.position.set(...p);o.scale.set(...s);o.castShadow=true;o.receiveShadow=true;o.raycast=()=>{};o.userData.character='nobi';parent.add(o);return o;}
  const ball=(p,n,x,s,m)=>part(p,n,new THREE.SphereGeometry(1,24,16),x,s,m),box=(p,n,x,s,m)=>part(p,n,new THREE.BoxGeometry(1,1,1),x,s,m);
  function line(p,n,a,b,r=.007,mat='black'){const av=new THREE.Vector3(...a),bv=new THREE.Vector3(...b),o=part(p,n,new THREE.CylinderGeometry(r,r,av.distanceTo(bv),6),av.clone().add(bv).multiplyScalar(.5).toArray(),[1,1,1],mat);o.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),bv.sub(av).normalize());}

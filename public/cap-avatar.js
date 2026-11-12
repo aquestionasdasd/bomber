@@ -2,7 +2,7 @@
 export function createCapAvatar(THREE,{rig,upper,head,rightArm,leftArm,leftLeg,rightLeg,team='red'}){
  const group=new THREE.Group();group.name='キャップは？ / red hair and navy hoodie';rig.add(group);const gs=new Set(),ms=new Map(),frames=[];
  for(const[n,color,roughness]of[['navy','#101d3c',.95],['hood','#1c2d53',.95],['skin','#f1b27a',.9],['hair','#c53c11',.7],['highlight','#ed6a1e',.65],['frame','#8d491f',.4],['black','#252021',.8],['white','#fff0d8',.8],['pants','#252b40',.95],['team',team==='blue'?'#43b6ba':'#c86169',.7]])ms.set(n,new THREE.MeshStandardMaterial({color,roughness}));
- function frame(s){const f=new THREE.Group();f.matrixAutoUpdate=false;group.add(f);frames.push([f,s]);return f;}
+ function frame(s){const f=new THREE.Group();f.userData.agentHead=s===head;f.matrixAutoUpdate=false;group.add(f);frames.push([f,s]);return f;}
  function part(p,n,g,x,s,m){gs.add(g);const o=new THREE.Mesh(g,ms.get(m));o.name='Cap / '+n;o.position.set(...x);o.scale.set(...s);o.castShadow=true;o.receiveShadow=true;o.raycast=()=>{};o.userData.character='cap';p.add(o);return o;}
  const ball=(p,n,x,s,m)=>part(p,n,new THREE.SphereGeometry(1,24,16),x,s,m),box=(p,n,x,s,m)=>part(p,n,new THREE.BoxGeometry(1,1,1),x,s,m);
  function line(p,n,a,b,rad=.008,m='frame'){const v=new THREE.Vector3(...a),w=new THREE.Vector3(...b),o=part(p,n,new THREE.CylinderGeometry(rad,rad,v.distanceTo(w),8),v.clone().add(w).multiplyScalar(.5).toArray(),[1,1,1],m);o.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),w.sub(v).normalize());return o;}

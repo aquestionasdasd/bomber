@@ -25,7 +25,7 @@ const suite = `
    local.run('player.x=20;player.z=-40');near(mist().z,event.z,'fog never follows a target');near(mist().x,event.x,'fixed X');
  });
  check('fog actually clears live BOT targets and forbids hidden shots after deployment',()=>{
-   setup();local.run('updateBots(.1);elapsed+=.51;updateOrdinarySkills();doll.fire=0;updateBots(.1)');
+   setup();local.run("updateBots(.1);elapsed=ordinarySkills.events(elapsed).find(e=>e.type==='frost-mist').triggerAt+.01;updateOrdinarySkills();doll.fire=0;updateBots(.1)");
    assert.equal(local.run('doll.target'),null);assert.equal(local.run('doll.aiAmmo'),25);assert.equal(local.run('player.hp'),100);
    local.run('elapsed+=.3;updateOrdinarySkills();updateBots(.1)');assert.equal(local.run('doll.aiAmmo'),25);
  });

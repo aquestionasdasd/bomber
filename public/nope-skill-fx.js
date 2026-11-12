@@ -1,3 +1,4 @@
+import { isLobbedSkill, validThrowFlight, throwDelay } from './skill-throw.js';
 import { createNopeBottleModel } from './nope-props.js';
 import { createNopeFaceModel } from './nope-avatar.js';
 import { skillProjectilePosition } from './character-skills.js';
@@ -13,8 +14,8 @@ function validEvent(event,now){
   if(!event||typeof event.type!=='string'||!Object.hasOwn(types,event.type)||typeof event.id!=='string'
     ||!new RegExp(`^skill-${event.type}-[1-9][0-9]{0,14}$`).test(event.id)||![event.x,event.y,event.z,event.fromX,event.fromY,event.fromZ].every(coordinate)
     ||![event.startedAt,event.endsAt,event.triggerAt].every(value=>Number.isFinite(value)&&value>=0))return false;
-  const spec=types[event.type];return event.flight===spec.flight&&event.radius===spec.radius
-    &&Math.abs(event.triggerAt-event.startedAt-spec.delay)<1e-7&&Math.abs(event.endsAt-event.triggerAt-spec.tail)<1e-7
+  const spec=types[event.type];return (isLobbedSkill(event.type)?validThrowFlight(event):event.flight===spec.flight)&&event.radius===spec.radius
+    &&Math.abs(event.triggerAt-event.startedAt-(isLobbedSkill(event.type)?throwDelay(event,spec.flight,spec.delay):spec.delay))<1e-7&&Math.abs(event.endsAt-event.triggerAt-spec.tail)<1e-7
     &&now>=event.startedAt&&now<event.endsAt;
 }
 

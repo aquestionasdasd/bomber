@@ -1,0 +1,100 @@
+/* Competitive combat HUD layer (combat-hud.js). Loaded after competitive-ui.css.
+   Display only: sharper panels, segmented vitals, magazine pips, kill feed rows,
+   hit/kill markers and critical-state cues. */
+:root{--hud-gold:#f6d798;--hud-panel:#0a131acc;--hud-panel-soft:#0a131a66;--hud-armor:#bfe3ff;--hud-red:#ff4f5e}
+
+/* ---------- Vitals ---------- */
+#hud .health-block{isolation:isolate;padding:0 0 14px 14px;margin-left:-14px}
+#hud .health-block:before{content:'';position:absolute;z-index:-1;inset:-12px -34px -10px 0;background:linear-gradient(90deg,var(--hud-panel) 0,var(--hud-panel-soft) 72%,transparent);clip-path:polygon(0 0,100% 0,calc(100% - 22px) 100%,0 100%);border-left:3px solid var(--ui-ally);transition:border-color 160ms}
+#hud .health-track{left:14px;height:5px;background:#d9eeee26;-webkit-mask:repeating-linear-gradient(90deg,#000 0 calc(10% - 2px),transparent calc(10% - 2px) 10%);mask:repeating-linear-gradient(90deg,#000 0 calc(10% - 2px),transparent calc(10% - 2px) 10%)}
+#hud .health-track>i{box-shadow:0 0 8px #78e5c480}
+.armor-track{position:absolute;left:14px;right:0;bottom:8px;height:2px;background:#bfe3ff1f;opacity:0;transition:opacity 160ms}
+.armor-track>i{display:block;height:100%;width:0;background:var(--hud-armor);box-shadow:0 0 6px #bfe3ff99;transition:width 160ms ease}
+.health-block.has-armor .armor-track{opacity:1}
+#hud .armor-value svg{stroke:var(--hud-armor)}
+#hud[data-hp-level=low] .health-block:before,#hud[data-hp-level=critical] .health-block:before{border-color:var(--hud-red)}
+#hud[data-hp-level=low] .health-track>i,#hud[data-hp-level=critical] .health-track>i{background:var(--hud-red);box-shadow:0 0 10px #ff4f5ecc}
+#hud[data-hp-level=critical] .health-value>strong{color:var(--hud-red);animation:hud-critical-text 900ms ease-in-out infinite}
+
+/* Low health screen edge. Sits under the HUD widgets, never over the crosshair. */
+.hud-low-hp{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity 240ms;background:radial-gradient(ellipse 80% 75% at 50% 50%,transparent 55%,#ff2a3d2e 76%,#ff2a3d80 100%);box-shadow:inset 0 0 90px 12px #ff2a3d66}
+#hud[data-hp-level=low] .hud-low-hp{opacity:.55}
+#hud[data-hp-level=critical] .hud-low-hp{opacity:1;animation:hud-critical-edge 1.1s ease-in-out infinite}
+
+/* ---------- Abilities ---------- */
+#hud .abilities{gap:14px}
+#hud .ability{isolation:isolate;width:66px;min-width:66px;padding-top:9px}
+#hud .ability:before{content:'';position:absolute;z-index:-1;left:0;right:0;top:0;bottom:15px;background:linear-gradient(180deg,#d6e5e459 0 2px,var(--hud-panel) 2px,var(--hud-panel-soft));clip-path:polygon(9px 0,100% 0,calc(100% - 9px) 100%,0 100%);transition:background 160ms}
+#hud .ability:not(.cooldown):not(.charging):before{background:linear-gradient(180deg,var(--ui-ally) 0 2px,var(--hud-panel) 2px,var(--hud-panel-soft))}
+#hud .ability.selected:before,#hud .ability.armed:before{background:linear-gradient(180deg,var(--ui-ally) 0 3px,#14362ecc 3px,#0a131a99)}
+#hud .ability kbd{bottom:-1px;padding:1px 6px;background:#0a131ad9;font-size:12px;letter-spacing:.04em}
+#hud .ability>i{left:10px;right:10px;bottom:16px}
+#hud .ability.ult-ready{color:var(--hud-gold)}
+#hud .ability.ult-ready:before{background:linear-gradient(180deg,var(--hud-gold) 0 3px,#3a2f15d9 3px,#0a131a99);animation:hud-ult-glow 1.6s ease-in-out infinite}
+#hud .ability.ult-ready svg{filter:drop-shadow(0 0 6px #f6d798aa)}
+#hud .ability.ult-ready>i{background:var(--hud-gold)!important}
+#hud .ability.ult-ready-burst{animation:hud-ult-burst 520ms ease-out}
+
+/* ---------- Weapon / ammo ---------- */
+#hud .weapon-block{isolation:isolate;padding-right:14px;margin-right:-14px}
+#hud .weapon-block:before{content:'';position:absolute;z-index:-1;inset:-12px 0 -10px -40px;background:linear-gradient(270deg,var(--hud-panel) 0,var(--hud-panel-soft) 70%,transparent);clip-path:polygon(22px 0,100% 0,100% 100%,0 100%);border-right:3px solid #d6e5e4a6;transition:border-color 160ms}
+#hud .weapon-block.low-ammo:before,#hud .weapon-block.mag-empty:before{border-color:var(--hud-red)}
+.mag-pips{display:flex;justify-content:flex-end;gap:2px;height:9px;margin:7px 0 0;padding-left:20px}
+.mag-pips[hidden]{display:none}
+.mag-pips>i{flex:0 1 6px;min-width:2px;height:100%;background:var(--ui-white);transform:skewX(-18deg);box-shadow:0 0 4px #ffffff40;transition:background 90ms,box-shadow 90ms}
+.mag-pips>i.spent{background:#ffffff1f;box-shadow:none}
+.low-ammo .mag-pips>i:not(.spent){background:var(--hud-red);box-shadow:0 0 5px #ff4f5e99}
+.mag-empty #ammo{animation:hud-critical-text 600ms ease-in-out infinite}
+.reload-sweep{display:none;align-items:center;justify-content:flex-end;gap:8px;margin-top:6px;font:700 11px/1 var(--ui-numbers);letter-spacing:.14em;color:var(--hud-gold)}
+.reload-sweep>i{position:relative;display:block;width:84px;height:3px;overflow:hidden;background:#f6d79833}
+.reload-sweep>i:after{content:'';position:absolute;top:0;bottom:0;left:-40%;width:40%;background:var(--hud-gold);animation:hud-reload-sweep 700ms linear infinite}
+.is-reloading .reload-sweep{display:flex}
+.is-reloading .mag-pips{opacity:.35}
+
+/* ---------- Round clock ---------- */
+#hud .round-panel{clip-path:polygon(0 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,10px 100%,0 calc(100% - 10px))}
+#hud .team-strip.allied{clip-path:polygon(0 0,100% 0,100% 100%,10px 100%,0 calc(100% - 10px))}
+#hud .team-strip.enemy{clip-path:polygon(0 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%)}
+#hud.timer-urgent .round-panel>strong{animation:hud-critical-text 1s steps(2,jump-none) infinite}
+#hud.bomber-planted .round-panel{background:linear-gradient(180deg,#5a1119e6,#1b0c10e6);box-shadow:inset 0 3px 0 var(--hud-red);animation:hud-planted 1s ease-in-out infinite}
+#hud.bomber-planted .round-panel>strong{color:#ffd6da}
+
+/* ---------- Kill feed ---------- */
+#hud .killfeed{gap:4px;max-width:min(420px,44vw)}
+#hud .killfeed>.feed-item{display:flex;align-items:center;gap:9px;padding:5px 14px 5px 16px;font:700 13px/1.3 var(--ui-font);letter-spacing:0;color:var(--ui-white);background:linear-gradient(90deg,#0a131ab3,#0a131aeb);border:0;border-right:3px solid var(--ui-enemy);clip-path:polygon(9px 0,100% 0,100% 100%,0 100%);animation:hud-feed-in 180ms cubic-bezier(.2,.9,.3,1.2) both;transition:opacity 240ms,translate 240ms}
+#hud .killfeed>.feed-item[data-killer=ally]{border-right-color:var(--ui-ally)}
+#hud .killfeed>.feed-item.feed-self{box-shadow:inset 0 0 0 1px #f6d79899}
+#hud .killfeed>.feed-item.feed-self-kill{background:linear-gradient(90deg,#123a31b8,#0d241feb)}
+#hud .killfeed>.feed-item.feed-self-death{background:linear-gradient(90deg,#4a1219b8,#2a0c11eb)}
+#hud .killfeed>.feed-item.feed-out{opacity:0;translate:16px 0}
+#hud .killfeed .feed-name{color:var(--ui-white);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:150px}
+#hud .killfeed .feed-name.is-ally{color:var(--ui-ally)}
+#hud .killfeed .feed-name.is-enemy{color:var(--ui-enemy)}
+#hud .killfeed .feed-how{display:flex;align-items:center;color:#e9f1ee;order:1}
+#hud .killfeed .feed-name.victim{order:2}
+#hud .killfeed .feed-sep{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+#hud .killfeed .feed-weapon{height:15px;width:auto;max-width:56px;fill:currentColor;stroke:none}
+#hud .killfeed .feed-glyph{height:16px;width:19px;fill:none;stroke:currentColor;stroke-width:2;stroke-linejoin:round}
+
+/* ---------- Hit / kill markers ---------- */
+#hud .hitmarker.hm-hit,#hud .hitmarker.hm-kill{opacity:1!important}
+#hud .hitmarker.hm-hit i{animation:hud-hit-pop 180ms ease-out}
+#hud .hitmarker.hm-kill i{background:var(--hud-red);height:3px;width:12px;animation:hud-kill-pop 520ms ease-out both}
+#hud .hitmarker .hit-ring{position:absolute;left:50%;top:50%;width:30px;height:30px;margin:-15px 0 0 -15px;border:2px solid var(--hud-red);border-radius:50%;opacity:0;pointer-events:none}
+#hud .hitmarker.hm-kill .hit-ring{animation:hud-kill-ring 460ms ease-out}
+
+@keyframes hud-critical-text{0%,100%{opacity:1}50%{opacity:.45}}
+@keyframes hud-critical-edge{0%,100%{opacity:.7}50%{opacity:1}}
+@keyframes hud-ult-glow{0%,100%{filter:brightness(1)}50%{filter:brightness(1.35)}}
+@keyframes hud-ult-burst{0%{transform:scale(1.18)}100%{transform:scale(1)}}
+@keyframes hud-reload-sweep{to{left:100%}}
+@keyframes hud-planted{0%,100%{filter:brightness(1)}50%{filter:brightness(1.3)}}
+@keyframes hud-feed-in{from{opacity:0;translate:28px 0}to{opacity:1;translate:0 0}}
+@keyframes hud-hit-pop{from{scale:1.45}to{scale:1}}
+@keyframes hud-kill-pop{0%{scale:1.7;opacity:1}60%{scale:1;opacity:1}100%{scale:1;opacity:0}}
+@keyframes hud-kill-ring{from{transform:scale(.4);opacity:1}to{transform:scale(1.7);opacity:0}}
+
+@media(max-width:1100px){#hud .ability{width:56px;min-width:56px}#hud .abilities{gap:10px}}
+@media(max-width:800px){#hud .health-block:before,#hud .weapon-block:before{inset:-8px -10px -6px 0}#hud .weapon-block:before{inset:-8px 0 -6px -14px}#hud .killfeed>.feed-item{font-size:11px;padding:4px 10px 4px 13px}#hud .killfeed .feed-name{max-width:96px}.mag-pips{height:7px}}
+@media(max-width:600px){.mag-pips,.reload-sweep>i{display:none}#hud .ability:before{bottom:13px}}
+@media(prefers-reduced-motion:reduce){#hud .ability.ult-ready:before,#hud.bomber-planted .round-panel,#hud[data-hp-level=critical] .hud-low-hp,#hud[data-hp-level=critical] .health-value>strong,.mag-empty #ammo,#hud.timer-urgent .round-panel>strong,.reload-sweep>i:after,#hud .killfeed>.feed-item,#hud .hitmarker i,#hud .hitmarker .hit-ring,#hud .ability.ult-ready-burst{animation:none}.reload-sweep>i:after{left:0;width:100%}}

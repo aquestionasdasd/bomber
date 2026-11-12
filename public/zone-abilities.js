@@ -1,6 +1,6 @@
 // Original ground ultimates. Only locally cast events may produce damage.
 export const ZONE_ABILITIES = Object.freeze({
-  ember: Object.freeze({ radius: 6, duration: 4.8, pulses: Object.freeze([1.2, 2.4, 3.6]), damage: 30, sampleWindow: .4 }),
+  ember: Object.freeze({ radius: 6, duration: 4.8, pulses: Object.freeze([1.2, 2.4, 3.6]), damage: 80, sampleWindow: .4 }),
   frost: Object.freeze({ radius: 7, duration: 10, warmup: .8, slowMultiplier: .55 }),
   maxEvents: 20, castDistance: 20, heightTolerance: 2.5,
 });

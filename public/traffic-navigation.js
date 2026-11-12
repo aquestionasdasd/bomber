@@ -76,5 +76,11 @@ export function createTrafficNavigation(map) {
     segmentClear: (ax, az, bx, bz, r, feet) => solid.segmentClear(ax, az, bx, bz, r, feet) && index.segmentClear(ax, az, bx, bz, r, feet),
     get revision() { if (solid.revision !== solidRevision) { solidRevision = solid.revision; revision++; } return revision; },
   };
-  return { collision, updateTraffic, trafficStep, trafficEscape };
+  // Buses alone, for a navigator that already holds the static walls.
+  const overlay = {
+    blocked: (x, z, r, feet) => index.blocked(x, z, r, feet),
+    segmentClear: (ax, az, bx, bz, r, feet) => index.segmentClear(ax, az, bx, bz, r, feet),
+    get revision() { return revision; },
+  };
+  return { collision, overlay, updateTraffic, trafficStep, trafficEscape };
 }

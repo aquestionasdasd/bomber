@@ -45,7 +45,7 @@ export class RoomClient {
       throw Error(room.message||'再接続できませんでした。通信を確認してもう一度開いてください。');
     }
     if(room.status==='closed'){RoomClient.clearSession(saved.memberId);return{status:'closed'};}
-    if(room.hostId===saved.memberId){
+    if(room.hostId===saved.memberId&&room.status==='playing'){
       const left=await roomFetch(`/api/rooms/${saved.code}/leave`,{method:'POST',headers,body:'{}'});
       if(!left.ok)throw Error('ホストの部屋を終了できませんでした。接続を確認してもう一度開いてください。');
       RoomClient.clearSession(saved.memberId);return{status:'host-ended'};
@@ -78,7 +78,7 @@ export class RoomClient {
     }catch(error){if(!this.closed)this.onError(error.message);}
     if(!this.closed)this.pollTimer=setTimeout(()=>this.poll(),this.room.status==='playing'?180:650);
   }
-  receive(from,data){if(!data||typeof data!=='object'||data.room!==this.session.code)return;this.onData(from,data);}
+  receive(from,data){if(this.closed||this.room.status!=='playing'||!data||typeof data!=='object'||data.room!==this.session.code||(data.epoch??0)!==(this.room.settings?.matchEpoch||0))return;this.onData(from,data);}
   async connect(id,offer=false){
     if(typeof RTCPeerConnection==='undefined')return null;
     const pc=new RTCPeerConnection({iceServers:[{urls:'stun:stun.cloudflare.com:3478'}]});
@@ -105,7 +105,7 @@ export class RoomClient {
     if(this.closed||this.room.status!=='playing')return;
     if(team!==undefined&&(!this.host||!['blue','red'].includes(team)||data?.type!=='snapshot'))return;
     this.ensureRelay();
-    const packet={...data,room:this.session.code,connection:this.connectionId};const encoded=JSON.stringify(packet);let needsRelay=false;
+    const packet={...data,room:this.session.code,connection:this.connectionId,...(this.room.settings?.matchEpoch?{epoch:this.room.settings.matchEpoch}:{})};const encoded=JSON.stringify(packet);let needsRelay=false;
     const slot=team||'default',old=this.relayLatest.get(slot);
     if(Number.isSafeInteger(packet.seq)&&Number.isSafeInteger(old?.packet.seq)&&packet.seq<old.packet.seq)return;
     // Advance even for direct-only sends, so a failed older HTTP packet cannot
@@ -179,21 +179,27 @@ export class RoomClient {
   acceptRoom(room){
     if(this.closed)return;
     // An earlier poll/ready response may arrive after the host's saved choice.
-    if(room.status==='lobby'&&(this.room.status==='playing'||this.room.status==='closed'||
+    const next=room.settings?.matchEpoch||0,current=this.room.settings?.matchEpoch||0;
+    if(this.room.status==='closed'||next<current||next===current&&room.status==='lobby'&&(this.room.status==='playing'||
       (room.settings?.lobbyRevision||0)<(this.room.settings?.lobbyRevision||0)))return;
+    if(next!==current)this.clearRelay();
     this.room=room;if(room.status!=='playing')this.clearRelay();this.onRoom(room);
   }
   async configure(format,mapId){
     if(this.closed||!this.host||this.room.status!=='lobby')throw Error('ホストだけが待機中に設定を変更できます。');
     if(this.settingsPending)throw Error('選択を保存しています。少し待ってください。');
     this.settingsPending=true;
-    try{this.acceptRoom(await this.api('/settings',{format,mapId}));}
+    try{this.acceptRoom(await this.api('/settings',{format,mapId,epoch:this.room.settings?.matchEpoch||0}));}
     finally{this.settingsPending=false;if(!this.closed)this.onRoom(this.room);}
   }
-  async ready(ready,team){this.acceptRoom(await this.api('/ready',{ready,...(team?{team}:{})}));}
+  async ready(ready,team){this.acceptRoom(await this.api('/ready',{ready,...(team?{team}:{}),epoch:this.room.settings?.matchEpoch||0}));}
   async start(format,mapId=this.room.settings?.mapId||'hashimoto'){
     if(this.settingsPending)throw Error('選択を保存しています。少し待ってください。');
-    this.acceptRoom(await this.api('/start',{format,mapId}));
+    this.acceptRoom(await this.api('/start',{format,mapId,epoch:this.room.settings?.matchEpoch||0}));
+  }
+  async rematch(){
+    if(this.closed||!this.host||this.room.status!=='playing')throw Error('ホストだけが試合後に待機室へ戻せます。');
+    this.acceptRoom(await this.api('/rematch',{epoch:this.room.settings?.matchEpoch||0}));
   }
   close(notify=true){
     if(notify||this.room.status==='closed')RoomClient.clearSession(this.session.memberId);

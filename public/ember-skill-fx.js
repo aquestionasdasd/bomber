@@ -1,3 +1,4 @@
+import { isLobbedSkill, validThrowFlight, throwDelay } from './skill-throw.js';
 import { skillProjectilePosition } from './character-skills.js';
 import { EMBER_SKILLS } from './abilities.js';
 
@@ -20,8 +21,8 @@ function validEvent(event,now){
     ||![event.startedAt,event.triggerAt,event.endsAt].every(value=>Number.isFinite(value)&&value>=0)
     ||!Object.keys(event).every(key=>fields.includes(key)||event.type==='ember-service'&&key==='weaponId'))return false;
   const spec=specs[event.type],personal=event.type!=='ember-solder';
-  return event.flight===spec.flight&&event.radius===spec.radius
-    &&Math.abs(event.triggerAt-event.startedAt-spec.delay)<1e-7&&Math.abs(event.endsAt-event.triggerAt-spec.tail)<1e-7
+  return (isLobbedSkill(event.type)?validThrowFlight(event):event.flight===spec.flight)&&event.radius===spec.radius
+    &&Math.abs(event.triggerAt-event.startedAt-(isLobbedSkill(event.type)?throwDelay(event,spec.flight,spec.delay):spec.delay))<1e-7&&Math.abs(event.endsAt-event.triggerAt-spec.tail)<1e-7
     &&(personal?Math.hypot(event.x-event.fromX,event.y-event.fromY,event.z-event.fromZ)<1e-7:Math.hypot(event.x-event.fromX,event.z-event.fromZ)<=EMBER_SKILLS.solderRange+1e-7)
     &&(event.type==='ember-service'?weapons.includes(event.weaponId):event.weaponId===undefined)
     &&now>=event.startedAt&&now<event.endsAt;

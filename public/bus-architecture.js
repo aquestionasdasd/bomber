@@ -18,7 +18,7 @@ export function addBusArchitecture(T,world,batches,colliders,mapShapes,ramps,fur
  const stairGroups=ramps.map((r,i)=>{const g=get('structure-stair-'+i);g.ramps.push(r);return{r,g};});
  const stairFor=b=>stairGroups.find(({r})=>{
   const x=(b.minX+b.maxX)/2,z=(b.minZ+b.maxZ)/2;
-  return x>=r.minX-.25&&x<=r.maxX+.25&&z>r.minZ+EPS&&z<r.maxZ-EPS&&b.height<=6.3;
+  return x>=r.minX-.25&&x<=r.maxX+.25&&z>r.minZ+EPS&&z<r.maxZ-EPS&&b.height<=Math.max(6.3,(r.base||0)+r.height+1.3);
  })?.g;
  const pick=b=>get('structure-bay-'+b.key);
  const matrix=new T.Matrix4(),position=new T.Vector3(),rotation=new T.Quaternion(),scale=new T.Vector3();

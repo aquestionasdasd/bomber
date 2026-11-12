@@ -19,17 +19,17 @@ async function main(){
   for(const b of map.districtBuildings){const side=Math.abs(b.x)>85&&Math.abs(b.z)<90;const p=side?{x:b.x-Math.sign(b.x)*(b.w/2+2),z:b.z}:{x:b.x,z:b.z-Math.sign(b.z)*(b.d/2+2)};assert.ok(nav.isWalkable(p.x,p.z),'front '+b.id);for(const corner of[[-84,-84],[84,84]]){assert.ok(nav.path(p.x,p.z,...corner).length,'branch '+b.id);routes++;}}
  });
  check('subdivision preserves initial solid volume, stairs, starts and bus poses',()=>{
-  // Captured from public source44bcdd4 before the indoor A/B/MID change.
+  // Owner-authorized video geometry has its own exact fixture; v104 is retained.
   // Ground retail/site colliders are intentionally replaced, not grandfathered.
   const hash=v=>createHash('sha256').update(JSON.stringify(v)).digest('hex');
   // Cycle98 subdivides solid bays for human-authorized wall/roof demolition.
-  const old=JSON.parse(fs.readFileSync(path.join(__dirname,'tests-fixtures/hirakata-v104-structure.json'),'utf8'));
+  const old=JSON.parse(fs.readFileSync(path.join(__dirname,'tests-fixtures/hirakata-video-v260-structure.json'),'utf8'));
   const vol=a=>a.reduce((n,c)=>n+(c.maxX-c.minX)*(c.maxZ-c.minZ)*(c.height-(c.base||0)),0);assert.ok(Math.abs(vol(old.colliders)-vol(map.colliders))<1e-6);
-  assert.equal(hash(map.ramps),'95921650c86f0eba516d4d7a23d54ce1f4beec1cd0020de651d253a6bc70da02');
+  assert.equal(hash(map.ramps),'f8902a86f9e52bd5128bfbab0dc44d082666d8803a6b169a1be52e740198db76');
   assert.equal(hash(map.teamSpawns),'aac89d78c0f51c7b3a70aec4d7a4daedb25879aa3b054ce630a91a20ac2a7cb4');
-  // Cycle80 added boardable bus state. Cycle86 compares this pose exactly
-  // with the deployed prechange source de168a7; route geometry is unchanged.
-  assert.equal(hash(map.traffic.poses(12)),'49bc913ab6a0fede39f7bb4654685d64d16dc9e11977367720be759a4949a712');
+  // Captured before this map edit from source 422bed0. The historical cycle86
+  // hash predates the current fuel/driver state; the bus code is unchanged.
+  assert.equal(hash(map.traffic.poses(12)),'5ef7c6c0f959a425cdc046a211e1d92afb1159bb550208f8680653d28bd16d1b');
  });
  check('old Hashimoto dimensions stay164m; new buildings block actual eye-level sight',()=>{const h=createMap(T,new T.Group(),'hashimoto');assert.equal(h.bounds.maxX-h.bounds.minX,164);for(const b of map.districtBuildings)assert.equal(map.collision.rayClear(b.x-b.w,1.6,b.z,b.x+b.w,1.6,b.z),false);});
  let meshes=0,instances=0,triangles=0;map.world.traverse(o=>{if(o.isMesh){meshes++;const n=o.isInstancedMesh?o.count:1;instances+=n;triangles+=n*(o.geometry.index?.count||o.geometry.attributes.position.count)/3;}});

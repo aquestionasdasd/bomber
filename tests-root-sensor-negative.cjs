@@ -1,0 +1,2 @@
+const assert=require('node:assert/strict'),{spawnSync}=require('node:child_process'),path=require('node:path');
+for(const fault of['slow','jump','wall','authority']){const r=spawnSync(process.execPath,[path.join(__dirname,'tests-root-sensor.cjs'),'--fault='+fault],{encoding:'utf8',windowsHide:true});assert.notEqual(r.status,0,fault+' must fail');assert.match(r.stderr,/AssertionError/);console.log('PASS: in-memory '+fault+' fault detected');}

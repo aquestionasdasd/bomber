@@ -6,14 +6,14 @@ const assert=require('node:assert/strict'),path=require('node:path'),{pathToFile
  const check=(label,fn)=>{d.reset();fn();n++;console.log('PASS '+label);},pose=g=>({x:(g.minX+g.maxX)/2,z:(g.minZ+g.maxZ)/2,yaw:0});
  const original={colliders:[...map.colliders],shapes:[...map.mapShapes],ramps:[...map.ramps],matrices:d.groups.flatMap(g=>g.parts.map(p=>[...p.matrix.elements]))};
  check('all walls, ceilings, district buildings and stairs have exactly one demolition owner',()=>{
-  assert.ok(d.groups.length>82&&d.groups.length<=256);assert.ok(d.groups.slice(0,82).every(g=>!g.structural));assert.ok(d.groups.slice(82).every(g=>g.structural));
+  assert.ok(d.groups.length>82&&d.groups.length<=256);assert.ok(d.groups.slice(0,82).every(g=>!g.structural));assert.ok(d.groups[82].id==='video-park-landscape'&&d.groups.slice(83).every(g=>g.structural));
   const owners=d.groups.flatMap(g=>g.colliders);assert.equal(new Set(owners).size,map.colliders.length);assert.equal(owners.length,map.colliders.length);
   assert.ok(d.groups.every(g=>[g.minX,g.maxX,g.minZ,g.maxZ,g.height,g.base].every(Number.isFinite)));
   for(const id of['hirakata-concourse','hirakata-roof','A-south','B-south','district-tower'])assert.ok(owners.some(c=>c.surfaceId===id),id);
-  assert.equal(d.groups.flatMap(g=>g.ramps||[]).length,4);
+  assert.equal(d.groups.flatMap(g=>g.ramps||[]).length,6);
  });
- const old=JSON.parse(require('node:fs').readFileSync(path.join(__dirname,'tests-fixtures/hirakata-v104-structure.json'),'utf8'));
- check('pre-impact floors, stairs, starts and every old wall retain their original occupied volume',()=>{
+ const old=JSON.parse(require('node:fs').readFileSync(path.join(__dirname,'tests-fixtures/hirakata-video-v260-structure.json'),'utf8'));
+ check('video-map fixture retains every authored occupied volume, stair, start and bus pose',()=>{
   const volume=cs=>cs.reduce((sum,c)=>sum+(c.maxX-c.minX)*(c.maxZ-c.minZ)*(c.height-(c.base||0)),0);
   assert.ok(Math.abs(volume(old.colliders)-volume(map.colliders))<1e-6);
   for(const c of old.colliders){const pieces=map.colliders.filter(v=>v.height===c.height&&(v.base||0)===(c.base||0)&&v.kind===c.kind&&v.surfaceId===c.surfaceId&&v.minX>=c.minX-1e-7&&v.maxX<=c.maxX+1e-7&&v.minZ>=c.minZ-1e-7&&v.maxZ<=c.maxZ+1e-7);assert.ok(Math.abs(volume(pieces)-volume([c]))<1e-6,JSON.stringify(c));}

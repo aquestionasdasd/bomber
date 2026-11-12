@@ -8,7 +8,7 @@ async function main(){
  test('eleventh stable identity, finite purchase,18s E and7pt independent X',()=>{
   assert.equal(Object.keys(CHARACTER_DEFS).length,15);assert.equal(CHARACTER_DEFS.nobi.label,'のび');const k=new DuelistKit({character:'nobi'});let cost=0;
   for(const key of['c','c','q'])assert.ok(k.buy(key,n=>(cost+=n,true)));assert.equal(cost,300);assert.equal(k.buy('q',()=>true),false);
-  for(const key of['c','q','e'])assert.equal(k.activate(key,1).type,getCharacterSkill('nobi',key).type);assert.equal(k.activate('e',18.99),null);assert.ok(k.activate('e',19));assert.equal(k.activate('x',20),null);k.ultPoints=7;assert.equal(k.activate('x',20).type,'nobi-legend');assert.equal(k.ultPoints,0);assert.equal(k.knivesActive,false);const restored=new DuelistKit();assert.ok(restored.restore(copy(k.snapshot())));assert.deepEqual(restored.snapshot(),k.snapshot());
+  for(const key of['c','q','e'])assert.equal(k.activate(key,1).type,getCharacterSkill('nobi',key).type);assert.equal(k.activate('e',18.99),null);assert.ok(k.activate('e',19));assert.equal(k.activate('x',20),null);k.ultPoints=7;assert.equal(k.activate('x',20).type,'nobi-collar');assert.equal(k.ultPoints,0);assert.equal(k.knivesActive,false);const restored=new DuelistKit();assert.ok(restored.restore(copy(k.snapshot())));assert.deepEqual(restored.snapshot(),k.snapshot());
  });
  test('four strict JSON events, finite range and no self target/extra fields/timing forgery',()=>{
   const h=createCharacterSkills();for(const type of['nobi-tag','nobi-brake','nobi-tool','nobi-legend'])assert.ok(h.cast(type,a,type==='nobi-tag'||type==='nobi-brake'?{...b,targetId:b.id}:a,1,1));const state=copy(h.snapshot()),g=createCharacterSkills();assert.ok(g.restore(state,1,1));

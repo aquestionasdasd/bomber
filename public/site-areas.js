@@ -27,7 +27,12 @@ function edgeDistanceSquared(x,z,a,b) {
   return (x-a[0]-dx*t)**2+(z-a[1]-dz*t)**2;
 }
 
-/** Ground-plane membership, including the boundary. A positive margin insets it. */
+/** Objective work must be on its declared floor; old maps default to ground. */
+export function isAtSiteHeight(site,y) {
+  return !!site&&finite(site.y??0)&&finite(y)&&Math.abs(y-(site.y??0))<=.05+EPSILON;
+}
+
+/** XZ perimeter membership, including the boundary. A positive margin insets it. */
 export function isInsideSite(site,x,z,{margin=0}={}) {
   if(!site||!finite(x)||!finite(z)||!finite(margin)||margin<0)return false;
   if(site.polygon!==undefined){
@@ -47,15 +52,15 @@ export function isInsideSite(site,x,z,{margin=0}={}) {
     Math.hypot(x-site.x,z-site.z)<=site.radius-margin+EPSILON;
 }
 
-/** Select a stable, ground-clear bot destination without depending on navigation. */
+/** Select a stable, floor-clear bot destination without depending on navigation. */
 export function getSitePlantPosition(site,fromX,fromZ,{preferredId,collision,clearance=.45}={}) {
   if(!site||!finite(clearance)||clearance<0)return null;
   const originX=finite(fromX)?fromX:finite(site.x)?site.x:0;
   const originZ=finite(fromZ)?fromZ:finite(site.z)?site.z:0;
   const positions=Array.isArray(site.plantPositions)&&site.plantPositions.length?site.plantPositions:
-    [{id:`${site.id||'site'}-center`,label:site.name||'設置位置',style:'open',x:site.x,z:site.z}];
-  const candidates=positions.filter(point=>point&&isInsideSite(site,point.x,point.z,{margin:clearance})&&
-    (!collision||!collision.blocked(point.x,point.z,clearance,0)));
+    [{id:`${site.id||'site'}-center`,label:site.name||'設置位置',style:'open',x:site.x,z:site.z,...(site.y!==undefined?{y:site.y}:{})}];
+  const candidates=positions.map(point=>point&&({...point,...(point.y===undefined&&site.y!==undefined?{y:site.y}:{})})).filter(point=>point&&isAtSiteHeight(site,point.y??0)&&isInsideSite(site,point.x,point.z,{margin:clearance})&&
+    (!collision||!collision.blocked(point.x,point.z,clearance,point.y??0)));
   candidates.sort((a,b)=>Number(b.id===preferredId)-Number(a.id===preferredId)||
     Math.hypot(a.x-originX,a.z-originZ)-Math.hypot(b.x-originX,b.z-originZ));
   return candidates.length?{...candidates[0]}:null;
