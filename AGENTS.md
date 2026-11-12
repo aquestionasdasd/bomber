@@ -1,3 +1,29 @@
+## 2026-11-12 / 保存済み戦闘HUD・枚方CPU経路改善の統合
+
+所有者の「PC内の戦闘HUD・CPU経路改善を統合する」という確認により、未pushだった11月4日の変更を公開済みIdolキャラへ統合。HP/装甲/弾数/ULT/キルフィードを強化し、T-SITEから隣接階段への経路、静的grid/距離場、交通overlay、購入中の経路事前計算を取り込む。Idol関連ソース5ファイルは公開版と一致したまま保つ。自動push常駐ツール・ローカル画像・共同編集手順の別変更は今回に含めず、元作業木を保全する。
+
+統合レビューで、階段足元から隣接セルへ進む補助が平面mapにも適用され、clearSegmentが拒む最初の辺を返す退行を合成fixtureで再現。map.layeredNavigation===trueに限定し、undefined/false/文字列trueの拒否、通常平面経路、メモリ内guard除去negativeを新1群で検査。既存8群を合わせたdeck-routes最終9群PASS。HUD6試験、経路10試験、実5v5の180frame/両軍10,304byte snapshot、100ms遅延direct/HTTP、Idol648姿勢を検証。詳細はprivate runtime/test-report/releaseを正本とする。
+
+下記11月4日の速度測定は元改修時の記録であり、今回の再測定とは扱わない。通常対戦のFPS改善・全端末・実2端末通信・聴感は未実証。新撃破ヒットマーカーは既存local/host確定feedbackの範囲で、guestの受信cueは従来表示。既存の旧fixture失敗を緩和していない。CPU/Discord/旧fps-19自動更新停止、controller/保留job、既存音源byteを維持。
+
+## 2026-11-04 / 枚方CPUのスポーン周辺の迷走とカクつきを改善
+
+所有者の「枚方市でCPUが重くてかくつく」「攻撃側がスポーン周りでさまよう」への手動修正。原因は2つ。(1) T-SITEデッキ全域(x4..23,z16..123)の階段ヒントが公園の曲線橋 stair 8 を指したままで、隣の開口済み South_pedestrian_deck stair 7 を使わず、全攻撃CPUが約45m南へ歩いてから引き返していた（出現→A 222m、→B 327m）。(2) 経路探索の冷間コスト：地上gridの辺を戦闘中に1セルずつ発見、バス移動(0.25秒毎)で交通用gridを丸ごと破棄、階段の足元に立つCPUからの接続点探索が64リング走査で失敗(約0.25秒)、上階→上階の別区画が混在探索の上限まで探索して失敗(最大0.6秒)。
+
+hirakata-map: デッキz16..100は stair 7（via 階段上端14.5,73.5）、z100..123のみ従来の stair 8。中央コンコース x-31..0 に stair 0 のヒント（東の旧経由点へ戻らない）。hirakata-navigation: 地上gridを読込時に一括解決(warm、約0.25秒)。上階→上階でヒント対が無い場合は上階限定の有限探索→失敗は粗いキーで記憶→目的地に近い階段経由の地上乗継ぎ→最後に従来の混在探索。完了経路の再利用は同じ階・4m以内の目的地まで（最後の直線は検証）。交通用gridは静的な壁/辺を共有し、バスだけをoverlayで毎回判定。navigation(grid): warm（各無向辺を1回だけ検査）、接続点の走査上限を6リングへ、階段足元など直線が出ない位置からは隣の空きセルから開始、同じ目的地への2回目以降はDijkstra距離場（opt-in、静的gridのみ、24件LRU）。game.js: 層のあるマップ(枚方)だけ、購入フェーズ中に3frame毎1本で出現→設置点の経路をキャッシュへ事前計算（CPUの位置・状態は変えない）。
+
+実updatePlayを1frame1回・購入400frame→live 2400frame・固定乱数VMで、攻撃/守備×3seedの変更前→後：live最大305〜1360→117〜169ms、p99 60〜89→23〜28ms、100ms超8〜22→2〜5回。購入フェーズの最大は事前計算で33〜55→79〜113ms（1回）。攻撃CPUの最南到達 z117〜134→約90（stair 7の足元）、サイト到達は40秒以内なし→23〜29秒。主要経路長 出現→A 219→105m、→B 323→208m、中央→出現 失敗→157m。固定標本でありGPU/全端末FPSや勝率の保証ではない。
+
+tests-hirakata-deck-routes（新8群、負例1を含む）を追加しcheckへ登録。tests-hirakata-upper-transfer の2か所は「混在探索が使われた」という実装詳細の確認を「上階限定探索でも可・上階に留まり乗継ぎ無し」に更新（経路の挙動条件は維持）。hirakata関連・nav・bot・TRC・HUDの既存検査は変更前と同じ結果（tests-hirakata-game/tests-hirakata/video-route/tactical、bot-balance、bus-driving-game、bot-defuse-tactics、tests.cjs の plant polygon、round-preparation-game の buyArea は変更前HEADでも同じ失敗で、緩めていない）。無音headless SwiftShaderで枚方の通常対戦起動・ページエラー0を確認。
+
+未対応の発見：South_station_stair stair 6 の上端（z17..20.5）に south-awning 18/30 の屋根コライダー（高さ5.725..5.975）が重なり、人もCPUも通れない。床/屋根の変更は描画と衝突を一致させる必要があるため今回は触れていない。デッキ南端(z16.5)と駅2F(z14.5)の間の2mの隙間も現状維持（Bへはstair 7→地上→中央階段 stair 0）。
+
+## 2026-11-04 / 競技FPS風の戦闘HUD強化
+
+所有者指定「UIや演出を強化」「戦闘中のHUD」「競技FPS風にシャープに」。public/combat-hud.css/js を competitive-ui の上に重ね、HP/装甲の斜めパネルと10分割バー、装甲バー、HP低下の赤ビネット、C/Q/Eの平行四辺形タイルとX満了の金色発光、40発以下の弾ピップとリロード表示、角落としの時間パネル、ボンバー設置後の赤い時間パネル、陣営色と武器シルエット付きキルフィード、撃破時の赤いヒットマーカーを追加。game.jsは表示状態の受け渡し3か所と killFeed のみ。ヒット/キル表示は既存 combatFeedback の source===player（isGuest除外後）だけに連動し、ゲスト予測では出さない。キルフィードは作成不可の環境で従来の文字行へ戻る。判定/入力/通信/経済/キャラ数値/音源/音の経路は不変。UI-UX.md参照。
+
+node tests-combat-hud.cjs（6群）を追加し check に登録。competitive-ui/kill-banner/kill-sequence/combat-audio/economy-game/death-view/party-game/arsenal-game/full-combo/career-coins-game/spectator-equipment/post-plant-equip/player-presentation/lobby-display/skill-spectacle/rules/purchase-feedback は通過。combat-audio-negative の zero damage anchor、sniper-cycle、onnara-game は変更前ソースでも同じ失敗を再現し、緩和しない。無音のクラウド上Chromium（swiftshader）で1280×720/844×390/390×844の表示と通常対戦の起動・ページエラー0を確認。実端末GPU/実2端末/聴感は未検証。音出力0、ユーザーのブラウザー/タブ操作0。
+
 ## 2026-11-12 / Idolローカル生成をはんだごて握り太郎へ
 
 所有者指定のComfy-Org/IdolとTripoSplatを、RTX3070の隔離Python/ComfyUI環境で実行。既存のキャラ参考画像から、まずemberの全身を生成し、Blenderで軽量化・12部位への分割・接合面の修復を行う。既存の関節/握り手/武器/チーム帯を保持し、白い安全ゴーグルと緑の基板の細部を実測位置へ合わせる。手の色は生成した前腕へ合わせる。キャラの体形・襟・服のしわ・靴を更新する。他のキャラ/技/武器数値/CPU/通信/地形/音源byteは変更しない。

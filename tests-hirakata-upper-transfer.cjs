@@ -55,12 +55,16 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('n
  check('same-hint upper detours keep the mixed upper route without a transfer',()=>{
   const f=fixture({connected:true,obstacle:true,sameHint:true}),points=route(f);validate(f,points);
   assert.ok(points.every(p=>p.y===6.4),'upper obstacle detour stays upstairs');
-  assert.equal(f.nav.probe.paths.length,1);assert.ok(f.nav.probe.searches.some(s=>!s.upperOnly));finite(f);
+  // Same-hint upper detours are now solved by the bounded upper-only search
+  // first (no transfer, no ground leg); the mixed search remains the fallback.
+  assert.equal(f.nav.probe.paths.length,1);assert.ok(f.nav.probe.searches.some(s=>s.upperOnly&&s.length>0));finite(f);
  });
  check('failed authored transfer falls through to a viable mixed upper detour',()=>{
   const f=fixture({connected:true,obstacle:true,blockedTransfer:true}),points=route(f);validate(f,points);
   assert.ok(f.nav.probe.paths.some(p=>p.depth===1&&p.length===0),'a real supported transfer attempt must fail');
-  assert.ok(f.nav.probe.searches.some(s=>!s.upperOnly&&s.length>0),'original mixed search still finds the alternate route');
+  // The bounded upper-only search now finds this upstairs detour before the
+  // mixed search would; either must still return the real upper connection.
+  assert.ok(f.nav.probe.searches.some(s=>s.length>0),'a bounded search still finds the alternate route');
   assert.ok(points.every(p=>p.y===6.4),'fallback uses existing upper connection');finite(f);
  });
  check('stair removal, restoration and global collapse invalidate retained upper transfers',()=>{

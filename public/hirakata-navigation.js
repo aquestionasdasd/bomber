@@ -11,9 +11,13 @@ export function createHirakataNavigation(map,createGroundNavigation) {
   const finished=[];
   const boundedMisses=new Map();
   const preferredStairs=new Map();
+  const upperMisses=new Set();
   // Bus motion must not discard the city's static occupancy and route caches.
   // Only routes actually intersecting traffic need the separate detour grid.
-  const ground=createGroundNavigation?.({...map,collision:solid});
+  const ground=createGroundNavigation?.({...map,collision:solid,navigationFields:true});
+  // The static street grid is cheap to resolve once (about 0.2 s) and costly
+  // to discover cell by cell while CPUs are fighting. Do it while loading.
+  ground?.warm?.();
   let trafficGround=null;
   const left=bounds.minX+.5, top=bounds.minZ+.5;
   const width=Math.floor(bounds.maxX-bounds.minX), depth=Math.floor(bounds.maxZ-bounds.minZ);
@@ -31,7 +35,7 @@ export function createHirakataNavigation(map,createGroundNavigation) {
   function refresh() {
     const next=collision.revision, stat=solid.revision, state=collapse();
     const geometryChanged=stat!==staticRevision||state!==collapsed;
-    if(geometryChanged){cells.clear();heightCache.clear();profiles.clear();routes.clear();groundEdges.clear();boundedMisses.clear();preferredStairs.clear();finished.length=0;nodeCount=0;portals=null;groundPortals=state?[]:buildGroundPortals();barriers=createCollisionIndex((map.colliders||[]).filter(c=>!c.movementRamp));staticRevision=stat;collapsed=state;}
+    if(geometryChanged){cells.clear();heightCache.clear();profiles.clear();routes.clear();groundEdges.clear();boundedMisses.clear();preferredStairs.clear();upperMisses.clear();finished.length=0;nodeCount=0;portals=null;groundPortals=state?[]:buildGroundPortals();barriers=createCollisionIndex((map.colliders||[]).filter(c=>!c.movementRamp));staticRevision=stat;collapsed=state;}
     if(next!==revision||geometryChanged){segments.clear();groundEdges.clear();revision=next;}
   }
   const within=(x,z)=>x>=bounds.minX+radius&&x<=bounds.maxX-radius&&z>=bounds.minZ+radius&&z<=bounds.maxZ-radius;
@@ -176,7 +180,9 @@ export function createHirakataNavigation(map,createGroundNavigation) {
     let previous={x:ax,z:az};
     if(points.every(p=>{const ok=clearSegment(previous.x,previous.z,p.x,p.z,0,0);previous=p;return ok;}))return points;
     if(!traffic||!trafficActive)return [];
-    trafficGround||=createGroundNavigation({...map,collision});
+    // Static walls and their resolved edges are shared with the street grid;
+    // only the bus overlay is re-checked as traffic moves.
+    trafficGround||=createGroundNavigation(traffic.overlay?{...map,collision:solid,navigationOverlay:traffic.overlay,sharedGrid:ground?.shared}:{...map,collision});
     return trafficGround.path(ax,az,bx,bz);
   }
   function remember(from,to,points) {
@@ -187,7 +193,10 @@ export function createHirakataNavigation(map,createGroundNavigation) {
   }
   function reuseFinished(a,b) {
     for(const entry of finished){
-      if(Math.hypot(b.x-entry.to.x,b.z-entry.to.z,b.y-entry.to.y)>1.5)continue;
+      // Neighbouring goals (the three plant spots of a site, a moving escort
+      // slot) share the saved route when the last leg is a validated straight
+      // walk on the same floor. Longer gaps still receive a fresh search.
+      if(Math.hypot(b.x-entry.to.x,b.z-entry.to.z)>4||Math.abs(b.y-entry.to.y)>.05)continue;
       // Locate progress along the saved polyline, not just near its old start.
       // A bot beyond a corner must receive the remaining suffix, never the
       // consumed corner again. Floor distance is part of this projection.
@@ -348,7 +357,30 @@ export function createHirakataNavigation(map,createGroundNavigation) {
         if(!upper)continue;
         route=descending?[...upper,...flat.points]:[...flat.points,...upper];preferredStairs.set(highKey,portal.portalRamp);if(preferredStairs.size>256)preferredStairs.delete(preferredStairs.keys().next().value);break;
       }
-    }else route=search(start,finish,false,budget);
+    }else{
+      if(ground&&start.y>.22&&finish.y>.22){
+        // Upper to upper without an authored district pair: a bounded
+        // upper-only search covers one connected concourse. Separate decks
+        // (Hirakata has gaps between them) then transfer through the street
+        // grid via the stair nearest the destination, rather than flooding
+        // the whole mixed city graph until its node budget runs out.
+        const coarse=p=>[Math.floor(p.x/6),Math.floor(p.z/6),Math.round(p.y*2)].join(':'),missKey=coarse(start)+'>'+coarse(finish);
+        if(!upperMisses.has(missKey)){
+          route=search(start,finish,true,{left:2048});
+          if(!route){upperMisses.add(missKey);if(upperMisses.size>512)upperMisses.delete(upperMisses.values().next().value);}
+        }
+        if(!route){
+          const transfer=groundConnections().filter(p=>isWalkable(p.x,p.z,0)).sort((p,q)=>Math.hypot(p.x-b.x,p.z-b.z)-Math.hypot(q.x-b.x,q.z-b.z))[0];
+          if(transfer){
+            // Each leg has one ground endpoint, so neither recurses here.
+            const down=path(a.x,a.z,transfer.x,transfer.z,a.y,0);
+            const up=down.length?path(transfer.x,transfer.z,b.x,b.z,0,b.y):[];
+            if(down.length&&up.length)return remember(a,b,[...down,...up]);
+          }
+        }
+      }
+      if(!route)route=search(start,finish,false,budget);
+    }
     if(!route)return [];
     const points=[start,...route,b],result=[];let anchor=a;
     for(let i=0;i<points.length;){

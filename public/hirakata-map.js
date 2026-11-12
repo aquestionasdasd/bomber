@@ -113,9 +113,17 @@ export function createHirakataMap(T,scene){
  function walkHeights(x,z){const heights=[0];for(const c of collision.query(x,z,0)){if(c.disabled||!['surface','stairs'].includes(c.kind)||!collision.overlaps(c,x,z,0))continue;const h=c.movementRamp?rampHeight(c.movementRamp,x,z):c.height;if(!heights.some(v=>Math.abs(v-h)<.005))heights.push(h);}return heights;}
  // Route hints only order searches; the navigator still checks support, rails,
  // headroom and traffic on every segment, including after structural damage.
+ // The attack spawn sits beside the opened South_pedestrian_deck stair. The
+ // deck north of z100 descends there; only its far southern loop keeps the
+ // curved park bridge. (Sending the whole deck to the bridge made attackers
+ // walk ~45 m away from both sites before turning back.)
  const navigationStairHints=[
-  {minX:4,maxX:23,minZ:16,maxZ:123,minY:6,maxY:7,rampId:'Curved_park_bridge stair 8',via:points([[8.5,99.5,6.4],[10.5,103.5,6.4],[14.5,104.5,6.4],[21.5,109.5,6.4],[22.5,114.5,6.4],[19.5,118.5,6.4],[1.5,119.5,6.4],[-2,121,6.4]])},
-  {minX:0,maxX:53,minZ:-14.5,maxZ:14.5,minY:6,maxY:7,rampId:'Station_central_stairs stair 0',via:points([[-.5,-6.5,6.4],[-31.5,-8.5,6.4]])}
+  {minX:-4,maxX:24,minZ:16,maxZ:100,minY:6,maxY:7,rampId:'South_pedestrian_deck stair 7',via:points([[14.5,73.5,6.4]])},
+  {minX:-4,maxX:24,minZ:100,maxZ:123,minY:6,maxY:7,rampId:'Curved_park_bridge stair 8',via:points([[10.5,103.5,6.4],[14.5,104.5,6.4],[21.5,109.5,6.4],[22.5,114.5,6.4],[19.5,118.5,6.4],[1.5,119.5,6.4],[-2,121,6.4]])},
+  {minX:0,maxX:53,minZ:-14.5,maxZ:14.5,minY:6,maxY:7,rampId:'Station_central_stairs stair 0',via:points([[-.5,-6.5,6.4],[-31.5,-8.5,6.4]])},
+  // Central concourse west of the east gates: same stair, without first
+  // walking east to the old checkpoint.
+  {minX:-31,maxX:0,minZ:-14.5,maxZ:14.5,minY:6,maxY:7,rampId:'Station_central_stairs stair 0',via:points([[-31.5,-8.5,6.4]])}
  ];
  return {id:'hirakata',name:'枚方市駅',shortName:'HIRAKATASHI',world,bounds,combatBounds:{...bounds},minY:0,maxActorY:100,layeredNavigation:true,walkHeights,navigationStairHints,colliders,collision,ramps,mapShapes,destruction,traffic,busModels,sites,teamSpawns,spawn:{...teamSpawns.attack[0],yaw:0},practiceSpawn:{...teamSpawns.attack[0],yaw:0},enemySpawns:teamSpawns.defend,spawnYaw:{attack:0,defend:Math.PI},
   buyAreas:{attack:{minX:5,maxX:11,minZ:72,maxZ:89,minY:6.4},defend:{minX:-98,maxX:98,minZ:-123,maxZ:-106}},lanes,callouts,zones:callouts.map(c=>({name:c.name,x:c.label.x,z:c.label.z,radius:18})),landmarks,

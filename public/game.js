@@ -83,6 +83,7 @@ import { createKeyboardProtection } from './keyboard-protection.js';
 import { bindFullscreenNotice } from './fullscreen-notice.js';
 import { getCharacterSkill, getCharacterUltimate } from './abilities.js';
 import { createCompetitiveUI } from './competitive-ui.js';
+import { createCombatHUD } from './combat-hud.js';
 import { CHARACTER_SKILLS, createCharacterSkills, skillProjectilePosition, selectMendTarget } from './character-skills.js';
 import { createCharacterSkillUI } from './character-skill-ui.js';
 import { createNopeSkillFX } from './nope-skill-fx.js';
@@ -283,6 +284,7 @@ function updateVictoryCamera(dt=0) {
 }
 const skillUI=createCharacterSkillUI({document});
 const competitiveUI=createCompetitiveUI({document});
+const combatHUD=createCombatHUD({document});
 const keyboardProtection=createKeyboardProtection({document,navigator,onStatus:state=>{
   const messages={idle:'しゃがみは V 長押し。Ctrl＋Wなどはブラウザーによって停止できません。',enabling:'全画面とキー保護を準備しています…',protected:'ゲームキー保護中。Escで一時停止。全画面が戻らない場合はEscを長押し。',fullscreen:'全画面モード。キー保護の対応はブラウザー次第です。しゃがみは V を使えます。',unavailable:'この環境では全画面のキー保護を使えません。しゃがみは V を使ってください。'};
   if($('keyboard-protection-status'))$('keyboard-protection-status').textContent=messages[state]||messages.idle;
@@ -785,7 +787,7 @@ function firearmFeedback(source,killed){
 }
 function combatFeedback(source,type){
   if(isGuest()||!source)return;
-  if(source===player){if(isKillSoundCue(type))killBanner.note(elapsed,match.round,Number(type.slice(5)));sound(type,{localOnly:true});}
+  if(source===player){if(isKillSoundCue(type))killBanner.note(elapsed,match.round,Number(type.slice(5)));combatHUD.hit(isKillSoundCue(type)?'kill':'hit',isKillSoundCue(type)?Number(type.slice(5)):1);sound(type,{localOnly:true});}
   else if(onlinePlaying&&online?.host&&source.remoteId){
     netCues.push({seq:++netCueSequence,round:match.round,type,weapon:source.netWeapon||'classic',id:source.id,x:source.x,y:source.y||0,z:source.z,time:elapsed});
     if(netCues.length>64)netCues.splice(0,netCues.length-64);
@@ -1129,7 +1131,7 @@ function damageEntity(entity,amount,killer,{firearm=false,returned=false,chain=t
   entity.alive=false;ordinarySkills.endTrident(entity.id);entity.renkoUltimate=null;if(entity.kit)entity.kit.renkoActive=false;entity.trcLadder=null;cancelServiceReload(entity);entity.kit?.awardPoint();const record=recordOf(entity);if(record)record.d++;
   match.dropSpike(entity.id,entity.x,entity.z,map.id==='trc'||map.layeredNavigation===true?getZoneFloor(entity.x,entity.z,entity.y+.05):0);match.cancelPlant(entity.id);match.cancelDefuse(entity.id);
   const item=entity===player?inventory.primary:record?.primary;dropItem(item,entity);
-  if(creditedKiller){renkoUltimateActive(killer);const refilled=killer.kit?.awardKill();if(refilled&&killer===player)showMessage('リスタートラッシュ','撃破確定 · C・Q・E全回復',2);const k=recordOf(killer);if(k)k.k++;if(!firearm)killFeedback(killer);if(killer===player){totalKills++;match.awardKill();careerCoins.progress({kills:totalKills});}else if(k)k.credits=Math.min(9000,k.credits+200);feed(`${k?.name||CHARACTER_DEFS[killer.kit?.character||'duelist'].label}  ⌁  ${record?.name||(entity===player?'YOU':CHARACTER_DEFS[entity.kit?.character||'duelist'].label)}`);}
+  if(creditedKiller){renkoUltimateActive(killer);const refilled=killer.kit?.awardKill();if(refilled&&killer===player)showMessage('リスタートラッシュ','撃破確定 · C・Q・E全回復',2);const k=recordOf(killer);if(k)k.k++;if(!firearm)killFeedback(killer);if(killer===player){totalKills++;match.awardKill();careerCoins.progress({kills:totalKills});}else if(k)k.credits=Math.min(9000,k.credits+200);killFeed(killer,entity,k,record,firearm);}
   if(entity===player)beginDeathView();
   else{entity.death=.85;entity.defusing=false;entity.planting=false;}
 }
@@ -1602,6 +1604,12 @@ function showMessage(title,description='',seconds=2) {
 }
 function showSkillMessage(character,key,effectType=''){const text=getSkillUseMessage(character,key,effectType);if(text)showMessage(text.title,text.description,2);}
 function showSkillAim(character,key){if(character==='cap'&&key==='q'){showCapMode();return;}const text=getSkillUseMessage(character,key);if(text)showMessage(text.title,'左クリックで確定／右で取消',30);}
+function killFeed(killer,entity,k,record,firearm){
+  const killerName=k?.name||CHARACTER_DEFS[killer.kit?.character||'duelist'].label,victimName=record?.name||(entity===player?'YOU':CHARACTER_DEFS[entity.kit?.character||'duelist'].label);
+  const weapon=killer===player?inventory.active:(killer.netWeapon||killer.aiWeapon||null);
+  const row=combatHUD.feed({killer:killerName,victim:victimName,killerAlly:killer.team===player.team,victimAlly:entity.team===player.team,killerSelf:killer===player,victimSelf:entity===player,firearm:!!firearm,weapon});
+  if(!row)feed(`${killerName}  ⌁  ${victimName}`);
+}
 function feed(text) {
   const item=document.createElement('div');item.className='feed-item';item.textContent=text;$('killfeed').prepend(item);
   while($('killfeed').children.length>4)$('killfeed').lastElementChild.remove();
@@ -3247,6 +3255,7 @@ function updateHUD(){
     $('team-score').textContent=p.site;$('enemy-score').textContent=plant?'4s':'7s';
     for(const key of ['c','q','e','x']){if($(`ability-${key}-count`))$(`ability-${key}-count`).textContent='—';$(`ability-${key}`)?.classList.add('cooldown');}
   }
+  combatHUD.update({uiMode:objectivePractice?'objective':rangeSession?'range':exploring?'practice':'match',alive:player.alive,hp:player.hp,armor:player.armor,mag:firearm?armedWeapon.mag:0,ammo:player.ammo,ultPoints:k.ultPoints,planted});
   competitiveUI.update({uiMode:objectivePractice?'objective':rangeSession?'range':exploring?'practice':'match',phase:match.phase,alive:player.alive,round:match.round,hp:player.hp,weaponId:inventory.active,mag:firearm?armedWeapon.mag:0,ammo:player.ammo,reloading:reloading>0||!!player.serviceReload,overtime:match.overtime,seconds:timeLeft,side:ownSide(),planted,spikeStatus:s.status,carrier:s.carrier===player.id,ultPoints:k.ultPoints,aimKey:duckAim,character:k.character,skills:[...['c','q','e'].map(key=>({key,...getCharacterSkill(k.character,key)})),getCharacterUltimate(k.character)]});
 }
 function drawMinimap(target,large=false){
@@ -3294,9 +3303,24 @@ function drawMinimap(target,large=false){
 
 function enemyRimFor(bot){const viewerTeam=!player.alive&&spectatedBot?spectatedBot.team:player.team;return mode!=='menu'&&(viewerTeam==='blue'||viewerTeam==='red')&&(bot.team==='blue'||bot.team==='red')&&bot.team!==viewerTeam;}
 function agentEquipment(bot){const weapon=bot.remoteId?bot.netWeapon:bot.netTarget?.weapon||bot.record?.primary||bot.record?.secondary||"classic";return {weapon,unarmed:!!renkoUnarmed(bot),character:bot.kit?.character||bot.netTarget?.kit?.character||'duelist',ultimate:bot.kit?.knivesActive&&weapon==="knife",knives:bot.kit?.knives||0,shotSequence:bot.netTarget?.shotSequence??bot.shotSequence??0,enemyRim:enemyRimFor(bot),crouch:bot.crouch||0,sliding:(frostSlideSpeed(bot)>0||renkoSliding(bot))&&!!bot.moving,...roundDanceState(match,bot),...(reducedMotion.matches?{danceTime:0}:{})};}
+// Layered maps (Hirakata) resolve their first spawn-to-site routes during the
+// buy phase, a few frames apart, instead of all CPUs paying for them in the
+// first live frame. Only navigation caches are filled; no actor state changes.
+function prewarmBotRoutes(){
+  const state=prewarmBotRoutes.state;
+  if(!state||state.navigation!==navigation||state.round!==match.round||state.map!==map){
+    const goals=map.sites.flatMap(site=>(site.plantPositions?.length?site.plantPositions:[site]).map(p=>({x:p.x,z:p.z,y:p.y??site.y??0})));
+    const starts=[...(map.teamSpawns?.attack||[]),...(map.teamSpawns?.defend||[])];
+    prewarmBotRoutes.state={navigation,round:match.round,map,tick:0,queue:starts.flatMap(a=>goals.map(b=>[a,b]))};
+    return;
+  }
+  if(!state.queue.length||++state.tick%3)return;
+  const [a,b]=state.queue.shift();navigation.path(a.x,a.z,b.x,b.z,a.y||0,b.y||0);
+}
 function updateBots(dt){
   const cfg=levels.hard;
   if(!isGuest())navigation.updateTraffic?.(elapsed);
+  if(!isGuest()&&match?.phase==='buy'&&map.layeredNavigation)prewarmBotRoutes();
   const actors=[player,...bots];
   const robotUnits=robotArmy.units();
   const distance=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
