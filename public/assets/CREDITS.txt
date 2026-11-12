@@ -47,3 +47,28 @@ Granite uses a joint-free crop with matched repeat edges.
 Source/prepared hashes are embedded in provenance. Maps are bundled locally;
 gameplay makes no provider request.
 See scripts/prepare-hirakata-district-materials.py.
+
+solder-idol-asset.js / solder-avatar.js — local Idol appearance for ember
+Character concept: project reference solder-technician-concept-v1.png, generated
+with the built-in image generator on 2026-11-02; this is not a Meshy output.
+Reference SHA256: b41acd84f079d2c46e460b713a4a94100189ad4ff169a17db4104de354244a95
+Local reconstruction: speridlabs/Idol, using the Comfy-Org/Idol repack at
+edb29d75b656a4484306d564aace9a0627f5bab4 and ComfyUI TripoSplat support.
+https://huggingface.co/Comfy-Org/Idol
+https://huggingface.co/speridlabs/idol
+The Idol model cards identify Apache-2.0. Image conditioning uses DINOv3 under
+Meta's DINOv3 license and the FLUX.2 autoencoder (Apache-2.0); background removal
+uses Comfy-Org/BiRefNet (MIT metadata). These are tool/model license descriptions,
+not a blanket Apache-2.0 license declaration for this generated character.
+https://github.com/facebookresearch/dinov3/blob/6876159a11b4df116f30f667f8c9888617df0751/LICENSE.md
+https://github.com/black-forest-labs/flux2/blob/50fe5162777813d869182b139e83b10743caef15/README.md#flux2-autoencoder
+https://huggingface.co/Comfy-Org/BiRefNet/tree/884af709e9b795d89dafbf97f29c8d6a2386f5c6
+The source is a local 262144-Gaussian result, converted to a vertex-colored mesh
+with SplatToMesh resolution 256 / level 0.30. Its colors are generated appearance,
+not separately recovered albedo/normal/roughness texture maps. Blender prepares
+lightweight geometry for the existing rigid gameplay rig; original gripping
+hands, weapon grips and team band are retained. No inference weights ship.
+Source mesh SHA256: 3e97172a521008b4a3080fd2b4e8caa368dc9a09647f02a317a18e4f218606a5
+
+Packed runtime geometry:24,924 triangles; SHA2568a21c33e996894cea980e2c96fe617f94919de564f8ef3858af993a866bbbd1e.
+Authored opaque goggles/frame and circuit-board details are retained and fitted to the generated surface; gripping hands keep their geometry with a matching skin color.

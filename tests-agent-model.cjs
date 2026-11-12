@@ -3,6 +3,10 @@ const {createHash} = require('node:crypto');
 const path = require('node:path');
 const {pathToFileURL} = require('node:url');
 
+// Frozen after the final generated appearance and fitted details passed visual review.
+// This records the accepted replacement rather than accepting its current bytes.
+const SOLDER_IDOL_GEOMETRY_SHA = 'a02a756d0c8dd8d2fb231a896685da3bf9258e3da3f30ae9cb4181e6aa555f1b';
+
 async function main() {
   const load = file => import(pathToFileURL(path.join(__dirname, 'public', file)).href);
   const [THREE, {createAgentModel, createEquipmentSurface, createWeaponModel}, {createViewmodel}, {createDroppedEquipment}] = await Promise.all([
@@ -222,9 +226,9 @@ async function main() {
   const freshDisposal = watch(freshTextures); fresh.dispose(); fresh.dispose(); allCounts(freshDisposal, 1, 'A replacement cache has the same ownership contract');
   const roles=['duelist','nope','mend','echo','veil','ember','frost'],roleModels=roles.map(character=>createAgentModel(THREE,{bot:{id:character},team:'blue',variant:0,character}));
   assert.equal(roles.length,7,'The roster has seven distinct visual identities');
-  // Only NOPE's exterior changes. Every completed reference avatar stays exact.
+  // Idol intentionally replaces EMBER's exterior. The other reference avatars stay exact.
   const replacementRoles=new Set(roles);
-  const priorGeometry={duelist:'20b5a6396083bd187ac604037a8430a2e737595cb329e5b65ab704acc6858390',mend:'2bab1a2a4773fdb541c265a15a66684fdf13c5d19b872e7f2b22777c1f38d36a',echo:'ec41a827faa8bbc026fc9ed7c1d29311b063d9f3c8437bd1a58f6413c8105211',veil:'087dc0692655041082bf794f8eb54d339a5d0f67c0ae3358bd83570b4caee056',ember:'f492074f01ee251d2d016100c820fbfc1f206fe1a6886e67ef3129c6a741cb52',frost:'a68efe714a73fa20b1ea60edabc9f940bfb3e2cf807df4653dd8824e5ec54bf9'};
+  const priorGeometry={duelist:'20b5a6396083bd187ac604037a8430a2e737595cb329e5b65ab704acc6858390',mend:'2bab1a2a4773fdb541c265a15a66684fdf13c5d19b872e7f2b22777c1f38d36a',echo:'ec41a827faa8bbc026fc9ed7c1d29311b063d9f3c8437bd1a58f6413c8105211',veil:'087dc0692655041082bf794f8eb54d339a5d0f67c0ae3358bd83570b4caee056',frost:'a68efe714a73fa20b1ea60edabc9f940bfb3e2cf807df4653dd8824e5ec54bf9'};
   const roleFinishes=new Set(agentTextures(roleModels[0])),roleFinishDisposal=watch(roleFinishes),roleMetrics=[];
   const hitSignature=model=>{
     const hash=createHash('sha256');
@@ -237,11 +241,10 @@ async function main() {
     assert.equal(model.group.userData.character,character);assert.equal(model.meshes.length,52);assert.equal(hitSignature(model),hitBaseline,'All seven roles retain exactly the same 52 legacy geometry references');
     if(priorGeometry[character]){
       const hash=createHash('sha256');model.group.traverse(object=>{if(!object.isMesh)return;for(const name of Object.keys(object.geometry.attributes).sort()){const a=object.geometry.attributes[name];hash.update(name);hash.update(Buffer.from(a.array.buffer,a.array.byteOffset,a.array.byteLength));}if(object.geometry.index)hash.update(Buffer.from(object.geometry.index.array.buffer));});
-      assert.equal(hash.digest('hex'),priorGeometry[character],'The other six full models retain every geometry/UV/vertex-color byte');
+      assert.equal(hash.digest('hex'),priorGeometry[character],'The other completed full models retain every geometry/UV/vertex-color byte');
     }
     if(character==='ember'){
-      const hash=createHash('sha256');model.group.traverse(object=>{if(!object.isMesh)return;for(const name of Object.keys(object.geometry.attributes).sort()){if(name==='color')continue;const a=object.geometry.attributes[name];hash.update(name);hash.update(Buffer.from(a.array.buffer,a.array.byteOffset,a.array.byteLength));}if(object.geometry.index)hash.update(Buffer.from(object.geometry.index.array.buffer));});
-      assert.equal(hash.digest('hex'),'d0900999850d755a992b0738dc72a3e04e0566cd2ba013e088fa1d173baa320e','White goggles do not change any completed worker position, normal, UV or index');
+      assert.equal(avatarGeometrySignature(appearanceResources(model,'ember','Solder avatar / ').geometries),SOLDER_IDOL_GEOMETRY_SHA,'The reviewed Idol appearance retains its exact geometry and vertex-color bytes');
     }
     assert.deepEqual(new Set(agentTextures(model)),roleFinishes,'Role equipment borrows the same four existing body finishes');
     model.group.traverseVisible(object=>{if(!object.isMesh)return;draws++;tris+=(object.geometry.index?.count??object.geometry.attributes.position.count)/3;if(object.userData.character)attachments.push(object);});
@@ -254,7 +257,7 @@ async function main() {
       }else if(character==='duelist'){
         assert.ok(appearanceMeshes(model,'duelist','Star mascot / ').length>0,'WIND retains the completed mascot skin');assert.equal(draws,40);assert.equal(tris,28728);
       }else if(character==='ember'){
-        assert.ok(appearanceMeshes(model,'ember','Solder avatar / ').length>0,'EMBER retains the completed worker avatar');assert.equal(draws,38);assert.equal(tris,43344);
+        assert.ok(appearanceMeshes(model,'ember','Solder avatar / ').length>0,'EMBER uses the complete generated worker avatar');assert.ok(draws<38&&tris<43344,'The generated worker improves on the previous 38 draws and 43,344 triangles');
       }else if(character==='echo'){
         assert.ok(appearanceMeshes(model,'echo','IAGNU avatar / ').length>0,'ECHO retains the completed letter avatar');assert.equal(draws,42);assert.equal(tris,30752);
       }else if(character==='frost'){
@@ -519,35 +522,52 @@ async function main() {
   const solderPart=(model,token)=>{const mesh=solderMeshes(model).find(object=>object.name.toLowerCase().includes(token));assert.ok(mesh,`The worker has a named ${token} part`);return mesh;};
   const solderAssets=solderResources(solderModel),solderGeometryHash=avatarGeometrySignature(solderAssets.geometries),solderPixels=new Map([...solderAssets.textures].map(texture=>[texture.name,digest(texture.image.data)]));
   const solderShared=new Set([...solderAssets.geometries,...solderAssets.materials,...solderAssets.textures]),solderDisposal=watch(solderShared);
-  const workerFace=solderPart(solderModel,'tanned face'),workerHair=solderPart(solderModel,'short black hair'),workerLens=solderPart(solderModel,'safety goggles'),workerShirt=solderPart(solderModel,'blue button work shirt');
-  const workerBoard=solderPart(solderModel,'green circuit board'),workerIron=solderPart(solderModel,'soldering iron');
-  solderPart(solderModel,'goggle frame');solderPart(solderModel,'copper traces');solderPart(solderModel,'shirt collar');solderPart(solderModel,'rolled blue sleeves');solderPart(solderModel,'soldering iron shaft');
-  const meshColor=mesh=>{const colors=mesh.geometry.getAttribute('color'),color=colors?new THREE.Color().setRGB(colors.getX(0),colors.getY(0),colors.getZ(0)).multiply(mesh.material.color):mesh.material.color;return color.getHexString().match(/../g).map(value=>parseInt(value,16));};
-  assert.ok(meshColor(workerHair).every(value=>value<90),'The worker has dark short hair');
-  const shirtColor=meshColor(workerShirt),boardColor=meshColor(workerBoard);
-  assert.ok(shirtColor[2]>shirtColor[0]&&boardColor[1]>boardColor[0]*1.2&&boardColor[1]>boardColor[2],'The blue work shirt and green circuit board have distinct real finishes');
+  // Generated anatomy merges face/hair and the clothing into broad surfaces;
+  // fitted authored goggles/PCB preserve their crisp details. Probe physical regions and interpolated colors
+  // instead of assuming separately named procedural primitives or vertex order.
+  const workerHead=solderMeshes(solderModel).find(mesh=>mesh.geometry.userData.idolFrame==='head');
+  const workerShirt=solderMeshes(solderModel).find(mesh=>mesh.geometry.userData.idolFrame==='body');
+  const workerLens=solderMeshes(solderModel).find(mesh=>mesh.material.name==='Solder avatar finish / opaque white lens');
+  const workerBoard=solderMeshes(solderModel).find(mesh=>!mesh.geometry.userData.idolFrame&&mesh.name.includes('green circuit board'));
+  const workerFrame=solderMeshes(solderModel).find(mesh=>!mesh.geometry.userData.idolFrame&&mesh.name.includes('goggle frame'));
+  assert.ok(workerHead&&workerShirt&&workerLens&&workerBoard&&workerFrame);
+  const colorRegion=(mesh,select,predicate)=>{
+    const positions=mesh.geometry.getAttribute('position'),colors=mesh.geometry.getAttribute('color');
+    const points=[],matched=[];
+    for(let i=0;i<positions.count;i++){
+      const point=new THREE.Vector3().fromBufferAttribute(positions,i);if(!select(point))continue;
+      const color=new THREE.Color().fromBufferAttribute(colors,i).multiply(mesh.material.color);points.push(point);
+      if(predicate(color))matched.push(point);
+    }
+    return {samples:points.length,matched:matched.length,fraction:matched.length/Math.max(1,points.length),bounds:new THREE.Box3().setFromPoints(matched)};
+  };
+  const darkHair=colorRegion(workerHead,p=>p.y>.11,c=>Math.max(c.r,c.g,c.b)<.10);
+  const warmFace=colorRegion(workerHead,p=>p.z>.08&&p.y>-.06&&p.y<.025,c=>c.r>c.g*1.1&&c.g>c.b*1.1);
+  const blueShirt=colorRegion(workerShirt,p=>p.y>1.06&&p.y<1.4,c=>c.b>c.r*1.3&&c.b>c.g*1.15);
+  const greenBoard=colorRegion(workerBoard,p=>p.y>1.2&&p.y<1.4&&p.z>.04,c=>c.g>c.r*1.3&&c.g>c.b*1.1);
+  assert.ok(darkHair.samples>=20&&darkHair.fraction>.6,'The actual upper head carries predominantly dark hair');
+  assert.ok(warmFace.samples>=10&&warmFace.fraction>.6,'The lower front face retains its warm skin region');
+  assert.ok(blueShirt.samples>=100&&blueShirt.fraction>.6,'Blue work cloth covers the torso instead of a single colored vertex');
+  const greenSize=greenBoard.bounds.getSize(new THREE.Vector3());
+  assert.ok(greenBoard.matched>=4&&greenSize.x>.04&&greenSize.y>.02,'A spatially distributed green board finish remains on the chest');
   assert.equal(workerLens.material.transparent,false);assert.equal(workerLens.material.opacity,1);assert.equal(workerLens.material.depthWrite,true);
-  assert.ok(meshColor(workerLens).every(value=>value>=250),'The requested white glasses are actually opaque white');
-  const whiteFrame=solderPart(solderModel,'goggle frame');
-  for(const value of whiteFrame.geometry.getAttribute('color').array)assert.ok(value>.99,'The entire glasses frame and hinges are white');
-  const templeMesh=solderPart(solderModel,'goggle elastic strap'),templePositions=templeMesh.geometry.getAttribute('position'),templeColors=templeMesh.geometry.getAttribute('color');let whiteTempleVertices=0;
-  for(let i=0;i<templePositions.count;i++)if(Math.abs(templePositions.getX(i))>.135&&templePositions.getZ(i)<.12){
-    assert.ok(templeColors.getX(i)>.99&&templeColors.getY(i)>.99&&templeColors.getZ(i)>.99,'Both side temples are white while the separate pupils remain dark');whiteTempleVertices++;
+  let whiteTempleVertices=0;
+  for(const side of [-1,1]){
+    const temple=colorRegion(workerFrame,p=>p.x*side>.09&&p.y>.02&&p.y<.09&&p.z<.04,c=>Math.min(c.r,c.g,c.b)>.8);
+    assert.ok(temple.matched>0,'White glasses extend onto both physical side temples');whiteTempleVertices+=temple.matched;
   }
-  assert.ok(whiteTempleVertices>100,'The white-temple assertion samples actual 3D side geometry');
-  const ironSize=workerIron.geometry.boundingBox.getSize(new THREE.Vector3()),boardSize=workerBoard.geometry.boundingBox.getSize(new THREE.Vector3());
-  assert.ok(Math.max(...ironSize.toArray())>.13&&Math.min(...ironSize.toArray())>.005,'The iron is a real three-dimensional tool');
-  assert.ok(boardSize.x>.06&&boardSize.y>.08&&boardSize.z>.005,'The circuit board has a visible physical panel');
   solderModel.group.updateMatrixWorld(true);
-  for(const part of [workerFace,workerHair,workerLens])matrixClose(part.parent.matrixWorld,solderModel.head.matrixWorld,'The face, hair and goggles follow the original head');
-  const workerPupils=solderMeshes(solderModel).find(mesh=>mesh.name.includes('eyes / eyebrows')&&mesh.material.name==='Solder avatar finish / dark');
-  assert.ok(workerPupils&&workerPupils!==workerHair,'The eyes are distinguishable from the hair in the actual visible geometry');
+  for(const mesh of [workerHead,workerLens,workerFrame])matrixClose(mesh.parent.matrixWorld,solderModel.head.matrixWorld,'The generated face/hair and fitted goggles follow the original head');
   let workerEyeSamples=0;
-  for(const side of [-1,1])for(const x of [-.002,0,.002])for(const y of [-.002,0,.002]){
-    const probe=new THREE.Raycaster(solderModel.head.localToWorld(new THREE.Vector3(side*.053+x,.017+y,.8)),new THREE.Vector3(0,0,-1).transformDirection(solderModel.head.matrixWorld)),hits=[];
+  for(const side of [-1,1])for(const x of [-.006,0,.006])for(const y of [-.005,0,.005]){
+    const probe=new THREE.Raycaster(solderModel.head.localToWorld(new THREE.Vector3(side*.045+x,.05+y,.8)),new THREE.Vector3(0,0,-1).transformDirection(solderModel.head.matrixWorld)),hits=[];
     for(const mesh of solderMeshes(solderModel))THREE.Mesh.prototype.raycast.call(mesh,probe,hits);
     hits.sort((a,b)=>a.distance-b.distance);assert.equal(hits[0]?.object,workerLens,'Both eye areas are covered by the actual safety lens');
-    assert.ok(hits.some(hit=>hit.object===workerPupils),'The original pupil geometry survives behind the intentionally opaque white glasses');workerEyeSamples++;
+    const hit=hits[0],geometry=hit.object.geometry,position=geometry.getAttribute('position'),colors=geometry.getAttribute('color');
+    const triangle=[hit.face.a,hit.face.b,hit.face.c],vertices=triangle.map(index=>new THREE.Vector3().fromBufferAttribute(position,index)),weights=new THREE.Vector3();
+    THREE.Triangle.getBarycoord(hit.object.worldToLocal(hit.point.clone()),...vertices,weights);
+    const color=new THREE.Color(0,0,0);for(let i=0;i<3;i++)color.add(new THREE.Color().fromBufferAttribute(colors,triangle[i]).multiplyScalar(weights.getComponent(i)));color.multiply(hit.object.material.color);
+    assert.ok(Math.min(color.r,color.g,color.b)>.75&&Math.max(color.r,color.g,color.b)-Math.min(color.r,color.g,color.b)<.2,'The actual interpolated eye surfaces are opaque white, including low-poly edge blending');workerEyeSamples++;
   }
   for(const mesh of solderMeshes(solderModel)){
     assert.equal(effectivelyVisible(mesh),true);assert.equal(solderModel.meshes.includes(mesh),false);assert.equal(mesh.userData.solid,false);assert.equal(typeof mesh.userData.head,'boolean');assert.ok(mesh.userData.bot);
@@ -973,7 +993,7 @@ async function main() {
   for(const resource of [...recreatedNopeAssets.geometries,...recreatedNopeAssets.materials,...recreatedNopeAssets.textures])assert.equal(nopeShared.has(resource),false,'NOPE cannot resurrect disposed shared resources');
   assert.equal(avatarGeometrySignature(recreatedNopeAssets.geometries),nopeGeometryHash);assert.deepEqual(new Map([...recreatedNopeAssets.textures].map(texture=>[texture.name,digest(texture.image.data)])),nopePixels,'The modeled expression and original label regenerate deterministically');
   const recreatedNopeAll=resources(recreatedNope.group),recreatedNopeDisposal=watch([...recreatedNopeAll.geometries,...recreatedNopeAll.materials,...recreatedNopeAll.textures]);recreatedNope.dispose();recreatedNope.dispose();allCounts(recreatedNopeDisposal,1,'Recreated NOPE shared assets and private combat rig release once');
-  console.log('PASS: six unchanged exteriors, curved NOPE face and cola bottle, original 52 geometry references/weapons plus visible hit surfaces, all poses, 300 switches and single-owner resource cleanup');
+  console.log('PASS: preserved reference exteriors, generated Idol worker, curved NOPE face and cola bottle, original 52 geometry references/weapons plus visible hit surfaces, all poses, 300 switches and single-owner resource cleanup');
   console.log(JSON.stringify({nopeFaceSamples,nopeGeometries:nopeAssets.geometries.size,nopeMaterials:nopeShared.size-nopeAssets.geometries.size-nopeAssets.textures.size,nopeTextures:nopeAssets.textures.size,nopeTextureBytes:512*512*4}));
   console.log(JSON.stringify({visibleMeshes, triangles, sharedTextures:4, sharedBaseBytes:baseBytes, sharedMippedKiB:+(baseBytes*4/3/1024).toFixed(1)}));
   console.log(JSON.stringify({roles:roleMetrics,roleSwitches:300,clothedKneeSamples,avatarSharedGeometries:avatarResources.geometries.size,avatarSharedMaterials:avatarResources.materials.size,avatarSharedTextures:avatarResources.textures.size,avatarSharedBaseBytes:avatarBytes,mascotEyeStars:eyeStars,mascotMouthSamples:mouthSamples,mascotSharedGeometries:starAssets.geometries.size,mascotSharedMaterials:starShared.size-starAssets.geometries.size-starAssets.textures.size,mascotSharedTextures:starAssets.textures.size,mascotSharedBaseBytes:starBytes,workerEyeSamples,whiteTempleVertices,workerSharedGeometries:solderAssets.geometries.size,workerSharedMaterials:solderShared.size-solderAssets.geometries.size-solderAssets.textures.size,workerSharedTextures:solderAssets.textures.size,workerSharedBaseBytes:solderBytes,letterRaySamples,letterSharedGeometries:iagnuAssets.geometries.size,letterSharedMaterials:iagnuShared.size-iagnuAssets.geometries.size-iagnuAssets.textures.size,letterSharedTextures:iagnuAssets.textures.size,onoEyeSamples,onoCrownSamples,onoClothedKneeSamples,onoSharedGeometries:onoAssets.geometries.size,onoSharedMaterials:onoShared.size-onoAssets.geometries.size-onoAssets.textures.size,onoSharedTextures:onoAssets.textures.size,onoSharedBaseBytes:onoBytes,grassCubeSamples,grassSharedGeometries:grassAssets.geometries.size,grassSharedMaterials:grassShared.size-grassAssets.geometries.size-grassAssets.textures.size,grassSharedTextures:grassAssets.textures.size,grassSharedBaseBytes:grassBytes}));
