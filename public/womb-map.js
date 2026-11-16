@@ -1,4 +1,5 @@
 import {createCollisionIndex,rampHeight} from './collision.js';
+import {createWombLighting} from './womb-lighting.js';
 import {WOMB_PLAN,WOMB_CORES,WOMB_LEVELS,WOMB_STOREY,WOMB_STAIRS,WOMB_BOUNDS,wombPoint as P,wombRect as R,wombPolygon as polygon,wombRegion,contains,wombFloorIndex} from './womb-layout.js';
 
 // Independent four-storey club. All dimensions are the approved game proposal,
@@ -41,9 +42,19 @@ export function createWombMap(T,scene){
   }
   // Never draw the internal edges of partitioned slabs, or skirts already
   // covered by the lower storey's wall (notably around the tall atrium).
-  for(const [x,z,X,Z]of region.edges){const mx=(x+X)/2,mz=(z+Z)/2;
-   if(colliders.some(c=>c.kind==='building'&&c.base<=top-.24+1e-6&&c.height>=top-1e-6&&contains(c,mx,mz)))continue;
-   quad([x,top-.24,z],[X,top-.24,Z],[X,top,Z],[x,top,z],'floor');
+  for(const [x,z,X,Z]of region.edges){
+   const vertical=x===X,start=vertical?z:x,end=vertical?Z:X,at=vertical?x:z;let spans=[[Math.min(start,end),Math.max(start,end)]];
+   // A long atrium edge can cross a doorway. Testing only its midpoint leaves
+   // duplicate wall faces either side of that opening; subtract each overlap.
+   for(const c of colliders){if(c.kind!=='building'||c.base>top-.24+1e-6||c.height<top-1e-6)continue;
+    if(at<(vertical?c.minX:c.minZ)-1e-6||at>(vertical?c.maxX:c.maxZ)+1e-6)continue;
+    const lo=vertical?c.minZ:c.minX,hi=vertical?c.maxZ:c.maxX;
+    spans=spans.flatMap(([a,b])=>hi<=a||lo>=b?[[a,b]]:[...(lo>a?[[a,Math.min(b,lo)]]:[]),...(hi<b?[[Math.max(a,hi),b]]:[])]);
+   }
+   for(const [lo,hi]of spans){const a=end>start?lo:hi,b=end>start?hi:lo;
+    const ax=vertical?x:a,az=vertical?a:z,bx=vertical?X:b,bz=vertical?b:Z;
+    quad([ax,top-.24,az],[bx,top-.24,bz],[bx,top,bz],[ax,top,az],'floor');
+   }
   }
   return region.rectangles;
  }
@@ -143,7 +154,7 @@ export function createWombMap(T,scene){
   const points=[[x,z],[x-2,z+1.5],[x+2,z-1.5]].map(([x,z],i)=>({id:`${id}-${['open','cover','deep'][i]}`,style:['open','cover','deep'][i],x,z,y}));
   return {id,name:`${f+1}F / ${id} ${id==='A'?'メインフロア':'サブフロア'}`,x,z,y,radius:3,polygon:polygon(r),plantPositions:points,floor:f+1};
  });
- for(const [key,b]of batches){const g=new T.BufferGeometry();for(const name of ['position','normal','color'])g.setAttribute(name,new T.Float32BufferAttribute(b[name],3));g.computeBoundingSphere();const mesh=new T.Mesh(g,materials[b.material]);mesh.name='WOMB / '+key;mesh.userData.solid=true;mesh.receiveShadow=true;world.add(mesh);}
+ for(const [key,b]of batches){const g=new T.BufferGeometry();for(const name of ['position','normal','color'])g.setAttribute(name,new T.Float32BufferAttribute(b[name],3));g.computeBoundingSphere();const mesh=new T.Mesh(g,materials[b.material]);mesh.name='WOMB / '+key;mesh.userData.solid=true;mesh.userData.wombBake=!['A','B','purple','light'].includes(b.material);mesh.receiveShadow=true;world.add(mesh);}
  const teamSpawns={attack:[17,13,15,19,21].map(x=>P(x,39.5)),defend:[17,13,15,19,21].map(x=>P(x,39,7.2))};
  const landmarks=[{id:'entry',name:'1F エントランス',...teamSpawns.attack[0],yaw:0},
   {id:'bar',name:'1F バー回遊路',...P(11.8,23),yaw:-Math.PI/2},
@@ -172,5 +183,7 @@ export function createWombMap(T,scene){
    return [...new Set(heights)];
   }
  };
- world.updateMatrixWorld(true);return map;
+ world.updateMatrixWorld(true);map.lightingStudy=createWombLighting(T,map);
+ map.syncCollapseFloors=()=>map.lightingStudy.syncCollapse(!!world.userData.bomberCollapsed);
+ return map;
 }

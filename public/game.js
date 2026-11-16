@@ -254,7 +254,7 @@ let difficulty = 'hard', soundEnabled = true, volume = .45, sensitivity = .35;
 let menuT = 0, pointerRequested = false, inputActive = false;
 let pointerLockRequest=0,pointerLockInput='unlocked';
 let touchMove = { x:0, y:0 }, touchLook = null, movePointer = null;
-let mouseAnchor=null,renderedRecoil=0;
+let mouseAnchor=null,renderedRecoil=0,mouseEventSource='mousemove';
 // Explicit local diagnosis only. No storage, network transmission or per-event DOM work.
 const mouseInputTrace=typeof location!=='undefined'&&new URLSearchParams(location.search).has('inputTrace')?{rows:new Array(2048),next:0,size:0}:null;
 const levels = { hard:{ interval:.7, aim:.94, speed:2.7, turnRate:Math.PI*.8, reaction:.14 } };
@@ -1685,11 +1685,11 @@ function startCharacterTrial(){
 function updateTravelButtons(){
   const container=$('landmark-travel');if(!container)return;container.replaceChildren();
   if(map.lightingStudy&&exploring&&!rangeSession&&!objectivePractice){
-    const study=map.lightingStudy,button=document.createElement('button');button.type='button';
-    const label=()=>{button.disabled=!study.ready;button.textContent=study.error?'TRC照明：読込失敗':!study.ready?'TRC照明：読込中':`TRC照明：${study.enabled?'ベイク → 従来':'従来 → ベイク'}`;};
+    const study=map.lightingStudy,name=study.label||'TRC',button=document.createElement('button');button.type='button';
+    const label=()=>{button.disabled=!study.ready;button.textContent=study.error?`${name}照明：読込失敗`:!study.ready?`${name}照明：読込中`:`${name}照明：${study.enabled?'ベイク → 従来':'従来 → ベイク'}`;};
     label();study.promise.then(label);
-    button.title='現在位置のままTRC全体の照明を比較';
-    button.addEventListener('click',()=>{if(!study.ready)return;study.setEnabled(!study.enabled);label();resumeGame();showMessage(study.enabled?'TRC / BAKED':'TRC / ORIGINAL','Mで同じ視点のまま照明を切り替え',2);});container.append(button);
+    button.title=`現在位置のまま${name}全体の照明を比較`;
+    button.addEventListener('click',()=>{if(!study.ready)return;study.setEnabled(!study.enabled);label();resumeGame();showMessage(name+(study.enabled?' / BAKED':' / ORIGINAL'),'Mで同じ視点のまま照明を切り替え',2);});container.append(button);
   }
   if(objectivePractice){for(const siteId of ['A','B']){const button=document.createElement('button');button.type='button';button.textContent=`${siteId}でやり直す`;button.addEventListener('click',()=>{if(resetObjectivePractice(siteId))resumeGame();});container.append(button);}return;}
   for(const landmark of map.landmarks||[]){const button=document.createElement('button');button.type='button';button.textContent=landmark.name;button.disabled=!exploring;button.title=exploring?'この地点から練習':'マップ練習モードで移動できます';
@@ -4851,7 +4851,7 @@ $('online-start')?.addEventListener('click',()=>online?.start($('online-format')
 $('online-leave')?.addEventListener('click',()=>leaveOnline());
 restoreRoomSession();
 
-function resetMouseLook(){mouseAnchor=null;}
+function resetMouseLook(){mouseAnchor=null;mouseEventSource='mousemove';}
 function clearMouseInputTrace(){
   if(!mouseInputTrace)return;
   mouseInputTrace.rows.fill(null);mouseInputTrace.next=0;mouseInputTrace.size=0;
@@ -4862,7 +4862,7 @@ function flushMouseInputTrace(){
   const rows=[];
   for(let i=0;i<mouseInputTrace.size;i++)rows.push(mouseInputTrace.rows[(mouseInputTrace.next-mouseInputTrace.size+i+2048)%2048]);
   const output=$('mouse-input-diagnostics');
-  if(output)output.textContent=JSON.stringify({version:1,mode,phase:match?.phase,sensitivity,pointerLockInput,columns:['time','clientX','clientY','movementX','movementY','locked','yawBefore','pitchBefore','yawAfter','pitchAfter','cameraX','cameraY','width','height','anchorX','anchorY','matchesX','matchesY'],rows});
+  if(output)output.textContent=JSON.stringify({version:1,mode,phase:match?.phase,sensitivity,pointerLockInput,mouseEventSource,columns:['time','clientX','clientY','movementX','movementY','locked','yawBefore','pitchBefore','yawAfter','pitchAfter','cameraX','cameraY','width','height','anchorX','anchorY','matchesX','matchesY'],rows});
 }
 function observeMouseLook(event){
   if(!mouseInputTrace||mode!=='play'||!player.alive||event.sourceCapabilities?.firesTouchEvents){mouseLook(event);return;}
@@ -4872,8 +4872,8 @@ function observeMouseLook(event){
   mouseInputTrace.rows[mouseInputTrace.next]=[event.timeStamp,event.clientX,event.clientY,event.movementX,event.movementY,document.pointerLockElement===canvas?1:0,yaw,pitch,player.yaw,player.pitch,camera.rotation.x,camera.rotation.y,innerWidth,innerHeight,anchor?.x,anchor?.y,anchor?.relativeMatchesX,anchor?.relativeMatchesY].map(finite);
   mouseInputTrace.next=(mouseInputTrace.next+1)%2048;mouseInputTrace.size=Math.min(2048,mouseInputTrace.size+1);
 }
-function look(dx,dy){
-  if(netHostPaused||mode!=='play'||!player.alive||!Number.isFinite(dx)||!Number.isFinite(dy)||Math.abs(dx)>500||Math.abs(dy)>500)return;
+function look(dx,dy,relative=false){
+  if(netHostPaused||mode!=='play'||!player.alive||!Number.isFinite(dx)||!Number.isFinite(dy)||!relative&&(Math.abs(dx)>500||Math.abs(dy)>500))return;
   player.yaw-=dx*.002*sensitivity;player.pitch=clamp(player.pitch-dy*.002*sensitivity,-SKILL_THROW.maxPitch,SKILL_THROW.maxPitch);
   // Input owns the view angle; physics/recoil still advance on the normal frame.
   // Keep victory/vehicle cameras under their own controller.
@@ -4891,7 +4891,7 @@ function mouseLook(event){
     // Pointer capture can emit a recenter movement; discard its first sample.
     mouseAnchor=next;
     if(!previous||!previous.locked||previous.width!==next.width||previous.height!==next.height)return;
-    look(event.movementX,event.movementY);return;
+    look(event.movementX,event.movementY,mouseEventSource==='pointerrawupdate');return;
   }
   if(event.target!==canvas||!Number.isFinite(event.clientX)||!Number.isFinite(event.clientY)){resetMouseLook();return;}
   mouseAnchor=next;
@@ -4949,7 +4949,19 @@ document.addEventListener('pointerlockchange',()=>{
   if(wasLocked&&!locked&&mode==='play')pauseGame();
 });
 document.addEventListener('pointerlockerror',()=>{if(document.pointerLockElement===canvas||pointerLockInput.startsWith('requesting-'))return;resetMouseLook();pointerLockInput='unlocked';inputActive=true;if(mode==='play')showMessage('MOUSE LOOK','マウスを動かすだけで視点を操作できます',3);});
-document.addEventListener('mousemove',observeMouseLook);
+// Chromium/Edge delivers pointerrawupdate before frame-aligned compatibility
+// mousemove. Switch only after receiving a real mouse packet while locked;
+// feature detection alone could disable aiming on a partially supported browser.
+// The dispatched packet already contains coalesced movement: do not add its
+// children again, and do not process the matching mousemove a second time.
+document.addEventListener('pointerrawupdate',event=>{
+  if(event.pointerType!=='mouse'||event.isPrimary===false||event.sourceCapabilities?.firesTouchEvents||!locked||document.pointerLockElement!==canvas||netHostPaused||mode!=='play'||!player.alive||!Number.isFinite(event.movementX)||!Number.isFinite(event.movementY))return;
+  mouseEventSource='pointerrawupdate';observeMouseLook(event);
+},{passive:true});
+document.addEventListener('mousemove',event=>{
+  if(mouseEventSource==='pointerrawupdate'&&locked&&document.pointerLockElement===canvas)return;
+  observeMouseLook(event);
+},{passive:true});
 canvas.addEventListener('mouseenter',resetMouseLook);canvas.addEventListener('mouseleave',resetMouseLook);
 canvas.addEventListener('mousedown',e=>{if(duckAim){e.preventDefault();if(e.button===2&&(toggleCapMode()||toggleRobotMode()))return;
     if(e.button===2){duckAim=null;showMessage('スキルを取り消しました','回数は消費していません',1);return;}if(e.button===0){const key=duckAim;duckAim=null;confirmDuckSkill(key);return;}}if(netHostPaused||mode!=='play')return;if(!player.alive){if(e.button===0&&!deathView.holding)spectateIndex++;return;}if(e.button===0){firing=true;shoot();}if(e.button===2){if(player.kit.knivesActive&&inventory.active==='knife'){e.preventDefault();firing=false;shoot(elapsed,true);}else aiming=!renkoUnarmed(player)&&weapon().slot==='primary'&&!ordinarySkills.capLocked(player.id,elapsed);}});
@@ -5120,7 +5132,7 @@ function frame(now){
   syncDeathUI();const renderStart=frameDiagnostics?performance.now():0;renderWithDetonation(dt);
   if(frameDiagnostics){const f=frameDiagnostics;f.rows[f.next]=[frameInterval,renderStart-frameStart,performance.now()-renderStart];f.next=(f.next+1)%180;
     if(++f.count%60===0){const percentile=(k,p)=>{const a=f.rows.map(r=>r[k]).sort((a,b)=>a-b);return +a[Math.floor((a.length-1)*p)].toFixed(2);};
-      const output=$('frame-diagnostics');if(output)output.textContent=JSON.stringify({map:map.id,mode,samples:f.rows.length,intervalMedianMs:percentile(0,.5),intervalP95Ms:percentile(0,.95),updateP95Ms:percentile(1,.95),renderSubmissionP95Ms:percentile(2,.95),shadowSize:sun.shadow.mapSize.x,bake:!!map.lightingStudy?.enabled});
+      const output=$('frame-diagnostics');if(output)output.textContent=JSON.stringify({map:map.id,mode,samples:f.rows.length,intervalMedianMs:percentile(0,.5),intervalP95Ms:percentile(0,.95),updateP95Ms:percentile(1,.95),renderSubmissionP95Ms:percentile(2,.95),shadowSize:sun.shadow.mapSize.x,bake:!!(map.lightingStudy?.enabled&&map.lightingStudy?.ready),mouseEventSource});
     }
   }
 }

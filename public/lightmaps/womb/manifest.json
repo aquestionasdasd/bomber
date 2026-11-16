@@ -1,0 +1,17 @@
+{
+  "hash": "35dc13f7",
+  "size": 2048,
+  "density": 10.2,
+  "charts": 1431,
+  "scope": "WOMB complete stage",
+  "aoSize": 2048,
+  "probes": [],
+  "lights": 110,
+  "engine": "Blender 4.2 / Cycles",
+  "device": "OPTIX",
+  "samples": 256,
+  "bounces": 6,
+  "denoise": "chart-bounded Gaussian irradiance / sigma 1.200 texels",
+  "encodingScale": 0.25,
+  "assetHash": "bc5bc4690b990caf"
+}
