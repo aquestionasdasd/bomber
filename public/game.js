@@ -1221,12 +1221,41 @@ function makeBot(spawn,index,team='red',record=null) {
   bot.group.position.set(spawn.x,bot.y,spawn.z);botsGroup.add(bot.group);bots.push(bot);
   visual.update(0,{...agentEquipment(bot),time:elapsed,alive:bot.alive});
 }
-function clearBots() {
-  playerShotModel?.dispose();playerShotModel=null;
+// Avatar geometry, painted textures and their shader programs are reference
+// counted: disposing the last model of a round destroys them, and the next
+// roster then rebuilds and recompiles everything (a long round-start stall,
+// then compile hitches when each enemy first comes into view). A round respawn
+// therefore passes retain=true, builds the new roster, and only then releases
+// the detached old models through releaseRetiredBots().
+function clearBots(retain=false) {
+  const retired=bots.map(bot=>bot.visual);
+  if(playerShotModel)retired.push(playerShotModel);
+  playerShotModel=null;
   victoryCamera.reset();lastSpectatedId=null;
   spectatedBot=null;
-  for(const bot of bots)bot.visual.dispose();
   bots.length=0;
+  if(!retain){for(const visual of retired)visual.dispose();return [];}
+  for(const visual of retired)visual.group.removeFromParent();
+  return retired;
+}
+// Tracers and hit sparks create and dispose a material per shot. Whenever
+// none was alive three.js deleted their shader program, so the first shot
+// after any lull linked it again on that frame. These never-drawn anchors
+// keep one reference to each program for as long as the page lives.
+const effectProgramAnchors=new THREE.Group();
+effectProgramAnchors.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(),new THREE.Vector3(0,0,1)]),new THREE.LineBasicMaterial({color:'#ffeab0',transparent:true,opacity:.8})),
+  new THREE.Mesh(new THREE.BoxGeometry(.045,.045,.045),new THREE.MeshBasicMaterial({color:'#ffac6b',transparent:true})));
+function releaseRetiredBots(retired,everything=false){
+  // Bind programs for the incoming models while the outgoing materials still
+  // hold them, so a shared program is reused instead of deleted and relinked.
+  // The first round of a match also walks the pooled (hidden) skill effects,
+  // moving their first-use compilation from mid-fight to the buy phase.
+  try{
+    renderer.compile(effectProgramAnchors,camera,scene);
+    if(everything)renderer.compile(scene,camera);
+    else if(bots.length)renderer.compile(botsGroup,camera,scene);
+  }catch{}
+  for(const visual of retired)visual.dispose();
 }
 function spawnRound(reset=false) {
   if(reset)redLossStreak=0;
@@ -1241,7 +1270,8 @@ function spawnRound(reset=false) {
   resetDetonation();
   resetTakeover();
   resetTeamAbilities();
-  clearBots();
+  const retiredBots=clearBots(true);
+  try{
   clearDrops();
   syncSmokes([]);player.kit.resetRound({reset});player.dashTimer=0;player.dashVec=null;
   if(reset||!player.alive){inventory={primary:null,secondary:'classic',active:'classic'};player.armor=0;}
@@ -1268,6 +1298,7 @@ function spawnRound(reset=false) {
     makeBot(points[index],index,record.team,record);
     const actor=bots[bots.length-1];if(record.memberId){actor.kit=record.kit;actor.remoteId=record.netFallback?null:record.memberId;actor.netYaw=actor.group.rotation.y-Math.PI;actor.netAmmo=(WEAPONS[record.primary||record.secondary]||WEAPONS.classic).mag;actor.netReserve=(WEAPONS[record.primary||record.secondary]||WEAPONS.classic).reserve;actor.netWeapon=record.primary||record.secondary;actor.lastNetShot=-10;actor.lastNetInput=elapsed;}
   }
+  }finally{releaseRetiredBots(retiredBots,reset);}
   equip(inventory.primary||inventory.secondary,true);setVisible('spectator-hint',false);setVisible('round-banner',false);
   if(!isGuest())placeStartingBomber();
   syncBuyBarrier();

@@ -50,7 +50,9 @@ export function createCollisionIndex(colliders, cellSize = 20) {
   cellSize = Number.isFinite(cellSize) && cellSize > 0 ? cellSize : 20;
   const buckets = new Map(), geometry = new WeakMap();
   let indexedLength = -1, indexedTail, revision = 0;
-  const bucketKey = (x, z) => `${x},${z}`;
+  // Grid cells near the origin use a number key: the string form allocated on
+  // every lookup in the movement/sight hot paths. Remote cells keep the string.
+  const bucketKey = (x, z) => x > -32768 && x < 32768 && z > -32768 && z < 32768 ? (x + 32768) * 65536 + (z + 32768) : `${x},${z}`;
   function refresh() {
     if (indexedLength === colliders.length && indexedTail === colliders.at(-1)) return;
     buckets.clear(); indexedLength = colliders.length; indexedTail = colliders.at(-1); revision++;
@@ -85,9 +87,21 @@ export function createCollisionIndex(colliders, cellSize = 20) {
   }
   function query(x, z, r = 0) {
     if (!Number.isFinite(x) || !Number.isFinite(z) || !Number.isFinite(r) || r < 0) return [];
-    refresh(); const result = new Set();
-    for (let gz = Math.floor((z - r) / cellSize); gz <= Math.floor((z + r) / cellSize); gz++) {
-      for (let gx = Math.floor((x - r) / cellSize); gx <= Math.floor((x + r) / cellSize); gx++) {
+    refresh();
+    const minGX = Math.floor((x - r) / cellSize), maxGX = Math.floor((x + r) / cellSize);
+    const minGZ = Math.floor((z - r) / cellSize), maxGZ = Math.floor((z + r) / cellSize);
+    if (minGX === maxGX && minGZ === maxGZ) {
+      // Most actor-sized queries stay inside one cell: same members and order
+      // as the general path below, without the intermediate Set.
+      const single = [], bucket = buckets.get(bucketKey(minGX, minGZ));
+      if (bucket) for (const c of bucket) {
+        if (x + r >= c.minX && x - r <= c.maxX && z + r >= c.minZ && z - r <= c.maxZ && !single.includes(c)) single.push(c);
+      }
+      return single;
+    }
+    const result = new Set();
+    for (let gz = minGZ; gz <= maxGZ; gz++) {
+      for (let gx = minGX; gx <= maxGX; gx++) {
         for (const c of buckets.get(bucketKey(gx, gz)) || []) {
           if (x + r >= c.minX && x - r <= c.maxX && z + r >= c.minZ && z - r <= c.maxZ) result.add(c);
         }
@@ -97,8 +111,21 @@ export function createCollisionIndex(colliders, cellSize = 20) {
   }
   const blocksAtHeight = (c, feet, height) => !c.disabled && c.height > feet + EPS && (c.base || 0) < feet + height - EPS;
   function blocked(x, z, r = .34, feet = 0, height = 1.7) {
-    if (![x, z, r, feet, height].every(Number.isFinite) || r < 0 || height <= 0) return true;
-    return query(x, z, r).some(c => !c.disabled && movementTop(c, x, z) > feet + EPS && (c.base || 0) < feet + height - EPS && overlaps(c, x, z, r));
+    if (!Number.isFinite(x) || !Number.isFinite(z) || !Number.isFinite(r) || !Number.isFinite(feet) || !Number.isFinite(height) || r < 0 || height <= 0) return true;
+    // Same predicate as query(x, z, r).some(...), evaluated in place: a yes/no
+    // answer needs neither the de-duplicated candidate list nor its ordering.
+    refresh();
+    const maxGX = Math.floor((x + r) / cellSize), maxGZ = Math.floor((z + r) / cellSize);
+    for (let gz = Math.floor((z - r) / cellSize); gz <= maxGZ; gz++) {
+      for (let gx = Math.floor((x - r) / cellSize); gx <= maxGX; gx++) {
+        const bucket = buckets.get(bucketKey(gx, gz));
+        if (bucket) for (const c of bucket) {
+          if (x + r >= c.minX && x - r <= c.maxX && z + r >= c.minZ && z - r <= c.maxZ
+            && !c.disabled && movementTop(c, x, z) > feet + EPS && (c.base || 0) < feet + height - EPS && overlaps(c, x, z, r)) return true;
+        }
+      }
+    }
+    return false;
   }
   function segmentCandidates(ax, az, bx, bz, r) {
     if (Math.abs(bx - ax) < cellSize && Math.abs(bz - az) < cellSize) {
@@ -138,12 +165,15 @@ export function createCollisionIndex(colliders, cellSize = 20) {
   // A sight ray has no actor height. Clip it to each solid's vertical span before
   // testing the footprint so an overhead deck cannot hide a ground-level enemy.
   function rayClear(ax, ay, az, bx, by, bz, radius = 0) {
-    if (![ax, ay, az, bx, by, bz,radius].every(Number.isFinite)||radius<0) return false;
+    if (!Number.isFinite(ax)||!Number.isFinite(ay)||!Number.isFinite(az)||!Number.isFinite(bx)||!Number.isFinite(by)||!Number.isFinite(bz)||!Number.isFinite(radius)||radius<0) return false;
     const dx=bx-ax,dy=by-ay,dz=bz-az;
     for(const c of segmentCandidates(ax,az,bx,bz,radius)){
       if(c.disabled)continue;
+      // X, Y, Z slabs in the original order, without a per-collider table.
       let low=0,high=1;
-      for(const [start,delta,min,max] of [[ax,dx,c.minX-radius,c.maxX+radius],[ay,dy,(c.base||0)-radius,c.height+radius],[az,dz,c.minZ-radius,c.maxZ+radius]]){
+      for(let axis=0;axis<3;axis++){
+        const start=axis===0?ax:axis===1?ay:az,delta=axis===0?dx:axis===1?dy:dz;
+        const min=axis===0?c.minX-radius:axis===1?(c.base||0)-radius:c.minZ-radius,max=axis===0?c.maxX+radius:axis===1?c.height+radius:c.maxZ+radius;
         if(Math.abs(delta)<1e-12){if(start<min||start>max){low=1;high=0;break;}}
         else{const a=(min-start)/delta,b=(max-start)/delta;low=Math.max(low,Math.min(a,b));high=Math.min(high,Math.max(a,b));if(low>high)break;}
       }
