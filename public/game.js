@@ -225,6 +225,7 @@ let lastRoundAudio='';
 const fullComboTracker=createFullComboTracker();
 const roundDamage=createRoundDamageTracker();let combatReportKey='';
 let exploring = false;
+let mapDisplayFloor=null;
 let rangeSession=null,rangeRespawn=0;
 let objectivePractice=null;
 let online=null,onlinePlaying=false,netHasSnapshot=false,netSequence=0,netActionSequence=0,netLastSnapshot=0,netClock=0,netRound=0;
@@ -1341,6 +1342,9 @@ function updateMapLabels(){
   copies['map-coordinate-copy']=copies['menu-coordinate-copy']=map.id==='hirakata'?'34.815°N / 135.649°E':'35°35′42″N / 139°20′42″E';copies['menu-map-note']=map.id==='hirakata'?'枚方市駅 / 南北広場・自由通路・駅周辺街区':'非公式ファンメイド / 橋本駅前をモチーフにしたオリジナルマップ';copies['radar-map-copy']=short+' / 2 SITES';
   if(map.id==='trc')Object.assign(copies,{'map-detail':'受付棟を左右に回ってA・Bメインへ。入口は天井までの壁の裏から横入り。MIDは中央への回り込みかS1/S2シャッターを選択。Aは7mダクト・ヘブン、Bは独立した地下搬入路。Fでドア・はしご、Vでダクト、Shiftで消音。','map-coordinate-copy':'TRC INSPIRED / OUTDOOR APPROACH','menu-coordinate-copy':'TRC INSPIRED / OUTDOOR APPROACH','menu-map-note':'同人音楽即売会 / オリジナル対戦レイアウト'});
   if(map.routeCopy)copies['map-route-copy']=map.routeCopy;
+  if(map.id==='womb')Object.assign(copies,{'menu-map-name':name,'character-preview-map':name,'hud-map-name':'WOMB / FOUR FLOORS','map-detail':'1F入口からS1来客階段・S2スタッフ階段へ。Aは2F、Bは4F。両階段とも1F〜4Fを往復でき、BへはAを通らず到達できます。3FバルコニーだけAへの射撃窓があり、4Fは壁で遮断。通常通路2.6m、階段幅1.95m、各階踊り場3m。','map-coordinate-copy':'WOMB INSPIRED / ORIGINAL GAME LAYOUT','menu-coordinate-copy':'WOMB INSPIRED / FOUR FLOORS','menu-map-note':'クラブをモチーフにした4フロアの対戦用レイアウト'});
+  if($('map-floor-control'))$('map-floor-control').hidden=!map.floors;
+  if($('map-floor-select')){const select=$('map-floor-select');select.replaceChildren();for(const floor of map.floors||[]){const option=document.createElement('option');option.value=String(floor.id);option.textContent=floor.name;select.append(option);}mapDisplayFloor=null;}
   if(map.id==='hirakata'&&map.layeredNavigation===true)copies['map-detail']='参考映像をもとに南北広場・2階改札前・南デッキ・公園をつないだマップです。対戦エリアは'+(viewBounds.maxX-viewBounds.minX)+'m × '+(viewBounds.maxZ-viewBounds.minZ)+'m。階段と通路で各エリアへ移動できます。';
   canvas.setAttribute('aria-label',name+'の3D競技マップ');$('large-minimap')?.setAttribute('aria-label',name+'の戦術マップ');
   for(const[id,text]of Object.entries(copies))if($(id))$(id).textContent=text;
@@ -1489,7 +1493,7 @@ function pauseGame(showMap=false) {
   if(document.pointerLockElement) document.exitPointerLock();
   setVisible('shop-overlay',false);setVisible('scoreboard',false);
   setVisible(showMap?'map-overlay':'pause-menu',true);
-  if(showMap)drawMinimap($('large-minimap'),true);
+  if(showMap){mapDisplayFloor=map.floors?.[map.floorIndex(player.y)]?.id??null;if(mapDisplayFloor&&$('map-floor-select'))$('map-floor-select').value=String(mapDisplayFloor);drawMinimap($('large-minimap'),true);}
 }
 function resumeGame() {
   if(!['pause','map','shop','score'].includes(mode))return;
@@ -1696,7 +1700,7 @@ function updateTravelButtons(){
   demo.addEventListener('click',()=>{
     if(!exploring||rangeSession)return;
     if(relocate({x:-23,z:-11,yaw:0})){player.pitch=.24;resumeGame();startDetonation({id:`demo:${elapsed.toFixed(6)}`,round:match.round,startedAt:elapsed,x:-36.5,z:-19.5,seed:73521});showMessage('橋本駅 大爆発','M → 大爆発デモ で繰り返し再生',2);}
-  });container.append(demo);
+  });if(!map.floors)container.append(demo);
   const recharge=document.createElement('button');recharge.type='button';recharge.textContent='スキル・ULT補充';recharge.disabled=!exploring||!!rangeSession;
   recharge.addEventListener('click',()=>{if(!exploring||rangeSession)return;player.kit.resetRound();player.kit.ultPoints=7;player.kit.smoke=getCharacterSkill(player.kit.character,'c').max;player.kit.updraft=getCharacterSkill(player.kit.character,'q').max;resumeGame();showMessage('SKILLS READY',['c','q','e'].map(key=>`${key.toUpperCase()}：${getCharacterSkill(player.kit.character,key).shortName}`).join(' / ')+' / X：アルティメット',2);});container.append(recharge);
   const trial=document.createElement('button');trial.type='button';trial.textContent='キャラ能力を試す';trial.disabled=!exploring||!!rangeSession;
@@ -3227,12 +3231,12 @@ function updateHUD(){
   setVisible('online-session-status',onlinePlaying);if($('online-session-status')&&onlinePlaying)$('online-session-status').textContent=netHostPaused?'ホストが戻るまで試合を一時停止':`ONLINE · ${online.room.code}`;
   setVisible('restart',!onlinePlaying);if($('pause-note'))$('pause-note').textContent=onlinePlaying?'この画面を開いている間も試合は進みます。':'準備ができたら、作戦を再開しよう。';
   if($('health-bar'))$('health-bar').style.width=`${Math.min(100,player.hp)}%`;
-  const zone=resolveMapCallout(map,!player.alive&&spectatedBot?spectatedBot:player);
-  $('zone').textContent=zone?.name||'NORTH PLAZA / 北口広場';
+  const hudViewer=!player.alive&&spectatedBot?spectatedBot:player,zone=resolveMapCallout(map,hudViewer);
+  $('zone').textContent=zone?.name||map.floors?.[map.floorIndex(hudViewer.y)]?.name||'NORTH PLAZA / 北口広場';
   if(exploring){
     $('timer').textContent='∞';$('round-label').textContent=(map.shortName||'HASHIMOTO')+' / MAP PRACTICE';$('side-label').textContent='マップ練習';
-    $('phase-label').textContent='2 SITES / 3 LANES';$('objective-label').textContent=!rangeSession&&!objectivePractice?'C/Q/E/X 無限 · M：ルート確認・地点移動 · B：武器選択':'M：ルート確認・地点移動 · WASD：移動 · B：武器選択';
-    $('spike-state').textContent=map.routeCopy||(map.id==='trc'?'屋外前庭 / A ロング / MID / 搬入 B メイン':map.id==='hirakata'?'南北自由通路 / バス車道に注意 / 接触150ダメージ':'バス通り / 中央連絡路 / ミウィ通り');$('zone').textContent=zone?.name||((map.name||'橋本駅')+'前');
+    $('phase-label').textContent=map.floors?'2 SITES / 4 FLOORS':'2 SITES / 3 LANES';$('objective-label').textContent=!rangeSession&&!objectivePractice?'C/Q/E/X 無限 · M：ルート確認・地点移動 · B：武器選択':'M：ルート確認・地点移動 · WASD：移動 · B：武器選択';
+    $('spike-state').textContent=map.routeCopy||(map.id==='trc'?'屋外前庭 / A ロング / MID / 搬入 B メイン':map.id==='hirakata'?'南北自由通路 / バス車道に注意 / 接触150ダメージ':'バス通り / 中央連絡路 / ミウィ通り');$('zone').textContent=zone?.name||map.floors?.[map.floorIndex(hudViewer.y)]?.name||((map.name||'橋本駅')+'前');
   }
   if($('ally-label'))$('ally-label').textContent=rangeSession?'SCORE':'YOUR TEAM';
   if($('enemy-label'))$('enemy-label').textContent=rangeSession?'HEADSHOT':'ENEMY TEAM';
@@ -3260,6 +3264,10 @@ function updateHUD(){
 }
 function drawMinimap(target,large=false){
   if(!target)return;const ctx=target.getContext('2d'),w=target.width,h=target.height,pad=large?40:14;
+  const viewer=!player.alive&&spectatedBot?spectatedBot:player;
+  const shownFloor=map.floors?(large?mapDisplayFloor??map.floorIndex(viewer.y)+1:map.floorIndex(viewer.y)+1):null;
+  const onFloor=point=>!shownFloor||map.floorIndex(point.y??0)+1===shownFloor;
+  const floorMap=shownFloor?{...map,mapShapes:map.mapShapes.filter(s=>s.floor===shownFloor),callouts:map.callouts.filter(c=>c.floor===shownFloor)}:map;
   const bounds=activeArenaBounds();
   const scale=Math.min((w-pad*2)/(bounds.maxX-bounds.minX),(h-pad*2)/(bounds.maxZ-bounds.minZ));
   const ox=(w-(bounds.maxX-bounds.minX)*scale)/2,oz=(h-(bounds.maxZ-bounds.minZ)*scale)/2;
@@ -3269,35 +3277,40 @@ function drawMinimap(target,large=false){
   const grid=large?20:20;ctx.strokeStyle='rgba(156,197,200,.08)';ctx.lineWidth=1;
   for(let x=Math.ceil(bounds.minX/grid)*grid;x<bounds.maxX;x+=grid){ctx.beginPath();ctx.moveTo(px(x),0);ctx.lineTo(px(x),h);ctx.stroke();}
   for(let z=Math.ceil(bounds.minZ/grid)*grid;z<bounds.maxZ;z+=grid){ctx.beginPath();ctx.moveTo(0,pz(z));ctx.lineTo(w,pz(z));ctx.stroke();}
-  drawMapShapes(ctx,map.mapShapes,{bounds,px,pz,scale,large});
+  drawMapShapes(ctx,floorMap.mapShapes,{bounds,px,pz,scale,large});
   if(large&&map.tactical?.flanks){ctx.save();ctx.strokeStyle='#8bc9bd';ctx.lineWidth=2;ctx.setLineDash([5,4]);for(const flank of map.tactical.flanks){const points=flank.points;ctx.beginPath();ctx.moveTo(px(points[0][0]),pz(points[0][1]));for(const[x,z]of points.slice(1))ctx.lineTo(px(x),pz(z));ctx.stroke();const[a,b]=points.slice(-2),angle=Math.atan2(b[1]-a[1],b[0]-a[0]);ctx.setLineDash([]);ctx.beginPath();for(const side of[-1,1]){ctx.moveTo(px(b[0]),pz(b[1]));ctx.lineTo(px(b[0])-Math.cos(angle+side*.5)*9,pz(b[1])-Math.sin(angle+side*.5)*9);}ctx.stroke();ctx.setLineDash([5,4]);}ctx.restore();}
   if(large&&exploring&&map.combatBounds&&map.combatBounds!==map.bounds&&(map.layeredNavigation!==true||['minX','maxX','minZ','maxZ'].some(k=>map.combatBounds[k]!==map.bounds[k]))){const b=map.combatBounds;ctx.save();ctx.strokeStyle='#e68172';ctx.lineWidth=2;ctx.setLineDash([6,5]);ctx.strokeRect(px(b.minX),pz(b.minZ),(b.maxX-b.minX)*scale,(b.maxZ-b.minZ)*scale);ctx.setLineDash([]);ctx.fillStyle='#efb4a8';ctx.font='12px sans-serif';ctx.textAlign='left';ctx.fillText(map.layeredNavigation===true?'対戦エリア / '+(b.maxX-b.minX)+'m × '+(b.maxZ-b.minZ)+'m':'対戦エリア / 164m',px(b.minX)+5,pz(b.minZ)+15);ctx.restore();}
   if(map.traffic)for(const bus of map.traffic.poses(elapsed)){ctx.save();ctx.translate(px(bus.x),pz(bus.z));ctx.rotate(-bus.yaw);ctx.fillStyle='#ee6675';ctx.fillRect(-1.25*scale,-5.3*scale,2.5*scale,10.6*scale);ctx.restore();}
   ctx.textAlign='center';ctx.textBaseline='middle';
   for(const pos of map.sites){
+    if(!onFloor(pos))continue;
     if(pos.polygon?.length){ctx.beginPath();ctx.moveTo(px(pos.polygon[0][0]),pz(pos.polygon[0][1]));for(const [x,z] of pos.polygon.slice(1))ctx.lineTo(px(x),pz(z));ctx.closePath();ctx.fillStyle='rgba(237,178,132,.13)';ctx.fill();ctx.strokeStyle='#c5b080';ctx.lineWidth=large?1.8:1;ctx.stroke();}
     ctx.fillStyle='#edb284';ctx.font=`bold ${large?26:14}px sans-serif`;ctx.fillText(pos.id,px(pos.x),pz(pos.z));
   }
-  if(large){ctx.font='600 13px "Yu Gothic",sans-serif';for(const label of getMapCalloutLabels(map)){ctx.textAlign=label.align;ctx.strokeStyle='#101f28';ctx.lineWidth=4;ctx.strokeText(label.name,px(label.x),pz(label.z));ctx.fillStyle='#d7e2dc';ctx.fillText(label.name,px(label.x),pz(label.z));}}
+  if(large){ctx.font='600 13px "Yu Gothic",sans-serif';for(const label of getMapCalloutLabels(floorMap)){ctx.textAlign=label.align;ctx.strokeStyle='#101f28';ctx.lineWidth=4;ctx.strokeText(label.name,px(label.x),pz(label.z));ctx.fillStyle='#d7e2dc';ctx.fillText(label.name,px(label.x),pz(label.z));}}
   if(large&&veilPlacementCurrent())for(const [index,point] of veilPlacement.points.entries()){const radius=veilPlacement.key==='c'?VEIL_SKILLS.dustRadius:9;ctx.strokeStyle=point===veilPlacement.point?'#ffffff':'#c5d2ff';ctx.fillStyle='#a9b6ff55';ctx.lineWidth=2;ctx.beginPath();ctx.arc(px(point.x),pz(point.z),radius*scale,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.fillStyle='#fff';ctx.fillText(String(index+1),px(point.x)+5,pz(point.z)-5);}
-  for(const bot of bots){if(!bot.alive||bot.team!==player.team&&!(bot.spottedUntil>elapsed))continue;ctx.fillStyle=bot.team===player.team?'#8edcca':'#ff626b';ctx.beginPath();ctx.arc(px(bot.x),pz(bot.z),large?6:3.5,0,Math.PI*2);ctx.fill();}
+  for(const bot of bots){if(!bot.alive||!onFloor(bot)||bot.team!==player.team&&!(bot.spottedUntil>elapsed))continue;ctx.fillStyle=bot.team===player.team?'#8edcca':'#ff626b';ctx.beginPath();ctx.arc(px(bot.x),pz(bot.z),large?6:3.5,0,Math.PI*2);ctx.fill();}
   for(const ping of teamAbilities.markers(player.team,elapsed)){
+    if(!onFloor(ping))continue;
     const size=large?8:5,alpha=clamp((ping.endsAt-elapsed)/1.25,0,1);
     ctx.globalAlpha=.35+alpha*.65;ctx.strokeStyle='#d5b5ff';ctx.lineWidth=large?2.5:1.7;
     ctx.beginPath();ctx.moveTo(px(ping.x),pz(ping.z)-size);ctx.lineTo(px(ping.x)+size,pz(ping.z));ctx.lineTo(px(ping.x),pz(ping.z)+size);ctx.lineTo(px(ping.x)-size,pz(ping.z));ctx.closePath();ctx.stroke();ctx.globalAlpha=1;
   }
   for(const marker of ordinarySkills.markers(player.team,elapsed)){
+    if(!onFloor(marker))continue;
     const size=large?7:4,alpha=clamp((marker.endsAt-elapsed)/IAGNU_SKILLS.tagRevealDuration,0,1);
     ctx.globalAlpha=.35+alpha*.65;ctx.strokeStyle='#ffe39b';ctx.lineWidth=large?2.5:1.7;
     ctx.strokeRect(px(marker.x)-size,pz(marker.z)-size,size*2,size*2);ctx.globalAlpha=1;
   }
-  if(match&&['dropped','planted'].includes(match.spike.status)){ctx.fillStyle='#ffe5a8';ctx.fillRect(px(match.spike.x)-4,pz(match.spike.z)-4,8,8);}
-  const viewer=!player.alive&&spectatedBot?spectatedBot:player;
+  if(match&&onFloor(match.spike)&&['dropped','planted'].includes(match.spike.status)){ctx.fillStyle='#ffe5a8';ctx.fillRect(px(match.spike.x)-4,pz(match.spike.z)-4,8,8);}
+  if(onFloor(viewer)){
   ctx.save();ctx.translate(px(viewer.x),pz(viewer.z));ctx.rotate(-(viewer===player?player.yaw:viewer.group.rotation.y+Math.PI));
   ctx.fillStyle='#adf4e6';ctx.beginPath();ctx.moveTo(0,-(large?13:7));ctx.lineTo(large?9:5,large?9:5);ctx.lineTo(0,large?5:3);ctx.lineTo(large?-9:-5,large?9:5);ctx.closePath();ctx.fill();ctx.restore();
+  }
   if(scanTime>0){ctx.strokeStyle=`rgba(120,245,220,${.3+Math.sin(elapsed*5)*.2})`;ctx.beginPath();ctx.arc(px(player.x),pz(player.z),(elapsed%1.5)/1.5*100*scale,0,Math.PI*2);ctx.stroke();}
   ctx.restore();ctx.fillStyle='#c5d0ca';ctx.font=`${large?16:10}px monospace`;ctx.textAlign='left';ctx.fillText('N ↑',pad,large?24:11);
-  const metres=large?20:20;ctx.strokeStyle='#b4c8c5';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(pad,h-12);ctx.lineTo(pad+metres*scale,h-12);ctx.stroke();ctx.font='10px monospace';ctx.fillText(`${metres} m`,pad,h-17);
+  const metres=shownFloor?5:20;ctx.strokeStyle='#b4c8c5';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(pad,h-12);ctx.lineTo(pad+metres*scale,h-12);ctx.stroke();ctx.font='10px monospace';ctx.fillText(`${metres} m`,pad,h-17);
+  if(shownFloor){ctx.textAlign='right';ctx.font=large?'bold 17px sans-serif':'bold 12px sans-serif';ctx.fillText(`${shownFloor}F${large?' / 現在地 '+(map.floorIndex(viewer.y)+1)+'F':''}`,w-pad,large?24:12);}
   if(large){ctx.font='11px "Yu Gothic",sans-serif';ctx.textAlign='right';ctx.fillText('塗り：壁・遮蔽物　破線：頭上の屋根',w-pad,h-14);}
 }
 
@@ -4338,7 +4351,7 @@ function updateRoom(room){
   if(!saving||room.status==='playing'){
     $('online-map').value=normalizeMapId(room.settings.mapId);$('online-format').value=room.settings.format;
   }
-  const roomMap=room.settings.mapId==='trc'?'TRC 同人音楽即売会':room.settings.mapId==='hirakata'?'枚方市駅 / 南北ロータリー':'橋本駅';
+  const roomMap=room.settings.mapId==='womb'?'WOMB / 4フロアクラブ':room.settings.mapId==='trc'?'TRC 同人音楽即売会':room.settings.mapId==='hirakata'?'枚方市駅 / 南北ロータリー':'橋本駅';
   $('online-intro').textContent=saving?'マップと試合形式を保存しています…':`${roomMap} · ${room.settings.format==='standard'?'STANDARD / 13ラウンド先取':'SWIFT / 5ラウンド先取'}。最大10人、空き枠にはBOTが参加します。`;
   if(room.status==='lobby'&&onlinePlaying){
     onlinePlaying=false;netHasSnapshot=false;netHostPaused=false;netActions=[];netInputs.clear();netApplied.clear();netParticipants.clear();netPositionHistory.clear();
@@ -5005,6 +5018,7 @@ $('range-start')?.addEventListener('click',()=>{$('match-format').value='range';
 $('restart').addEventListener('click',startGame);$('play-again').addEventListener('click',playAgain);$('back-menu').addEventListener('click',backMenu);
 $('pause-back-menu')?.addEventListener('click',backMenu);
 $('pause').addEventListener('click',()=>pauseGame());$('map-toggle').addEventListener('click',()=>pauseGame(true));$('close-map').addEventListener('click',resumeGame);
+$('map-floor-select')?.addEventListener('change',event=>{const floor=Number(event.target.value);if(map.floors?.some(f=>f.id===floor)){mapDisplayFloor=floor;drawMinimap($('large-minimap'),true);}});
 $('close-shop')?.addEventListener('click',resumeGame);$('start-round')?.addEventListener('click',startRound);$('scoreboard-close')?.addEventListener('click',resumeGame);
 createArsenalShop(document);
 document.querySelectorAll('[data-buy]').forEach(button=>{
@@ -5021,7 +5035,7 @@ function updateFormatSummary(){
   if($('starting-side')){$('starting-side').disabled=objective;if(objective)$('starting-side').value=format==='plant'?'attack':'defend';}
   if($('mission-tag'))$('mission-tag').textContent=practice?'SOLO PRACTICE':soloSwift?'YOU vs 5 CPUs':'SOLO + BOTS';
   if($('mission-format-label'))$('mission-format-label').textContent=soloSwift?'BOMBER / 1V5':'BOMBER / 5V5';
-  if($('menu-description'))$('menu-description').textContent=soloSwift?'味方CPUなし。自分1人で敵CPU5体に挑戦。勝利で500 489coin。':'駅舎のコンコースから、駅前広場へ。2つのサイトを巡る、5対5の攻防。';
+  if($('menu-description'))$('menu-description').textContent=soloSwift?'味方CPUなし。自分1人で敵CPU5体に挑戦。勝利で500 489coin。':map.id==='womb'?'細い回遊路と2系統の階段でつながる4フロア。Aは2F、Bは4F。':'駅舎のコンコースから、駅前広場へ。2つのサイトを巡る、5対5の攻防。';
   if($('start-title')?.firstChild)$('start-title').firstChild.nodeValue=practice?'練習を始める ':'出撃する ';
   if($('start-subtitle'))$('start-subtitle').textContent=(practice?'PRACTICE IN ':'DEPLOY TO ')+(map.shortName||'HASHIMOTO');
   const summary=$('format-summary');if(!summary)return;
@@ -5037,8 +5051,10 @@ function saveSettings(){try{localStorage.setItem('hashimoto-settings',JSON.strin
 for(const id of ['agent-select','online-agent'])if($(id)){$(id).value=normalizeCharacter(settings.character);$(id).addEventListener('change',e=>{const value=normalizeCharacter(e.target.value);for(const other of ['agent-select','online-agent'])if($(other))$(other).value=value;updateCharacterDescription();saveSettings();});}
 updateCharacterDescription();
 function updateSensitivityLabel(){if($('sensitivity-value'))$('sensitivity-value').textContent=sensitivity.toFixed(2);}
-if($('map-select'))$('map-select').addEventListener('change',e=>{if(mode!=='menu'||onlinePlaying)return;selectArena(e.target.value);saveSettings();});
-selectArena(settings.mapId);
+if($('map-select'))$('map-select').addEventListener('change',e=>{if(mode!=='menu'||onlinePlaying)return;selectArena(e.target.value);updateFormatSummary();saveSettings();});
+const launchParams=typeof location!=='undefined'?new URLSearchParams(location.search):{get:()=>null};
+selectArena(launchParams.get('map')||settings.mapId);
+if(launchParams.get('practice')==='1'&&$('match-format')){$('match-format').value='explore';updateFormatSummary();}
 if($('sensitivity')){$('sensitivity').value=sensitivity;$('sensitivity').addEventListener('input',e=>{const value=Number(e.target.value);if(Number.isFinite(value))sensitivity=clamp(value,.05,1.5);updateSensitivityLabel();saveSettings();});updateSensitivityLabel();}
 if($('volume')){$('volume').value=volume;$('volume').addEventListener('input',e=>{volume=Number(e.target.value);syncVictoryMusic();saveSettings();});}
 

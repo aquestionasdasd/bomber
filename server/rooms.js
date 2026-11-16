@@ -118,7 +118,7 @@ function requireOpen(room) { if (room.status === 'closed') fail(410, 'room_close
 function lobbySettings(body, defaults = { format: 'swift', mapId: 'hashimoto' }) {
   const format = body.format ?? defaults.format, mapId = body.mapId ?? defaults.mapId;
   if (!['swift', 'standard'].includes(format)) fail(400, 'invalid_format', '試合形式を選択してください。');
-  if (!['hashimoto', 'hirakata', 'trc'].includes(mapId)) fail(400, 'invalid_map', 'マップを選択してください。');
+  if (!['hashimoto', 'hirakata', 'trc', 'womb'].includes(mapId)) fail(400, 'invalid_map', 'マップを選択してください。');
   return { format, mapId, maxPlayers: 10 };
 }
 
@@ -199,7 +199,7 @@ async function startRoom(request, db, room, member, now) {
   if (!['swift', 'standard'].includes(body.format)) fail(400, 'invalid_format', '試合形式を選択してください。');
   const epoch = requireMatchEpoch(body, room);
   const mapId=body.mapId??JSON.parse(room.settings).mapId??'hashimoto';
-  if(!['hashimoto','hirakata','trc'].includes(mapId))fail(400,'invalid_map','マップを選択してください。');
+  if(!['hashimoto','hirakata','trc','womb'].includes(mapId))fail(400,'invalid_map','マップを選択してください。');
   const settings = JSON.stringify({ ...JSON.parse(room.settings), format: body.format, mapId, maxPlayers: 10 });
   const result = await statement(db, `UPDATE online_rooms SET status = 'playing', settings = ? WHERE code = ? AND status = 'lobby' AND COALESCE(json_extract(settings, '$.matchEpoch'), 0) = ?
     AND (SELECT COUNT(*) FROM online_members WHERE room_code = ? AND left_at IS NULL) >= 2

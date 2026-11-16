@@ -4,12 +4,14 @@ import { TACTICAL_BUILDINGS, TACTICAL_PROP_MOVES, createTacticalMetadata } from 
 import {createHirakataMap} from './hirakata-map.js';
 import {addHashimotoSurvey} from './station-survey-details.js';
 import {createTrcMap} from './trc-map.js';
+import {createWombMap} from './womb-map.js';
 
-export const MAP_CATALOG=Object.freeze([{id:'hashimoto',name:'橋本駅'},{id:'hirakata',name:'枚方市駅'},{id:'trc',name:'TRC 同人音楽即売会'}]);
-export function normalizeMapId(id){return ['hirakata','trc'].includes(id)?id:'hashimoto';}
+export const MAP_CATALOG=Object.freeze([{id:'hashimoto',name:'橋本駅'},{id:'hirakata',name:'枚方市駅'},{id:'trc',name:'TRC 同人音楽即売会'},{id:'womb',name:'WOMB / 4フロアクラブ'}]);
+export function normalizeMapId(id){return ['hirakata','trc','womb'].includes(id)?id:'hashimoto';}
 
 // Hand-built two-site Hashimoto station arena. East +X, north -Z.
 export function createMap(THREE, scene, id='hashimoto') {
+  if(id==='womb')return createWombMap(THREE,scene);
   if(id==='trc')return createTrcMap(THREE,scene);
   if(id==='hirakata')return createHirakataMap(THREE,scene);
   const world = new THREE.Group(); world.name = 'HASHIMOTO / North Exit Arena'; scene.add(world);

@@ -3,7 +3,7 @@ import {TRC_LADDERS} from './trc-layout.js';
 
 // A layered graph: ground, tread tops, gallery floors and crouched ducts can
 // occupy the same XZ. Only explicit ladder edges connect disjoint elevations.
-export function createTrcNavigation(map){
+export function createTrcNavigation(map,{ladders=TRC_LADDERS,maxNeighbourRise=.7}={}){
  const collision=createCollisionIndex(map.colliders.filter(c=>c.kind!=='door'),8),bounds=map.bounds;
  const nodes=[],cells=new Map(),edges=[],cache=new Map(),connectorCells=new Map(),segments=new Map(),step=1,radius=.4;
  let segmentRevision=-1,collapsed=false;
@@ -39,9 +39,9 @@ export function createTrcNavigation(map){
  }
  for(let z=bounds.minZ+.5;z<bounds.maxZ;z+=step)for(let x=bounds.minX+.5;x<bounds.maxX;x+=step){const ids=[];for(const y of map.walkHeights(x,z)){if(!isWalkable(x,z,y))continue;const id=nodes.length;nodes.push({x,z,y,crouch:!!map.ductAt(x,z,y),id});edges.push([]);ids.push(id);}if(ids.length)cells.set(key(x,z),ids);}
  function connect(a,b,extra={}){const p=nodes[a],q=nodes[b];const cost=Math.hypot(p.x-q.x,p.z-q.z,p.y-q.y)*(p.crouch||q.crouch?3:1)+ (extra.ladder?4:0);edges[a].push({id:b,cost,...extra});edges[b].push({id:a,cost,...extra});}
- for(const p of nodes)for(const [dx,dz]of [[1,0],[0,1],[1,1],[-1,1]])for(const id of cells.get(key(p.x+dx,p.z+dz))||[]){const q=nodes[id];if(Math.abs(q.y-p.y)<=.7&&clearSegment(p.x,p.z,q.x,q.z,p.y,q.y))connect(p.id,id);}
+ for(const p of nodes)for(const [dx,dz]of [[1,0],[0,1],[1,1],[-1,1]])for(const id of cells.get(key(p.x+dx,p.z+dz))||[]){const q=nodes[id];if(Math.abs(q.y-p.y)<=maxNeighbourRise&&clearSegment(p.x,p.z,q.x,q.z,p.y,q.y))connect(p.id,id);}
  // Exact endpoints preserve narrow hatches which do not fall on the grid.
- for(const l of TRC_LADDERS){const bottom={x:l.x,z:l.z,y:0},top={...l.exit};const ids=[];for(const p of [bottom,top]){const id=nodes.length;nodes.push({...p,id,crouch:true});edges.push([]);for(const q of nodes.slice(0,id))if(Math.hypot(p.x-q.x,p.z-q.z)<1.8&&Math.abs(p.y-q.y)<.19&&clearSegment(p.x,p.z,q.x,q.z,p.y,q.y))connect(id,q.id);ids.push(id);}connect(ids[0],ids[1],{ladder:l.id});}
+ for(const l of ladders){const bottom={x:l.x,z:l.z,y:0},top={...l.exit};const ids=[];for(const p of [bottom,top]){const id=nodes.length;nodes.push({...p,id,crouch:true});edges.push([]);for(const q of nodes.slice(0,id))if(Math.hypot(p.x-q.x,p.z-q.z)<1.8&&Math.abs(p.y-q.y)<.19&&clearSegment(p.x,p.z,q.x,q.z,p.y,q.y))connect(id,q.id);ids.push(id);}connect(ids[0],ids[1],{ladder:l.id});}
  // A deliberate one-way heaven drop cannot create a reverse wall-climbing edge.
  for(const drop of map.drops||[]){const ids=[];for(const p of [drop.from,drop.to]){const id=nodes.length;nodes.push({...p,id,crouch:false});edges.push([]);for(const q of nodes.slice(0,id))if(Math.hypot(p.x-q.x,p.z-q.z)<1.8&&Math.abs(p.y-q.y)<.19&&clearSegment(p.x,p.z,q.x,q.z,p.y,q.y))connect(id,q.id);ids.push(id);}edges[ids[0]].push({id:ids[1],cost:Math.hypot(drop.from.x-drop.to.x,drop.from.y-drop.to.y,drop.from.z-drop.to.z),drop:drop.id});}
  function nearest(x,z,y=0){if(![x,z,y].every(Number.isFinite))return null;if(map.world.userData.bomberCollapsed)return {x:Math.max(bounds.minX+radius,Math.min(bounds.maxX-radius,x)),z:Math.max(bounds.minZ+radius,Math.min(bounds.maxZ-radius,z)),y:0};if(isWalkable(x,z,y))return {x,z,y};let best=null,d=Infinity;for(const p of nodes){const cost=(p.x-x)**2+(p.z-z)**2+16*(p.y-y)**2;if(cost<d){d=cost;best=p;}}return best?{x:best.x,z:best.z,y:best.y}:null;}
