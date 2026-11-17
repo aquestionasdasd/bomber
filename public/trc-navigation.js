@@ -6,12 +6,19 @@ import {TRC_LADDERS} from './trc-layout.js';
 export function createTrcNavigation(map,{ladders=TRC_LADDERS,maxNeighbourRise=.7}={}){
  const collision=createCollisionIndex(map.colliders.filter(c=>c.kind!=='door'),8),bounds=map.bounds;
  const nodes=[],cells=new Map(),edges=[],cache=new Map(),connectorCells=new Map(),segments=new Map(),step=1,radius=.4;
- let segmentRevision=-1,collapsed=false;
+ let segmentRevision=-1,collapsed=false,scratch=null;
  const key=(x,z)=>`${x},${z}`;
  function support(x,z,wanted=0){
   if(map.world.userData.bomberCollapsed)return 0;
-  const options=map.walkHeights(x,z).filter(y=>!collision.blocked(x,z,radius,y,map.ductAt(x,z,y)?1.15:1.7));
-  options.sort((a,b)=>Math.abs(a-wanted)-Math.abs(b-wanted));return options[0]??null;
+  // The standable height nearest to `wanted`; the first listed wins a tie,
+  // exactly as the previous filter + stable sort chose it, without the lists.
+  let best=null,bestGap=Infinity;
+  for(const y of map.walkHeights(x,z)){
+   if(collision.blocked(x,z,radius,y,map.ductAt(x,z,y)?1.15:1.7))continue;
+   const gap=Math.abs(y-wanted);
+   if(best===null||gap<bestGap){best=y;bestGap=gap;}
+  }
+  return best;
  }
  function isWalkable(x,z,y=0){return Number.isFinite(x)&&Number.isFinite(z)&&Number.isFinite(y)&&x>=bounds.minX+radius&&x<=bounds.maxX-radius&&z>=bounds.minZ+radius&&z<=bounds.maxZ-radius&&(map.world.userData.bomberCollapsed?Math.abs(y)<.19:map.walkHeights(x,z).some(h=>Math.abs(h-y)<.19)&&!collision.blocked(x,z,radius,y,map.ductAt(x,z,y)?1.15:1.7));}
  function clearSegment(ax,az,bx,bz,ay=0,by=ay){
@@ -48,14 +55,22 @@ export function createTrcNavigation(map,{ladders=TRC_LADDERS,maxNeighbourRise=.7
  // A connector can only be within 4 m. Include exact ladder endpoints in the
  // same buckets; preserve the old lowest-id tie instead of scanning the map.
  for(const p of nodes){const k=key(Math.floor(p.x/4),Math.floor(p.z/4));if(!connectorCells.has(k))connectorCells.set(k,[]);connectorCells.get(k).push(p);}
- function connector(p){let best=-1,d=Infinity;const cx=Math.floor(p.x/4),cz=Math.floor(p.z/4);for(let z=cz-1;z<=cz+1;z++)for(let x=cx-1;x<=cx+1;x++)for(const q of connectorCells.get(key(x,z))||[]){const c=Math.hypot(p.x-q.x,p.z-q.z)+Math.abs(p.y-q.y)*4;if(c>4||c>d||c===d&&best>=0&&q.id>best)continue;if(clearSegment(p.x,p.z,q.x,q.z,p.y,q.y)){d=c;best=q.id;}}return best;}
+ // The answer is the reachable node with the smallest cost, lowest id on a
+ // tie. Testing candidates in that order stops at the first walkable segment
+ // instead of tracing one toward every node of the nine surrounding cells.
+ const connectorOrder=(a,b)=>a.c-b.c||a.id-b.id;
+ function connector(p){const found=[];const cx=Math.floor(p.x/4),cz=Math.floor(p.z/4);for(let z=cz-1;z<=cz+1;z++)for(let x=cx-1;x<=cx+1;x++)for(const q of connectorCells.get(key(x,z))||[]){const c=Math.hypot(p.x-q.x,p.z-q.z)+Math.abs(p.y-q.y)*4;if(c<=4)found.push({c,id:q.id,q});}
+  found.sort(connectorOrder);for(const {q} of found)if(clearSegment(p.x,p.z,q.x,q.z,p.y,q.y))return q.id;return -1;}
  function path(ax,az,bx,bz,ay=0,by=0){
   const a=nearest(ax,az,ay),b=nearest(bx,bz,by);if(!a||!b)return [];
   if(clearSegment(a.x,a.z,b.x,b.z,a.y,b.y))return [{...b,crouch:!!map.ductAt(b.x,b.z,b.y)}];
   const start=connector(a),finish=connector(b);if(start<0||finish<0)return [];
   const ck=start+':'+finish;let route=cache.get(ck);
   if(!route){
-   const cost=new Float64Array(nodes.length).fill(Infinity),parent=new Int32Array(nodes.length).fill(-1),via=new Array(nodes.length),order=new Int32Array(nodes.length).fill(-1),closed=new Uint8Array(nodes.length),open=[];let serial=0;cost[start]=0;
+   // One search runs at a time: reuse the per-node tables instead of
+   // allocating five node-sized arrays for every uncached route.
+   scratch??={cost:new Float64Array(nodes.length),parent:new Int32Array(nodes.length),via:new Array(nodes.length),order:new Int32Array(nodes.length),closed:new Uint8Array(nodes.length)};
+   const {cost,parent,via,order,closed}=scratch,open=[];cost.fill(Infinity);parent.fill(-1);via.fill(undefined);order.fill(-1);closed.fill(0);let serial=0;cost[start]=0;
    const heuristic=id=>Math.hypot(nodes[id].x-b.x,nodes[id].z-b.z,nodes[id].y-b.y);
    const before=(a,b)=>a.score<b.score||a.score===b.score&&a.order<b.order;
    function push(id){if(order[id]<0)order[id]=serial++;const value={id,cost:cost[id],score:cost[id]+heuristic(id),order:order[id]};let i=open.length;open.push(value);while(i){const p=(i-1)>>1;if(!before(value,open[p]))break;open[i]=open[p];i=p;}open[i]=value;}

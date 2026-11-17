@@ -1,6 +1,9 @@
 // Display state only. No input, combat, inventory or network state is changed here.
 export function createCompetitiveUI({document:doc=globalThis.document}={}){
-  const get=id=>doc?.getElementById?.(id),text=(id,value)=>{const n=get(id);if(n&&n.textContent!==String(value))n.textContent=String(value);};
+  const get=id=>doc?.getElementById?.(id),text=(id,value)=>{if(pendingText&&id in pendingText){pendingText[id]=String(value);return;}const n=get(id);if(n&&n.textContent!==String(value))n.textContent=String(value);};
+  // Labels the caller is about to apply itself: an override here replaces the
+  // caller's pending value so the element is written once per update, not twice.
+  let pendingText=null;
   let lastHealth=null,lastWeapon=null,lastRound=null,detailCharacter=null;
   const flash=(node,name)=>{if(!node)return;node.classList.remove(name);void node.offsetWidth;node.classList.add(name);};
   const button=get('skill-details-toggle'),details=get('skill-inspector');
@@ -9,8 +12,11 @@ export function createCompetitiveUI({document:doc=globalThis.document}={}){
   doc?.querySelector?.('.menu-audio-settings')?.addEventListener('toggle',()=>{if(menuVolume&&volume)menuVolume.value=volume.value;});
   button?.addEventListener('click',event=>{event.stopPropagation();if(!details)return;details.hidden=!details.hidden;button.setAttribute('aria-expanded',String(!details.hidden));});
   get('skill-inspector-close')?.addEventListener('click',()=>{if(details)details.hidden=true;button?.setAttribute('aria-expanded','false');});
-  function update(state){
+  function update(state,pending=null){
     const hud=get('hud');if(!hud)return;
+    pendingText=pending;try{applyState(state,hud);}finally{pendingText=null;}
+  }
+  function applyState(state,hud){
     hud.dataset.uiMode=state.uiMode||'match';hud.dataset.phase=state.phase;hud.dataset.alive=String(state.alive);
     const changedRound=lastRound!==state.round;
     if(!changedRound&&lastHealth!==null&&state.hp!==lastHealth)flash(get('health-block'),state.hp<lastHealth?'health-hit':'health-heal');

@@ -192,6 +192,11 @@ export function createViewmodel(THREE, camera) {
     else if (!weapon.knife) { front.x = -.027; front.y -= .018; }
     const model = { parent, weapon, right, left, rear, front, framing, fan, openRight, meshes: [] };
     parent.traverse(object => { if (object.isMesh) { object.frustumCulled = false; model.meshes.push(object); } });
+    // Only one of the eleven rigs is shown at a time, yet every matrix pass
+    // (two equipment updates and the renderer, each frame) walked all of
+    // them. A hidden rig is never drawn or sampled; the forced update that
+    // follows setWeapon() refreshes it on the frame it becomes visible.
+    parent.updateMatrixWorld = function (force) { if (this.visible) THREE.Object3D.prototype.updateMatrixWorld.call(this, force); };
     models.set(id, model);
   }
   const muzzle = new THREE.Object3D(); muzzle.name = 'First-person muzzle';

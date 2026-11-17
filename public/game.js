@@ -113,9 +113,21 @@ const keys = new Set();
 const scene = new THREE.Scene();
 scene.background = new THREE.Color('#8cbad7');
 scene.fog = new THREE.Fog('#b7d0dd', 145, 380);
-let renderer;
+// Opt-in comparison switches for a real Edge/GPU session; the normal URL is
+// unchanged. Their effect on mouse-to-photon latency has not been measured.
+//   ?lowLatencyCanvas=1  ask for a desynchronized (compositor-bypassing) canvas
+//   ?hudVignette=0       remove the full-screen HUD gradient layer over the canvas
+const renderExperiments=typeof location!=='undefined'?new URLSearchParams(location.search):{get:()=>null};
+let renderer,lowLatencyCanvas=false;
 try {
-  renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+  let context;
+  if(renderExperiments.get('lowLatencyCanvas')==='1'){
+    // three.js does not forward this hint, so request the context directly.
+    // A browser that ignores or rejects it falls back to the ordinary path.
+    try{context=canvas.getContext('webgl2',{alpha:false,depth:true,stencil:true,antialias:true,premultipliedAlpha:true,preserveDrawingBuffer:false,powerPreference:'high-performance',desynchronized:true})||undefined;}catch{context=undefined;}
+    lowLatencyCanvas=!!context?.getContextAttributes?.().desynchronized;
+  }
+  renderer = new THREE.WebGLRenderer({ canvas, context, antialias: true, powerPreference: 'high-performance' });
 } catch (error) {
   $('loading').hidden = true;
   $('error').hidden = false;
@@ -123,6 +135,7 @@ try {
   throw error;
 }
 renderer.setPixelRatio(Math.min(devicePixelRatio, 1.7));
+if(renderExperiments.get('hudVignette')==='0'&&typeof document!=='undefined')document.documentElement?.classList?.add('no-hud-vignette');
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -644,6 +657,9 @@ function updateOrdinarySkills(){
 function renderOrdinarySkills(){
   capBankPreviewFX.update(getCapBankPreview());
   const live=match?.phase==='live',viewer=player.alive?player:spectatedBot;
+  // The grass, ember and frost effects each look one actor up in this list;
+  // build the ten snapshots once per frame instead of once per effect.
+  const actorViews=[player,...bots].map(ordinaryActorView);
   const robotAim=live&&mode==='play'&&player.alive&&player.kit.character==='ember'&&duckAim?emberPreview(duckAim):null;
   robotFX.update(robotArmy,elapsed,{active:live,viewer:viewer||player,aim:robotAim,visible:p=>rootPointVisible(viewer||player,p),sound:(type,p)=>sound(type,{entity:p,localOnly:true,originHeight:.4}),reducedMotion:reducedMotion.matches});
   renderTrident(live,viewer||player);
@@ -657,8 +673,8 @@ function renderOrdinarySkills(){
   mendSkillFX.update(live?ordinarySkills.events(elapsed):[],elapsed,{viewer:viewer||player,showHand:live&&mode==='play'&&player.alive,reducedMotion:reducedMotion.matches});
   iagnuSkillFX.update(live?ordinarySkills.events(elapsed):[],elapsed,{viewer:viewer||player,actors:[player,...bots],showHand:live&&mode==='play'&&player.alive,reducedMotion:reducedMotion.matches});
   rootSensorFX.update(live?ordinarySkills.events(elapsed):[],live?ordinarySkills.rootTracks((viewer||player).team,elapsed):[],elapsed,{groundHeight:ordinaryGroundHeight,reachable:ordinaryReachable,terrainRevision:map.collision.revision,visible:p=>rootPointVisible(viewer||player,p),reducedMotion:reducedMotion.matches});
-  grassSkillFX.update(live?ordinarySkills.events(elapsed):[],elapsed,{viewer:viewer||player,actors:[player,...bots].map(ordinaryActorView),groundHeight:ordinaryGroundHeight,reachable:ordinaryReachable,terrainRevision:map.collision.revision,showHand:live&&mode==='play'&&player.alive,reducedMotion:reducedMotion.matches});
-  emberSkillFX.update(live?ordinarySkills.events(elapsed):[],elapsed,{viewer:viewer||player,actors:[player,...bots].map(ordinaryActorView),showHand:live&&mode==='play'&&player.alive,reducedMotion:reducedMotion.matches});
+  grassSkillFX.update(live?ordinarySkills.events(elapsed):[],elapsed,{viewer:viewer||player,actors:actorViews,groundHeight:ordinaryGroundHeight,reachable:ordinaryReachable,terrainRevision:map.collision.revision,showHand:live&&mode==='play'&&player.alive,reducedMotion:reducedMotion.matches});
+  emberSkillFX.update(live?ordinarySkills.events(elapsed):[],elapsed,{viewer:viewer||player,actors:actorViews,showHand:live&&mode==='play'&&player.alive,reducedMotion:reducedMotion.matches});
   renkoSkillFX.update(live?ordinarySkills.events(elapsed).filter(e=>!(e.type==='renko-drive'&&e.sourceId===player.id&&renkoDriveStopping(player))):[],elapsed,{actors:[player,...bots],visible:(p,e)=>e.sourceId===player.id||ordinarySkills.blindUntil((viewer||player).id,elapsed)<=elapsed&&visibleBetween(viewer||player,p)});
   onnaraSkillFX.update(live?ordinarySkills.events(elapsed):[],elapsed,{actors:[player,...bots].filter(a=>a.team===player.team||ordinarySkills.blindUntil(player.id,elapsed)<=elapsed&&visibleBetween(player,a)),reducedMotion:reducedMotion.matches});
   renderDisarm(ordinarySkills.events(elapsed),live,viewer);
@@ -673,12 +689,12 @@ function renderOrdinarySkills(){
   carSkillFX.update(live?ordinarySkills.events(elapsed):[],elapsed,{actors:[player,...bots],preview:live&&mode==='play'&&player.alive&&player.kit.character==='car'&&duckAim?carSkillTarget(player,duckAim):null});
   catSkillFX.update(live?ordinarySkills.events(elapsed):[],elapsed,{actors:[player,...bots],preview:live&&mode==='play'&&player.alive&&player.kit.character==='cat'&&duckAim?{...(duckAim==='q'?catEnemyTarget(player):catDropTarget(player)),type:duckAim}:null});
   duckSkillFX.update(live?ordinarySkills.events(elapsed):[],elapsed,{actors:[player,...bots],preview:live&&mode==='play'&&player.alive&&player.kit.character==='duck'&&duckAim?{...getDuckTarget(player,duckAim==='c'?'duck-pad':'duck-shield'),type:duckAim}:null});
-  frostSkillFX.update(live?ordinarySkills.events(elapsed):[],elapsed,{viewer:viewer||player,actors:[player,...bots].map(ordinaryActorView),groundHeight:ordinaryGroundHeight,reachable:ordinaryReachable,terrainRevision:map.collision.revision,showHand:live&&mode==='play'&&player.alive,reducedMotion:reducedMotion.matches});
+  frostSkillFX.update(live?ordinarySkills.events(elapsed):[],elapsed,{viewer:viewer||player,actors:actorViews,groundHeight:ordinaryGroundHeight,reachable:ordinaryReachable,terrainRevision:map.collision.revision,showHand:live&&mode==='play'&&player.alive,reducedMotion:reducedMotion.matches});
   duelistSkillFX.update(live?ordinarySkills.events(elapsed):[],elapsed,{viewer:viewer||player,showHand:live&&mode==='play'&&player.alive,reducedMotion:reducedMotion.matches});
   const nearRemaining=live&&viewer?.alive?Math.max(0,ordinarySkills.nearsightUntil(viewer.id,elapsed)-elapsed):0,nearOverlay=$('skill-nearsight-overlay');
-  if(nearOverlay){nearOverlay.hidden=!(nearRemaining>0&&mode==='play');nearOverlay.style.opacity=String(Math.min(1,nearRemaining/.25));}
+  if(nearOverlay){setHidden(nearOverlay,!(nearRemaining>0&&mode==='play'));nearOverlay.style.opacity=String(Math.min(1,nearRemaining/.25));}
   const remaining=live&&viewer?.alive?Math.max(0,ordinarySkills.blindUntil(viewer.id,elapsed)-elapsed):0,overlay=$('skill-blind-overlay');
-  if(overlay){const blocked=remaining>0&&mode==='play';overlay.hidden=!blocked;overlay.style.opacity=blocked?'1':'0';}
+  if(overlay){const blocked=remaining>0&&mode==='play';setHidden(overlay,!blocked);overlay.style.opacity=blocked?'1':'0';}
   // Resolve the viewed equipment again after FX and asynchronous snapshots.
   updateFirstPersonEquipment(0);
 }
@@ -1221,12 +1237,41 @@ function makeBot(spawn,index,team='red',record=null) {
   bot.group.position.set(spawn.x,bot.y,spawn.z);botsGroup.add(bot.group);bots.push(bot);
   visual.update(0,{...agentEquipment(bot),time:elapsed,alive:bot.alive});
 }
-function clearBots() {
-  playerShotModel?.dispose();playerShotModel=null;
+// Avatar geometry, painted textures and their shader programs are reference
+// counted: disposing the last model of a round destroys them, and the next
+// roster then rebuilds and recompiles everything (a long round-start stall,
+// then compile hitches when each enemy first comes into view). A round respawn
+// therefore passes retain=true, builds the new roster, and only then releases
+// the detached old models through releaseRetiredBots().
+function clearBots(retain=false) {
+  const retired=bots.map(bot=>bot.visual);
+  if(playerShotModel)retired.push(playerShotModel);
+  playerShotModel=null;
   victoryCamera.reset();lastSpectatedId=null;
   spectatedBot=null;
-  for(const bot of bots)bot.visual.dispose();
   bots.length=0;
+  if(!retain){for(const visual of retired)visual.dispose();return [];}
+  for(const visual of retired)visual.group.removeFromParent();
+  return retired;
+}
+// Tracers and hit sparks create and dispose a material per shot. Whenever
+// none was alive three.js deleted their shader program, so the first shot
+// after any lull linked it again on that frame. These never-drawn anchors
+// keep one reference to each program for as long as the page lives.
+const effectProgramAnchors=new THREE.Group();
+effectProgramAnchors.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(),new THREE.Vector3(0,0,1)]),new THREE.LineBasicMaterial({color:'#ffeab0',transparent:true,opacity:.8})),
+  new THREE.Mesh(new THREE.BoxGeometry(.045,.045,.045),new THREE.MeshBasicMaterial({color:'#ffac6b',transparent:true})));
+function releaseRetiredBots(retired,everything=false){
+  // Bind programs for the incoming models while the outgoing materials still
+  // hold them, so a shared program is reused instead of deleted and relinked.
+  // The first round of a match also walks the pooled (hidden) skill effects,
+  // moving their first-use compilation from mid-fight to the buy phase.
+  try{
+    renderer.compile(effectProgramAnchors,camera,scene);
+    if(everything)renderer.compile(scene,camera);
+    else if(bots.length)renderer.compile(botsGroup,camera,scene);
+  }catch{}
+  for(const visual of retired)visual.dispose();
 }
 function spawnRound(reset=false) {
   if(reset)redLossStreak=0;
@@ -1241,7 +1286,8 @@ function spawnRound(reset=false) {
   resetDetonation();
   resetTakeover();
   resetTeamAbilities();
-  clearBots();
+  const retiredBots=clearBots(true);
+  try{
   clearDrops();
   syncSmokes([]);player.kit.resetRound({reset});player.dashTimer=0;player.dashVec=null;
   if(reset||!player.alive){inventory={primary:null,secondary:'classic',active:'classic'};player.armor=0;}
@@ -1268,6 +1314,7 @@ function spawnRound(reset=false) {
     makeBot(points[index],index,record.team,record);
     const actor=bots[bots.length-1];if(record.memberId){actor.kit=record.kit;actor.remoteId=record.netFallback?null:record.memberId;actor.netYaw=actor.group.rotation.y-Math.PI;actor.netAmmo=(WEAPONS[record.primary||record.secondary]||WEAPONS.classic).mag;actor.netReserve=(WEAPONS[record.primary||record.secondary]||WEAPONS.classic).reserve;actor.netWeapon=record.primary||record.secondary;actor.lastNetShot=-10;actor.lastNetInput=elapsed;}
   }
+  }finally{releaseRetiredBots(retiredBots,reset);}
   equip(inventory.primary||inventory.secondary,true);setVisible('spectator-hint',false);setVisible('round-banner',false);
   if(!isGuest())placeStartingBomber();
   syncBuyBarrier();
@@ -1285,7 +1332,11 @@ function autoBuyBot(r){
   else if(r.armor<25&&r.credits>=400){r.armor=25;r.credits-=400;}
   if(['duelist','nope','mend','echo','veil','ember','frost','duck','cat','car','nobi','japan','cap','urchin','onnara'].includes(r.kit?.character))for(const key of ['c','q'])while(r.kit.buy(key,price=>{if(r.credits<price)return false;r.credits-=price;return true;})){}
 }
-function setVisible(id,visible) { if($(id))$(id).hidden=!visible; if(visible&&(id==='menu'||id==='result'))keyboardProtection.release(); if(id==='menu'||id==='online-overlay'||id==='online-lobby')characterPicker.sync(); }
+// Writing an unchanged `hidden` still records an attribute change and a style
+// pass; per-frame callers go through this instead.
+function setAttr(node,name,value){if(node?.setAttribute&&node.getAttribute?.(name)!==value)node.setAttribute(name,value);}
+function setHidden(node,hidden){hidden=!!hidden;if(node&&node.hidden!==hidden)node.hidden=hidden;}
+function setVisible(id,visible) { const node=$(id); if(node&&node.hidden!==!visible)node.hidden=!visible; /* unchanged: no attribute write, no style pass */ if(visible&&(id==='menu'||id==='result'))keyboardProtection.release(); if(id==='menu'||id==='online-overlay'||id==='online-lobby')characterPicker.sync(); }
 function clearCombatInput(){clearVeilPlacement();duckAim=null;releaseRenkoJet();
   cancelPlantAndEquip(player);
   pointerLockRequest++;pointerLockInput='unlocked';
@@ -1926,6 +1977,22 @@ function fireKnifeBurst(actor,origin,aim,count,{visualOnly=false}={}){
 }
 // Shared by local host, remote actions and BOTs. Geometry, stock, cadence and
 // damage remain host owned; the network carries only the trigger and aim.
+// World bounds of every model under botsGroup for the current pose. A model
+// containing lines, points or sprites (whose ray tests use a threshold, not
+// their geometry bounds) is never culled: its entry is null.
+function shotModelBounds(){
+  return botsGroup.children.map(group=>{
+    let exact=true;group.traverse(o=>{if(o.isLine||o.isPoints||o.isSprite)exact=false;});
+    return exact?new THREE.Box3().setFromObject(group):null;
+  });
+}
+// Same list, in the same order, as ray.intersectObjects([environment,botsGroup],true):
+// models whose bounds the ray misses contribute nothing either way.
+function shotIntersections(ray,bounds){
+  const list=[environment],groups=botsGroup.children;
+  for(let i=0;i<groups.length;i++){const box=bounds[i];if(!box||!box.isEmpty()&&ray.ray.intersectsBox(box))list.push(groups[i]);}
+  return ray.intersectObjects(list,true);
+}
 function fireArsenal(actor,origin,aim,spec,ads=false,{visualOnly=false}={}){
   const id=actor===player?inventory.active:actor.netWeapon||actor.aiWeapon;
   const moving=actor===player?Math.hypot(player.vx,player.vz)>1.2:!!actor.moving||!!actor.remoteMoving;
@@ -1937,14 +2004,17 @@ function fireArsenal(actor,origin,aim,spec,ads=false,{visualOnly=false}={}){
   const pattern=shotPattern(id,{ads:trident?focus:ads,moving,airborne:!actorGrounded(actor),steadyAir:steadyAirAim(actor),sequence});
   const markedHits=new Set(),laneDamage=new Map();
   botsGroup.updateMatrixWorld(true);
-  const targets=[environment,botsGroup];
+  const targets=[environment,botsGroup],shotCount=lanes.length*pattern.length;
+  // Shotgun pellets and trident lanes share one origin and one pose. Bound
+  // each model once so later rays skip models they cannot reach.
+  const shotBounds=shotCount>1?shotModelBounds():null;
   let anyHit=false,headHit=false,bounced=false,rangeStartHit=false;
   for(const lane of lanes)for(const offset of pattern){
     // Rotate each ordinary pellet about world-up: identical pitch, spread and
     // movement penalty in all three groups; one cartridge and one sequence.
     const dir=forward.clone().addScaledVector(right,offset.x).addScaledVector(up,offset.y).normalize().applyAxisAngle(new THREE.Vector3(0,1,0),lane.angle);
     const ray=new THREE.Raycaster(origin,dir,0,120);
-    let hit=ray.intersectObjects(targets,true).find(h=>busSurfaceVisible(h)&&h.object.userData.bot!==actor&&(!h.object.userData.bot||h.object.userData.bot.alive));
+    let hit=(shotBounds?shotIntersections(ray,shotBounds):ray.intersectObjects(targets,true)).find(h=>busSurfaceVisible(h)&&h.object.userData.bot!==actor&&(!h.object.userData.bot||h.object.userData.bot.alive));
     let target=hit?.object.userData.bot,point=hit?.point,part=shotZone(hit),nearest=hit?.distance??120;
     if(actor!==player&&player.alive){const local=playerShotHit(ray);if(local&&local.distance<nearest){hit=local;target=player;point=local.point;part=shotZone(local);nearest=local.distance;}}
     const fake=raycastNopeDecoy(origin,dir,nearest,actor.team);
@@ -2256,7 +2326,7 @@ function updateOnnaraReveal(){
 }
 function renderOnnaraOrb(){
  const cameras=visibleOnnaraCameras(),label=$('onnara-orb-label');
- if(label){label.hidden=!cameras.length;if(cameras.length)label.textContent=`星見の宝玉 · ${cameras.length}台 · ${Math.ceil(Math.max(...cameras.map(e=>e.endsAt))-elapsed)}秒 · 映る敵を透過表示`;}
+ if(label){setHidden(label,!cameras.length);if(cameras.length)label.textContent=`星見の宝玉 · ${cameras.length}台 · ${Math.ceil(Math.max(...cameras.map(e=>e.endsAt))-elapsed)}秒 · 映る敵を透過表示`;}
  cameras.forEach((event,slot)=>onnaraOrbView.render(renderer,scene,event,{actors:bots,visible:visibleBetween,gun,hide:[onnaraSkillFX.group,preparedSkillFX.group,onnaraReveal.group],now:elapsed,slot}));
 }
 function urchinGroundHeight(x,z,lineY){
@@ -2359,7 +2429,7 @@ function renderTrident(live,viewer){
  }
  for(const[id,state]of tridentAudio)if(!seen.has(id)){if(live)sound('urchin-trident-end',{localOnly:true});tridentAudio.delete(id);}
  const visible=p=>rootPointVisible(viewer,p);tridentFX.update(items,elapsed,{visible,reducedMotion:reducedMotion.matches});
- const own=player.alive&&events.find(e=>e.sourceId===player.id&&e.team===player.team),hud=$('trident-hud');if(!hud)return;hud.hidden=!own;
+ const own=player.alive&&events.find(e=>e.sourceId===player.id&&e.team===player.team),hud=$('trident-hud');if(!hud)return;setHidden(hud,!own);
  if(own){const next=tridentActorFocus(player)?'集中':'三叉',remaining=Math.max(0,own.endsAt-elapsed);hud.textContent=`三叉潮 · ${next} · ${remaining.toFixed(1)}秒`;hud.classList.toggle('ending',remaining<=URCHIN_TRIDENT.warning);
   if(next!==tridentHUDMode){hud.classList.remove('mode-change');if(!reducedMotion.matches)hud.animate?.([{transform:'translateX(-50%) scale(1.1)'},{transform:'translateX(-50%) scale(1)'}],{duration:220});if(next==='集中'&&elapsed-tridentFocusSoundAt>=URCHIN_TRIDENT.focusSoundGap){sound('urchin-trident-focus',{localOnly:true});tridentFocusSoundAt=elapsed;}tridentHUDMode=next;}
  }else tridentHUDMode='';
@@ -3145,49 +3215,54 @@ let hudRefresh=0;
 function updateHUD(){
   hudRefresh=.05;
   if(!match)return;
+  // HUD text is collected here and applied once at the end, only where it
+  // differs from what is shown. Assigning textContent replaces the text node
+  // even when the value is the same, and practice/range/objective modes (and
+  // the competitive UI) overwrite several labels after the match text is set.
+  const hudText={};
   updateCombatReport();
   const armedWeapon=weapon(),ultimateKnives=player.kit.knivesActive&&inventory.active==='knife',firearm=inventory.active!=='spike'&&armedWeapon.mag>0;
   $('hud')?.classList.toggle('objective-practice',!!objectivePractice);
-  $('health').textContent=Math.ceil(player.hp);$('ammo').textContent=firearm?(rangeInfiniteResources()?'∞':player.ammo):ultimateKnives?player.kit.knives:'—';$('reserve').textContent=firearm?(rangeInfiniteResources()?'∞':player.reserve):ultimateKnives?'∞':'—';
-  $('timer').textContent=formatTime(Math.ceil(timeLeft));$('kills').textContent=String(totalKills).padStart(2,'0');
-  $('remaining').textContent=aliveCount(player.team==='blue'?'red':'blue');$('ally-alive').textContent=aliveCount(player.team);
-  $('round-label').textContent=`ROUND ${String(match.round).padStart(2,'0')}${match.overtime?' · OVERTIME':''}`;
-  $('team-score').textContent=match.score[player.team];$('enemy-score').textContent=match.score[player.team==='blue'?'red':'blue'];
-  $('side-label').textContent=sideNames[ownSide()];$('credits').textContent=match.credits.toLocaleString();$('armor').textContent=Math.ceil(player.armor);
-  $('weapon-name').textContent=inventory.active==='spike'?'BOMBER':weapon().name;
-  $('mobile-ads')?.setAttribute('aria-pressed',String(aiming&&weapon().slot==='primary'));
-  $('mobile-crouch')?.setAttribute('aria-pressed',String(keys.has('TouchCrouch')));
+  hudText['health']=Math.ceil(player.hp);hudText['ammo']=firearm?(rangeInfiniteResources()?'∞':player.ammo):ultimateKnives?player.kit.knives:'—';hudText['reserve']=firearm?(rangeInfiniteResources()?'∞':player.reserve):ultimateKnives?'∞':'—';
+  hudText['timer']=formatTime(Math.ceil(timeLeft));hudText['kills']=String(totalKills).padStart(2,'0');
+  hudText['remaining']=aliveCount(player.team==='blue'?'red':'blue');hudText['ally-alive']=aliveCount(player.team);
+  hudText['round-label']=`ROUND ${String(match.round).padStart(2,'0')}${match.overtime?' · OVERTIME':''}`;
+  hudText['team-score']=match.score[player.team];hudText['enemy-score']=match.score[player.team==='blue'?'red':'blue'];
+  hudText['side-label']=sideNames[ownSide()];hudText['credits']=match.credits.toLocaleString();hudText['armor']=Math.ceil(player.armor);
+  hudText['weapon-name']=inventory.active==='spike'?'BOMBER':weapon().name;
+  setAttr($('mobile-ads'),'aria-pressed',String(aiming&&weapon().slot==='primary'));
+  setAttr($('mobile-crouch'),'aria-pressed',String(keys.has('TouchCrouch')));
   if($('mobile-ads')){const button=$('mobile-ads'),switching=player.kit?.character==='cap'&&duckAim==='q'||player.kit?.character==='ember'&&!!duckAim;button.disabled=(!switching&&weapon().slot!=='primary')||!player.alive;if(switching){button.dataset.capLabel??=button.textContent;button.textContent='A / B';}else if(button.dataset.capLabel!==undefined){button.textContent=button.dataset.capLabel;delete button.dataset.capLabel;}}
   const interactButton=$('mobile-interact'),practiceComplete=!!objectivePractice?.completed;
   if(interactButton){
     const reset=interactButton.disabled&&!practiceComplete;interactButton.disabled=practiceComplete;
     if(practiceComplete||reset){
-      if($('mobile-interact-label'))$('mobile-interact-label').textContent=practiceComplete?'完了':'4';
-      if($('mobile-interact-hint'))$('mobile-interact-hint').textContent=practiceComplete?'Mで再挑戦':'長押し';
+      if($('mobile-interact-label'))hudText['mobile-interact-label']=practiceComplete?'完了':'4';
+      if($('mobile-interact-hint'))hudText['mobile-interact-hint']=practiceComplete?'Mで再挑戦':'長押し';
     }
   }
   const s=match.spike;
   const planted=match.phase==='live'&&s.status==='planted',notice=$('bomber-alert');
   if(notice){
-    notice.hidden=!planted;
+    setHidden(notice,!planted);
     if(planted){const key=`${match.round}:${s.site}`;if(bomberNoticeKey!==key){bomberNoticeKey=key;bomberNoticeUntil=elapsed+4.5;}
       notice.classList.toggle('announcing',elapsed<bomberNoticeUntil);notice.classList.toggle('urgent',!objectivePractice&&s.timer<=10);
-      $('bomber-alert-title').textContent=`${s.site}サイト ボンバー設置`;
-      $('bomber-alert-time').textContent=objectivePractice?'練習中 · 起爆なし':`起爆まで ${Math.max(0,Math.ceil(s.timer))}秒`;
+      hudText['bomber-alert-title']=`${s.site}サイト ボンバー設置`;
+      hudText['bomber-alert-time']=objectivePractice?'練習中 · 起爆なし':`起爆まで ${Math.max(0,Math.ceil(s.timer))}秒`;
     }else{bomberNoticeKey='';bomberNoticeUntil=0;}
   }
-  $('phase-label').textContent=match.phase==='buy'?'BUY PHASE / 購入':match.phase==='post'?'ROUND OVER':s.status==='planted'?'BOMBER PLANTED':'ROUND LIVE';
-  $('objective-label').textContent=match.phase==='buy'?(onlinePlaying?'Bで購入 · フェーズ終了で全員同時に開始':'Bで購入 · 購入終了ボタンで開始'):ownSide()==='attack'?(s.status==='planted'?'起爆までボンバーを守れ':'A / B サイトで 4 長押し → 4秒で設置'):(s.status==='planted'?'ボンバー付近で 4 長押し → 7秒で電源オフ':'敵の設置を阻止せよ');
-  $('spike-state').textContent=s.status==='planted'?`${s.site} · 起爆まで ${Math.ceil(s.timer)}s`:s.status==='dropped'?'BOMBER DROPPED / 回収可能':s.status==='defused'?'BOMBER POWERED OFF':s.status==='detonated'?'BOMBER DETONATED':s.carrier===player.id?'BOMBER · YOU':`BOMBER · ${ownSide()==='attack'?'味方が所持':'敵が所持'}`;
+  hudText['phase-label']=match.phase==='buy'?'BUY PHASE / 購入':match.phase==='post'?'ROUND OVER':s.status==='planted'?'BOMBER PLANTED':'ROUND LIVE';
+  hudText['objective-label']=match.phase==='buy'?(onlinePlaying?'Bで購入 · フェーズ終了で全員同時に開始':'Bで購入 · 購入終了ボタンで開始'):ownSide()==='attack'?(s.status==='planted'?'起爆までボンバーを守れ':'A / B サイトで 4 長押し → 4秒で設置'):(s.status==='planted'?'ボンバー付近で 4 長押し → 7秒で電源オフ':'敵の設置を阻止せよ');
+  hudText['spike-state']=s.status==='planted'?`${s.site} · 起爆まで ${Math.ceil(s.timer)}s`:s.status==='dropped'?'BOMBER DROPPED / 回収可能':s.status==='defused'?'BOMBER POWERED OFF':s.status==='detonated'?'BOMBER DETONATED':s.carrier===player.id?'BOMBER · YOU':`BOMBER · ${ownSide()==='attack'?'味方が所持':'敵が所持'}`;
   $('health').style.color=player.hp<35?'#ff5a67':'';
   $('ammo').style.color=firearm&&player.ammo<8?'#ff5a67':'';
-  $('reload-state').textContent=player.serviceReload?'クイックソルダー…':reloading>0?'リロード中':firearm&&player.ammo===0?(player.reserve>0?'R  リロード':'弾薬切れ · 武器を持ち替え'):'';
-  $('reload-state').hidden=!player.alive||!firearm||!(reloading>0||player.serviceReload||player.ammo===0);
+  hudText['reload-state']=player.serviceReload?'クイックソルダー…':reloading>0?'リロード中':firearm&&player.ammo===0?(player.reserve>0?'R  リロード':'弾薬切れ · 武器を持ち替え'):'';
+  setHidden($('reload-state'),!player.alive||!firearm||!(reloading>0||player.serviceReload||player.ammo===0));
   const cycle=sniperCycleRemaining(),cycleHUD=$('sniper-cycle');
-  cycleHUD.hidden=!(cycle&&mode==='play'&&match.phase==='live'&&player.alive&&firearm&&player.ammo>0&&!reloading&&!player.serviceReload&&!interactionHeld&&!busSeat()&&!carMotionActive(player));
+  setHidden(cycleHUD,!(cycle&&mode==='play'&&match.phase==='live'&&player.alive&&firearm&&player.ammo>0&&!reloading&&!player.serviceReload&&!interactionHeld&&!busSeat()&&!carMotionActive(player)));
   if(!cycleHUD.hidden){
     const progress=clamp(1-cycle/nobiShotInterval(armedWeapon,player),0,1);
-    $('sniper-cycle-label').textContent=`次の射撃まで ${Math.max(.1,Math.ceil(cycle*10)/10).toFixed(1)}秒`;
+    hudText['sniper-cycle-label']=`次の射撃まで ${Math.max(.1,Math.ceil(cycle*10)/10).toFixed(1)}秒`;
     cycleHUD.setAttribute('aria-valuenow',String(Math.floor(progress*100)));
     $('sniper-cycle-fill').style.transform=`scaleX(${progress})`;
   }
@@ -3219,48 +3294,49 @@ function updateHUD(){
     const duckFlying=duckFlight(player);const duckSeal=ordinarySkills.sealUntil(player.id,elapsed)>elapsed,duckQuiet=ordinarySkills.quiet(player.id,elapsed),duckEgg=ordinarySkills.events(elapsed).find(e=>e.type==='duck-egg'&&e.sourceId===player.id);
     const personal=player.alive?ordinarySkills.events(elapsed).filter(event=>event.sourceId===player.id):[],shade=personal.some(event=>event.type==='ember-shade'),unravel=personal.some(event=>event.type==='frost-unravel')&&actorGrounded(player);
     const robotStatus=player.kit.character==='ember'?emberStatus():'';if(robotStatus)statuses.push(robotStatus);
-    $('status-effects').hidden=!statuses.length&&!carGyro&&!catBook&&!catClock&&!duckAim&&!duckSeal&&!duckQuiet&&!duckFlying&&!duckEgg&&!slowed&&!boosted&&!blind&&!shade&&!unravel;
-    $('status-effects').textContent=[...statuses,carGyro?'タイヤジャイロ · 接地中の移動射撃安定':'',catBook?`白いしおり · Cで帰還 ${Math.max(0,Math.ceil(catBook.endsAt-elapsed))}秒`:'',catClock?'白紙の8秒 · 試合時計停止 / 行動は継続':'',duckAim?(player.kit.character==='ember'?emberAimHint(duckAim):'狙って左クリックで確定 / 右クリックで取消'):'',duckSeal?'羽根の封印 · 新規スキル使用不可':'',duckQuiet?'忍びガモ · 足音・着地音なし':'',duckFlying?`羽ばたき ${Math.ceil(duckFlying.endsAt-elapsed)}秒 · SPACE連打で飛ぶ`:'',duckEgg?`不屈の卵 · 残り${duckEgg.power}回`:'',slowed?`足止め中 · 移動速度 ${Math.round(scale*100)}%`:'',boosted?`${CHARACTER_DEFS[player.kit.character].label} / ${getCharacterSkill(player.kit.character,'e').name} · ${Math.round(scale*100)}%`:'',blind?'FLASH · 視界回復中':'',shade?`遮光チェック · 新しい閃光の時間${Math.round(EMBER_SKILLS.shadeFlashScale*100)}%`:'',unravel?`${getCharacterSkill('frost','e').name} · ${frostSlideSpeed(player)>0?'滑走中 / ':''}減速分を${Math.round((1-FROST_SKILLS.unravelSlowFraction)*100)}%軽減`:''].filter(Boolean).join(' / ');
+    setHidden($('status-effects'),!statuses.length&&!carGyro&&!catBook&&!catClock&&!duckAim&&!duckSeal&&!duckQuiet&&!duckFlying&&!duckEgg&&!slowed&&!boosted&&!blind&&!shade&&!unravel);
+    hudText['status-effects']=[...statuses,carGyro?'タイヤジャイロ · 接地中の移動射撃安定':'',catBook?`白いしおり · Cで帰還 ${Math.max(0,Math.ceil(catBook.endsAt-elapsed))}秒`:'',catClock?'白紙の8秒 · 試合時計停止 / 行動は継続':'',duckAim?(player.kit.character==='ember'?emberAimHint(duckAim):'狙って左クリックで確定 / 右クリックで取消'):'',duckSeal?'羽根の封印 · 新規スキル使用不可':'',duckQuiet?'忍びガモ · 足音・着地音なし':'',duckFlying?`羽ばたき ${Math.ceil(duckFlying.endsAt-elapsed)}秒 · SPACE連打で飛ぶ`:'',duckEgg?`不屈の卵 · 残り${duckEgg.power}回`:'',slowed?`足止め中 · 移動速度 ${Math.round(scale*100)}%`:'',boosted?`${CHARACTER_DEFS[player.kit.character].label} / ${getCharacterSkill(player.kit.character,'e').name} · ${Math.round(scale*100)}%`:'',blind?'FLASH · 視界回復中':'',shade?`遮光チェック · 新しい閃光の時間${Math.round(EMBER_SKILLS.shadeFlashScale*100)}%`:'',unravel?`${getCharacterSkill('frost','e').name} · ${frostSlideSpeed(player)>0?'滑走中 / ':''}減速分を${Math.round((1-FROST_SKILLS.unravelSlowFraction)*100)}%軽減`:''].filter(Boolean).join(' / ');
   }
-  if($('ability-x-name'))$('ability-x-name').textContent=character.ultShortName;
-  if($('mobile-ult-name'))$('mobile-ult-name').textContent=character.ultShortName;
-  $('mobile-ult')?.setAttribute('aria-label',`X ${character.ultName}`);
+  {const node=$('ability-x-name');if(node&&node.textContent!==character.ultShortName)node.textContent=character.ultShortName;}
+  if($('mobile-ult-name'))hudText['mobile-ult-name']=character.ultShortName;
+  setAttr($('mobile-ult'),'aria-label',`X ${character.ultName}`);
   skillUI.updateHUD(kit,elapsed,{alive:player.alive});
   if($('ability-x-count'))$('ability-x-count').textContent=k.renkoActive?'発動中':k.knivesActive?`${k.knives}本`:`${k.ultPoints}/7`;
   $('ability-x')?.classList.toggle('cooldown',!player.alive||k.renkoActive||!(k.ultPoints>=7||k.knivesActive));
-  setVisible('online-session-status',onlinePlaying);if($('online-session-status')&&onlinePlaying)$('online-session-status').textContent=netHostPaused?'ホストが戻るまで試合を一時停止':`ONLINE · ${online.room.code}`;
-  setVisible('restart',!onlinePlaying);if($('pause-note'))$('pause-note').textContent=onlinePlaying?'この画面を開いている間も試合は進みます。':'準備ができたら、作戦を再開しよう。';
+  setVisible('online-session-status',onlinePlaying);if($('online-session-status')&&onlinePlaying)hudText['online-session-status']=netHostPaused?'ホストが戻るまで試合を一時停止':`ONLINE · ${online.room.code}`;
+  setVisible('restart',!onlinePlaying);if($('pause-note'))hudText['pause-note']=onlinePlaying?'この画面を開いている間も試合は進みます。':'準備ができたら、作戦を再開しよう。';
   if($('health-bar'))$('health-bar').style.width=`${Math.min(100,player.hp)}%`;
   const hudViewer=!player.alive&&spectatedBot?spectatedBot:player,zone=resolveMapCallout(map,hudViewer);
-  $('zone').textContent=zone?.name||map.floors?.[map.floorIndex(hudViewer.y)]?.name||'NORTH PLAZA / 北口広場';
+  hudText['zone']=zone?.name||map.floors?.[map.floorIndex(hudViewer.y)]?.name||'NORTH PLAZA / 北口広場';
   if(exploring){
-    $('timer').textContent='∞';$('round-label').textContent=(map.shortName||'HASHIMOTO')+' / MAP PRACTICE';$('side-label').textContent='マップ練習';
-    $('phase-label').textContent=map.floors?'2 SITES / 4 FLOORS':'2 SITES / 3 LANES';$('objective-label').textContent=!rangeSession&&!objectivePractice?'C/Q/E/X 無限 · M：ルート確認・地点移動 · B：武器選択':'M：ルート確認・地点移動 · WASD：移動 · B：武器選択';
-    $('spike-state').textContent=map.routeCopy||(map.id==='trc'?'屋外前庭 / A ロング / MID / 搬入 B メイン':map.id==='hirakata'?'南北自由通路 / バス車道に注意 / 接触150ダメージ':'バス通り / 中央連絡路 / ミウィ通り');$('zone').textContent=zone?.name||map.floors?.[map.floorIndex(hudViewer.y)]?.name||((map.name||'橋本駅')+'前');
+    hudText['timer']='∞';hudText['round-label']=(map.shortName||'HASHIMOTO')+' / MAP PRACTICE';hudText['side-label']='マップ練習';
+    hudText['phase-label']=map.floors?'2 SITES / 4 FLOORS':'2 SITES / 3 LANES';hudText['objective-label']=!rangeSession&&!objectivePractice?'C/Q/E/X 無限 · M：ルート確認・地点移動 · B：武器選択':'M：ルート確認・地点移動 · WASD：移動 · B：武器選択';
+    hudText['spike-state']=map.routeCopy||(map.id==='trc'?'屋外前庭 / A ロング / MID / 搬入 B メイン':map.id==='hirakata'?'南北自由通路 / バス車道に注意 / 接触150ダメージ':'バス通り / 中央連絡路 / ミウィ通り');hudText['zone']=zone?.name||map.floors?.[map.floorIndex(hudViewer.y)]?.name||((map.name||'橋本駅')+'前');
   }
-  if($('ally-label'))$('ally-label').textContent=rangeSession?'SCORE':'YOUR TEAM';
-  if($('enemy-label'))$('enemy-label').textContent=rangeSession?'HEADSHOT':'ENEMY TEAM';
+  if($('ally-label'))hudText['ally-label']=rangeSession?'SCORE':'YOUR TEAM';
+  if($('enemy-label'))hudText['enemy-label']=rangeSession?'HEADSHOT':'ENEMY TEAM';
   setVisible('ally-status',!rangeSession&&!objectivePractice);setVisible('enemy-status',!rangeSession&&!objectivePractice);
   if(rangeSession){
     const result=rangeSession.summary();
-    $('timer').textContent=formatTime(Math.ceil(rangeSession.remaining));$('round-label').textContent='60 SECOND AIM DRILL';
-    $('phase-label').textContent=rangeSession.started?'SHOOTING RANGE / 射撃訓練':'スタート看板を撃って開始';$('side-label').textContent='射撃訓練';
-    $('team-score').textContent=result.score;$('enemy-score').textContent=rangeSession.headKills;
-    $('objective-label').textContent='弾・C/Q/E/X ∞ · 頭150点 / 胴100点 · Bで武器選択';
-    $('spike-state').textContent=`${result.kills}撃破 · 命中 ${result.accuracy}% · ヘッド ${result.headRate}%`;
+    hudText['timer']=formatTime(Math.ceil(rangeSession.remaining));hudText['round-label']='60 SECOND AIM DRILL';
+    hudText['phase-label']=rangeSession.started?'SHOOTING RANGE / 射撃訓練':'スタート看板を撃って開始';hudText['side-label']='射撃訓練';
+    hudText['team-score']=result.score;hudText['enemy-score']=rangeSession.headKills;
+    hudText['objective-label']='弾・C/Q/E/X ∞ · 頭150点 / 胴100点 · Bで武器選択';
+    hudText['spike-state']=`${result.kills}撃破 · 命中 ${result.accuracy}% · ヘッド ${result.headRate}%`;
   }
   if(objectivePractice){
     const p=objectivePractice,plant=p.kind==='plant';
-    $('timer').textContent='∞';$('round-label').textContent=`${p.site} SITE / OBJECTIVE PRACTICE`;
-    $('side-label').textContent=plant?'設置練習':'電源オフ練習';$('phase-label').textContent=p.completed?'練習成功':plant?'4 長押し · 4秒で設置':'4 長押し · 7秒で電源オフ';
-    $('objective-label').textContent=p.completed?'M → A/Bでやり直す · 設置した本体を近くで確認できます':plant?'設置区画内で 4 長押し · MでA/Bを切替':'4 長押し · 3.5秒で進捗50%を保存 · MでA/Bを切替';
-    $('spike-state').textContent=p.completed?`${p.site} · ${plant?'設置成功':'電源オフ成功'} · 起爆なし`:`${p.site} · BOTなし / 時間制限なし / 起爆なし`;
-    if($('ally-label'))$('ally-label').textContent='SITE';if($('enemy-label'))$('enemy-label').textContent='TARGET';
-    $('team-score').textContent=p.site;$('enemy-score').textContent=plant?'4s':'7s';
+    hudText['timer']='∞';hudText['round-label']=`${p.site} SITE / OBJECTIVE PRACTICE`;
+    hudText['side-label']=plant?'設置練習':'電源オフ練習';hudText['phase-label']=p.completed?'練習成功':plant?'4 長押し · 4秒で設置':'4 長押し · 7秒で電源オフ';
+    hudText['objective-label']=p.completed?'M → A/Bでやり直す · 設置した本体を近くで確認できます':plant?'設置区画内で 4 長押し · MでA/Bを切替':'4 長押し · 3.5秒で進捗50%を保存 · MでA/Bを切替';
+    hudText['spike-state']=p.completed?`${p.site} · ${plant?'設置成功':'電源オフ成功'} · 起爆なし`:`${p.site} · BOTなし / 時間制限なし / 起爆なし`;
+    if($('ally-label'))hudText['ally-label']='SITE';if($('enemy-label'))hudText['enemy-label']='TARGET';
+    hudText['team-score']=p.site;hudText['enemy-score']=plant?'4s':'7s';
     for(const key of ['c','q','e','x']){if($(`ability-${key}-count`))$(`ability-${key}-count`).textContent='—';$(`ability-${key}`)?.classList.add('cooldown');}
   }
   combatHUD.update({uiMode:objectivePractice?'objective':rangeSession?'range':exploring?'practice':'match',alive:player.alive,hp:player.hp,armor:player.armor,mag:firearm?armedWeapon.mag:0,ammo:player.ammo,ultPoints:k.ultPoints,planted});
-  competitiveUI.update({uiMode:objectivePractice?'objective':rangeSession?'range':exploring?'practice':'match',phase:match.phase,alive:player.alive,round:match.round,hp:player.hp,weaponId:inventory.active,mag:firearm?armedWeapon.mag:0,ammo:player.ammo,reloading:reloading>0||!!player.serviceReload,overtime:match.overtime,seconds:timeLeft,side:ownSide(),planted,spikeStatus:s.status,carrier:s.carrier===player.id,ultPoints:k.ultPoints,aimKey:duckAim,character:k.character,skills:[...['c','q','e'].map(key=>({key,...getCharacterSkill(k.character,key)})),getCharacterUltimate(k.character)]});
+  competitiveUI.update({uiMode:objectivePractice?'objective':rangeSession?'range':exploring?'practice':'match',phase:match.phase,alive:player.alive,round:match.round,hp:player.hp,weaponId:inventory.active,mag:firearm?armedWeapon.mag:0,ammo:player.ammo,reloading:reloading>0||!!player.serviceReload,overtime:match.overtime,seconds:timeLeft,side:ownSide(),planted,spikeStatus:s.status,carrier:s.carrier===player.id,ultPoints:k.ultPoints,aimKey:duckAim,character:k.character,skills:[...['c','q','e'].map(key=>({key,...getCharacterSkill(k.character,key)})),getCharacterUltimate(k.character)]},hudText);
+  for(const id in hudText){const node=$(id);if(node&&String(node.textContent)!==String(hudText[id]))node.textContent=hudText[id];}
 }
 function drawMinimap(target,large=false){
   if(!target)return;const ctx=target.getContext('2d'),w=target.width,h=target.height,pad=large?40:14;
@@ -5132,7 +5208,7 @@ function frame(now){
   syncDeathUI();const renderStart=frameDiagnostics?performance.now():0;renderWithDetonation(dt);
   if(frameDiagnostics){const f=frameDiagnostics;f.rows[f.next]=[frameInterval,renderStart-frameStart,performance.now()-renderStart];f.next=(f.next+1)%180;
     if(++f.count%60===0){const percentile=(k,p)=>{const a=f.rows.map(r=>r[k]).sort((a,b)=>a-b);return +a[Math.floor((a.length-1)*p)].toFixed(2);};
-      const output=$('frame-diagnostics');if(output)output.textContent=JSON.stringify({map:map.id,mode,samples:f.rows.length,intervalMedianMs:percentile(0,.5),intervalP95Ms:percentile(0,.95),updateP95Ms:percentile(1,.95),renderSubmissionP95Ms:percentile(2,.95),shadowSize:sun.shadow.mapSize.x,bake:!!(map.lightingStudy?.enabled&&map.lightingStudy?.ready),mouseEventSource});
+      const output=$('frame-diagnostics');if(output)output.textContent=JSON.stringify({map:map.id,mode,samples:f.rows.length,intervalMedianMs:percentile(0,.5),intervalP95Ms:percentile(0,.95),updateP95Ms:percentile(1,.95),renderSubmissionP95Ms:percentile(2,.95),shadowSize:sun.shadow.mapSize.x,bake:!!(map.lightingStudy?.enabled&&map.lightingStudy?.ready),mouseEventSource,lowLatencyCanvas,hudVignette:renderExperiments.get('hudVignette')!=='0'});
     }
   }
 }

@@ -132,7 +132,7 @@ export function createSkillFeedback(doc){
  }
  function observe(events,now,ownId){for(const e of events){if(e.sourceId!==ownId||now-e.startedAt<0||now-e.startedAt>.2)continue;const character=skillCharacter(e.type);if(!character)continue;const def=['c','q','e','x'].map(k=>getCharacterSkill(character,k)).find(d=>d?.type===e.type);note('cast','cast:'+e.id,character,e.startedAt,def?.name||CHARACTER_DEFS[character]?.ultName||'スキル');if(e.targetId&&e.targetId!==ownId&&['mend-heal','duck-seal','cat-pluck','nobi-tag','nobi-brake','japan-levy','cap-lock','urchin-jam','urchin-disarm','onnara-tax'].includes(e.type))note(e.type==='mend-heal'?'heal':'hit','target:'+e.id,character,e.startedAt);}}
  function render(now,{active=true,reducedMotion=false}={}){
-  for(const[k,item,duration]of[['cast',cast,.85],['hit',hit,.65]]){const el=doc?.getElementById?.('skill-'+k+'-feedback');if(!el)continue;const age=item?now-item.at:Infinity,show=active&&age>=0&&age<duration;el.hidden=!show;if(!show)continue;el.style.opacity=String(reducedMotion?1:Math.min(1,(duration-age)/.2));el.style.color=SKILL_LOOKS[item.character].color;el.textContent=k==='cast'?item.label+' 発動':item.kind==='heal'?'✦ 回復':'✦ スキル命中';}
+  for(const[k,item,duration]of[['cast',cast,.85],['hit',hit,.65]]){const el=doc?.getElementById?.('skill-'+k+'-feedback');if(!el)continue;const age=item?now-item.at:Infinity,show=active&&age>=0&&age<duration;if(el.hidden!==!show)el.hidden=!show;if(!show)continue;el.style.opacity=String(reducedMotion?1:Math.min(1,(duration-age)/.2));el.style.color=SKILL_LOOKS[item.character].color;el.textContent=k==='cast'?item.label+' 発動':item.kind==='heal'?'✦ 回復':'✦ スキル命中';}
  }
  function reset(){cast=hit=null;seen.clear();render(0,{active:false});}
  return{note,observe,render,reset};
