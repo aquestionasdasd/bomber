@@ -1,7 +1,7 @@
 // Presentation follows the existing media clock; no audio, timers or game state.
 export function createVictoryClub({element}={}) {
   let visible=false,disposed=false;
-  function reset(){if(element)element.hidden=true;visible=false;}
+  function reset(){if(element&&element.hidden!==true)element.hidden=true;visible=false;} // idle frames write nothing
   reset();
   function render({eligible=false,playing=false,time=0,reducedMotion=false}={}) {
     if(disposed||!element)return false;

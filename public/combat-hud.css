@@ -98,3 +98,6 @@
 @media(max-width:800px){#hud .health-block:before,#hud .weapon-block:before{inset:-8px -10px -6px 0}#hud .weapon-block:before{inset:-8px 0 -6px -14px}#hud .killfeed>.feed-item{font-size:11px;padding:4px 10px 4px 13px}#hud .killfeed .feed-name{max-width:96px}.mag-pips{height:7px}}
 @media(max-width:600px){.mag-pips,.reload-sweep>i{display:none}#hud .ability:before{bottom:13px}}
 @media(prefers-reduced-motion:reduce){#hud .ability.ult-ready:before,#hud.bomber-planted .round-panel,#hud[data-hp-level=critical] .hud-low-hp,#hud[data-hp-level=critical] .health-value>strong,.mag-empty #ammo,#hud.timer-urgent .round-panel>strong,.reload-sweep>i:after,#hud .killfeed>.feed-item,#hud .hitmarker i,#hud .hitmarker .hit-ring,#hud .ability.ult-ready-burst{animation:none}.reload-sweep>i:after{left:0;width:100%}}
+
+/* ?hudVignette=0 — comparison switch only; see WOMB-PERFORMANCE.md */
+.no-hud-vignette .hud-vignette{display:none}

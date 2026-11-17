@@ -94,6 +94,33 @@ async function main(){
   assert.equal(h.run('botsGroup.children.length'),h.run('bots.length'));
   assert.deepEqual(copy(h.run('clearBots()')),[]);assert.equal(h.run('bots.length'),0);assert.equal(h.run('botsGroup.children.length'),0);
  });
+ // 5. Multi-pellet shots cull whole models by bounds; the hit list must be
+ //    the one the unculled ray produces (objects, order and distances).
+ check('culled pellet rays return the same hits as full rays',()=>{
+  h.run('spawnRound(false);for(const [i,bot] of bots.entries()){bot.x=-8+i*2;bot.z=6+(i%3)*2;bot.group.position.set(bot.x,bot.y||0,bot.z);}botsGroup.updateMatrixWorld(true);');
+  h.sandbox.cullNegative=negative;
+  const result=copy(h.run(`(()=>{const bounds=shotModelBounds();if(cullNegative)for(const b of bounds)if(b)b.makeEmpty();let seed=4242,diff=0,botHits=0,skipped=0;const r=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
+   for(let i=0;i<1500;i++){const t=bots[i%bots.length],o=new THREE.Vector3((r()-.5)*30,.4+r()*2,(r()-.5)*30),d=i%4?new THREE.Vector3(t.x-o.x+(r()-.5),(t.y||0)+r()*1.9-o.y,t.z-o.z+(r()-.5)):new THREE.Vector3(r()-.5,(r()-.5)*.4,r()-.5);if(d.lengthSq()<1e-4)continue;d.normalize();
+    const ray=new THREE.Raycaster(o,d,0,120),full=ray.intersectObjects([environment,botsGroup],true),culled=shotIntersections(ray,bounds);botHits+=full.filter(x=>x.object.userData.bot).length;
+    skipped+=bounds.filter(b=>b&&!ray.ray.intersectsBox(b)).length;
+    if(full.length!==culled.length){diff++;continue;}for(let k=0;k<full.length;k++)if(full[k].object!==culled[k].object||full[k].distance!==culled[k].distance||full[k].faceIndex!==culled[k].faceIndex){diff++;break;}}
+   return {diff,botHits,skipped,models:bounds.length};})()`));
+  assert.ok(result.models>=5&&result.botHits>200&&result.skipped>1000,'the fixture must exercise real hits and real culling: '+JSON.stringify(result));
+  assert.equal(result.diff,0,JSON.stringify(result));
+ });
+
+ // 6. Practice labels are written once with their final text, not rewritten
+ //    with the match text and then the practice text on every HUD update.
+ check('practice HUD applies only final label text',()=>{
+  h.sandbox.hudNegative=negative;
+  const result=copy(h.run(`(()=>{exploring=true;const ids=['timer','round-label','side-label','phase-label'],writes={},values={};
+   for(const id of ids){const node=$(id);let value=node.textContent;writes[id]=0;Object.defineProperty(node,'textContent',{configurable:true,get:()=>value,set:v=>{writes[id]++;value=v;}});}
+   updateHUD();const first={...writes};for(let i=0;i<5;i++){updateHUD();if(hudNegative)$('timer').textContent='0:00';}
+   for(const id of ids){values[id]=$(id).textContent;const value=values[id];Object.defineProperty($(id),'textContent',{configurable:true,writable:true,value});}
+   exploring=false;return {first,writes,values};})()`));
+  assert.equal(result.values.timer,'∞');assert.equal(result.values['side-label'],'マップ練習');
+  for(const id of Object.keys(result.writes)){assert.ok(result.first[id]<=1,id+' written '+result.first[id]+' times in one update');assert.equal(result.writes[id],result.first[id],id+' rewritten although unchanged');}
+ });
  console.log(JSON.stringify({mode:negative?'negative':'positive',passed,failed,audioOutput:0}));
  process.exit(failed?1:0);
 }

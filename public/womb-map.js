@@ -178,9 +178,12 @@ export function createWombMap(T,scene){
   stats:{mode:'arena',width:34,depth:42,area:1428,floors:4,sites:2,routes:2,buildings:1,collisionShapes:colliders.length,renderBatches:batches.size},
   ductAt(){return false;},floorBaseAt(){return 0;},walkHeights(x,z){
    if(world.userData.bomberCollapsed)return [0];
-   const heights=surfaces.filter(r=>contains(r,x,z)).map(r=>r.y);
-   for(const r of map.ramps)if(contains(r,x,z)){const y=rampHeight(r,x,z);heights.push(y);for(const c of map.collision.query(x,z,.4))if(!c.disabled&&!c.movementRamp&&c.height>y&&c.height<=y+.22&&map.collision.overlaps(c,x,z,.4))heights.push(c.height);}
-   return [...new Set(heights)];
+   // Unique heights in first-seen order (as the former Set did), built in one
+   // list: navigation samples this every 13 cm along each traced segment.
+   const heights=[],add=y=>{if(!heights.includes(y))heights.push(y);};
+   for(const r of surfaces)if(contains(r,x,z))add(r.y);
+   for(const r of map.ramps)if(contains(r,x,z)){const y=rampHeight(r,x,z);add(y);for(const c of map.collision.query(x,z,.4))if(!c.disabled&&!c.movementRamp&&c.height>y&&c.height<=y+.22&&map.collision.overlaps(c,x,z,.4))add(c.height);}
+   return heights;
   }
  };
  world.updateMatrixWorld(true);map.lightingStudy=createWombLighting(T,map);

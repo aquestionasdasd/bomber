@@ -145,7 +145,19 @@ function createKit(THREE, { firstPerson = false, team = 'blue', bot = null } = {
   const capsule = keep(new THREE.CapsuleGeometry(1, 4, 4, 10));
   const cube = keep(new THREE.BoxGeometry(1, 1, 1));
   const meshes = [];
+  // Shapes whose vertices are fully determined by a short key. A rigid batch
+  // made only of such shapes at known matrices is itself reproducible, so its
+  // merged result can be shared between kits like the plate templates.
+  const shapeKeys = new WeakMap([[sphere, 'sphere'], [cylinder, 'cylinder'], [capsule, 'capsule'], [cube, 'cube']]);
   let plateCache = null;
+  function sharedShapes() {
+    if (!plateCache) {
+      plateCache = plateTemplates.get(THREE);
+      if (!plateCache) plateTemplates.set(THREE, plateCache = { references: 0, templates: new Map(), merged: new Map() });
+      plateCache.references++;
+    }
+    return plateCache;
+  }
   function mesh(parent, geometry, material, position = [0, 0, 0], scale = [1, 1, 1], head = false, hittable = true) {
     const object = new THREE.Mesh(geometry, material);
     object.position.set(...position); object.scale.set(...scale);
@@ -175,12 +187,7 @@ function createKit(THREE, { firstPerson = false, team = 'blue', bot = null } = {
     // exact outline and each model receives its own copy (owned/disposed by the
     // kit). The last live kit releases the templates, like the other caches.
     const templateKey = `${side ? 1 : 0}|${depth}|${bevel}|${points.join(';')}`;
-    if (!plateCache) {
-      plateCache = plateTemplates.get(THREE);
-      if (!plateCache) plateTemplates.set(THREE, plateCache = { references: 0, templates: new Map() });
-      plateCache.references++;
-    }
-    const templates = plateCache.templates;
+    const templates = sharedShapes().templates;
     let template = templates.get(templateKey);
     if (!template) {
       template = new THREE.ExtrudeGeometry(shape, { depth: Math.max(.001, depth - bevel * 2),
@@ -191,6 +198,7 @@ function createKit(THREE, { firstPerson = false, team = 'blue', bot = null } = {
     const geometry = keep(new THREE.BufferGeometry().copy(template));
     // Same bytes and the same public identity as a direct extrusion.
     geometry.type = template.type; geometry.parameters = template.parameters;
+    shapeKeys.set(geometry, templateKey);
     const object = mesh(parent, geometry, material, [0, 0, 0], [1, 1, 1], head);
     if (side) object.rotation.y = Math.PI / 2;
     return object;
@@ -226,8 +234,16 @@ function createKit(THREE, { firstPerson = false, team = 'blue', bot = null } = {
     }
     for (const objects of batches.values()) {
       if (objects.length < 2) continue;
-      const positions = [], normals = [], uvs = [];
+      let mergedKey = '';
       for (const object of objects) {
+        object.updateMatrix();
+        const shape = shapeKeys.get(object.geometry);
+        if (shape === undefined) { mergedKey = null; break; }
+        mergedKey += `${shape}@${object.matrix.elements.join(',')}|`;
+      }
+      const mergedTemplate = mergedKey === null ? null : sharedShapes().merged.get(mergedKey);
+      const positions = [], normals = [], uvs = [];
+      if (!mergedTemplate) for (const object of objects) {
         object.updateMatrix();
         const copy = object.geometry.index ? object.geometry.toNonIndexed() : object.geometry.clone();
         copy.applyMatrix4(object.matrix);
@@ -241,10 +257,14 @@ function createKit(THREE, { firstPerson = false, team = 'blue', bot = null } = {
         copy.dispose();
       }
       const geometry = keep(new THREE.BufferGeometry());
-      geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-      geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
-      geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
-      geometry.computeBoundingBox(); geometry.computeBoundingSphere();
+      if (mergedTemplate) geometry.copy(mergedTemplate);
+      else {
+        geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+        geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+        geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+        geometry.computeBoundingBox(); geometry.computeBoundingSphere();
+        if (mergedKey !== null) plateCache.merged.set(mergedKey, new THREE.BufferGeometry().copy(geometry));
+      }
       const merged = mesh(parent, geometry, objects[0].material, [0, 0, 0], [1, 1, 1], Boolean(objects[0].userData.head));
       merged.name = `Rigid equipment / ${objects[0].material.color.getHexString()}`;
       for (const object of objects) {
@@ -261,6 +281,7 @@ function createKit(THREE, { firstPerson = false, team = 'blue', bot = null } = {
     for (const texture of textures) texture.dispose();
     if (plateCache && --plateCache.references === 0) {
       for (const template of plateCache.templates.values()) template.dispose();
+      for (const template of plateCache.merged.values()) template.dispose();
       plateTemplates.delete(THREE);
     }
     plateCache = null;

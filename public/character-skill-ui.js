@@ -8,7 +8,9 @@ const clamp = value => Math.min(1, Math.max(0, Number.isFinite(value) ? value : 
 export function createCharacterSkillUI({ document: doc = globalThis.document } = {}) {
   const get = id => doc?.getElementById?.(id);
   const text = (id, value) => { const node = get(id); if (node && node.textContent !== String(value)) node.textContent = String(value); };
-  const attr = (id, name, value) => get(id)?.setAttribute?.(name, String(value));
+  // Setting an attribute to the value it already has still invalidates style
+  // (and re-parses an SVG path); the HUD calls this for every key each update.
+  const attr = (id, name, value) => { const node = get(id), next = String(value); if (node?.setAttribute && node.getAttribute?.(name) !== next) node.setAttribute(name, next); };
   const icon = (id, definition) => { if (definition.icon) attr(id, 'd', definition.icon); };
   const stock = (kit, key) => key === 'c' ? kit.smoke : key === 'q' ? kit.updraft : kit.dash;
   const cost = definition => definition.price > 0 ? `最大${definition.max}回 · SC ${definition.price.toLocaleString()}/回` : `最大${definition.max}回 · 無料`;
