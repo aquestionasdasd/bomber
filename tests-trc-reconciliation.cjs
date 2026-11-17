@@ -195,6 +195,37 @@ async function main() {
     Object.assign(correction.actors.find(a => a.id === 'blue-1'), { x: 3, y: 0, z: 57 });
     guest.sandbox.packet = copy(correction); guest.run("receiveNetPacket('host',packet)"); assert.equal(guest.run('player.x'), 3); assert.equal(guest.run('player.vy'), 0); assert.equal(guest.run('netPositionHistory.size'), 0);
   });
+  check('WOMB gate transit synchronizes exits and ignores pre-transit input', () => {
+    setup({ arena: 'womb' });
+    for (const gate of copy(host.run('map.gates'))) {
+      setup({ arena: 'womb', start: gate.entry });
+      guest.run('tickOnline(.1)');
+      host.sandbox.packet = copy(guest.run('sent.at(-1)'));
+      host.run("receiveNetPacket('guest',packet);updateRemoteActor(remote,.02);tickOnline(.1)");
+      const snapshot = copy(host.run('sent.at(-1)'));
+      const actor = snapshot.actors.find(a => a.id === 'blue-1');
+      assert.equal(actor.gateSeq, 1);
+      for (const key of ['x','y','z']) near(actor[key], gate.exit[key], key);
+      near(actor.yaw, gate.yaw, 'exit facing');
+      assert.deepEqual(snapshot.cues.slice(-2).map(c => [c.type,c.y]), [
+        ['gate-transit',gate.entry.y], ['gate-arrive',gate.exit.y]
+      ]);
+      const arrival = pose(host,'remote');
+      host.run('packet.seq++;receiveNetPacket("guest",packet);updateRemoteActor(remote,.1)');
+      assert.deepEqual(pose(host,'remote'), arrival);
+      guest.sandbox.packet = snapshot;
+      guest.run("receiveNetPacket('host',packet)");
+      assert.deepEqual(pose(guest), arrival);
+      near(guest.run('player.yaw'), gate.yaw, 'guest facing');
+      assert.equal(guest.run('netPositionHistory.size'), 0);
+      guest.run("keys.add('KeyW');updatePlay(.05);tickOnline(.1)");
+      host.sandbox.packet = copy(guest.run('sent.at(-1)'));
+      assert.equal(host.sandbox.packet.input.gateSeq, 1);
+      host.sandbox.packet.seq++;
+      host.run("receiveNetPacket('guest',packet);updateRemoteActor(remote,.05)");
+      assert.ok(Math.abs(pose(host,'remote').x - arrival.x) > .001, 'walk out after transit');
+    }
+  });
   if (process.env.TRC_SYNC_REPORT) fs.writeFileSync(process.env.TRC_SYNC_REPORT, JSON.stringify({ scenarios: measured.length, measured }, null, 2) + '\n');
   console.log(`PASS: ${groups} TRC reconciliation groups; ${measured.length} independent host/guest profiles; ${(performance.now() - started).toFixed(1)}ms`);
 }

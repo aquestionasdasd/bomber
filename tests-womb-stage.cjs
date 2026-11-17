@@ -48,6 +48,41 @@ async function main(){
  check('actual movement follows generated 1F-to-4F routes, rather than just graph connectivity',()=>{
   for(const i of [0,1,4]){h.sandbox.spawnIndex=i;const points=copy(h.run('(()=>{const a=map.teamSpawns.attack[spawnIndex],b=map.sites[1];return [a,...navigation.path(a.x,a.z,b.x,b.z,a.y,b.y)];})()'));assert.ok(points.length>2,'nonempty route');walk(points,60,.4);}
  });
+ check('walk-in gates have directed BOT routes, floor-safe exits and no reverse trigger',()=>{
+  for(const gate of layout.WOMB_GATES){
+   reset();h.sandbox.g=gate;
+   const result=copy(h.run(`(()=>{
+    const a=g.entry,b=g.exit;
+    const route=navigation.path(a.x,a.z+1.2,b.x,b.z,a.y,b.y,true);
+    Object.assign(player,a,{z:a.z+1.2,yaw:0,gateSeq:0});keys.add('KeyW');
+    for(let i=0;i<60&&!player.gateSeq;i++)updatePlay(1/60);
+    keys.clear();
+    const arrived=player.gateSeq===1&&Math.hypot(player.x-b.x,player.y-b.y,player.z-b.z)<.01;
+    const clear=canStand(player.x,player.z,.4,player.y),reverse=useWombGate(player);
+    Object.assign(player,a,{y:a.y+3.6});const wrongFloor=useWombGate(player);
+    Object.assign(player,a);match.phase='buy';const buy=useWombGate(player);match.phase='live';
+    map.world.userData.bomberCollapsed=true;const collapsed=useWombGate(player);map.world.userData.bomberCollapsed=false;
+    const sideX=Math.cos(g.exitWall.rotation||0),sideZ=-Math.sin(g.exitWall.rotation||0);
+    for(const [i,s] of [0,-.95,.95].entries())makeBot({...b,x:b.x+s*sideX,z:b.z+s*sideZ},i,'red');
+    const full=useWombGate(player);bots[1].alive=false;const room=useWombGate(player);
+    return {route:route.some(step=>step.gate===g.id),arrived,clear,reverse,wrongFloor,buy,collapsed,full,room};
+   })()`));
+   assert.deepEqual(result,{route:true,arrived:true,clear:true,reverse:false,wrongFloor:false,buy:false,collapsed:false,full:false,room:true},gate.id);
+  }
+ });
+ check('AI follows both gate routes from outside the trigger',()=>{
+  for(const gate of layout.WOMB_GATES){
+   reset();h.sandbox.g=gate;
+   const result=copy(h.run(`(()=>{
+    exploring=false;player.alive=false;makeBot({...g.entry,z:g.entry.z+2},0,'blue',{id:'blue-0',team:'blue',primary:'vandal',secondary:'classic'});
+    const bot=bots[0],site=map.sites[g.to===2?0:1];Object.assign(match.spike,{status:'carried',carrier:player.id});
+    updateBots.tactics={update:()=>({siteId:site.id,roles:new Map([[bot.id,{role:'entry',siteId:site.id,goal:g.exit}]])}),contacts:()=>[],investigation:()=>null,reset(){}};
+    try{for(let i=0;i<140&&!bot.gateSeq;i++){elapsed+=.05;updateBots(.05);}return {uses:bot.gateSeq||0,y:bot.y};}
+    finally{updateBots.tactics=null;}
+   })()`));
+   assert.equal(result.uses,1,gate.id);near(result.y,gate.exit.y,gate.id);
+  }
+ });
  check('round preparation preserves 1F/3F starts, support and raised defender barrier',()=>{
   for(const side of ['attack','defend']){reset();h.sandbox.side=side;
    const result=copy(h.run(`(()=>{exploring=false;match=new MatchRules({startingSide:side});spawnRound(true);syncBuyBarrier();const y=player.y;updateActorVertical(player,1/20,.34);return {y,after:player.y,barrier:buyBarrier.position.y,bomber:match.spike.status,clear:canStand(player.x,player.z,.34,player.y)};})()`));

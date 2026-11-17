@@ -51,6 +51,11 @@ export function createTrcNavigation(map,{ladders=TRC_LADDERS,maxNeighbourRise=.7
  for(const l of ladders){const bottom={x:l.x,z:l.z,y:0},top={...l.exit};const ids=[];for(const p of [bottom,top]){const id=nodes.length;nodes.push({...p,id,crouch:true});edges.push([]);for(const q of nodes.slice(0,id))if(Math.hypot(p.x-q.x,p.z-q.z)<1.8&&Math.abs(p.y-q.y)<.19&&clearSegment(p.x,p.z,q.x,q.z,p.y,q.y))connect(id,q.id);ids.push(id);}connect(ids[0],ids[1],{ladder:l.id});}
  // A deliberate one-way heaven drop cannot create a reverse wall-climbing edge.
  for(const drop of map.drops||[]){const ids=[];for(const p of [drop.from,drop.to]){const id=nodes.length;nodes.push({...p,id,crouch:false});edges.push([]);for(const q of nodes.slice(0,id))if(Math.hypot(p.x-q.x,p.z-q.z)<1.8&&Math.abs(p.y-q.y)<.19&&clearSegment(p.x,p.z,q.x,q.z,p.y,q.y))connect(id,q.id);ids.push(id);}edges[ids[0]].push({id:ids[1],cost:Math.hypot(drop.from.x-drop.to.x,drop.from.y-drop.to.y,drop.from.z-drop.to.z),drop:drop.id});}
+ for(const gate of map.gates||[]){
+  const nodeAt=p=>cells.get(key(p.x,p.z))?.find(id=>Math.abs(nodes[id].y-p.y)<.01);
+  const start=nodeAt(gate.entry),end=nodeAt(gate.exit);
+  if(start!==undefined&&end!==undefined)edges[start].push({id:end,cost:1,gate:gate.id});
+ }
  function nearest(x,z,y=0){if(![x,z,y].every(Number.isFinite))return null;if(map.world.userData.bomberCollapsed)return {x:Math.max(bounds.minX+radius,Math.min(bounds.maxX-radius,x)),z:Math.max(bounds.minZ+radius,Math.min(bounds.maxZ-radius,z)),y:0};if(isWalkable(x,z,y))return {x,z,y};let best=null,d=Infinity;for(const p of nodes){const cost=(p.x-x)**2+(p.z-z)**2+16*(p.y-y)**2;if(cost<d){d=cost;best=p;}}return best?{x:best.x,z:best.z,y:best.y}:null;}
  // A connector can only be within 4 m. Include exact ladder endpoints in the
  // same buckets; preserve the old lowest-id tie instead of scanning the map.
@@ -61,22 +66,23 @@ export function createTrcNavigation(map,{ladders=TRC_LADDERS,maxNeighbourRise=.7
  const connectorOrder=(a,b)=>a.c-b.c||a.id-b.id;
  function connector(p){const found=[];const cx=Math.floor(p.x/4),cz=Math.floor(p.z/4);for(let z=cz-1;z<=cz+1;z++)for(let x=cx-1;x<=cx+1;x++)for(const q of connectorCells.get(key(x,z))||[]){const c=Math.hypot(p.x-q.x,p.z-q.z)+Math.abs(p.y-q.y)*4;if(c<=4)found.push({c,id:q.id,q});}
   found.sort(connectorOrder);for(const {q} of found)if(clearSegment(p.x,p.z,q.x,q.z,p.y,q.y))return q.id;return -1;}
- function path(ax,az,bx,bz,ay=0,by=0){
+ function path(ax,az,bx,bz,ay=0,by=0,useGates=false){
   const a=nearest(ax,az,ay),b=nearest(bx,bz,by);if(!a||!b)return [];
   if(clearSegment(a.x,a.z,b.x,b.z,a.y,b.y))return [{...b,crouch:!!map.ductAt(b.x,b.z,b.y)}];
   const start=connector(a),finish=connector(b);if(start<0||finish<0)return [];
-  const ck=start+':'+finish;let route=cache.get(ck);
+  const gated=useGates&&map.gates?.length&&!map.world.userData.bomberCollapsed;
+  const ck=start+':'+finish+(gated?':g':'');let route=cache.get(ck);
   if(!route){
    // One search runs at a time: reuse the per-node tables instead of
    // allocating five node-sized arrays for every uncached route.
    scratch??={cost:new Float64Array(nodes.length),parent:new Int32Array(nodes.length),via:new Array(nodes.length),order:new Int32Array(nodes.length),closed:new Uint8Array(nodes.length)};
    const {cost,parent,via,order,closed}=scratch,open=[];cost.fill(Infinity);parent.fill(-1);via.fill(undefined);order.fill(-1);closed.fill(0);let serial=0;cost[start]=0;
-   const heuristic=id=>Math.hypot(nodes[id].x-b.x,nodes[id].z-b.z,nodes[id].y-b.y);
+   const heuristic=id=>gated?0:Math.hypot(nodes[id].x-b.x,nodes[id].z-b.z,nodes[id].y-b.y);
    const before=(a,b)=>a.score<b.score||a.score===b.score&&a.order<b.order;
    function push(id){if(order[id]<0)order[id]=serial++;const value={id,cost:cost[id],score:cost[id]+heuristic(id),order:order[id]};let i=open.length;open.push(value);while(i){const p=(i-1)>>1;if(!before(value,open[p]))break;open[i]=open[p];i=p;}open[i]=value;}
    function pop(){const first=open[0],last=open.pop();if(open.length){let i=0;while(i*2+1<open.length){let c=i*2+1;if(c+1<open.length&&before(open[c+1],open[c]))c++;if(!before(open[c],last))break;open[i]=open[c];i=c;}open[i]=last;}return first;}
    push(start);
-   while(open.length){const entry=pop(),at=entry.id;if(closed[at]||entry.cost!==cost[at])continue;if(at===finish)break;closed[at]=1;for(const e of edges[at]){if(closed[e.id])continue;const c=cost[at]+e.cost;if(c<cost[e.id]){cost[e.id]=c;parent[e.id]=at;via[e.id]=e.ladder?{ladder:e.ladder}:e.drop?{drop:e.drop}:null;push(e.id);}}}
+   while(open.length){const entry=pop(),at=entry.id;if(closed[at]||entry.cost!==cost[at])continue;if(at===finish)break;closed[at]=1;for(const e of edges[at]){if(closed[e.id]||e.gate&&!gated)continue;const c=cost[at]+e.cost;if(c<cost[e.id]){cost[e.id]=c;parent[e.id]=at;via[e.id]=e.ladder?{ladder:e.ladder}:e.drop?{drop:e.drop}:e.gate?{gate:e.gate}:null;push(e.id);}}}
    if(!Number.isFinite(cost[finish]))return [];
    route=[];for(let n=finish;n!==start;n=parent[n])route.push({...nodes[n],...via[n]});route.reverse();cache.set(ck,route);if(cache.size>256)cache.delete(cache.keys().next().value);
   }
@@ -84,8 +90,10 @@ export function createTrcNavigation(map,{ladders=TRC_LADDERS,maxNeighbourRise=.7
   // resampling the same long corridor from its start for every 1 m graph node.
   // Never skip a ladder or cross a crouch/standing transition.
   const points=[...route.map(p=>({...p})),b],out=[];let anchor=a;
+  const entry=nodes[start];
+  if(points[0].gate&&(a.x!==entry.x||a.z!==entry.z||a.y!==entry.y))points.unshift(entry);
   for(let i=0;i<points.length;){
-   let limit=i;if(!points[i].ladder&&!points[i].drop)while(limit+1<points.length&&!points[limit+1].ladder&&!points[limit+1].drop&&points[limit+1].crouch===points[i].crouch)limit++;
+   let limit=i;if(!points[i].ladder&&!points[i].drop&&!points[i].gate)while(limit+1<points.length&&!points[limit+1].ladder&&!points[limit+1].drop&&!points[limit+1].gate&&points[limit+1].crouch===points[i].crouch)limit++;
    const clear=id=>clearSegment(anchor.x,anchor.z,points[id].x,points[id].z,anchor.y,points[id].y);
    let j=i,blocked=limit+1,stride=1;
    while(j<limit){const next=Math.min(limit,i+stride);if(!clear(next)){blocked=next;break;}j=next;stride*=2;}

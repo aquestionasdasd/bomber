@@ -1,6 +1,6 @@
 import {createCollisionIndex,rampHeight} from './collision.js';
 import {createWombLighting} from './womb-lighting.js';
-import {WOMB_PLAN,WOMB_CORES,WOMB_LEVELS,WOMB_STOREY,WOMB_STAIRS,WOMB_BOUNDS,wombPoint as P,wombRect as R,wombPolygon as polygon,wombRegion,contains,wombFloorIndex} from './womb-layout.js';
+import {WOMB_PLAN,WOMB_CORES,WOMB_LEVELS,WOMB_STOREY,WOMB_STAIRS,WOMB_BOUNDS,WOMB_GATES,wombPoint as P,wombRect as R,wombPolygon as polygon,wombRegion,contains,wombFloorIndex} from './womb-layout.js';
 
 // Independent four-storey club. All dimensions are the approved game proposal,
 // not an architectural survey of the real venue. The same solids drive the
@@ -187,6 +187,34 @@ export function createWombMap(T,scene){
   }
  };
  world.updateMatrixWorld(true);map.lightingStudy=createWombLighting(T,map);
+ map.gates=WOMB_GATES;
+ for(const g of map.gates)for(const entrance of [true,false]){
+  const floor=entrance?g.from:g.to,p=entrance?g.entranceWall:g.exitWall,pad=entrance?g.entry:g.exit;
+  const canvas=document.createElement('canvas');canvas.width=256;canvas.height=320;
+  const c=canvas.getContext('2d');
+  c.fillStyle='#101824';c.fillRect(0,0,256,320);
+  for(let i=0;i<(entrance?5:1);i++){
+   const inset=10+i*9;
+   c.strokeStyle=g.color;c.globalAlpha=1/(1+i*.65);c.lineWidth=i?2:7;
+   c.beginPath();c.moveTo(inset,316-i*5);c.lineTo(inset,60+i*4);c.lineTo(57+i*5,12+i*10);
+   c.lineTo(199-i*5,12+i*10);c.lineTo(256-inset,60+i*4);c.lineTo(256-inset,316-i*5);c.stroke();
+  }
+  c.globalAlpha=1;
+  c.textAlign='center';c.fillStyle=g.color;c.font='bold 32px sans-serif';c.fillText(entrance?'ENTER':'EXIT ONLY',128,100);
+  c.fillStyle='#ffffff';c.font='bold 68px sans-serif';c.fillText(g.from+'F',128,185);c.font='bold 40px sans-serif';c.fillText('→ '+g.to+'F',128,245);
+  const texture=new T.CanvasTexture(canvas);texture.colorSpace=T.SRGBColorSpace;
+  const panel=new T.Mesh(new T.PlaneGeometry(1.8,2.35),new T.MeshBasicMaterial({map:texture,toneMapped:false}));
+  panel.position.set(p.x,p.y+1.18,p.z);panel.rotation.y=p.rotation||0;panel.name='Transit / '+g.id+(entrance?' entrance':' exit');panel.raycast=()=>{};
+  world.add(panel);
+  if(entrance){
+   const threshold=new T.Mesh(new T.PlaneGeometry(1.78,.08),new T.MeshBasicMaterial({color:g.color,toneMapped:false}));
+   threshold.rotation.x=-Math.PI/2;threshold.position.set(0,-1.17,g.entry.z+.25-p.z);
+   threshold.raycast=()=>{};panel.add(threshold);
+  }
+  mapShapes.push({polygon:polygon({minX:pad.x-.75,maxX:pad.x+.75,minZ:pad.z-.5,maxZ:pad.z+.5}),color:g.color,floor});
+  callouts.push({name:'転送ゲート',floor,label:{x:pad.x,z:pad.z,text:entrance?'→ '+g.to+'F':g.from+'F 出口'}});
+ }
+ world.updateMatrixWorld(true);
  map.syncCollapseFloors=()=>map.lightingStudy.syncCollapse(!!world.userData.bomberCollapsed);
  return map;
 }

@@ -4,6 +4,14 @@ export const WOMB_STOREY=3.6;
 export const WOMB_LEVELS=[0,3.6,7.2,10.8];
 export const WOMB_BOUNDS={minX:-17,maxX:17,minZ:-21,maxZ:21};
 export const wombPoint=(x,z,y=0)=>({x:x-17,z:z-21,y});
+// The pads sit inside existing rooms. Wall decals can point along a different
+// axis from the exit heading (the 2F exit opens onto a cross-corridor).
+export const WOMB_GATES=[
+ {id:'lift',color:'#7dedee',from:1,to:3,entry:wombPoint(17.5,16.5),exit:wombPoint(30.5,22.5,7.2),yaw:Math.PI/2,
+  entranceWall:wombPoint(17.5,16.035),exitWall:{...wombPoint(31.965,22.5,7.2),rotation:-Math.PI/2}},
+ {id:'return',color:'#ffb776',from:4,to:2,entry:wombPoint(11.5,3.5,10.8),exit:wombPoint(17.5,11.5,3.6),yaw:-Math.PI/2,
+  entranceWall:wombPoint(11.5,2.635,10.8),exitWall:wombPoint(17.5,10.835,3.6)}
+];
 export const wombRect=([x,z,w,d])=>({minX:x-17,maxX:x+w-17,minZ:z-21,maxZ:z+d-21});
 export const wombPolygon=r=>[[r.minX,r.minZ],[r.maxX,r.minZ],[r.maxX,r.maxZ],[r.minX,r.maxZ]];
 export const contains=(r,x,z)=>x>=r.minX-1e-8&&x<=r.maxX+1e-8&&z>=r.minZ-1e-8&&z<=r.maxZ+1e-8;
