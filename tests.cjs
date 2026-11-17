@@ -882,10 +882,10 @@ async function main() {
   keyDown('Digit4'); run('updateHUD()'); assertAmmoHUD(localHUD, 'BOMBER', '—', '—');
   keyDown('Digit3'); run('updateHUD()'); assertAmmoHUD(localHUD, 'TACTICAL KNIFE', '—', '—');
   run('player.kit.ultPoints=7'); keyDown('KeyX'); keyUp('KeyX');
-  assertAmmoHUD(localHUD, 'BLADE STORM', 5, '∞');
-  run('shoot()'); assertAmmoHUD(localHUD, 'BLADE STORM', 4, '∞');
+  assertAmmoHUD(localHUD, 'ちぬつてのとのへめほ', 5, '∞');
+  run('shoot()'); assertAmmoHUD(localHUD, 'ちぬつてのとのへめほ', 4, '∞');
   keyDown('Digit1'); run('updateHUD()'); assertAmmoHUD(localHUD, 'VANDAL', 0, 11, /R\s+リロード/);
-  keyDown('Digit3'); run('updateHUD()'); assertAmmoHUD(localHUD, 'BLADE STORM', 4, '∞');
+  keyDown('Digit3'); run('updateHUD()'); assertAmmoHUD(localHUD, 'ちぬつてのとのへめほ', 4, '∞');
   console.log('PASS: real equipment keys distinguish spike, melee, rifle ammunition, empty reserves, reload and ultimate knife counts');
 
   run('startGame()'); keyDown('KeyB');
@@ -3888,10 +3888,10 @@ async function main() {
   equipGuestHUD('spike'); assertAmmoHUD(guestHUD, 'BOMBER', '—', '—');
   equipGuestHUD('knife'); assertAmmoHUD(guestHUD, 'TACTICAL KNIFE', '—', '—');
   run('hudRemote.kit.ultPoints=7'); positionSnapshot(); cycleRun('useAbility("x")'); relayHUDEquipment();
-  assertAmmoHUD(guestHUD, 'BLADE STORM', 5, '∞');
-  cycleRun('shoot()'); relayHUDEquipment(); assertAmmoHUD(guestHUD, 'BLADE STORM', 4, '∞');
+  assertAmmoHUD(guestHUD, 'ちぬつてのとのへめほ', 5, '∞');
+  cycleRun('shoot()'); relayHUDEquipment(); assertAmmoHUD(guestHUD, 'ちぬつてのとのへめほ', 4, '∞');
   equipGuestHUD('vandal'); assertAmmoHUD(guestHUD, 'VANDAL', 0, 11, /R\s+リロード/);
-  equipGuestHUD('knife'); assertAmmoHUD(guestHUD, 'BLADE STORM', 4, '∞');
+  equipGuestHUD('knife'); assertAmmoHUD(guestHUD, 'ちぬつてのとのへめほ', 4, '∞');
   cycleRun('leaveOnline()'); run('leaveOnline();startGame()');
   console.log('PASS: guest equipment actions and JSON snapshots preserve ammo warnings and spike/melee/ultimate count distinctions');
 

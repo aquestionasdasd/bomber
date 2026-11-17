@@ -7,11 +7,18 @@ async function main(){
  test('15 existing and new Renko selected characters expose the actual named X and7pt in desktop/mobile/lobby',()=>{
   const nodes=new Map(),get=id=>{if(!nodes.has(id))nodes.set(id,{textContent:'',setAttribute(){}});return nodes.get(id);};
   const ui=createCharacterSkillUI({document:{getElementById:get}}),html=fs.readFileSync(path.join(__dirname,'public/play.html'),'utf8');
-  for(const id of Object.keys(CHARACTER_DEFS)){ui.updateSelection(id);const x=getCharacterUltimate(id);assert.ok(x.description.length>10);
+  for(const id of Object.keys(CHARACTER_DEFS)){ui.updateSelection(id);const x=getCharacterUltimate(id);if(id==='duelist')assert.equal(x.description,'ちぬつてのとのへめほ');else assert.ok(x.description.length>10);
    for(const prefix of ['character-skill','online-character-skill','mobile-character-skill']){for(const field of ['name','description','meta'])assert.ok(html.includes(`id="${prefix}-x-${field}"`));assert.equal(get(prefix+'-x-name').textContent,x.name);assert.equal(get(prefix+'-x-description').textContent,x.description);assert.equal(get(prefix+'-x-meta').textContent,'7 ULTポイント');}
    assert.ok(get('mobile-skill-summary').textContent.includes(x.name));
   }
-  ui.updateSelection('duelist');assert.match(get('character-skill-x-description').textContent,/左クリックで1本/);assert.match(get('character-skill-x-description').textContent,/右クリックで残り最大5本/);
+  ui.updateSelection('duelist');
+  for(const prefix of ['character-skill','online-character-skill','mobile-character-skill']){
+   for(const key of ['c','q','e','x'])for(const field of ['name','description']){
+    const id=prefix+'-'+key+'-'+field;
+    assert.equal(get(id).textContent,'ちぬつてのとのへめほ');assert.ok(html.includes('id="'+id+'">'+get(id).textContent+'<'));
+   }
+  }
+  for(const id of ['agent-description','mobile-skill-summary'])assert.equal(get(id).textContent,'ちぬつてのとのへめほ');
   ui.updateSelection('japan');assert.match(get('character-skill-x-description').textContent,/10HP/);
   ui.updateSelection('onnara');assert.match(get('character-skill-e-description').textContent,/13秒/);assert.equal(ONNARA_SKILLS.hoverDuration,13);
  });

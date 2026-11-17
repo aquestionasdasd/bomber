@@ -19,7 +19,7 @@ export function createCharacterSkillUI({ document: doc = globalThis.document } =
     const id = normalizeCharacter(character), definition = CHARACTER_DEFS[id];
     const robotGuide = get('ember-robot-guide');
     if (robotGuide) robotGuide.hidden = id !== 'ember';
-    text('agent-description', `${definition.role} · ${definition.description}`);
+    text('agent-description', id === 'duelist' ? definition.description : `${definition.role} · ${definition.description}`);
     text('online-skill-character', definition.label);
     const skills = KEYS.map(key => getCharacterSkill(id, key));
     for (const skill of skills) {
@@ -35,7 +35,7 @@ export function createCharacterSkillUI({ document: doc = globalThis.document } =
     }
     text('guide-skill-cq', `C：${skills[0].shortName} / Q：${skills[1].shortName}`);
     text('guide-skill-ex', `E：${skills[2].shortName} / X：${ultimate.name}`);
-    text('mobile-skill-summary', `C：${skills[0].name}、Q：${skills[1].name}、E：${skills[2].name}。X：${ultimate.name}。${ultimate.description}`);
+    text('mobile-skill-summary', id === 'duelist' ? definition.description : `C：${skills[0].name}、Q：${skills[1].name}、E：${skills[2].name}。X：${ultimate.name}。${ultimate.description}`);
   }
 
   function updateHUD(kit, now, { alive = true } = {}) {

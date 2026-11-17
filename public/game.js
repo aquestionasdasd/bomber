@@ -505,8 +505,6 @@ function frostSlideSpeed(actor,grounded=actorGrounded(actor)){
 }
 function emberPulseIndex(age){return age>=3.6?2:age>=2.4?1:age>=1.2?0:-1;}
 function updateCharacterDescription(){
-  const definition=CHARACTER_DEFS[selectedCharacter()];
-  if($('agent-description'))$('agent-description').textContent=`${definition.role} · ${definition.description}`;
   characterPicker.sync();
   skillUI.updateSelection(selectedCharacter());
 }
@@ -967,7 +965,7 @@ function pickupDroppedWeapon(actor,dropId,{catFetch=false}={}){
   }
   removeDrop(drop);return true;
 }
-const BLADE={name:'BLADE STORM',mag:0,reserve:0,interval:.23,reload:0,spread:0,head:150,body:50,leg:42,auto:true,slot:'ultimate'};
+const BLADE={name:CHARACTER_DEFS.duelist.ultName,mag:0,reserve:0,interval:.23,reload:0,spread:0,head:150,body:50,leg:42,auto:true,slot:'ultimate'};
 function weapon(){return player.kit.knivesActive&&inventory.active==='knife'?BLADE:WEAPONS[inventory.active]||WEAPONS.classic;}
 let sniperCycleAt=null;
 function sniperCycleRemaining(){
