@@ -90,8 +90,8 @@ async function main() {
       assert.equal(definition.id, id); assert.equal(Object.isFrozen(definition), true);
       for (const key of ['label', 'role', 'ultName', 'ultShortName', 'description', 'ultIcon']) assert.ok(definition[key]?.length > 0);
       assert.equal(definition.ultimatePoints, 7); assert.match(definition.color, /^#[0-9a-f]{6}$/i);
-      assert.match(definition.description, /7pt/);
-      assert.match(definition.description, id === 'onnara' ? /C：.*大ジャンプ.*Q：.*宝玉.*E：.*空中/ : id === 'urchin' ? /C：.*装填.*Q：.*主武器.*E：.*コイン/ : id === 'cap' ? /C：.*ADS.*Q：.*妨害.*E：.*反射/ : id === 'japan' ? /C：.*国境線.*Q：.*装甲.*E：.*返送/ : id === 'nobi' ? /C：.*銃に弱く.*Q：.*連射.*E：.*電源オフ/ : id === 'car' ? /C：.*押し出す.*Q：.*煙.*除去.*E：.*移動射撃/ : id === 'nope' ? /C：瓶グレネード.*Q：顔フラッシュ.*E：.*全身の囮.*X：.*30体/ : id === 'mend' ? /C：足止めの種.*Q：花粉の煙幕.*E：単体60回復/ : id === 'echo' ? /C：.*金文字.*Q：反射閃光.*E：短い移動補助/ : id === 'veil' ? /C：.*土煙.*Q：.*根の帯.*E：.*芝走り/ : id === 'ember' ? /C：.*はんだ玉.*Q：.*遮光眼鏡.*E：.*整備/ : id === 'cat' ? /C：.*保存地点.*Q：.*5発.*E：.*遠隔回収/ : id === 'duck' ? /C：.*封印.*Q：.*羽盾.*E：.*着地音/ : id === 'frost' ? /C：.*円環.*Q：.*ドールミスト.*E：.*減速を軽減/ : /C：.*流れ星の幕.*Q：アンテナリフト.*E：.*ダッシュ/);
+      if(id!=='duelist')assert.match(definition.description, /7pt/);
+      assert.match(definition.description, id === 'onnara' ? /C：.*大ジャンプ.*Q：.*宝玉.*E：.*空中/ : id === 'urchin' ? /C：.*装填.*Q：.*主武器.*E：.*コイン/ : id === 'cap' ? /C：.*ADS.*Q：.*妨害.*E：.*反射/ : id === 'japan' ? /C：.*国境線.*Q：.*装甲.*E：.*返送/ : id === 'nobi' ? /C：.*銃に弱く.*Q：.*連射.*E：.*電源オフ/ : id === 'car' ? /C：.*押し出す.*Q：.*煙.*除去.*E：.*移動射撃/ : id === 'nope' ? /C：瓶グレネード.*Q：顔フラッシュ.*E：.*全身の囮.*X：.*30体/ : id === 'mend' ? /C：足止めの種.*Q：花粉の煙幕.*E：単体60回復/ : id === 'echo' ? /C：.*金文字.*Q：反射閃光.*E：短い移動補助/ : id === 'veil' ? /C：.*土煙.*Q：.*根の帯.*E：.*芝走り/ : id === 'ember' ? /C：.*はんだ玉.*Q：.*遮光眼鏡.*E：.*整備/ : id === 'cat' ? /C：.*保存地点.*Q：.*5発.*E：.*遠隔回収/ : id === 'duck' ? /C：.*封印.*Q：.*羽盾.*E：.*着地音/ : id === 'frost' ? /C：.*円環.*Q：.*ドールミスト.*E：.*減速を軽減/ : /^ちぬつてのとのへめほ$/);
       assert.match(definition.ultIcon, /^[MmLlHhVvAaQqCcSsTtZz0-9.,\s-]+$/, 'Only an SVG path is stored in icon metadata');
     }
     const html = fs.readFileSync(path.join(__dirname, 'public/play.html'), 'utf8');
@@ -443,7 +443,7 @@ async function main() {
     assert.equal(Object.isFrozen(DUELIST_SKILLS), true); assert.deepEqual(DUELIST_SKILLS, { cometRange: 18, cometFlight: .25, cometRadius: 2.8, cometDuration: 5, liftVisualDuration: .45 });
     const kit = new DuelistKit(); let credits = 400, calls = 0;
     const spend = value => { calls++; if (credits < value) return false; credits -= value; return true; };
-    for (const [key, id, name, max, price] of [['c', 'duelist-comet', '流れ星の幕', 2, 100], ['q', 'duelist-lift', 'アンテナリフト', 2, 100], ['e', 'duelist-dash', 'テイルウィンド', 1, 0]]) {
+    for (const [key, id, name, max, price] of [['c', 'duelist-comet', 'ちぬつてのとのへめほ', 2, 100], ['q', 'duelist-lift', 'ちぬつてのとのへめほ', 2, 100], ['e', 'duelist-dash', 'ちぬつてのとのへめほ', 1, 0]]) {
       const def = getCharacterSkill('duelist', key); assert.equal(Object.isFrozen(def), true); assert.equal(def.id, id); assert.equal(def.name, name); assert.equal(def.max, max); assert.equal(def.price, price);
       assert.equal(kit.buy(id, spend), key !== 'e');
     }

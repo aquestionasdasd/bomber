@@ -82,6 +82,13 @@ async function main() {
       assert.equal(guest.settings.mapId,'trc');assert.equal(guest.settings.maxPlayers,10);
       const playing=await start(host,guest);assert.equal(playing.settings.mapId,'trc');assert.equal(playing.status,'playing');
     });
+    await test('WOMB survives room creation, lobby map changes and the authoritative start',async()=>{
+      const created=await api('',{method:'POST',body:{name:'WOMB HOST',mapId:'womb',format:'swift'}});
+      assert.equal(created.status,201);const host=created.value,guest=await join(host);
+      assert.equal(guest.settings.mapId,'womb');
+      for(const mapId of ['trc','womb']){const saved=await api(`/${host.code}/settings`,{method:'POST',member:host,body:{format:'swift',mapId}});assert.equal(saved.status,200);assert.equal(saved.value.settings.mapId,mapId);}
+      const playing=await start(host,guest);assert.equal(playing.settings.mapId,'womb');assert.equal(playing.settings.maxPlayers,10);
+    });
     await test('lobby map and format are host-owned, persisted before start, and visible to joins/polls/resume',async()=>{
       const created=await api('',{method:'POST',body:{name:'MAP HOST',mapId:'hirakata',format:'standard'}});
       assert.equal(created.status,201);const host=created.value,guest=await join(host);

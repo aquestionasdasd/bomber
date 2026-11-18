@@ -8,7 +8,9 @@ const clamp = value => Math.min(1, Math.max(0, Number.isFinite(value) ? value : 
 export function createCharacterSkillUI({ document: doc = globalThis.document } = {}) {
   const get = id => doc?.getElementById?.(id);
   const text = (id, value) => { const node = get(id); if (node && node.textContent !== String(value)) node.textContent = String(value); };
-  const attr = (id, name, value) => get(id)?.setAttribute?.(name, String(value));
+  // Setting an attribute to the value it already has still invalidates style
+  // (and re-parses an SVG path); the HUD calls this for every key each update.
+  const attr = (id, name, value) => { const node = get(id), next = String(value); if (node?.setAttribute && node.getAttribute?.(name) !== next) node.setAttribute(name, next); };
   const icon = (id, definition) => { if (definition.icon) attr(id, 'd', definition.icon); };
   const stock = (kit, key) => key === 'c' ? kit.smoke : key === 'q' ? kit.updraft : kit.dash;
   const cost = definition => definition.price > 0 ? `最大${definition.max}回 · SC ${definition.price.toLocaleString()}/回` : `最大${definition.max}回 · 無料`;
@@ -17,7 +19,7 @@ export function createCharacterSkillUI({ document: doc = globalThis.document } =
     const id = normalizeCharacter(character), definition = CHARACTER_DEFS[id];
     const robotGuide = get('ember-robot-guide');
     if (robotGuide) robotGuide.hidden = id !== 'ember';
-    text('agent-description', `${definition.role} · ${definition.description}`);
+    text('agent-description', id === 'duelist' ? definition.description : `${definition.role} · ${definition.description}`);
     text('online-skill-character', definition.label);
     const skills = KEYS.map(key => getCharacterSkill(id, key));
     for (const skill of skills) {
@@ -33,7 +35,7 @@ export function createCharacterSkillUI({ document: doc = globalThis.document } =
     }
     text('guide-skill-cq', `C：${skills[0].shortName} / Q：${skills[1].shortName}`);
     text('guide-skill-ex', `E：${skills[2].shortName} / X：${ultimate.name}`);
-    text('mobile-skill-summary', `C：${skills[0].name}、Q：${skills[1].name}、E：${skills[2].name}。X：${ultimate.name}。${ultimate.description}`);
+    text('mobile-skill-summary', id === 'duelist' ? definition.description : `C：${skills[0].name}、Q：${skills[1].name}、E：${skills[2].name}。X：${ultimate.name}。${ultimate.description}`);
   }
 
   function updateHUD(kit, now, { alive = true } = {}) {

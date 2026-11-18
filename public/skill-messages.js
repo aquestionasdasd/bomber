@@ -1,8 +1,7 @@
-import { normalizeCharacter, getCharacterSkill, getCharacterUltimate, DUELIST, RENKO_SKILLS } from './abilities.js';
+import { normalizeCharacter, getCharacterSkill, getCharacterUltimate, RENKO_SKILLS } from './abilities.js';
 
 // In-match cues carry one action or effect; full rules stay in the skill details.
 const hints = {
-  duelist: { c: '煙幕で視界を遮る', q: '上へジャンプ', e: '進行方向へダッシュ', x: '左：1本／右：まとめ投げ' },
   nope: { c: '瓶が爆発し敵にダメージ', q: '1秒後、顔を見た相手に閃光', e: '撃たれると閃光を放つ囮', x: '30体ずつ、5秒おきに3回' },
   mend: { c: '種の範囲で敵が減速', q: '花粉で視界を遮る', e: '負傷した1人を60回復', x: '近くの味方と自身を75回復' },
   echo: { c: '侵入した敵の位置を通知', q: '反射を見た相手に閃光', e: '4秒、移動速度アップ', x: '周囲を3回索敵' },
@@ -22,10 +21,9 @@ const hints = {
 
 export function getSkillUseMessage(character, key, effectType = '') {
   const id = normalizeCharacter(character), slot = typeof key === 'string' ? key.toLowerCase().replace(/^key/, '') : '';
-  const hint = hints[id]?.[slot];
-  if (!hint) return null;
   const definition = slot === 'x' ? getCharacterUltimate(id) : getCharacterSkill(id, slot);
-  const description = effectType === 'dash-armed' ? `${DUELIST.dashArmDelay}秒後、再Eでダッシュ`
-    : effectType === 'cat-return' ? '保存した場所へ帰還' : effectType==='cap-cluster-heal'?'回復の7子弾／自身と味方を回復':effectType==='cap-cluster-damage'?'攻撃の7子弾／命中敵を3秒透過':hint;
+  const hint = id === 'duelist' ? definition?.description : hints[id]?.[slot];
+  if (!hint || !definition) return null;
+  const description = effectType === 'cat-return' ? '保存した場所へ帰還' : effectType==='cap-cluster-heal'?'回復の7子弾／自身と味方を回復':effectType==='cap-cluster-damage'?'攻撃の7子弾／命中敵を3秒透過':hint;
   return { title: `${slot.toUpperCase()} ${definition.shortName}`, description };
 }

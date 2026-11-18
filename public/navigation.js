@@ -287,6 +287,9 @@ function createGridNavigation(map, CELL = 1) {
 }
 
 export function createNavigation(map) {
+  // Compact U stairs rise .529 m per grid cell plus the existing .22 m landing
+  // join. Every candidate still passes the continuous walk/headroom trace.
+  if(map.id==='womb')return createTrcNavigation(map,{ladders:[],maxNeighbourRise:.8});
   if(map.id==='trc')return createTrcNavigation(map);
   if(map.layeredNavigation)return createHirakataNavigation(map,createGridNavigation);
   const traffic = map.traffic?.poses ? createTrafficNavigation(map) : null;

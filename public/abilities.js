@@ -12,9 +12,10 @@ export const CAP_SKILLS=Object.freeze({lockRange:40,lockDuration:8,lockSpread:.0
 import { TEAM_ABILITIES } from './team-abilities.js';
 
 export const RENKO_SKILLS=Object.freeze({dartSpeed:80,dartRadius:.91,launchSpeed:24,launchDuration:1,launchLift:6,driveDuration:6,driveJumpScale:1.3,runSpeed:14.4,slideStart:19.2,slideEnd:12,slideDuration:1,slideTurn:Math.PI/3,flightDuration:1,flightSpeed:16,verticalSpeed:8,flightHeight:10,signatureCooldown:0,signatureKills:2});
+const duelistText = 'ちぬつてのとのへめほ';
 export const CHARACTER_DEFS = Object.freeze({
-  duelist: Object.freeze({ id: 'duelist', label: 'ちぬつてのとのへめほ', role: '突入', ultName: 'ブレードストーム', ultShortName: 'ナイフ', ultimatePoints: 7,
-    description: 'C：空中に短い流れ星の幕 / Q：アンテナリフトで上昇 / E：2段階のダッシュ。X：ナイフ5本。左クリックで1本、右クリックで残り最大5本を同時に散開投擲。撃破で5本補充（7pt）。', color: '#a7e3e7', ultIcon: 'm24 3 5 2-13 17-6 4 1-7L24 3M11 19l5 3M9 23l-4 5M22 7l4 3M4 7l4-3m21 18 4 2' }),
+  duelist: Object.freeze({ id: 'duelist', label: duelistText, role: '突入', ultName: duelistText, ultShortName: duelistText, ultimatePoints: 7,
+    description: duelistText, ultDescription: duelistText, color: '#a7e3e7', ultIcon: 'm24 3 5 2-13 17-6 4 1-7L24 3M11 19l5 3M9 23l-4 5M22 7l4 3M4 7l4-3m21 18 4 2' }),
   nope: Object.freeze({ id: 'nope', label: 'NOPE', role: '特殊', ultName: 'ノープ・テイクオーバー', ultShortName: 'ノープ', ultimatePoints: 7,
     description: 'C：瓶グレネード / Q：顔フラッシュ / E：銃を持って通常移動と同じ速さで歩く囮。撃たれると閃光。X：室内にもロゴを貼り、囮30体を発動時・5秒後・10秒後に生成。各12秒（7pt）。', color: '#d7a8f1', ultIcon: 'M7 25V5l22 20V5M7 5l22 20M14 5h7M15 25h7' }),
   mend: Object.freeze({ id: 'mend', label: '丱凵してね', role: '支援', ultName: 'リカバリーウェーブ', ultShortName: '回復', ultimatePoints: 7,
@@ -38,7 +39,7 @@ export const CHARACTER_DEFS = Object.freeze({
   onnara:Object.freeze({id:'onnara',label:'おんなら',role:'星冠・裁定',ultName:'星座裁定',ultShortName:'連鎖',ultimatePoints:7,description:'C：その場から約4.8mの大ジャンプ / Q：遠方を360度見回す宝玉 / E：空中で13秒静止し単発弾のブレをなくす。X：8秒、銃撃した敵から別の敵1人へ実被害の70%を連鎖（7pt）。',color:'#ffc948',ultIcon:'M18 2 22 11 32 12 24 19 27 29 18 23 9 29 12 19 4 12 14 11Z'}),
   renko:Object.freeze({id:'renko',label:'蓮子',role:'機動・押し出し',ultName:'リスタートラッシュ',ultShortName:'リスタート',ultimatePoints:7,description:'C：即発射の壁貫通・大型吹き飛ばし弾（ダメージなし） / Q：6秒14.4m毎秒走行、ジャンプ力1.3倍、Vで慣性滑走。高速移動中は素手、C使用可 / E：最大1秒、長押し中はマウス方向へジェット飛行。飛行中は素手でCのみ発射可能、終了時に武器へ。使用後に敵2キルでE回復。X中は単発銃のブレなし。X：7ptでラウンド中、敵撃破ごとにC・Q・E全回復（死亡で終了）。',color:'#91c5ef',ultIcon:'M8 27V12L18 3l10 9v15M10 19h16M13 30l5-7 5 7'}),
 });
-export const getCharacterUltimate = character => { const id=normalizeCharacter(character),def=CHARACTER_DEFS[id]; return {key:'x',name:def.ultName,shortName:def.ultShortName,description:def.description.split('X：')[1]||'',points:def.ultimatePoints,icon:def.ultIcon}; };
+export const getCharacterUltimate = character => { const id=normalizeCharacter(character),def=CHARACTER_DEFS[id]; return {key:'x',name:def.ultName,shortName:def.ultShortName,description:def.ultDescription??(def.description.split('X：')[1]||''),points:def.ultimatePoints,icon:def.ultIcon}; };
 export const normalizeCharacter = value => typeof value === 'string' && Object.hasOwn(CHARACTER_DEFS, value) ? value : 'duelist';
 export const DUELIST = Object.freeze({ smokeMax: 2, smokePrice: 100, smokeDuration: 5,
   updraftMax: 2, updraftPrice: 100, updraftVelocity: 7.8,
@@ -84,9 +85,9 @@ const duckSkills = {
  e:{name:'忍びガモ',shortName:'羽ばたき',description:'10秒、スペースを押すたび空中で羽ばたく。連打で上昇・維持、離すと落下。発動地点から最大8m。飛行中の銃弾は照準どおり（ショットガンの散弾は通常幅）。最初の5秒は足音・着地音なし。銃声は消えない。20秒で再使用。',max:1,price:0,type:'duck-hush',icon:'M18 24V10m-5 5 5-6 5 6M16 19 3 9l3 13 10 5m4-8L33 9l-3 13-10 5'},
 };
 const baseSkills = {
-  c: { name: '流れ星の幕', shortName: '星幕', description: `視線方向の空中${DUELIST_SKILLS.cometRange}m以内へゆっくり山なりに投げ、到達から${DUELIST_SKILLS.cometDuration}秒、半径${DUELIST_SKILLS.cometRadius}mの星幕で敵味方双方の視界を遮る。`, max: DUELIST.smokeMax, price: DUELIST.smokePrice, type: 'duelist-comet', icon: 'm20 3 3 8 9 1-7 6 2 9-8-5-8 5 2-9-7-6 9-1ZM3 25l7-5M2 19l6-3m-2-6 4-1' },
-  q: { name: 'アンテナリフト', shortName: '上昇', description: `上向き速度${DUELIST.updraftVelocity}で跳び上がる。${DUELIST.updraftMax}回まで所持でき、空中でも使用可能。横方向の加速や滑空は付かない。`, max: DUELIST.updraftMax, price: DUELIST.updraftPrice, type: 'duelist-lift', icon: 'm10 14 8-9 8 9M18 6v17M7 21l11 6 11-6M5 26l13 3 13-3M9 3 7 0m20 3 2-3' },
-  e: { name: 'テイルウィンド', shortName: 'ダッシュ', description: `Eで準備し、${DUELIST.dashArmDelay}秒後から再Eで${DUELIST.dashDistance}m移動。準備開始から${DUELIST.dashWindow}秒以内に使う。`, max: 1, price: 0, type: 'dash', icon: 'm14 5-8 10h12l-6 10L31 10H18l4-5' },
+  c: { name: duelistText, shortName: duelistText, description: duelistText, max: DUELIST.smokeMax, price: DUELIST.smokePrice, type: 'duelist-comet', icon: 'm20 3 3 8 9 1-7 6 2 9-8-5-8 5 2-9-7-6 9-1ZM3 25l7-5M2 19l6-3m-2-6 4-1' },
+  q: { name: duelistText, shortName: duelistText, description: duelistText, max: DUELIST.updraftMax, price: DUELIST.updraftPrice, type: 'duelist-lift', icon: 'm10 14 8-9 8 9M18 6v17M7 21l11 6 11-6M5 26l13 3 13-3M9 3 7 0m20 3 2-3' },
+  e: { name: duelistText, shortName: duelistText, description: duelistText, max: 1, price: 0, type: 'dash', icon: 'm14 5-8 10h12l-6 10L31 10H18l4-5' },
 };
 const nopeSkills = {
   c: { name: 'NOPEボトル', shortName: '瓶', description: `最大${NOPE_SKILLS.bottleRange}mへ投げ、着地時（投げてから最低${NOPE_SKILLS.bottleFuse}秒）に半径${NOPE_SKILLS.bottleRadius}mで爆発。敵へ最大${NOPE_SKILLS.bottleDamage}ダメージ、壁と距離で防げる。`, max: 2, price: DUELIST.smokePrice, type: 'nope-bottle', icon: 'M14 3h8v5l3 5v13H11V13l3-5ZM14 3v5h8M11 16h14M15 19l6 4m0-4-6 4' },
@@ -148,7 +149,7 @@ const renkoSkills={c:{name:'インパルス弾',shortName:'吹き飛ばし',desc
 const skillsFor = character => character==='renko'?renkoSkills : character==='onnara'?onnaraSkills : character==='urchin'?urchinSkills : character==='cap'?capSkills : character==='japan'?japanSkills : character==='nobi'?nobiSkills : character==='car'?carSkills : character === 'cat' ? catSkills : character === 'duck' ? duckSkills : character === 'nope' ? nopeSkills : character === 'mend' ? mendSkills : character === 'echo' ? iagnuSkills : character === 'veil' ? veilSkills : character === 'ember' ? emberSkills : character === 'frost' ? frostSkills : baseSkills;
 export const signatureCooldown = character => character==='renko'?RENKO_SKILLS.signatureCooldown : character==='onnara'?ONNARA_SKILLS.signatureCooldown : character==='urchin'?URCHIN_SKILLS.signatureCooldown : character==='cap'?CAP_SKILLS.signatureCooldown : character==='japan'?JAPAN_SKILLS.signatureCooldown : character==='nobi'?NOBI_SKILLS.signatureCooldown : character==='car'?CAR_SKILLS.signatureCooldown : character === 'cat' ? CAT_SKILLS.signatureCooldown : character === 'duck' ? DUCK_SKILLS.signatureCooldown : character === 'nope' ? NOPE_SKILLS.signatureCooldown : character === 'mend' ? MEND_SKILLS.signatureCooldown : character === 'echo' ? IAGNU_SKILLS.signatureCooldown : character === 'veil' ? VEIL_SKILLS.signatureCooldown : character === 'ember' ? ROBOT_RULES.signatureCooldown : character === 'frost' ? FROST_SKILLS.signatureCooldown : 0;
 const characterSkills = Object.freeze(Object.fromEntries(Object.keys(CHARACTER_DEFS).map(character => [character,
-  Object.freeze(Object.fromEntries(['c', 'q', 'e'].map(key => [key, Object.freeze({ id: `${character}-${skillsFor(character)[key].type.replace(/^(duelist|nope|mend|echo|veil|ember|frost|duck|cat|car|nobi|japan|cap|urchin|onnara|renko)-/, '')}`, key, ...skillsFor(character)[key], ...(character === 'duelist' && key === 'e' ? { description: `${baseSkills.e.description} ${DUELIST.signatureKills}撃破で再使用。` } : {}) })]))),
+  Object.freeze(Object.fromEntries(['c', 'q', 'e'].map(key => [key, Object.freeze({ id: `${character}-${skillsFor(character)[key].type.replace(/^(duelist|nope|mend|echo|veil|ember|frost|duck|cat|car|nobi|japan|cap|urchin|onnara|renko)-/, '')}`, key, ...skillsFor(character)[key] })]))),
 ])));
 const skillKey = value => typeof value === 'string' ? value.toLowerCase().replace(/^key/, '') : '';
 export function getCharacterSkill(character, key) { const skills = characterSkills[normalizeCharacter(character)], normalized = skillKey(key); return Object.hasOwn(skills, normalized) ? skills[normalized] : null; }

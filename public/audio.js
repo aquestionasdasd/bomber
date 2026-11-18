@@ -42,6 +42,7 @@ export const SAMPLE_CUES=Object.freeze({
  flash:[air(.16,.24),glass(.11,.24,.04)],decoy:[layer('onjin-decoy.ogg',.20,.25),cloth(.17,.3,.04)],takeover:[layer('onjin-field.ogg',.21,.45),air(.20,.4,.07),liquid(.15,.45,.14)],
  explosion:[layer('lab-bomb1.ogg',.48,2.8),wood(.18,.45,.18)],'ember-impact':[layer('lab-bomb1.ogg',.16,.35,0,1.25)],
  frost:[glass(.14,.4),cloth(.1,.35,.04)],smoke:[layer('onjin-smoke.ogg',.20,.75)],updraft:[layer('onjin-dash.ogg',.25,.4),cloth(.14,.25,.04)],dash:[air(.27,.28),cloth(.15,.2,.02)],
+ 'gate-transit':[air(.24,.55),layer('oto-cyber19-1.ogg',.32,.72)],'gate-arrive':[bell(.22,.72),air(.18,.4,.04)],
  'dash-armed':[layer('onjin-equipment.ogg',.18,.18)],'dash-ready':[bell(.09,.4),page(.12,.18,.04)],'dash-expired':[layer('onjin-latch.ogg',.13,.22)],knives:[layer('onjin-dash.ogg',.2,.3),glass(.12,.25,.07)],kill:[soft(.2,.16),bell(.13,.4,.03)],
  'seed-bloom':[layer('lab-cloth.ogg',.24,.3),wood(.10,.18,.03)],pollen:[cloth(.22,.4),liquid(.12,.28,.06)],'flower-heal':[pluck('00',.14,.75),page(.10,.2,.06)],heal:[pluck('00',.18,1),cloth(.10,.25,.08)],
  'echo-tag-set':[page(.18,.18),layer('lab-decision13.ogg',.12,.16,.04)],'echo-tag-detect':[bell(.09,.25),bell(.065,.25,.09)],'echo-glint':[glass(.13,.24),air(.09,.2,.025)],'echo-kerning':[page(.15,.2),air(.1,.22,.02)],

@@ -3,7 +3,7 @@ export function createKillBanner(doc) {
   const el=doc?.getElementById?.('kill-banner');
   const label=doc?.getElementById?.('kill-banner-count');
   let at=-Infinity,round=null,kills=0;
-  function hide(){at=-Infinity;if(el){el.hidden=true;el.style.opacity='0';}if(label)label.textContent='';}
+  function hide(){at=-Infinity;if(el){if(el.hidden!==true)el.hidden=true;if(el.style.opacity!=='0')el.style.opacity='0';}if(label&&label.textContent!=='')label.textContent='';} // idle frames write nothing
   function reset(){hide();round=null;kills=0;}
   function note(now,currentRound,confirmedOrdinal=1){
     if(!Number.isFinite(now)||!Number.isSafeInteger(currentRound)||currentRound<1)return;

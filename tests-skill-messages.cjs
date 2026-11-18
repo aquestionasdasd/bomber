@@ -13,14 +13,14 @@ const suite=String.raw`
   }assert.equal(count,64);console.log('64 cues: maximum '+max+' characters including title');
  });
  check('actual accepted ability branches for every character use the short cue',()=>{
-  for(const character of h.run('Object.keys(CHARACTER_DEFS)')){setup(character);const key=['onnara','cat'].includes(character)?'c':character==='urchin'?'x':'e';h.sandbox.key=key;const effect=h.run('activateAbility(player,key)');assert.ok(effect,character+' accepted cast');const expected=copy(h.run('getSkillUseMessage(character,key)'));assert.deepEqual(displayed(),[expected.title,character==='duelist'?'0.25秒後、再Eでダッシュ':expected.description],character);assert.equal(h.sandbox.timers.at(-1).ms,2000,character);}
+  for(const character of h.run('Object.keys(CHARACTER_DEFS)')){setup(character);const key=['onnara','cat'].includes(character)?'c':character==='urchin'?'x':'e';h.sandbox.key=key;const effect=h.run('activateAbility(player,key)');assert.ok(effect,character+' accepted cast');const expected=copy(h.run('getSkillUseMessage(character,key)'));assert.deepEqual(displayed(),[expected.title,expected.description],character);assert.equal(h.sandbox.timers.at(-1).ms,2000,character);}
  });
  check('aimed skills keep concise confirm/cancel controls and do not spend until confirmed',()=>{
   for(const [character,key]of[['nobi','x'],['onnara','q'],['urchin','e'],['cap','c'],['japan','c'],['car','c'],['cat','q'],['duck','c']]){setup(character);h.sandbox.key=key;const before=copy(h.run('player.kit.snapshot()'));h.run('useAbility(key)');assert.equal(h.run('duckAim'),key);assert.equal(displayed()[1],'左クリックで確定／右で取消');assert.ok(displayed().join('').length<=30);assert.deepEqual(copy(h.run('player.kit.snapshot()')),before);h.run('useAbility(key)');assert.equal(h.run('duckAim'),null);}
  });
- check('cat return and duelist ready/dash messages match the actual activation stage',()=>{
+ check('cat return and duelist both dash stages use the duelist text',()=>{
   setup('cat');h.run("activateAbility(player,'c');player.x=2;activateAbility(player,'c')");assert.equal(displayed()[1],'保存した場所へ帰還');assert.equal(h.run('player.x'),0);
-  setup('duelist');h.run("activateAbility(player,'e')");assert.match(displayed()[1],/再E/);h.run("elapsed+=1.1;activateAbility(player,'e')");assert.equal(displayed()[1],'進行方向へダッシュ');
+  setup('duelist');h.run("activateAbility(player,'e')");assert.equal(displayed()[1],'ちぬつてのとのへめほ');h.run("elapsed+=1.1;activateAbility(player,'e')");assert.equal(displayed()[1],'ちぬつてのとのへめほ');
  });
  check('guest prediction uses the same short cue and remote actors cannot overwrite the local message',()=>{
   setup('renko');h.run("onlinePlaying=true;online={host:false,room:{code:'ABCDEFGH'},session:{memberId:'guest',hostId:'host'},send(){}};activateAbility(player,'e',{predict:true})");assert.equal(displayed()[1],'長押し1秒／2キルで回復');assert.equal(h.run('ordinarySkills.events(elapsed).length'),0);
